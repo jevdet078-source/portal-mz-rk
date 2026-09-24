@@ -31,8 +31,8 @@ portal_e-health/
 │  ├─ readme.md          — дизайн-гайд AlignUI (правила, тон, визуальный язык)
 │  └─ SKILL.md           — инструкция дизайн-системы
 ├─ docs/                 ← документация проекта (читать перед работой)
-├─ exports/standalone-html/ ← старые HTML-сборки из Claude Design (~6.5 МБ каждая), вне git
-├─ exports/portal-mz-rk/ ← выгрузка для коллег: `node tools/export.mjs` (+ .zip), вне git
+├─ exports/standalone-html/ ← старые HTML-сборки из Claude Design (~6.5 МБ каждая)
+├─ exports/portal-mz-rk/ ← выгрузка для коллег: `node tools/export.mjs` (+ .zip)
 ├─ _incoming/            ← перевалочная папка для входящих архивов и выгрузок
 ├─ tools/serve.mjs       ← локальный сервер для просмотра прототипов
 └─ tools/export.mjs      ← сборка для просмотра без сервера, двойным кликом
