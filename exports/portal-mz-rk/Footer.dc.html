@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>:root{--primary:#4D42E9;--primary-darker:#312D86;--n900:#0A0D14;}</style>
+</helmet>
+<footer style="background:var(--n900);color:rgba(255,255,255,.7);font-family:'Inter',sans-serif;">
+  <div style="max-width:1440px;margin:0 auto;padding:56px 40px 32px;">
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+          <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));display:flex;align-items:center;justify-content:center;"><i class="ri-heart-pulse-fill" style="color:#fff;font-size:22px;"></i></div>
+          <div style="line-height:1.2;color:#fff;"><div style="font-size:14px;font-weight:600;">Министерство здравоохранения</div><div style="font-size:12px;color:rgba(255,255,255,.5);">Республики Казахстан</div></div>
+        </div>
+        <p style="font-size:13px;line-height:1.6;color:rgba(255,255,255,.55);max-width:320px;margin:0 0 18px;">Единая цифровая платформа здравоохранения. Услуги, информация и электронные сервисы — в одном месте.</p>
+        <div style="display:flex;gap:10px;">
+          <sc-for list="{{ socials }}" as="s" hint-placeholder-count="4">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;cursor:pointer;"><i class="{{ s }}" style="font-size:18px;color:#fff;"></i></div>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#fff;margin-bottom:16px;">О портале</div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <sc-for list="{{ about }}" as="l" hint-placeholder-count="7"><a href="#" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none;">{{ l }}</a></sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#fff;margin-bottom:16px;">Популярные разделы</div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <sc-for list="{{ popular }}" as="l" hint-placeholder-count="6"><a href="{{ l.href }}" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none;">{{ l.label }}</a></sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#fff;margin-bottom:16px;">Контакты</div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <sc-for list="{{ contacts }}" as="c" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(255,255,255,.6);"><i class="{{ c.icon }}" style="font-size:16px;color:rgba(255,255,255,.4);"></i>{{ c.text }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:40px;padding-top:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <span style="font-size:13px;color:rgba(255,255,255,.5);">© Министерство здравоохранения Республики Казахстан</span>
+      <span style="font-size:13px;color:rgba(255,255,255,.4);">Версия портала 1.0 · Обновлено 24.06.2026</span>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:360}}">
+class Component extends DCLogic {
+  renderVals(){
+    return {
+      socials: ['ri-facebook-fill','ri-instagram-line','ri-youtube-fill','ri-telegram-fill'],
+      about: ['О портале','О Министерстве здравоохранения','Новости','Телемедицина','Частые вопросы','Пользовательское соглашение','Политика конфиденциальности'],
+      popular: [
+        { label:'Каталог медицинских услуг', href:'Каталог услуг.dc.html' },
+        { label:'Медицинские организации', href:'Медорганизации.dc.html' },
+        { label:'Лекарства', href:'Лекарства.dc.html' },
+        { label:'Проверка ОСМС', href:'ОСМС.dc.html' },
+        { label:'Справочник заболеваний', href:'Заболевания.dc.html' },
+        { label:'Вакцинация', href:'Вакцинация.dc.html' },
+      ],
+      contacts: [
+        { icon:'ri-phone-line', text:'1414 — служба поддержки' },
+        { icon:'ri-mail-line', text:'support@dsm.gov.kz' },
+        { icon:'ri-map-pin-line', text:'г. Астана, проспект Мәңгілік Ел, 8' },
+        { icon:'ri-time-line', text:'Круглосуточно, без выходных' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

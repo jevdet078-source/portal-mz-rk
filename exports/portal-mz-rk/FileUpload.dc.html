@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-lighter:#EEF2FF;
+    --n0:#FFFFFF;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --stroke:#E2E4E9;--stroke-sub:#CDD0D5;
+    --red:#DF1C41;--orange:#F17B2C;--yellow:#F2AE40;--green:#38C793;--teal:#35B9E9;
+    --blue:#4D42E9;--purple:#6E3FF3;--pink:#E255F2;--gray:#868C98;
+    --sh-btn:0 1px 2px rgba(82,88,102,.06);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  .mp-spin{animation:mp-spin 1s linear infinite;display:inline-block;}
+</style>
+</helmet>
+
+<div style="padding:40px;font-family:'Inter',sans-serif;">
+  <div style="max-width:840px;margin:0 auto;display:flex;flex-direction:column;gap:34px;">
+
+    <!-- ЗОНА ЗАГРУЗКИ -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Зона загрузки</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;">
+        <sc-for list="{{ areas }}" as="z" hint-placeholder-count="2">
+          <div>
+            <div onClick="{{ z.onPick }}" style="{{ z.style }}">
+              <i class="ri-upload-cloud-2-line" style="font-size:24px;color:{{ z.iconColor }};"></i>
+              <div style="display:flex;flex-direction:column;gap:4px;align-items:center;width:100%;text-align:center;">
+                <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">Выберите файл или перетащите его сюда</div>
+                <div style="font-size:12px;line-height:16px;color:var(--n400);">PDF, DOCX, XLSX, JPG — до 25 МБ</div>
+              </div>
+              <span style="background:var(--n0);border:1px solid var(--stroke);border-radius:8px;padding:6px 16px;box-shadow:var(--sh-btn);font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n500);">Выбрать файл</span>
+            </div>
+            <div style="font-size:12px;color:var(--n400);margin-top:8px;text-align:center;">{{ z.caption }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- КАРТОЧКИ ФАЙЛОВ -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Карточки файлов — три состояния</div>
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:400px;">
+        <sc-for list="{{ files }}" as="f" hint-placeholder-count="3">
+          <div style="{{ f.card }}">
+            <div style="display:flex;gap:12px;align-items:flex-start;width:100%;">
+
+              <!-- иконка формата -->
+              <div style="position:relative;width:40px;height:40px;flex:0 0 auto;">
+                <img src="assets/file-page.svg" alt="" style="display:block;width:40px;height:40px;" />
+                <span style="{{ f.fmtStyle }}">{{ f.fmt }}</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;justify-content:center;">
+                <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ f.name }}</div>
+                <div style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n500);">
+                  <span>{{ f.size }}</span>
+                  <span>∙</span>
+                  <span style="display:inline-flex;align-items:center;gap:4px;color:{{ f.statusColor }};">
+                    <i class="{{ f.statusIcon }}" style="font-size:16px;"></i>{{ f.statusLabel }}
+                  </span>
+                </div>
+              </div>
+
+              <button onClick="{{ f.onRemove }}" style="background:none;border:none;padding:2px;border-radius:6px;cursor:pointer;flex:0 0 auto;display:flex;align-items:center;justify-content:center;">
+                <i class="{{ f.actionIcon }}" style="font-size:20px;color:var(--n500);"></i>
+              </button>
+            </div>
+
+            <sc-if value="{{ f.hasBar }}" hint-placeholder-val="{{ true }}">
+              <div style="width:100%;height:6px;border-radius:999px;background:var(--n200);overflow:hidden;">
+                <div style="{{ f.barStyle }}"></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ f.hasError }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:12px;line-height:16px;color:var(--red);">{{ f.error }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ЦВЕТА ФОРМАТОВ -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Иконки форматов — 9 цветов</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <sc-for list="{{ formats }}" as="ff" hint-placeholder-count="9">
+          <div style="position:relative;width:40px;height:40px;">
+            <img src="assets/file-page.svg" alt="" style="display:block;width:40px;height:40px;" />
+            <span style="{{ ff.style }}">{{ ff.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:920,&quot;height&quot;:880}}">
+/*
+  File Upload — перенесено из AlignUI Design System v1.0 (EO)
+  Figma: файл 6ohVPNSxbI71uG1xQzm8DT, страница 3502:36492
+
+  Исходные компоненты:
+    • File Upload Area  [1.0] — 4799:9098 — Default (4799:9095) / Hover (8751:76303)
+    • File Upload Cards [1.0] — 4799:9050 — In Progress / Success / Error
+    • File Format Icons [1.0] — 4801:182  — 9 цветов × Medium (40) / X-Small (32)
+    • Image Upload      [1.0] — 5822:116414 — здесь не переносится, нужен для аватаров
+
+  Геометрия, снятая с Figma:
+    Область   400×200, bg white, рамка 1px DASHED --stroke-sub-300 #CDD0D5,
+              радиус 12, padding 32, колонка, gap 20, по центру.
+              Иконка upload-cloud-2-line 24. Заголовок 14/20 Medium --text-main-900,
+              подпись 12/16 Regular --text-soft-400. Кнопка: белая, рамка --stroke-soft-200,
+              радиус 8, padding 6×16, тень 0 1px 2px rgba(82,88,102,.06), текст 14/20 Medium --text-sub-500.
+    Карточка  400 шир., bg white, рамка --stroke-soft-200, радиус 12,
+              padding 16 / 16 справа / 14 слева, колонка, gap 16.
+              Ряд: gap 12, align start. Иконка формата 40.
+              Имя 14/20 Medium --text-main-900; описание 12/16 Regular --text-sub-500,
+              элементы разделены «∙». Кнопка действия: padding 2, радиус 6, иконка 20.
+    Прогресс  высота 6, радиус 999, дорожка --bg-soft-200, заливка --primary-base.
+    Формат    ярлык внизу слева: радиус 4, padding 2×3, текст 11/12 SemiBold uppercase,
+              tracking .22px, белый, фон --<цвет>-base, рамка rgba(0,0,0,.08),
+              внутренняя тень 0 4px 4px rgba(255,255,255,.08).
+
+  Форма страницы файла — локальный ассет assets/file-page.svg (экспорт из Figma).
+  Цвет ярлыка привязан к типу файла: PDF красный, DOC синий, XLS зелёный — из гайдлайнов AlignUI.
+*/
+class Component extends DCLogic {
+  state = { hoverZone:false };
+
+  renderVals(){
+    const s = this.state;
+
+    // ——— ярлык формата ———
+    const FMT_COLOR = {
+      PDF:'--red', DOC:'--blue', DOCX:'--blue', XLS:'--green', XLSX:'--green',
+      JPG:'--purple', PNG:'--pink', ZIP:'--gray', MP4:'--orange', CSV:'--teal', TXT:'--yellow',
+    };
+    const fmtStyle = (fmt) => {
+      const c = FMT_COLOR[fmt] || '--gray';
+      return 'position:absolute;left:0;bottom:6px;display:inline-flex;align-items:center;'
+        + 'padding:2px 3px;border-radius:4px;border:1px solid rgba(0,0,0,.08);'
+        + `background:var(${c});color:#fff;font-size:11px;line-height:12px;font-weight:600;`
+        + 'text-transform:uppercase;letter-spacing:.22px;'
+        + 'box-shadow:inset 0 4px 4px rgba(255,255,255,.08);';
+    };
+
+    // ——— зона загрузки: Default и Hover ———
+    const zone = (hover) =>
+      'width:400px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;'
+      + 'padding:32px;border-radius:12px;cursor:pointer;transition:.15s;'
+      + (hover
+          ? 'background:var(--primary-lighter);border:1px dashed var(--primary);'
+          : 'background:var(--n0);border:1px dashed var(--stroke-sub);');
+
+    const areas = [
+      { style: zone(false), iconColor:'var(--n500)', caption:'Состояние Default', onPick:()=>{} },
+      { style: zone(true),  iconColor:'var(--primary)', caption:'Состояние Hover / перетаскивание', onPick:()=>{} },
+    ];
+
+    // ——— карточки файлов ———
+    const card = 'width:100%;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;'
+      + 'padding:16px 16px 16px 14px;display:flex;flex-direction:column;gap:16px;justify-content:center;';
+
+    const data = [
+      { fmt:'PDF',  name:'Доверенность.pdf', size:'320 КБ из 1,2 МБ', state:'progress', pct:40 },
+      { fmt:'DOCX', name:'Заявление о регистрации цены.docx', size:'860 КБ', state:'done' },
+      { fmt:'XLSX', name:'Расчёт цены ЛС.xlsx', size:'2,4 МБ', state:'error',
+        error:'Файл превышает 25 МБ. Загрузите версию меньшего размера.' },
+    ];
+
+    const ST = {
+      progress: { label:'Загружается…', color:'var(--n900)', icon:'ri-loader-2-fill', action:'ri-close-line' },
+      done:     { label:'Загружено',    color:'var(--green)', icon:'ri-checkbox-circle-fill', action:'ri-delete-bin-line' },
+      error:    { label:'Ошибка',       color:'var(--red)',   icon:'ri-error-warning-fill',  action:'ri-refresh-line' },
+    };
+
+    const files = data.map(f => {
+      const st = ST[f.state];
+      return {
+        card,
+        fmt: f.fmt,
+        fmtStyle: fmtStyle(f.fmt),
+        name: f.name,
+        size: f.size,
+        statusLabel: st.label,
+        statusColor: st.color,
+        statusIcon: st.icon,
+        actionIcon: st.action,
+        hasBar: f.state === 'progress',
+        barStyle: `width:${f.pct || 0}%;height:100%;border-radius:999px;background:var(--primary);transition:width .3s;`,
+        hasError: f.state === 'error',
+        error: f.error || '',
+        onRemove: () => {},
+      };
+    });
+
+    // ——— витрина цветов форматов ———
+    const formats = ['PDF','DOC','XLS','JPG','PNG','ZIP','MP4','CSV','TXT']
+      .map(label => ({ label, style: fmtStyle(label) }));
+
+    return { areas, files, formats };
+  }
+}
+</script>
+</body>
+</html>

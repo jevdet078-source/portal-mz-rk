@@ -1,5 +1,3 @@
-# самодостаточные сборки — ~105 МБ, регенерируются выгрузкой из Claude Design
-exports/
 # кэш React, шрифтов и иконок для tools/export.mjs
 tools/.cache/
 

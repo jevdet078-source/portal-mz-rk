@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-lighter:#EEF2FF;--primary-darker:#312D86;
+    --n0:#FFFFFF;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --stroke:#E2E4E9;
+    --red:#DF1C41;--orange:#F17B2C;--green:#38C793;--blue:#4D42E9;
+    --sh-xs:0 1px 2px rgba(228,229,231,.24);
+    --sh-card:0 1px 2px rgba(10,13,20,.03);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+  .mp-row:hover{background:var(--n100)!important;}
+</style>
+</helmet>
+
+<div style="padding:40px;font-family:'Inter',sans-serif;">
+
+  <div style="max-width:1180px;margin:0 auto;">
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.02em;">Реестр заявок</div>
+      <div style="flex:1;"></div>
+      <sc-for list="{{ sizeTabs }}" as="t" hint-placeholder-count="2">
+        <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+
+    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-card);">
+     <div style="overflow-x:auto;">
+      <div style="min-width:1020px;">
+
+      <!-- HEADER -->
+      <div style="display:flex;background:var(--n100);border-bottom:1px solid var(--stroke);">
+        <sc-for list="{{ columns }}" as="c" hint-placeholder-count="6">
+          <div style="{{ c.headStyle }}">
+            <sc-if value="{{ c.hasCheckbox }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ toggleAll }}" style="{{ allBox }}"><i class="{{ allIcon }}" style="font-size:14px;color:#fff;"></i></button>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:2px;flex:1;min-width:0;">
+              <span style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;">{{ c.label }}</span>
+              <sc-if value="{{ c.sortable }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ c.onSort }}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;align-items:center;"><i class="{{ c.sortIcon }}" style="{{ c.sortStyle }}"></i></button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- ROWS -->
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+        <div class="mp-row" style="{{ r.rowStyle }}">
+
+          <!-- чекбокс + ведущая ячейка -->
+          <div style="{{ r.leadStyle }}">
+            <button onClick="{{ r.onToggle }}" style="{{ r.boxStyle }}"><i class="{{ r.boxIcon }}" style="font-size:14px;color:#fff;"></i></button>
+            <div style="{{ r.iconWrap }}"><i class="{{ r.icon }}" style="font-size:20px;color:{{ r.iconColor }};"></i></div>
+            <div style="display:flex;flex-direction:column;justify-content:center;gap:4px;flex:1;min-width:0;">
+              <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</div>
+              <sc-if value="{{ r.hasDesc }}" hint-placeholder-val="{{ true }}">
+                <div style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.desc }}</div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- обычная ячейка -->
+          <div style="{{ r.applicantCellStyle }}"><span style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.applicant }}</span></div>
+
+          <!-- пассивная ячейка -->
+          <div style="{{ r.dateCellStyle }}"><span style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;">{{ r.date }}</span></div>
+
+          <!-- статус-бейдж -->
+          <div style="{{ r.statusCellStyle }}">
+            <span style="display:inline-flex;align-items:center;gap:4px;background:var(--n0);border:1px solid var(--stroke);border-radius:6px;padding:4px 8px 4px 4px;">
+              <i class="{{ r.statusIcon }}" style="font-size:16px;color:{{ r.statusColor }};"></i>
+              <span style="font-size:12px;line-height:16px;font-weight:500;color:var(--n500);white-space:nowrap;">{{ r.status }}</span>
+            </span>
+          </div>
+
+          <!-- прогресс -->
+          <div style="{{ r.progressCellStyle }}">
+            <div style="display:flex;align-items:center;gap:8px;width:100%;">
+              <div style="flex:1;height:6px;border-radius:999px;background:var(--n200);overflow:hidden;min-width:40px;">
+                <div style="{{ r.barStyle }}"></div>
+              </div>
+              <span style="font-size:12px;line-height:16px;color:var(--n500);flex:0 0 auto;">{{ r.progress }}%</span>
+            </div>
+          </div>
+
+          <!-- действия -->
+          <div style="{{ r.actionsCellStyle }}">
+            <button onClick="{{ r.onOpen }}" style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-xs);"><i class="ri-eye-line" style="font-size:18px;color:var(--n500);"></i></button>
+            <button onClick="{{ r.onMenu }}" style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-xs);"><i class="ri-more-2-fill" style="font-size:18px;color:var(--n500);"></i></button>
+          </div>
+
+        </div>
+      </sc-for>
+
+      </div>
+     </div>
+
+      <!-- FOOTER -->
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid var(--stroke);background:var(--n50);">
+        <span style="font-size:13px;color:var(--n500);">{{ selectedLabel }}</span>
+        <div style="flex:1;"></div>
+        <span style="font-size:13px;color:var(--n500);">Строк: {{ total }}</span>
+      </div>
+
+    </div>
+
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:56px;text-align:center;margin-top:16px;">
+        <div style="width:56px;height:56px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;"><i class="ri-inbox-line" style="font-size:28px;color:var(--n400);"></i></div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Заявок не найдено</div>
+        <div style="font-size:14px;color:var(--n500);">Измените параметры фильтра или период.</div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1260,&quot;height&quot;:720}}">
+/*
+  Table — перенесено из AlignUI Design System v1.0 (EO)
+  Figma: файл 6ohVPNSxbI71uG1xQzm8DT, страница 6139:29521
+
+  Готового «DataTable» в AlignUI нет — таблица собирается из ячеек
+  (в гайдлайнах файла есть раздел «Creating a Table»):
+    • Table Header Cell [1.0] — 5943:78561 — Default / Disabled / Empty
+    • Table Row Cell [1.0]    — 6139:29835 — 66 вариантов
+    • Sorting Icons [1.0]     — 5947:78639 — Default / Up / Down
+
+  Геометрия, снятая с Figma:
+    Header cell  bg --bg-weak-100, padding 8×12, gap 10,
+                 текст 14/20 Regular --text-sub-500, иконка сортировки 20
+    Row cell     bg --bg-white-0, высота 64 (X-Large) или 48 (Large),
+                 padding 12 сверху/снизу, 12 слева, 20 справа, gap 12
+    Priority     Leading — заголовок Inter Medium 500 + описание 12/16 --text-sub-500
+                 Regular — заголовок Inter Regular 400, цвет --text-main-900
+                 Passive — тот же размер, цвет --text-sub-500
+    Status Badge bg white, border --stroke-soft-200, радиус 6,
+                 padding 4/8/4/4, gap 4, иконка 16, текст 12/16 Medium --text-sub-500
+
+  Здесь собран реестр заявок на ЛС/МИ — ячейки всех нужных нам типов:
+  ведущая с иконкой, обычная, пассивная, статус-бейдж, прогресс, действия.
+*/
+class Component extends DCLogic {
+  state = { size:'xl', sort:{ col:'date', dir:'down' }, selected:{}, allOn:false };
+
+  toggleRow(id){
+    this.setState(s => {
+      const sel = { ...s.selected };
+      if(sel[id]) delete sel[id]; else sel[id] = true;
+      return { selected: sel };
+    });
+  }
+
+  toggleAll(ids){
+    this.setState(s => {
+      const on = Object.keys(s.selected).length < ids.length;
+      const sel = {};
+      if(on) ids.forEach(id => { sel[id] = true; });
+      return { selected: sel, allOn: on };
+    });
+  }
+
+  sortBy(col){
+    this.setState(s => ({
+      sort: { col, dir: s.sort.col === col && s.sort.dir === 'down' ? 'up' : 'down' },
+    }));
+  }
+
+  renderVals(){
+    const s = this.state;
+    const XL = s.size === 'xl';
+    const H = XL ? 64 : 48;
+
+    // ——— данные реестра ———
+    const STATUS = {
+      review:  { label:'На рассмотрении',   icon:'ri-time-fill',            color:'var(--blue)'   },
+      revise:  { label:'Требует доработки', icon:'ri-error-warning-fill',   color:'var(--orange)' },
+      done:    { label:'Одобрена',          icon:'ri-checkbox-circle-fill', color:'var(--green)'  },
+      refused: { label:'Отклонена',         icon:'ri-close-circle-fill',    color:'var(--red)'    },
+      draft:   { label:'Черновик',          icon:'ri-draft-fill',           color:'var(--n400)'   },
+    };
+
+    const data = [
+      { id:'a1', no:'2024-ЛС-00417', kind:'ЛС', title:'Регистрация цены — Амоксициллин 500 мг',
+        desc:'Капсулы, 20 шт · МНН amoxicillin', applicant:'ТОО «Фарм Групп»', date:'12.09.2026',
+        status:'review', progress:60 },
+      { id:'a2', no:'2024-МИ-00092', kind:'МИ', title:'Регистрация цены — Глюкометр OneTouch',
+        desc:'Изделие медицинского назначения', applicant:'ТОО «МедТех KZ»', date:'11.09.2026',
+        status:'revise', progress:35 },
+      { id:'a3', no:'2024-ЛС-00401', kind:'ЛС', title:'Регистрация цены — Ибупрофен 200 мг',
+        desc:'Таблетки, 30 шт · МНН ibuprofen', applicant:'АО «Химфарм»', date:'09.09.2026',
+        status:'done', progress:100 },
+      { id:'a4', no:'2024-ЛС-00398', kind:'ЛС', title:'Регистрация цены — Метформин 850 мг',
+        desc:'Таблетки, 60 шт · МНН metformin', applicant:'ТОО «Нобел АФФ»', date:'08.09.2026',
+        status:'refused', progress:100 },
+      { id:'a5', no:'2024-МИ-00088', kind:'МИ', title:'Регистрация цены — Тонометр автоматический',
+        desc:'Изделие медицинского назначения', applicant:'ТОО «МедТех KZ»', date:'05.09.2026',
+        status:'draft', progress:10 },
+      { id:'a6', no:'2024-ЛС-00390', kind:'ЛС', title:'Регистрация цены — Парацетамол 500 мг',
+        desc:'Таблетки, 20 шт · МНН paracetamol', applicant:'ТОО «Фарм Групп»', date:'02.09.2026',
+        status:'done', progress:100 },
+    ];
+
+    const ids = data.map(d => d.id);
+    const selCount = Object.keys(s.selected).length;
+
+    // ——— ширины колонок ———
+    const W = ['minmax(320px,1fr)','180px','120px','170px','150px','104px'];
+    const padY = XL ? 12 : 8;
+    const cellBase = (i, extra) =>
+      `flex:0 0 ${W[i].startsWith('minmax') ? 'auto' : W[i]};`
+      + (W[i].startsWith('minmax') ? 'flex:1 1 320px;min-width:0;' : `width:${W[i]};`)
+      + `height:${H}px;display:flex;align-items:center;padding:${padY}px 12px;overflow:hidden;` + (extra || '');
+
+    // ——— заголовок ———
+    const colDefs = [
+      { key:'title', label:'Заявка', sortable:true, checkbox:true, i:0 },
+      { key:'applicant', label:'Заявитель', sortable:true, i:1 },
+      { key:'date', label:'Подана', sortable:true, i:2 },
+      { key:'status', label:'Статус', sortable:true, i:3 },
+      { key:'progress', label:'Готовность', sortable:false, i:4 },
+      { key:'actions', label:'', sortable:false, i:5 },
+    ];
+
+    const sortIconFor = (key) => {
+      if(s.sort.col !== key) return { icon:'ri-arrow-up-down-line', color:'var(--n400)', op:.6 };
+      return { icon: s.sort.dir === 'up' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line', color:'var(--primary)', op:1 };
+    };
+
+    const columns = colDefs.map(c => {
+      const si = sortIconFor(c.key);
+      const w = W[c.i];
+      return {
+        label: c.label,
+        sortable: c.sortable,
+        hasCheckbox: !!c.checkbox,
+        onSort: () => this.sortBy(c.key),
+        sortIcon: si.icon,
+        sortStyle: `font-size:20px;color:${si.color};opacity:${si.op};`,
+        headStyle: (w.startsWith('minmax') ? 'flex:1 1 320px;min-width:0;' : `flex:0 0 ${w};width:${w};`)
+          + 'display:flex;align-items:center;gap:10px;padding:8px 12px;overflow:hidden;',
+      };
+    });
+
+    // ——— строки ———
+    const box = (on) => 'width:20px;height:20px;border-radius:6px;flex:0 0 auto;cursor:pointer;display:flex;'
+      + 'align-items:center;justify-content:center;transition:.15s;'
+      + (on ? 'background:var(--primary);border:1px solid var(--primary);'
+            : 'background:var(--n0);border:1px solid var(--n200);box-shadow:0 2px 2px rgba(27,28,29,.12);');
+
+    const rows = data.map(d => {
+      const st = STATUS[d.status];
+      const on = !!s.selected[d.id];
+      const isLS = d.kind === 'ЛС';
+      return {
+        title: `${d.no} · ${d.title}`,
+        desc: d.desc,
+        hasDesc: XL,
+        applicant: d.applicant,
+        date: d.date,
+        status: st.label,
+        statusIcon: st.icon,
+        statusColor: st.color,
+        progress: d.progress,
+
+        rowStyle: `display:flex;border-bottom:1px solid var(--stroke);transition:background .15s;`
+          + (on ? 'background:var(--primary-lighter);' : 'background:var(--n0);'),
+
+        leadStyle: (XL ? '' : '') + 'flex:1 1 320px;min-width:0;display:flex;align-items:center;gap:12px;'
+          + `height:${H}px;padding:${padY}px 20px ${padY}px 12px;overflow:hidden;`,
+        applicantCellStyle: cellBase(1),
+        dateCellStyle: cellBase(2),
+        statusCellStyle: cellBase(3),
+        progressCellStyle: cellBase(4),
+        actionsCellStyle: `flex:0 0 104px;width:104px;height:${H}px;display:flex;align-items:center;`
+          + `justify-content:flex-end;gap:6px;padding:${padY}px 12px;`,
+
+        onToggle: () => this.toggleRow(d.id),
+        boxStyle: box(on),
+        boxIcon: on ? 'ri-check-line' : '',
+
+        iconWrap: 'width:40px;height:40px;border-radius:999px;background:var(--n0);border:1px solid var(--stroke);'
+          + 'box-shadow:var(--sh-xs);display:flex;align-items:center;justify-content:center;flex:0 0 auto;',
+        icon: isLS ? 'ri-capsule-line' : 'ri-pulse-line',
+        iconColor: isLS ? 'var(--primary)' : 'var(--green)',
+
+        barStyle: `width:${d.progress}%;height:100%;border-radius:999px;transition:width .3s;`
+          + `background:${d.progress === 100 ? 'var(--green)' : 'var(--primary)'};`,
+
+        onOpen: () => {},
+        onMenu: () => {},
+      };
+    });
+
+    // ——— переключатель плотности ———
+    const sizeTabs = [
+      { id:'xl', label:'64 px' },
+      { id:'lg', label:'48 px' },
+    ].map(t => ({
+      label: t.label,
+      onClick: () => this.setState({ size: t.id }),
+      style: `height:34px;padding:0 14px;border-radius:9px;font-family:inherit;font-size:13px;font-weight:500;`
+        + `cursor:pointer;transition:.15s;border:1px solid ${s.size===t.id ? 'var(--primary)' : 'var(--stroke)'};`
+        + (s.size===t.id ? 'background:var(--primary);color:#fff;' : 'background:var(--n0);color:var(--n500);'),
+    }));
+
+    return {
+      columns, rows, sizeTabs,
+      total: data.length,
+      isEmpty: false,
+      selectedLabel: selCount ? `Выбрано: ${selCount}` : 'Ничего не выбрано',
+      toggleAll: () => this.toggleAll(ids),
+      allBox: box(selCount === ids.length && ids.length > 0),
+      allIcon: selCount === ids.length && ids.length > 0 ? 'ri-check-line' : (selCount ? 'ri-subtract-line' : ''),
+    };
+  }
+}
+</script>
+</body>
+</html>

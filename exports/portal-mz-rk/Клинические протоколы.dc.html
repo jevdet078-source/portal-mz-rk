@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--purple:#6E3FF3;--purple-l:#EEEBFF;--stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:#F6F8FA;-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  a{color:var(--primary);}
+  a:hover{color:var(--primary-dark);}
+  .kp-row:hover{border-color:var(--primary-light)!important;box-shadow:var(--sh-md);}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
+
+  <div style="background:linear-gradient(120deg,var(--primary-lighter),#fff 70%);border-bottom:1px solid var(--stroke);">
+    <div style="max-width:1240px;margin:0 auto;padding:22px 40px 0;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:14px;">
+        <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a><i class="ri-arrow-right-s-line"></i>
+        <span>Медперсоналу</span><i class="ri-arrow-right-s-line"></i>
+        <span style="color:var(--n700);font-weight:500;">Клинические протоколы</span>
+      </div>
+      <h1 style="font-size:27px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Клинические протоколы и стандарты</h1>
+      <p style="font-size:14.5px;line-height:1.6;color:var(--n500);margin:0 0 20px;max-width:780px;">Быстрый доступ к клиническим протоколам и действующим стандартам медицинской помощи.</p>
+      <div style="display:flex;gap:4px;">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+          <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <main style="flex:1;">
+    <div style="max-width:1240px;margin:0 auto;padding:28px 40px 72px;">
+
+      <!-- ПРОТОКОЛЫ -->
+      <sc-if value="{{ isProtocols }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:mp-slidein .2s ease;max-width:820px;">
+          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:32px;box-shadow:var(--sh-xs);">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+              <div style="width:52px;height:52px;border-radius:14px;background:var(--purple-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-file-list-3-line" style="font-size:27px;color:var(--purple);"></i></div>
+              <div style="font-size:19px;font-weight:600;letter-spacing:-.01em;">Справочник клинических протоколов</div>
+            </div>
+            <p style="font-size:14.5px;line-height:1.65;color:var(--n600);margin:0 0 8px;">Клинические протоколы — документы, устанавливающие требования к диагностике и лечению заболеваний, — разрабатываются и публикуются Национальным научным центром развития здравоохранения им. Салидат Каирбековой (ННЦРЗ).</p>
+            <p style="font-size:14.5px;line-height:1.65;color:var(--n600);margin:0 0 22px;">Полный и актуальный справочник размещён на официальном ресурсе ННЦРЗ. Содержимое протоколов на портале не дублируется — вы всегда работаете с действующей редакцией.</p>
+            <a href="https://nrchd.kz/clinical-protocols?locale=ru" target="_blank" style="display:inline-flex;align-items:center;gap:9px;height:50px;padding:0 24px;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;text-decoration:none;box-shadow:var(--sh-sm);"><i class="ri-external-link-line" style="font-size:19px;"></i>Открыть справочник протоколов</a>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--n400);margin-top:14px;"><i class="ri-information-line" style="font-size:15px;"></i>Ссылка откроется в новой вкладке на сайте nrchd.kz</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- СТАНДАРТЫ -->
+      <sc-if value="{{ isStandards }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:mp-slidein .2s ease;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+            <p style="font-size:14px;color:var(--n500);margin:0;">Действующие стандарты медицинской помощи. Нажмите на стандарт — откроется нормативный правовой акт в системе «Әділет» в новой вкладке.</p>
+            <span style="font-size:12.5px;font-weight:600;color:var(--n500);background:var(--n0);border:1px solid var(--stroke);padding:6px 14px;border-radius:999px;">{{ stdCount }} стандартов</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <sc-for list="{{ standards }}" as="st" hint-placeholder-count="10">
+              <a href="{{ st.href }}" target="_blank" class="kp-row" style="display:flex;align-items:center;gap:16px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;text-decoration:none;transition:.13s;box-shadow:var(--sh-xs);">
+                <div style="width:44px;height:44px;border-radius:11px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-book-2-line" style="font-size:22px;color:var(--teal);"></i></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:15px;font-weight:600;line-height:1.45;color:var(--n900);">{{ st.name }}</div>
+                  <div style="display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--n400);display:flex;align-items:center;gap:5px;"><i class="ri-calendar-line" style="font-size:14px;"></i>Утверждён: {{ st.date }}</span>
+                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:3px 10px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);"></span>Действующий</span>
+                    <span style="font-size:12px;color:var(--n400);">{{ st.doc }}</span>
+                  </div>
+                </div>
+                <div style="flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary);">adilet.zan.kz<i class="ri-external-link-line" style="font-size:16px;"></i></div>
+              </a>
+            </sc-for>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;background:var(--primary-lighter);border:1px solid var(--primary-light);border-radius:14px;padding:14px 18px;margin-top:20px;">
+            <i class="ri-information-line" style="font-size:19px;color:var(--primary);flex:0 0 auto;"></i>
+            <span style="font-size:13px;line-height:1.55;color:var(--n600);">Перечень является первоначальным и дополняется новыми стандартами по мере обновления нормативной базы Министерства здравоохранения РК.</span>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </main>
+
+  <dc-import name="Footer" hint-size="100%,360px"></dc-import>
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#4D42E9"/>
+    <g transform="translate(480 280)">
+      <rect width="240" height="240" rx="48" fill="#ffffff"/>
+      <path d="M70 70 h100 M70 110 h100 M70 150 h60" stroke="#4D42E9" stroke-width="16" stroke-linecap="round"/>
+    </g>
+  </svg>
+</template>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = { tab:'protocols' };
+  }
+  componentDidMount(){
+    const h=(location.hash||'').replace('#','');
+    if(h==='standards'||h==='protocols') this.setState({ tab:h });
+    this._onHash=()=>{ const x=(location.hash||'').replace('#',''); if(x==='standards'||x==='protocols') this.setState({ tab:x }); };
+    window.addEventListener('hashchange', this._onHash);
+  }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+  renderVals(){
+    const s=this.state;
+    const tabsData=[ {id:'protocols',label:'Справочник клинических протоколов'}, {id:'standards',label:'Стандарты медицинской помощи'} ];
+    const tabs=tabsData.map(t=>{ const on=s.tab===t.id; return { ...t, onClick:()=>{ location.hash=t.id; this.setState({ tab:t.id }); },
+      style:`position:relative;padding:0 18px 14px;border:none;background:none;font-family:inherit;font-size:14.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
+      underline:`position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:${on?'#4D42E9':'transparent'};` }; });
+    const standards=[
+      { name:'Стандарт организации оказания первичной медико-санитарной помощи', href:'https://adilet.zan.kz/rus/docs/V2300032160', date:'2023', doc:'НПА № V2300032160' },
+      { name:'Стандарт организации оказания медицинской помощи в стационарных условиях', href:'https://adilet.zan.kz/rus/docs/V2200027218', date:'2022', doc:'НПА № V2200027218' },
+      { name:'Стандарт организации оказания медицинской помощи в стационарозамещающих условиях', href:'https://adilet.zan.kz/rus/docs/V2300032740', date:'2023', doc:'НПА № V2300032740' },
+      { name:'Стандарт организации оказания скорой медицинской помощи', href:'https://adilet.zan.kz/rus/docs/V2200026873', date:'2022', doc:'НПА № V2200026873' },
+      { name:'Стандарт организации оказания акушерско-гинекологической помощи', href:'https://adilet.zan.kz/rus/docs/V2400034064', date:'2024', doc:'НПА № V2400034064' },
+      { name:'Стандарт организации оказания педиатрической помощи', href:'https://adilet.zan.kz/rus/docs/V2300033174', date:'2023', doc:'НПА № V2300033174' },
+      { name:'Стандарт организации оказания онкологической помощи', href:'https://adilet.zan.kz/rus/docs/V2200029088', date:'2022', doc:'НПА № V2200029088' },
+      { name:'Стандарт организации оказания медико-социальной помощи в области психического здоровья', href:'https://adilet.zan.kz/rus/docs/V2000021712', date:'2020', doc:'НПА № V2000021712' },
+      { name:'Стандарт организации оказания патологоанатомической диагностики', href:'https://adilet.zan.kz/rus/docs/V2000021790', date:'2020', doc:'НПА № V2000021790' },
+      { name:'Стандарт оказания первой помощи', href:'https://adilet.zan.kz/rus/docs/V2000021814', date:'2020', doc:'НПА № V2000021814' },
+    ];
+    return { tabs, isProtocols:s.tab==='protocols', isStandards:s.tab==='standards', standards, stdCount:standards.length };
+  }
+}
+</script>
+</body>
+</html>

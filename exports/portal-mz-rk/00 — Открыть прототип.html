@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Портал МЗ РК — прототип</title>
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;background:#F6F8FA;color:#0A0D14;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 24px 64px}
+  .hero{background:linear-gradient(160deg,#4D42E9,#362DA6);color:#fff;border-radius:20px;padding:32px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .hero h1{margin:0 0 6px;font-size:26px;font-weight:600;letter-spacing:-.02em}
+  .hero p{margin:0;color:rgba(255,255,255,.85);font-size:14px;line-height:1.55;max-width:560px}
+  .hero .actions{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+  .btn{height:44px;padding:0 18px;border-radius:12px;display:inline-flex;align-items:center;gap:8px;font:600 14px 'Inter',sans-serif;text-decoration:none;border:none;cursor:pointer}
+  .btn.primary{background:#fff;color:#312D86}
+  .btn.ghost{background:rgba(255,255,255,.14);color:#fff}
+  .note{margin-top:16px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:#FEF3EB;border:1px solid #FFDAC2;font-size:13px;line-height:1.5;color:#20232D}
+  .note i{color:#F17B2C;font-size:18px}
+  h2{display:flex;align-items:center;gap:10px;margin:36px 0 4px;font-size:18px;font-weight:600}
+  h2 i{width:34px;height:34px;border-radius:10px;background:#EEF2FF;color:#4D42E9;display:inline-flex;align-items:center;justify-content:center;font-size:18px}
+  .desc{margin:0 0 14px 44px;font-size:13px;color:#525866}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;background:#fff;border:1px solid #E2E4E9;border-radius:12px;text-decoration:none;color:#31353F;font-size:14px;font-weight:500;transition:.15s}
+  .card i{color:#CDD0D5;font-size:18px;transition:.15s}
+  .card:hover{border-color:#4D42E9;color:#4D42E9;box-shadow:0 8px 16px rgba(10,13,20,.06)}
+  .card:hover i{color:#4D42E9}
+  .scenario{margin-top:24px;background:#fff;border:1px solid #E2E4E9;border-radius:16px;padding:20px 22px}
+  .scenario h3{margin:0 0 12px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .scenario ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;counter-reset:s}
+  .scenario li{display:flex;gap:12px;align-items:center;counter-increment:s;font-size:13.5px;color:#31353F}
+  .scenario li::before{content:counter(s);width:24px;height:24px;border-radius:50%;background:#4D42E9;color:#fff;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .scenario a{color:#4D42E9;text-decoration:none;font-weight:500}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0A0D14;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  footer{margin-top:40px;font-size:12px;color:#868C98}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>Портал Министерства здравоохранения РК</h1>
+      <p>Интерактивный прототип: публичный портал, кабинеты гражданина, врача и бизнеса («Единое окно» для заявок на ЛС и МИ). Работает без сервера и без интернета.</p>
+    </div>
+    <div class="actions">
+      <a class="btn primary" href="%D0%9F%D0%BE%D1%80%D1%82%D0%B0%D0%BB%20%D0%9C%D0%B8%D0%BD%D0%B7%D0%B4%D1%80%D0%B0%D0%B2%D0%B0%20-%20%D0%93%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F.dc.html"><i class="ri-play-circle-line"></i>Открыть портал</a>
+      <button class="btn ghost" id="reset" type="button"><i class="ri-refresh-line"></i>Сбросить демо-данные</button>
+    </div>
+  </div>
+  <div class="note" id="browser-note"><i class="ri-information-line"></i><span>Открывайте в <b>Google Chrome</b>, <b>Microsoft Edge</b> или <b>Яндекс Браузере</b>. Прототип запоминает вход, роль и шаги подачи заявки между страницами — в Firefox для локальных файлов это не работает.</span></div>
+
+  <div class="scenario">
+    <h3><i class="ri-route-line" style="color:#4D42E9"></i>Сценарий для показа: бизнес подаёт заявку на регистрацию цены</h3>
+    <ol><li><a href="%D0%9F%D0%BE%D1%80%D1%82%D0%B0%D0%BB%20%D0%9C%D0%B8%D0%BD%D0%B7%D0%B4%D1%80%D0%B0%D0%B2%D0%B0%20-%20%D0%93%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F.dc.html#pharma">Главная → «Бизнесу» → «Фармацевтика»</a></li><li><a href="%D0%9F%D0%B0%D1%81%D0%BF%D0%BE%D1%80%D1%82%20%D1%83%D1%81%D0%BB%D1%83%D0%B3%D0%B8.dc.html#price-ls">Паспорт услуги → «Получить услугу» → вход с ЭЦП, профиль «Бизнес»</a></li><li><a href="%D0%94%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%D0%B0.dc.html">Подготовка: договор (НЦЭЛС → «Сохранить договор») и заявка на платёж</a></li><li><a href="%D0%9A%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82%20%D0%B1%D0%B8%D0%B7%D0%BD%D0%B5%D1%81%D0%B0.dc.html">«Продолжить подачу» → заявка → «Подписать и отправить»</a></li><li><a href="%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8.dc.html">Заявка в реестре «Услуги», сквозной процесс — в «Моих процессах»</a></li></ol>
+  </div>
+
+  <h2><i class="ri-government-line"></i>Портал</h2><p class="desc">Публичная часть для граждан, бизнеса и медперсонала</p><div class="grid"><a class="card" href="%D0%9F%D0%BE%D1%80%D1%82%D0%B0%D0%BB%20%D0%9C%D0%B8%D0%BD%D0%B7%D0%B4%D1%80%D0%B0%D0%B2%D0%B0%20-%20%D0%93%D0%BB%D0%B0%D0%B2%D0%BD%D0%B0%D1%8F.dc.html">Портал Минздрава - Главная<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%92%D1%85%D0%BE%D0%B4.dc.html">Вход<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9F%D0%B0%D1%81%D0%BF%D0%BE%D1%80%D1%82%20%D1%83%D1%81%D0%BB%D1%83%D0%B3%D0%B8.dc.html">Паспорт услуги<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9A%D0%B0%D1%82%D0%B0%D0%BB%D0%BE%D0%B3%20%D1%83%D1%81%D0%BB%D1%83%D0%B3.dc.html">Каталог услуг<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9C%D0%B5%D0%B4%D0%BE%D1%80%D0%B3%D0%B0%D0%BD%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D0%B8.dc.html">Медорганизации<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9E%D0%A1%D0%9C%D0%A1.dc.html">ОСМС<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9B%D0%B5%D0%BA%D0%B0%D1%80%D1%81%D1%82%D0%B2%D0%B0.dc.html">Лекарства<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%97%D0%B0%D0%B1%D0%BE%D0%BB%D0%B5%D0%B2%D0%B0%D0%BD%D0%B8%D1%8F.dc.html">Заболевания<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%92%D0%B0%D0%BA%D1%86%D0%B8%D0%BD%D0%B0%D1%86%D0%B8%D1%8F.dc.html">Вакцинация<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%91%D0%B5%D1%80%D0%B5%D0%BC%D0%B5%D0%BD%D0%BD%D0%BE%D1%81%D1%82%D1%8C.dc.html">Беременность<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%97%D0%B4%D0%BE%D1%80%D0%BE%D0%B2%D1%8C%D0%B5%20%D0%B4%D0%B5%D1%82%D0%B5%D0%B9.dc.html">Здоровье детей<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%AD%D0%BA%D1%81%D1%82%D1%80%D0%B5%D0%BD%D0%BD%D0%B0%D1%8F%20%D0%BF%D0%BE%D0%BC%D0%BE%D1%89%D1%8C.dc.html">Экстренная помощь<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9D%D0%BE%D0%B2%D0%BE%D1%81%D1%82%D0%B8.dc.html">Новости<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9A%D0%BB%D0%B8%D0%BD%D0%B8%D1%87%D0%B5%D1%81%D0%BA%D0%B8%D0%B5%20%D0%BF%D1%80%D0%BE%D1%82%D0%BE%D0%BA%D0%BE%D0%BB%D1%8B.dc.html">Клинические протоколы<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9F%D1%80%D0%B8%D1%81%D0%B2%D0%BE%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%BA%D0%B0%D1%82%D0%B5%D0%B3%D0%BE%D1%80%D0%B8%D0%B8.dc.html">Присвоение категории<i class="ri-arrow-right-line"></i></a></div>
+  <h2><i class="ri-briefcase-4-line"></i>Кабинет бизнеса · «Единое окно»</h2><p class="desc">Подача заявок на лекарственные средства и медицинские изделия</p><div class="grid"><a class="card" href="%D0%9A%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82%20%D0%B1%D0%B8%D0%B7%D0%BD%D0%B5%D1%81%D0%B0.dc.html">Кабинет бизнеса<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%A3%D1%81%D0%BB%D1%83%D0%B3%D0%B8.dc.html">Услуги<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9F%D0%B0%D1%81%D0%BF%D0%BE%D1%80%D1%82%20%D1%80%D0%B5%D0%B3%D0%B8%D1%81%D1%82%D1%80%D0%B0%D1%86%D0%B8%D0%B8%20%D1%86%D0%B5%D0%BD%D1%8B.dc.html">Паспорт регистрации цены<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%97%D0%B0%D1%8F%D0%B2%D0%BA%D0%B0%20%D0%BD%D0%B0%20%D1%80%D0%B5%D0%B3%D0%B8%D1%81%D1%82%D1%80%D0%B0%D1%86%D0%B8%D1%8E%20%D1%86%D0%B5%D0%BD%D1%8B.dc.html">Заявка на регистрацию цены<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%97%D0%B0%D1%8F%D0%B2%D0%BB%D0%B5%D0%BD%D0%B8%D0%B5%20%D0%9A%D0%9D%D0%A4.dc.html">Заявление КНФ<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9C%D0%BE%D0%B8%20%D0%BF%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81%D1%8B.dc.html">Мои процессы<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9F%D1%80%D0%BE%D1%86%D0%B5%D1%81%D1%81.dc.html">Процесс<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%94%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%D0%B0.dc.html">Договора<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9F%D0%BB%D0%B0%D1%82%D0%B5%D0%B6%D0%B8.dc.html">Платежи<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%A3%D0%B2%D0%B5%D0%B4%D0%BE%D0%BC%D0%BB%D0%B5%D0%BD%D0%B8%D1%8F.dc.html">Уведомления<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%A0%D0%B0%D0%B1%D0%BE%D1%87%D0%B8%D0%B9%20%D0%BA%D0%B0%D0%BB%D0%B5%D0%BD%D0%B4%D0%B0%D1%80%D1%8C.dc.html">Рабочий календарь<i class="ri-arrow-right-line"></i></a></div>
+  <h2><i class="ri-user-heart-line"></i>Кабинеты гражданина и врача</h2><p class="desc"></p><div class="grid"><a class="card" href="%D0%9B%D0%B8%D1%87%D0%BD%D1%8B%D0%B9%20%D0%BA%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82.dc.html">Личный кабинет<i class="ri-arrow-right-line"></i></a><a class="card" href="%D0%9A%D0%B0%D0%B1%D0%B8%D0%BD%D0%B5%D1%82%20%D0%B2%D1%80%D0%B0%D1%87%D0%B0.dc.html">Кабинет врача<i class="ri-arrow-right-line"></i></a></div>
+  <h2><i class="ri-shapes-line"></i>Компоненты</h2><p class="desc">Общие блоки и витрины компонентов дизайн-системы</p><div class="grid"><a class="card" href="Header.dc.html">Header<i class="ri-arrow-right-line"></i></a><a class="card" href="Footer.dc.html">Footer<i class="ri-arrow-right-line"></i></a><a class="card" href="Assistant.dc.html">Assistant<i class="ri-arrow-right-line"></i></a><a class="card" href="BusinessNav.dc.html">BusinessNav<i class="ri-arrow-right-line"></i></a><a class="card" href="Table.dc.html">Table<i class="ri-arrow-right-line"></i></a><a class="card" href="FileUpload.dc.html">FileUpload<i class="ri-arrow-right-line"></i></a><a class="card" href="Dropdown.dc.html">Dropdown<i class="ri-arrow-right-line"></i></a><a class="card" href="DatePicker.dc.html">DatePicker<i class="ri-arrow-right-line"></i></a><a class="card" href="Toast.dc.html">Toast<i class="ri-arrow-right-line"></i></a></div>
+
+  <footer>Сборка: 22.09.2026, 00:55:16 · 37 страниц и компонентов</footer>
+</div>
+<div class="toast" id="toast">Демо-данные сброшены</div>
+<script>
+  if (/firefox/i.test(navigator.userAgent)) {
+    document.getElementById('browser-note').style.background = '#FDEDF0';
+  }
+  document.getElementById('reset').addEventListener('click', function () {
+    try { Object.keys(localStorage).filter(function (k) { return k.indexOf('mp-') === 0; }).forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}
+    var t = document.getElementById('toast'); t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 1800);
+  });
+</script>
+</body>
+</html>

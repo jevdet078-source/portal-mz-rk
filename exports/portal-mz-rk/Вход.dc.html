@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--teal:#35B9E9;--teal-l:#EBFAFF;--orange:#F17B2C;--orange-l:#FEF3EB;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --stroke:#E2E4E9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;">
+
+  <!-- BRAND PANEL -->
+  <div style="position:relative;background:linear-gradient(165deg,var(--primary) 0%,var(--primary-darker) 100%);padding:56px;display:flex;flex-direction:column;color:#fff;overflow:hidden;">
+    <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff 50%,transparent),radial-gradient(2px 2px at 70% 20%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 40% 65%,#fff 50%,transparent),radial-gradient(2px 2px at 85% 75%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 60% 90%,#fff 50%,transparent);pointer-events:none;"></div>
+    <a href="Портал Минздрава - Главная.dc.html" style="position:relative;display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;">
+      <img src="uploads/images.jpg" alt="Герб РК" style="width:46px;height:46px;object-fit:contain;background:#fff;border-radius:10px;padding:3px;" />
+      <div style="line-height:1.2;"><div style="font-size:14px;font-weight:600;">Министерство здравоохранения</div><div style="font-size:12px;color:rgba(255,255,255,.7);">Республики Казахстан</div></div>
+    </a>
+    <div style="position:relative;margin-top:auto;">
+      <h1 style="font-size:36px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0 0 18px;max-width:440px;">Единый вход в цифровые сервисы здравоохранения</h1>
+      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.82);max-width:420px;margin:0 0 36px;">Войдите, чтобы получить доступ к электронному паспорту здоровья, услугам, записям на приём и персональным рекомендациям.</p>
+      <div style="display:flex;flex-direction:column;gap:16px;max-width:420px;">
+        <sc-for list="{{ perks }}" as="p" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:22px;"></i></div>
+            <span style="font-size:15px;color:rgba(255,255,255,.92);">{{ p.text }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <div style="position:relative;margin-top:48px;font-size:13px;color:rgba(255,255,255,.6);">Защищённое соединение · Государственный стандарт безопасности данных</div>
+  </div>
+
+  <!-- FORM PANEL -->
+  <div style="display:flex;align-items:center;justify-content:center;padding:48px;">
+    <div style="width:100%;max-width:420px;">
+
+      <sc-if value="{{ stepForm }}" hint-placeholder-val="{{ true }}">
+        <div style="animation:mp-slidein .25s ease;">
+          <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px;">Шаг 1 из 2 · Авторизация</div>
+          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 6px;">Вход на портал</h2>
+          <p style="font-size:14px;color:var(--n500);margin:0 0 26px;">Выберите способ авторизации.</p>
+          <sc-if value="{{ forBusiness }}" hint-placeholder-val="{{ false }}">
+            <div role="note" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:-8px 0 22px;border-radius:12px;background:var(--orange-l);border:1px solid #FFDAC2;">
+              <i class="ri-briefcase-4-line" style="font-size:20px;color:var(--orange);flex:0 0 auto;"></i>
+              <div style="font-size:13px;line-height:1.5;color:var(--n700);"><span style="font-weight:600;">Вход для подачи заявки от организации.</span> Войдите с ЭЦП и выберите профиль «Бизнес» — после входа вы вернётесь к услуге.</div>
+            </div>
+          </sc-if>
+
+          <div style="display:flex;background:var(--n100);border:1px solid var(--stroke);border-radius:12px;padding:4px;gap:2px;margin-bottom:24px;">
+            <sc-for list="{{ methods }}" as="m" hint-placeholder-count="2">
+              <button onClick="{{ m.onClick }}" style="{{ m.style }}"><i class="{{ m.icon }}" style="font-size:18px;"></i>{{ m.label }}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ isIin }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <label style="display:block;font-size:14px;font-weight:500;color:var(--n700);margin-bottom:8px;">ИИН</label>
+              <input ref="{{ iinRef }}" value="{{ iin }}" onChange="{{ onIin }}" placeholder="Введите 12 цифр" inputmode="numeric" maxlength="12" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 16px;font-size:16px;font-family:inherit;letter-spacing:.06em;background:var(--n100);outline:none;margin-bottom:18px;" />
+              <label style="display:block;font-size:14px;font-weight:500;color:var(--n700);margin-bottom:8px;">Пароль / SMS-код</label>
+              <div style="position:relative;margin-bottom:8px;">
+                <input value="{{ pass }}" onChange="{{ onPass }}" type="password" placeholder="Введите пароль" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 16px;font-size:16px;font-family:inherit;background:var(--n100);outline:none;" />
+              </div>
+              <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><a href="#" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:500;">Забыли пароль?</a></div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isEcp }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-bottom:20px;">
+              <div style="border:1.5px dashed var(--primary-light);border-radius:16px;background:var(--primary-lighter);padding:28px;text-align:center;">
+                <div style="width:60px;height:60px;border-radius:15px;background:var(--n0);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 2px 4px rgba(10,13,20,.06);"><i class="ri-key-2-line" style="font-size:30px;color:var(--primary);"></i></div>
+                <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Электронная цифровая подпись (ЭЦП)</div>
+                <div style="font-size:13px;color:var(--n500);line-height:1.5;">Выберите ключ авторизации (AUTH_RSA) из хранилища и подтвердите вход.</div>
+              </div>
+              <button style="width:100%;height:48px;margin-top:14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-folder-open-line" style="font-size:18px;"></i>Выбрать ключ ЭЦП</button>
+            </div>
+          </sc-if>
+
+          <button onClick="{{ submit }}" style="width:100%;height:52px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+            <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+            {{ submitLabel }}
+          </button>
+          <div style="font-size:12px;color:var(--n400);text-align:center;margin-top:18px;line-height:1.5;">Нажимая «Войти», вы соглашаетесь с условиями обработки персональных данных.</div>
+          <sc-if value="{{ hasBackToService }}" hint-placeholder-val="{{ false }}">
+            <a href="{{ backToService }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:13px;font-weight:500;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>Вернуться к услуге без входа</a>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ stepRole }}" hint-placeholder-val="{{ false }}">
+        <div style="animation:mp-slidein .25s ease;">
+          <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px;">Шаг 2 из 2 · Профиль</div>
+          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 6px;">Выберите профиль</h2>
+          <p style="font-size:14px;color:var(--n500);margin:0 0 24px;">{{ roleHint }}</p>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+            <sc-for list="{{ profiles }}" as="p" hint-placeholder-count="4">
+              <a href="{{ p.href }}" onClick="{{ p.onClick }}" style="{{ p.style }}">
+                <div style="width:46px;height:46px;border-radius:12px;background:{{ p.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:24px;color:{{ p.color }};"></i></div>
+                <div style="flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:600;">{{ p.label }}</span><sc-if value="{{ p.recommended }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:2px 8px;border-radius:999px;">Для этой услуги</span></sc-if></div>
+                  <div style="font-size:13px;color:var(--n500);">{{ p.desc }}</div>
+                </div>
+                <i class="ri-arrow-right-line" style="font-size:20px;color:var(--n400);"></i>
+              </a>
+            </sc-for>
+          </div>
+          <button onClick="{{ back }}" style="width:100%;height:46px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Назад</button>
+        </div>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.iinRef = React.createRef();
+    // для бизнеса по умолчанию вход по ЭЦП организации
+    this.state = { step:'form', method: this.query().forBusiness ? 'ecp' : 'iin', iin:'', pass:'', loading:false };
+  }
+  // ?profile=business — пришли за услугой для организации; ?return=<страница> — куда вернуть после входа
+  query(){
+    const out = { ret:null, forBusiness:false };
+    try {
+      const q = new URLSearchParams(location.search);
+      const r = q.get('return');
+      if(r && /^[^\/:?#\\]+\.dc\.html(\?[\w=&-]*)?(#[\w-]*)?$/.test(r)) out.ret = r;
+      out.forBusiness = q.get('profile') === 'business';
+    } catch(e){}
+    return out;
+  }
+  submit(){
+    this.setState({ loading:true });
+    setTimeout(()=>{
+      const raw = ((this.iinRef.current && this.iinRef.current.value)||this.state.iin||'').replace(/\D/g,'');
+      try { if(raw) localStorage.setItem('mp-iin', raw); } catch(e){}
+      this.setState({ loading:false, step:'role' });
+    }, 850);
+  }
+  renderVals(){
+    const s = this.state;
+    const perks = [
+      { icon:'ri-profile-line', text:'Электронный паспорт здоровья (ЭПЗ)' },
+      { icon:'ri-calendar-check-line', text:'Запись на приём и направления' },
+      { icon:'ri-magic-line', text:'Персональные рекомендации и напоминания' },
+    ];
+    const methods = [
+      { id:'iin', label:'По ИИН', icon:'ri-user-3-line' },
+      { id:'ecp', label:'ЭЦП', icon:'ri-key-2-line' },
+    ].map(m => ({ ...m, onClick:()=>this.setState({ method:m.id }),
+      style:`flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:none;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.method===m.id?'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.1);':'background:transparent;color:#525866;'}` }));
+
+    const C = { blue:['#EEF2FF','#4D42E9'], orange:['#FEF3EB','#F17B2C'], teal:['#EBFAFF','#35B9E9'], purple:['#EEEBFF','#6E3FF3'] };
+    const profData = [
+      { id:'citizen', label:'Гражданин (физ. лицо)', desc:'Аружан Сейтжанова · ИИН ···1540', icon:'ri-user-heart-line', c:C.blue, href:'Личный кабинет.dc.html' },
+      { id:'business', label:'Бизнес', desc:'ТОО «Астана Групп» · БИН ···4521', icon:'ri-briefcase-4-line', c:C.orange, href:'Кабинет бизнеса.dc.html' },
+      { id:'medical', label:'Медперсонал', desc:'Ахметов С.К. · врач-терапевт', icon:'ri-stethoscope-line', c:C.teal, href:'Кабинет врача.dc.html' },
+      { id:'gov', label:'Госорган', desc:'Межведомственное взаимодействие', icon:'ri-government-line', c:C.purple, href:'Вход.dc.html' },
+    ];
+    const q = this.query();
+    // пришли за услугой для бизнеса — профиль «Бизнес» первым и подсвечен
+    const ordered = q.forBusiness ? [ ...profData.filter(p => p.id === 'business'), ...profData.filter(p => p.id !== 'business') ] : profData;
+    const profiles = ordered.map(p => {
+      const rec = q.forBusiness && p.id === 'business';
+      return { ...p, href: p.id === 'business' && q.ret ? q.ret : p.href, color:p.c[1], bg:p.c[0], recommended:rec,
+        onClick:()=>{ try{ localStorage.setItem('mp-profile', p.id); }catch(e){} },
+        style:`display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#fff;text-decoration:none;color:inherit;cursor:pointer;transition:.15s;${rec ? 'border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'border:1px solid var(--stroke);box-shadow:0 1px 2px rgba(10,13,20,.03);'}` };
+    });
+    const backToService = q.ret ? q.ret.replace(/\?[^#]*/, '') : '';
+
+    return {
+      perks, methods, profiles,
+      forBusiness: q.forBusiness,
+      hasBackToService: !!backToService, backToService,
+      roleHint: q.forBusiness ? 'Выберите профиль организации, от имени которой подаёте заявку.' : 'К вашему ИИН привязано несколько профилей. Войдите как:',
+      stepForm: s.step==='form', stepRole: s.step==='role',
+      isIin: s.method==='iin', isEcp: s.method==='ecp',
+      iin:s.iin, iinRef:this.iinRef, onIin:(e)=>this.setState({ iin:(e.target.value||'').replace(/\D/g,'').slice(0,12) }),
+      pass:s.pass, onPass:(e)=>this.setState({ pass:e.target.value }),
+      loading:s.loading, submitLabel: s.loading ? 'Проверка…' : 'Войти',
+      submit:()=>this.submit(), back:()=>this.setState({ step:'form' }),
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M50 120 h28 l18 -44 24 88 18 -44 h32" fill="none" stroke="#4D42E9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></g></svg></template>
+</body>
+</html>
