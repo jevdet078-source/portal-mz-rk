@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Меню кабинета бизнеса («Единое окно» внутри портала).
+  Источник: Figma e-Health (cMe8P7iJNaTBgG04okquEG), «Sidebar [Navigation] [1.0]»
+  в кадрах 14202:259827 (развёрнуто, 272px) и 14202:257698 (свёрнуто, 80px).
+  Логотип «Единое окно МЗ РК» из шапки сайдбара убран — бренд теперь в Header портала.
+
+  Пропсы:
+    active    — home | contracts | payments | services | processes | calendar
+    collapsed — "1", чтобы стартовать свёрнутым (как на странице процесса)
+
+  Пункты открываются по мере онбординга (Figma 5787:107798):
+    шаг 1 → Главная, Договора; шаг 2 → +Платежи; шаг 3 → +Услуги; готово → +Мои процессы.
+  Шаг хранится в localStorage['mp-biz-step'] = 1 | 2 | 3 | done,
+  смена рассылается событием window 'mp-biz-step-change'.
+
+  Роль в организации — localStorage['mp-biz-role'] = applicant | admin,
+  смена рассылается событием window 'mp-biz-role-change' (переключатель в шапке).
+  Администратор — надстройка над заявителем: к его разделам добавляется группа
+  «Администрирование» (рабочий календарь). Заявитель этой группы не видит,
+  а при прямом заходе на её страницу получает экран о недоступности раздела.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--primary-darker:#312D86;--n0:#fff;--n400:#868C98;--n500:#525866;--n900:#0A0D14;--stroke:#E2E4E9;}
+</style>
+</helmet>
+<nav style="{{ rootStyle }}">
+  <div style="{{ topStyle }}">
+    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ caption }}</div>
+    </sc-if>
+    <button onClick="{{ toggle }}" title="{{ toggleTitle }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--n500);flex:0 0 auto;"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
+  </div>
+
+  <div style="{{ listStyle }}">
+    <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
+      <sc-if value="{{ it.hasGroupLabel }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 12px 6px;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.group }}</div>
+      </sc-if>
+      <sc-if value="{{ it.hasGroupRule }}" hint-placeholder-val="{{ false }}">
+        <div title="{{ it.group }}" style="width:24px;height:1px;background:var(--stroke);margin:10px 0;"></div>
+      </sc-if>
+      <a href="{{ it.href }}" onClick="{{ it.onClick }}" title="{{ it.label }}" style="{{ it.style }}">
+        <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
+        <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span></sc-if>
+        <sc-if value="{{ it.showBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:16px;height:16px;padding:2px;border-radius:999px;background:var(--primary-light);color:var(--primary-darker);font-size:11px;line-height:12px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;">{{ it.badge }}</span></sc-if>
+      </a>
+    </sc-for>
+  </div>
+
+  <div style="flex:1;"></div>
+
+  <div style="{{ footStyle }}">
+    <a href="Портал Минздрава - Главная.dc.html" onClick="{{ logout }}" title="Выйти" style="{{ logoutStyle }}">
+      <i class="ri-logout-box-r-line" style="font-size:20px;flex:0 0 auto;"></i>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span>Выйти</span></sc-if>
+    </a>
+  </div>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:272,&quot;height&quot;:827}}">
+class Component extends DCLogic {
+  state = { step:'done', role:'applicant', collapsed:null };
+  componentDidMount(){
+    try { const v = localStorage.getItem('mp-biz-step'); if(v) this.setState({ step:v }); } catch(e){}
+    this._onStep = (e) => { if(e && e.detail) this.setState({ step:e.detail }); };
+    window.addEventListener('mp-biz-step-change', this._onStep);
+    try { const r = localStorage.getItem('mp-biz-role'); if(r) this.setState({ role:r }); } catch(e){}
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-biz-role-change', this._onRole);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-biz-step-change', this._onStep); window.removeEventListener('mp-biz-role-change', this._onRole); }
+  renderVals(){
+    const s = this.state, p = this.props || {};
+    const collapsed = s.collapsed === null ? p.collapsed === '1' : s.collapsed;
+    const expanded = !collapsed;
+    const level = { '1':1, '2':2, '3':3, 'done':4 }[s.step] || 4;
+    const isAdmin = s.role === 'admin';
+
+    const applicant = [
+      { id:'home', label:'Главная', icon:'ri-home-4-line', href:'Кабинет бизнеса.dc.html', min:1 },
+      { id:'contracts', label:'Договора', icon:'ri-file-text-line', href:'Договора.dc.html', min:1 },
+      { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html', min:2 },
+      { id:'services', label:'Услуги', icon:'ri-file-copy-line', href:'Услуги.dc.html', min:3 },
+      { id:'processes', label:'Мои процессы', icon:'ri-file-list-line', href:'Мои процессы.dc.html', min:4, badge:'2' },
+    ];
+    // Роль администратора — надстройка, а не отдельный кабинет: тот же сотрудник ведёт
+    // справочники организации и подаёт заявки. Поэтому разделы заявителя остаются на месте,
+    // а «Администрирование» добавляется отдельной группой — и ни одна страница кабинета
+    // не оказывается открытой при меню, в котором её нет.
+    // У администратора пока один модуль — рабочий календарь для таймеров КНФ и ЕД.
+    const admin = [
+      { id:'calendar', label:'Рабочий календарь', icon:'ri-calendar-schedule-line', href:'Рабочий календарь.dc.html', min:0, group:'Администрирование' },
+    ];
+    const data = applicant.concat(isAdmin ? admin : []);
+    const items = data.filter(it => it.min <= level).map(it => {
+      const on = p.active === it.id;
+      return { ...it,
+        showLabel: expanded,
+        showBadge: expanded && !!it.badge,
+        group: it.group || '',
+        hasGroupLabel: expanded && !!it.group,
+        hasGroupRule: !expanded && !!it.group,
+        // Договора / Платежи / Услуги ещё переносятся из Figma — ссылки-заглушки не уводят со страницы
+        onClick: (e) => { if(it.href === '#' && e && e.preventDefault) e.preventDefault(); },
+        style: `display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;transition:background .15s,color .15s;box-sizing:border-box;${expanded ? 'width:100%;height:40px;padding:8px 12px;' : 'width:36px;height:36px;padding:0;justify-content:center;'}${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:transparent;color:#525866;'}`,
+      };
+    });
+
+    return {
+      expanded, items,
+      caption: 'Кабинет бизнеса',
+      toggle: () => this.setState({ collapsed: !collapsed }),
+      toggleTitle: expanded ? 'Свернуть меню' : 'Развернуть меню',
+      logout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-biz-role'); } catch(e){} },
+      rootStyle: `width:${expanded ? 272 : 80}px;height:100%;min-height:100%;background:#fff;border-right:1px solid #E2E4E9;box-shadow:2px 4px 12px rgba(10,13,20,.02);display:flex;flex-direction:column;font-family:'Inter',sans-serif;transition:width .2s ease;box-sizing:border-box;overflow:hidden;`,
+      topStyle: expanded ? 'display:flex;align-items:center;gap:8px;padding:16px 20px 0 32px;' : 'display:flex;justify-content:center;padding:16px 0 0;',
+      listStyle: `display:flex;flex-direction:column;gap:4px;${expanded ? 'padding:12px 20px 16px;' : 'padding:12px 8px 16px;align-items:center;'}`,
+      footStyle: expanded ? 'padding:16px 20px;border-top:1px solid #E2E4E9;' : 'padding:16px 8px;border-top:1px solid #E2E4E9;display:flex;justify-content:center;',
+      logoutStyle: `display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;color:#525866;box-sizing:border-box;${expanded ? 'height:40px;padding:8px 12px;' : 'width:36px;height:36px;justify-content:center;'}`,
+    };
+  }
+}
+</script>
+</body>
+</html>

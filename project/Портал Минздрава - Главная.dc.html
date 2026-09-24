@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9; --primary-dark:#362DA6; --primary-darker:#312D86;
+    --primary-light:#C6D0FF; --primary-lighter:#EEF2FF;
+    --n0:#FFFFFF; --n50:#FBFCFD; --n100:#F6F8FA; --n200:#E2E4E9; --n300:#CDD0D5;
+    --n400:#868C98; --n500:#525866; --n600:#31353F; --n700:#20232D; --n900:#0A0D14;
+    --green:#38C793; --green-l:#EFFAF6; --green-d:#176448; --teal:#35B9E9; --teal-l:#EBFAFF;
+    --orange:#F17B2C; --orange-l:#FEF3EB; --yellow:#F2AE40; --yellow-l:#FEF7EC;
+    --red:#DF1C41; --red-l:#FDEDF0; --purple:#6E3FF3; --purple-l:#EEEBFF;
+    --pink:#E255F2; --pink-l:#FDEBFF;
+    --stroke:#E2E4E9; --bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03); --sh-sm:0 2px 4px rgba(10,13,20,.06);
+    --sh-md:0 8px 16px rgba(10,13,20,.06); --sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+    --sh-modal:0 24px 48px -12px rgba(10,13,20,.2);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-paneldown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  .mp-scroll::-webkit-scrollbar{height:0;width:0;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+
+  <!-- HEADER -->
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
+
+  <!-- ROLE SWITCHER -->
+  
+
+  <!-- INDIGO BAND: TABS + SEARCH -->
+  <div style="position:relative;background:linear-gradient(160deg,var(--primary) 0%,var(--primary-dark) 100%);">
+    <div style="max-width: 1280px; margin: 0 auto; padding: 22px 40px 36px; position: relative; display: grid; justify-content: center">
+      <!-- MEGA TABS -->
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; position: static; flex-direction: row; justify-content: center">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
+          <button onClick="{{ t.onClick }}" style="{{ t.style }}">
+            <i class="{{ t.icon }}" style="font-size:26px;"></i>
+            <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">{{ t.label }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- SEARCH -->
+      <div style="margin-top:30px;max-width:860px;">
+        <div onClick="{{ openSearch }}" style="display:flex;align-items:center;gap:12px;height:60px;background:var(--n0);border-radius:16px;padding:0 10px 0 20px;cursor:text;box-shadow:var(--sh-md);">
+          <i class="ri-sparkling-2-fill" style="font-size:22px;color:var(--primary);"></i>
+          <span style="flex:1;font-size:16px;color:var(--n400);">Введите запрос или задайте вопрос AI-помощнику…</span>
+          <div style="width:44px;height:44px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-arrow-right-line" style="color:#fff;font-size:22px;"></i></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; justify-content: center">
+          <span style="font-size:13px;color:rgba(255,255,255,.75);font-weight:500;">Часто ищут:</span>
+          <sc-for list="{{ searchChips }}" as="c" hint-placeholder-count="5">
+            <button onClick="{{ c.onClick }}" style="background: rgba(255,255,255,.14); border: none; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: #fff; font-family: inherit; cursor: pointer; display: block">{{ c.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- MEGA PANEL -->
+      <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ closePanel }}" style="position:absolute;left:0;right:0;top:100%;bottom:-2000px;z-index:30;"></div>
+        <div style="position:absolute;left:40px;right:40px;top:128px;z-index:31;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);padding:32px;animation:mp-paneldown .2s ease;">
+          <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:40px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;">
+              <sc-for list="{{ panelGroups }}" as="g" hint-placeholder-count="2">
+                <div>
+                  <div style="font-size:15px;font-weight:600;margin-bottom:14px;">{{ g.title }}</div>
+                  <div style="display:flex;flex-direction:column;gap:11px;">
+                    <sc-for list="{{ g.links }}" as="l" hint-placeholder-count="4">
+                      <a href="{{ l.href }}" style="font-size:14px;color:var(--primary);text-decoration:none;line-height:1.4;">{{ l.label }}</a>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-size:18px;font-weight:600;">Популярное</div>
+                <button onClick="{{ closePanel }}" style="width:34px;height:34px;border:none;border-radius:9px;background:var(--n100);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <sc-for list="{{ panelPopular }}" as="p" hint-placeholder-count="3">
+                  <a href="{{ p.href }}" style="display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:{{ p.bg }};text-decoration:none;">
+                    <div style="width:42px;height:42px;border-radius:11px;background:var(--n0);display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:var(--sh-xs);"><i class="{{ p.icon }}" style="font-size:22px;color:{{ p.color }};"></i></div>
+                    <span style="font-size:14px;font-weight:600;color:var(--n900);">{{ p.title }}</span>
+                  </a>
+                </sc-for>
+                <button onClick="{{ openSearch }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;background:var(--primary-lighter);border:none;cursor:pointer;font-family:inherit;text-align:left;">
+                  <div style="width:42px;height:42px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-sparkling-2-fill" style="font-size:22px;color:#fff;"></i></div>
+                  <span style="font-size:14px;font-weight:600;color:var(--primary-darker);">Не нашли услугу — спросите AI-помощника</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <main style="flex:1;">
+    <div style="max-width:1280px;margin:0 auto;padding:48px 40px 0;">
+
+      <!-- НОВОЕ НА ПОРТАЛЕ -->
+      <section style="margin-bottom:56px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0;">Новое на портале</h2>
+          <div style="display:flex;gap:10px;">
+            <button onClick="{{ scrollLeft }}" style="width:42px;height:42px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-arrow-left-s-line" style="font-size:24px;color:var(--n600);"></i></button>
+            <button onClick="{{ scrollRight }}" style="width:42px;height:42px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-arrow-right-s-line" style="font-size:24px;color:var(--n600);"></i></button>
+          </div>
+        </div>
+        <div ref="{{ carouselRef }}" class="mp-scroll" style="display:flex;gap:20px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:4px;">
+          <sc-for list="{{ newCards }}" as="c" hint-placeholder-count="6">
+            <a href="{{ c.href }}" style="flex:0 0 260px;border-radius:18px;padding:24px;display:flex;flex-direction:column;min-height:220px;text-decoration:none;background:{{ c.bg }};border:1px solid var(--stroke);transition:transform .15s,box-shadow .15s;" style-hover="transform:translateY(-3px);box-shadow:var(--sh-md);">
+              <div style="width:54px;height:54px;border-radius:14px;background:var(--n0);display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-xs);"><i class="{{ c.icon }}" style="font-size:28px;color:{{ c.color }};"></i></div>
+              <div style="font-size:16px;font-weight:600;line-height:1.35;margin-top:auto;color:var(--n900);">{{ c.title }}</div>
+              <div style="font-size:13px;color:var(--n500);margin-top:6px;line-height:1.45;">{{ c.desc }}</div>
+            </a>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- ПОЛЕЗНЫЕ ССЫЛКИ (бизнес) -->
+      <sc-if value="{{ showUseful }}" hint-placeholder-val="{{ false }}">
+        <section style="margin-bottom:56px;">
+          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Полезные ссылки</h2>
+          <p style="font-size:15px;color:var(--n500);margin:0 0 24px;">Профильные организации и ведомства в сфере здравоохранения.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+            <sc-for list="{{ usefulLinks }}" as="u" hint-placeholder-count="5">
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:24px;display:flex;flex-direction:column;box-shadow:var(--sh-xs);">
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+                  <div style="width:52px;height:52px;flex:0 0 auto;border-radius:12px;overflow:hidden;background:var(--n100);">
+                    <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="52px,52px"></x-import>
+                  </div>
+                  <div style="font-size:15px;font-weight:600;line-height:1.3;">{{ u.name }}</div>
+                </div>
+                <p style="font-size:13px;line-height:1.55;color:var(--n500);margin:0 0 18px;flex:1;">{{ u.desc }}</p>
+                <button style="align-self:flex-start;height:40px;padding:0 18px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--primary);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;">Перейти<i class="ri-external-link-line" style="font-size:16px;"></i></button>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+      <!-- FAQ -->
+      <section style="margin-bottom:56px;">
+        <div style="display:flex;align-items:end;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Справочный центр</div>
+            <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0;">Часто задаваемые вопросы</h2>
+          </div>
+          <!-- audience tabs -->
+          <div style="display:flex;gap:8px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;padding:4px;">
+            <sc-for list="{{ faqAuds }}" as="a" hint-placeholder-count="3">
+              <button onClick="{{ a.onClick }}" style="{{ a.style }}">{{ a.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:340px 1fr;gap:24px;align-items:start;">
+          <!-- LEFT: theme accordion -->
+          <aside style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ faqThemes }}" as="t" hint-placeholder-count="5">
+              <div style="{{ t.wrap }}">
+                <button onClick="{{ t.onClick }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:16px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+                  <div style="{{ t.iconWrap }}"><i class="{{ t.icon }}" style="font-size:20px;"></i></div>
+                  <span style="flex:1;font-size:14.5px;font-weight:600;color:var(--n900);line-height:1.35;">{{ t.label }}</span>
+                  <i class="{{ t.chev }}" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
+                </button>
+                <sc-if value="{{ t.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:0 12px 12px;animation:mp-slidein .2s ease;">
+                    <sc-for list="{{ t.subs }}" as="sub" hint-placeholder-count="4">
+                      <button onClick="{{ sub.onClick }}" style="{{ sub.style }}"><span style="{{ sub.dot }}"></span><span style="flex:1;text-align:left;">{{ sub.label }}</span><sc-if value="{{ sub.count }}" hint-placeholder-val="{{ false }}"><span style="{{ sub.badge }}">{{ sub.count }}</span></sc-if></button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </aside>
+
+          <!-- RIGHT: questions -->
+          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:28px 28px 20px;box-shadow:var(--sh-xs);min-height:400px;">
+            <!-- breadcrumb -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--n400);margin-bottom:6px;">
+              <span>{{ faqCrumbAud }}</span><i class="ri-arrow-right-s-line" style="font-size:15px;"></i>
+              <span>{{ faqCrumbTheme }}</span><i class="ri-arrow-right-s-line" style="font-size:15px;"></i>
+              <span style="color:var(--primary);font-weight:600;">{{ faqCrumbSub }}</span>
+            </div>
+            <h3 style="font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px;">{{ faqCrumbSub }}</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ faqQuestions }}" as="q" hint-placeholder-count="6">
+                <div style="{{ q.wrap }}">
+                  <button onClick="{{ q.onClick }}" style="width:100%;display:flex;align-items:flex-start;gap:14px;padding:18px 20px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+                    <span style="font-size:14px;font-weight:700;color:var(--primary);flex:0 0 auto;min-width:20px;">{{ q.num }}</span>
+                    <span style="flex:1;font-size:15px;font-weight:500;color:var(--n900);line-height:1.45;">{{ q.q }}</span>
+                    <i class="{{ q.toggle }}" style="font-size:24px;color:{{ q.toggleColor }};flex:0 0 auto;"></i>
+                  </button>
+                  <sc-if value="{{ q.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:0 20px 20px 54px;font-size:14px;line-height:1.65;color:var(--n500);white-space:pre-line;animation:mp-slidein .2s ease;">{{ q.a }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- НОВОСТИ -->
+      <section>
+        <div style="display:flex;align-items:end;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:16px;">
+          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0;">Новости здравоохранения</h2>
+          <div style="display:flex;gap:8px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;padding:4px;flex-wrap:wrap;">
+            <sc-for list="{{ newsTabs }}" as="t" hint-placeholder-count="4">
+              <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+          <sc-for list="{{ visibleNews }}" as="n" hint-placeholder-count="3">
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;overflow:hidden;box-shadow:var(--sh-xs);display:flex;flex-direction:column;">
+              <div style="width:100%;height:170px;flex:0 0 auto;overflow:hidden;">
+                <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ n.slot }}" shape="rect" placeholder="Изображение новости" hint-size="100%,170px"></x-import>
+              </div>
+              <div style="padding:20px;display:flex;flex-direction:column;flex:1;">
+                <span style="{{ n.tagStyle }}">{{ n.category }}</span>
+                <div style="font-size:16px;font-weight:600;line-height:1.4;margin:12px 0 8px;letter-spacing:-.01em;">{{ n.title }}</div>
+                <div style="font-size:13px;line-height:1.5;color:var(--n500);flex:1;">{{ n.desc }}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+                  <span style="font-size:12px;color:var(--n400);">{{ n.date }}</span>
+                  <button style="background:none;border:none;color:var(--primary);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:4px;">Подробнее<i class="ri-arrow-right-line" style="font-size:16px;"></i></button>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:center;margin-top:28px;">
+          <a href="Новости.dc.html" style="height:46px;padding:0 28px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n700);font-size:15px;font-weight:500;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none;">Все новости<i class="ri-arrow-right-line" style="font-size:18px;"></i></a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <div style="margin-top:48px;"><dc-import name="Footer" hint-size="100%,360px"></dc-import></div>
+
+  <!-- FLOATING ASSISTANT -->
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- GLOBAL AI SEARCH OVERLAY -->
+  <sc-if value="{{ searchOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:70;background:linear-gradient(165deg,var(--primary-dark) 0%,#1A1660 100%);display:flex;flex-direction:column;animation:mp-fade .2s ease;">
+      <div style="position:absolute;inset:0;opacity:.6;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 70% 20%,#fff 50%,transparent),radial-gradient(2px 2px at 40% 60%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 85% 70%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 15% 80%,#fff 50%,transparent),radial-gradient(2px 2px at 60% 85%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 90% 40%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 50% 15%,#fff 50%,transparent);background-size:100% 100%;pointer-events:none;"></div>
+      <div style="position:relative;display:flex;align-items:center;justify-content:space-between;padding:20px 40px;">
+        <div style="display:flex;align-items:center;gap:12px;color:#fff;">
+          <div style="width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;"><i class="ri-sparkling-2-fill" style="font-size:22px;"></i></div>
+          <div><div style="font-size:16px;font-weight:600;">AI-помощник по здоровью</div><div style="font-size:12px;color:rgba(255,255,255,.7);">Глобальный поиск и подсказки по порталу</div></div>
+        </div>
+        <button onClick="{{ closeSearch }}" style="width:44px;height:44px;border:none;border-radius:12px;background:rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:24px;color:#fff;"></i></button>
+      </div>
+      <div ref="{{ chatRef }}" class="mp-scroll" style="position:relative;flex:1;overflow-y:auto;padding:20px 0;">
+        <div style="max-width:760px;margin:0 auto;padding:0 40px;display:flex;flex-direction:column;gap:16px;">
+          <sc-for list="{{ aiMessages }}" as="m" hint-placeholder-count="1">
+            <div style="{{ m.row }}">
+              <div style="display:flex;flex-direction:column;gap:10px;max-width:88%;">
+                <div style="{{ m.bubble }}">{{ m.text }}</div>
+                <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                    <sc-for list="{{ m.chips }}" as="ch" hint-placeholder-count="3">
+                      <button onClick="{{ ch.onClick }}" style="background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:500;color:#fff;font-family:inherit;cursor:pointer;">{{ ch.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ m.hasCta }}" hint-placeholder-val="{{ false }}">
+                  <a href="{{ m.ctaHref }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 22px;border-radius:12px;background:#fff;color:var(--primary-darker);font-size:15px;font-weight:600;text-decoration:none;box-shadow:var(--sh-md);"><i class="{{ m.ctaIcon }}" style="font-size:20px;"></i>{{ m.ctaLabel }}</a>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ showAiSuggest }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+              <sc-for list="{{ aiSuggest }}" as="sg" hint-placeholder-count="5">
+                <button onClick="{{ sg.onClick }}" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:9px 16px;font-size:13px;font-weight:500;color:#fff;font-family:inherit;cursor:pointer;">{{ sg.label }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="position:relative;padding:16px 40px 28px;">
+        <div style="max-width:760px;margin:0 auto;">
+          <div style="display:flex;gap:10px;align-items:center;background:#fff;border-radius:16px;padding:8px 8px 8px 20px;box-shadow:var(--sh-modal);">
+            <i class="ri-search-line" style="font-size:22px;color:var(--n400);"></i>
+            <input value="{{ aiInput }}" onChange="{{ onAiInput }}" onKeyDown="{{ onAiKey }}" placeholder="Введите запрос…" style="flex:1;height:48px;border:none;font-size:16px;font-family:inherit;outline:none;background:none;color:var(--n900);">
+            <button onClick="{{ sendAi }}" style="width:48px;height:48px;border:none;border-radius:12px;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-send-plane-fill" style="font-size:22px;"></i></button>
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:12px;text-align:center;line-height:1.4;">Информация носит справочный характер и не заменяет консультацию медицинского работника.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.carouselRef = React.createRef();
+    this.chatRef = React.createRef();
+    this.state = {
+      role:'citizens', tab:null, searchOpen:false,
+      faqAud:'nas', faqTheme:'status', faqSub:'categories', faqOpenQ:0, newsTab:'services',
+      aiInput:'', messages:[{ role:'bot', text:'Здравствуйте! Я — AI-помощник портала здравоохранения. Опишите, что вы ищете, или задайте вопрос о здоровье — я подскажу нужную услугу, раздел или специалиста.' }],
+    };
+  }
+  componentDidMount(){
+    try { const r = localStorage.getItem('mp-role'); if(r && r!==this.state.role) this.setState({ role:r, tab:null, faqOpen:0 }); } catch(e){}
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail, tab:null, faqOpen:0 }); };
+    window.addEventListener('mp-role-change', this._onRole);
+    // #pharma — «Все услуги фармацевтики» из паспорта: роль «Бизнесу» и открытая панель
+    if((location.hash || '') === '#pharma'){
+      try { localStorage.setItem('mp-role', 'business'); } catch(e){}
+      setTimeout(() => {
+        try { window.dispatchEvent(new CustomEvent('mp-role-change', { detail:'business' })); } catch(e){}
+        this.setState({ role:'business', tab:'pharma', faqOpen:0 });
+        history.replaceState(null, '', location.pathname);
+      }, 0);
+    }
+  }
+  componentWillUnmount(){ if(this._onRole) window.removeEventListener('mp-role-change', this._onRole); }
+  componentDidUpdate(){ if(this.chatRef.current) this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight; }
+  botReply(q){
+    const t = q.toLowerCase();
+    if(/справк/.test(t) && !/осмс|отчисл|прикреп/.test(t)) return { text:'Уточните, какая справка вам нужна — и я подскажу, как её получить:', chips:['Справка по ОСМС','Справка об отчислениях','Справка о прикреплении'] };
+    if(/(осмс|застрахован)/.test(t)) return { text:'Проверить статус застрахованного лица в системе ОСМС можно по ИИН, без авторизации. Там же доступна история отчислений за 12 месяцев.', cta:{ label:'Открыть проверку ОСМС', href:'ОСМС.dc.html', icon:'ri-shield-check-line' } };
+    if(/отчислени/.test(t)) return { text:'История отчислений за последние 12 месяцев отображается после проверки статуса ОСМС: дата, сумма и организация-плательщик.', cta:{ label:'История отчислений', href:'ОСМС.dc.html', icon:'ri-history-line' } };
+    if(/прикреплен/.test(t)) return { text:'Прикрепиться к поликлинике можно онлайн: выберите медорганизацию по адресу проживания и подтвердите заявку. Это раздел «Каталог медицинских услуг».', cta:{ label:'Перейти к услугам', href:'Каталог услуг.dc.html', icon:'ri-service-line' } };
+    if(/(голов|мигрен)/.test(t)) return { text:'Головная боль может быть связана с переутомлением, давлением или обезвоживанием.\n\nЕсли боль повторяется регулярно, рекомендуется консультация невролога. При резкой боли с нарушением речи или зрения — немедленно вызывайте скорую (103).', cta:{ label:'Записаться к врачу', href:'Каталог услуг.dc.html', icon:'ri-calendar-check-line' } };
+    if(/(температ|жар|39|38)/.test(t)) return { text:'При высокой температуре — покой, обильное питьё, жаропонижающее при t выше 38,5 °C. Если держится более 3 дней — вызовите врача на дом.', cta:{ label:'Вызов врача на дом', href:'Каталог услуг.dc.html', icon:'ri-home-heart-line' } };
+    if(/(груд|сердц)/.test(t)) return { text:'⚠ Боль в груди может быть признаком сердечного состояния. Если боль сильная, отдаёт в руку или челюсть, есть одышка — немедленно вызывайте скорую (103). В плановом порядке — консультация кардиолога.', cta:{ label:'Экстренная помощь', href:'Экстренная помощь.dc.html', icon:'ri-alarm-warning-line' } };
+    if(/(мрт|кт|узи|записа|приём|прием|врач|кардиолог|терапевт)/.test(t)) return { text:'Записаться к врачу или найти медицинскую услугу можно в каталоге: выберите организацию, специалиста и подтвердите запись.', cta:{ label:'Записаться к врачу', href:'Каталог услуг.dc.html', icon:'ri-calendar-check-line' } };
+    if(/(поликлин|больниц|аптек|организац|рядом|ближайш)/.test(t)) return { text:'Найти медорганизацию рядом можно в разделе «Медицинские организации» — поиск по региону и интерактивная карта с метками.', cta:{ label:'Найти организацию', href:'Медорганизации.dc.html', icon:'ri-map-pin-line' } };
+    if(/(вакцин|привив)/.test(t)) return { text:'В разделе «Вакцинация» — национальный календарь прививок, виды вакцин и адреса пунктов вакцинации.', cta:{ label:'Открыть вакцинацию', href:'Вакцинация.dc.html', icon:'ri-syringe-line' } };
+    if(/цен/.test(t) && /((^|\s)лс(\s|$)|лекарств|препарат)/.test(t)) return { text:'Регистрация цены производителя лекарственного средства подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-ls', icon:'ri-price-tag-3-line' } };
+    if(/цен/.test(t) && /((^|\s)ми(\s|$)|издели|(^|\s)имн(\s|$))/.test(t)) return { text:'Регистрация цены производителя медицинского изделия подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-mi', icon:'ri-stethoscope-line' } };
+    if(/(регистрац.*цен|цен.*регистрац)/.test(t)) return { text:'Уточните, для чего нужна регистрация цены:', chips:['Регистрация цены ЛС','Регистрация цены МИ'] };
+    if(/(лицензи|фарм|бад|экспертиз)/.test(t)) return { text:'Для бизнеса доступны услуги лицензирования, санитарно-эпидемиологической экспертизы и регистрации. Переключите роль на «Бизнесу», чтобы увидеть полный список.', cta:{ label:'Каталог услуг', href:'Каталог услуг.dc.html', icon:'ri-award-line' } };
+    return { text:'Я могу подсказать по записи к врачу, статусу ОСМС и отчислениям, вакцинации, поиску медорганизаций и лекарств. Опишите запрос подробнее — например, симптом или название услуги.' };
+  }
+
+  send(text){
+    const q = (text != null ? text : this.state.aiInput).trim();
+    if(!q) return;
+    const r = this.botReply(q);
+    this.setState(s => ({ messages:[...s.messages, { role:'user', text:q }, { role:'bot', ...r }], aiInput:'' }));
+  }
+
+  renderVals(){
+    const s = this.state;
+    const C = {
+      blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], teal:['#EBFAFF','#35B9E9'],
+      orange:['#FEF3EB','#F17B2C'], purple:['#EEEBFF','#6E3FF3'], red:['#FDEDF0','#DF1C41'],
+      yellow:['#FEF7EC','#F2AE40'], pink:['#FDEBFF','#E255F2'],
+    };
+
+    // ROLES
+    const roleData = [
+      { id:'citizens', label:'Гражданам', icon:'ri-user-3-line' },
+      { id:'business', label:'Бизнесу', icon:'ri-briefcase-4-line' },
+      { id:'medical', label:'Медперсоналу', icon:'ri-stethoscope-line' },
+    ];
+    const roles = roleData.map(r => ({ ...r, onClick:()=>this.setState({ role:r.id, tab:null, faqOpen:0 }),
+      style:`display:flex;align-items:center;gap:8px;padding:9px 18px;border:none;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.role===r.id?'background:#4D42E9;color:#fff;box-shadow:0 2px 4px rgba(77,66,233,.3);':'background:transparent;color:#525866;'}` }));
+
+    // TABS + PANELS per role
+    const H = 'Каталог услуг.dc.html', MO='Медорганизации.dc.html', OS='ОСМС.dc.html', VC='Вакцинация.dc.html', PR='Беременность.dc.html', KD='Здоровье детей.dc.html', EM='Экстренная помощь.dc.html', LK='Лекарства.dc.html', DS='Заболевания.dc.html';
+    // Фармацевтика → паспорта услуг портала; ссылки в кабинет бизнеса без входа идут через вход с возвратом
+    const PASS = 'Паспорт услуги.dc.html';
+    let bizProfile = null; try { bizProfile = localStorage.getItem('mp-profile'); } catch(e){}
+    const CAB = (target) => bizProfile === 'business' ? target : 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target);
+    const tabSets = {
+      citizens:[
+        { id:'med', icon:'ri-hospital-line', label:'Медуслуги и организации',
+          groups:[ {title:'Медицинские услуги', links:[{label:'Запись на приём',href:H},{label:'Вызов врача на дом',href:H},{label:'Прикрепление к поликлинике',href:H},{label:'Каталог услуг',href:H}]},
+                   {title:'Организации и врачи', links:[{label:'Поликлиники',href:MO},{label:'Стационары и лаборатории',href:MO},{label:'Аптеки',href:LK},{label:'Поиск врача',href:MO}]} ],
+          popular:[ {title:'Записаться к врачу',icon:'ri-calendar-check-line',c:C.blue,href:H},{title:'Найти поликлинику',icon:'ri-map-pin-line',c:C.purple,href:MO},{title:'Справочник заболеваний',icon:'ri-stethoscope-line',c:C.orange,href:DS} ] },
+        { id:'osms', icon:'ri-shield-check-line', label:'ОСМС и отчисления',
+          groups:[ {title:'Страхование', links:[{label:'Проверить статус ОСМС',href:OS},{label:'История отчислений',href:OS},{label:'Кто платит взносы',href:OS}]} ],
+          popular:[ {title:'Проверить ОСМС',icon:'ri-shield-check-line',c:C.green,href:OS},{title:'История отчислений',icon:'ri-history-line',c:C.blue,href:OS} ] },
+        { id:'vac', icon:'ri-syringe-line', label:'Вакцинация',
+          groups:[ {title:'Прививки', links:[{label:'Календарь прививок',href:VC},{label:'Виды вакцин',href:VC},{label:'Мифы и факты',href:VC},{label:'Адреса пунктов',href:VC}]} ],
+          popular:[ {title:'Календарь прививок',icon:'ri-calendar-line',c:C.red,href:VC},{title:'Пункты вакцинации',icon:'ri-map-pin-line',c:C.teal,href:VC} ] },
+        { id:'preg', icon:'ri-bear-smile-line', label:'Беременность',
+          groups:[ {title:'Материнство', links:[{label:'Беременность по этапам',href:PR},{label:'Что делать по неделям',href:PR},{label:'Обследования',href:PR},{label:'Права беременных',href:PR}]} ],
+          popular:[ {title:'Календарь по неделям',icon:'ri-calendar-event-line',c:C.pink,href:PR},{title:'Права беременных',icon:'ri-scales-3-line',c:C.green,href:PR} ] },
+        { id:'kids', icon:'ri-parent-line', label:'Здоровье детей',
+          groups:[ {title:'Дети', links:[{label:'Календарь развития',href:KD},{label:'Прививки детей',href:KD},{label:'Патронажное наблюдение',href:KD},{label:'Рекомендации по возрастам',href:KD}]} ],
+          popular:[ {title:'Календарь развития',icon:'ri-line-chart-line',c:C.yellow,href:KD},{title:'Патронаж детей',icon:'ri-home-heart-line',c:C.green,href:KD} ] },
+        { id:'emer', icon:'ri-alarm-warning-line', label:'Экстренная помощь',
+          groups:[ {title:'Неотложные состояния', links:[{label:'Инфаркт и инсульт',href:EM},{label:'Ожоги и отравления',href:EM},{label:'Травмы',href:EM},{label:'До приезда скорой',href:EM}]} ],
+          popular:[ {title:'Вызов 103 / 112',icon:'ri-phone-line',c:C.red,href:EM},{title:'До приезда скорой',icon:'ri-first-aid-kit-line',c:C.orange,href:EM} ] },
+      ],
+      business:[
+        { id:'pharma', icon:'ri-capsule-line', label:'Фармацевтика',
+          groups:[ {title:'Лекарственные средства', links:[{label:'Регистрация цены на лекарственные средства',href:PASS+'#price-ls'},{label:'Мои заявки по лекарственным средствам',href:CAB('Услуги.dc.html#ls')}]},
+                   {title:'Медицинские изделия', links:[{label:'Регистрация цены на медицинские изделия',href:PASS+'#price-mi'},{label:'Мои заявки по медицинским изделиям',href:CAB('Услуги.dc.html#mi')}]},
+                   {title:'Лицензирование', links:[{label:'Лицензия на фармацевтическую деятельность',href:H}]} ],
+          popular:[ {title:'Регистрация цены ЛС',icon:'ri-price-tag-3-line',c:C.blue,href:PASS+'#price-ls'},{title:'Регистрация цены МИ',icon:'ri-stethoscope-line',c:C.teal,href:PASS+'#price-mi'},{title:'Кабинет заявителя «Единое окно»',icon:'ri-briefcase-4-line',c:C.orange,href:CAB('Кабинет бизнеса.dc.html')} ] },
+        { id:'sanepid', icon:'ri-shield-cross-line', label:'Сан-эпид надзор',
+          groups:[ {title:'Надзор и экспертиза', links:[{label:'Санитарно-карантинный контроль',href:H},{label:'Санитарно-эпидемиологическая экспертиза',href:H},{label:'Регистрация БАДов',href:H}]} ],
+          popular:[ {title:'Сан-эпид экспертиза',icon:'ri-microscope-line',c:C.teal,href:H},{title:'Регистрация БАД',icon:'ri-capsule-line',c:C.orange,href:H} ] },
+        { id:'license', icon:'ri-award-line', label:'Аккредитация и лицензирование',
+          groups:[ {title:'Лицензии', links:[{label:'Лицензия на медицинскую деятельность',href:H},{label:'Лицензия на оборот наркотических средств и прекурсоров',href:H},{label:'Лицензия на алкоголь',href:H}]},
+                   {title:'Аккредитация', links:[{label:'Аккредитация медорганизаций',href:H},{label:'Оценка соответствия',href:H},{label:'Прочие услуги лицензирования',href:H}]} ],
+          popular:[ {title:'Лицензия (медицина)',icon:'ri-award-line',c:C.blue,href:H},{title:'Лицензия на алкоголь',icon:'ri-goblet-line',c:C.red,href:H} ] },
+      ],
+      medical:[
+        { id:'prof', icon:'ri-user-star-line', label:'Профессиональная деятельность',
+          groups:[
+            {title:'Квалификация', links:[{label:'Сертификация специалистов',href:'Паспорт услуги.dc.html#cert-clinical'},{label:'Аккредитация',href:'Паспорт услуги.dc.html#accred'},{label:'Присвоение категории',href:'Присвоение категории.dc.html'}]} ],
+          popular:[ {title:'Сертификация специалистов',icon:'ri-medal-line',c:C.blue,href:'Паспорт услуги.dc.html#cert-clinical'},{title:'Аккредитация',icon:'ri-award-line',c:C.green,href:'Паспорт услуги.dc.html#accred'},{title:'Присвоение категории',icon:'ri-star-line',c:C.orange,href:'Присвоение категории.dc.html'} ] },
+        { id:'proto', icon:'ri-file-text-line', label:'Клинические протоколы',
+          groups:[ {title:'Документы', links:[{label:'Справочник клинических протоколов',href:'Клинические протоколы.dc.html#protocols'},{label:'Стандарты медицинской помощи',href:'Клинические протоколы.dc.html#standards'}]} ],
+          popular:[ {title:'Клинические протоколы',icon:'ri-file-list-3-line',c:C.purple,href:'Клинические протоколы.dc.html#protocols'},{title:'Стандарты помощи',icon:'ri-book-2-line',c:C.teal,href:'Клинические протоколы.dc.html#standards'} ] },
+        { id:'docs', icon:'ri-clipboard-line', label:'Документация и отчётность',
+          groups:[ {title:'Сервисы', links:[{label:'Электронные медицинские формы',href:H},{label:'Расписание приёма',href:H},{label:'Отчётность',href:H}]} ],
+          popular:[ {title:'Электронные формы',icon:'ri-file-edit-line',c:C.orange,href:H},{title:'Расписание приёма',icon:'ri-calendar-2-line',c:C.blue,href:H} ] },
+      ],
+    };
+    const curTabs = tabSets[s.role];
+    const tabs = curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label,
+      onClick:()=>this.setState(st=>({ tab: st.tab===t.id ? null : t.id })),
+      style:`display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${s.tab===t.id?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}` }));
+    const activeTab = curTabs.find(t => t.id === s.tab);
+    const panelGroups = activeTab ? activeTab.groups : [];
+    const panelPopular = activeTab ? activeTab.popular.map(p => ({ ...p, color:p.c[1], bg:p.c[0] })) : [];
+
+    // SEARCH CHIPS
+    const chipSets = {
+      citizens:['Проверить ОСМС','Записаться к врачу','Вакцинация','Медорганизации рядом','История отчислений'],
+      business:['Получить лицензию','Регистрация цены ЛС','Сан-эпид экспертиза','Регистрация БАД'],
+      medical:['Клинические протоколы','Сертификация','Расписание приёма','Электронные формы'],
+    };
+    const searchChips = chipSets[s.role].map(label => ({ label, onClick:()=>{ this.setState({ searchOpen:true, tab:null }); setTimeout(()=>this.send(label),60); } }));
+
+    // НОВОЕ НА ПОРТАЛЕ
+    const newSets = {
+      citizens:[
+        { icon:'ri-calendar-check-line', c:C.blue, title:'Онлайн-запись к узким специалистам', desc:'Кардиолог, эндокринолог и другие — без визита в регистратуру.', href:H },
+        { icon:'ri-history-line', c:C.green, title:'История отчислений ОСМС', desc:'Отчисления за 12 месяцев по ИИН.', href:OS },
+        { icon:'ri-home-heart-line', c:C.orange, title:'Вызов врача на дом онлайн', desc:'Оформление вызова с подтверждением времени.', href:H },
+        { icon:'ri-file-list-3-line', c:C.purple, title:'Электронные направления', desc:'Направления на МРТ, КТ и УЗИ в кабинете.', href:H },
+        { icon:'ri-syringe-line', c:C.red, title:'Запись на вакцинацию', desc:'Выбор вакцины и пункта прививки.', href:VC },
+        { icon:'ri-home-heart-line', c:C.teal, title:'Патронаж детей', desc:'График визитов патронажной медсестры.', href:KD },
+      ],
+      business:[
+        { icon:'ri-price-tag-3-line', c:C.blue, title:'Регистрация цены на лекарственные средства', desc:'Электронная подача заявления.', href:PASS+'#price-ls' },
+        { icon:'ri-price-tag-3-line', c:C.teal, title:'Регистрация цены на медицинские изделия', desc:'Новый цифровой сервис для поставщиков.', href:PASS+'#price-mi' },
+        { icon:'ri-cloud-line', c:C.green, title:'Новые цифровые сервисы для поставщиков', desc:'Электронное взаимодействие с МЗ РК.', href:H },
+        { icon:'ri-award-line', c:C.purple, title:'Обновления лицензирования', desc:'Изменения в порядке выдачи лицензий.', href:H },
+        { icon:'ri-capsule-line', c:C.orange, title:'Регистрация БАДов', desc:'Упрощённая процедура регистрации.', href:H },
+      ],
+      medical:[
+        { icon:'ri-file-list-3-line', c:C.purple, title:'Электронные клинические протоколы', desc:'Актуальные протоколы в одном справочнике.', href:H },
+        { icon:'ri-calendar-2-line', c:C.blue, title:'Обновление расписания приёма', desc:'Управление слотами и записями.', href:H },
+        { icon:'ri-file-edit-line', c:C.orange, title:'Новые формы отчётности', desc:'Электронные формы и отчёты.', href:H },
+        { icon:'ri-vidicon-line', c:C.teal, title:'Сервис телемедицины', desc:'Видеоконсультации с пациентами.', href:H },
+      ],
+    };
+    const newCards = newSets[s.role].map(c => ({ ...c, color:c.c[1], bg:c.c[0] }));
+
+    // ПОЛЕЗНЫЕ ССЫЛКИ (бизнес)
+    const usefulLinks = [
+      { slot:'ul-rcez', name:'РЦЭЗ', desc:'Республиканский центр электронного здравоохранения — цифровая инфраструктура отрасли.' },
+      { slot:'ul-kmfk', name:'Комитет медицинского и фармацевтического контроля МЗ РК', desc:'Контроль качества медицинских и фармацевтических услуг.' },
+      { slot:'ul-ncels', name:'Национальный центр экспертизы лекарственных средств и медизделий', desc:'Экспертиза и регистрация лекарств и медицинских изделий.' },
+      { slot:'ul-nncrz', name:'ННЦРЗ им. Салидат Каирбековой', desc:'Национальный научный центр развития здравоохранения.' },
+      { slot:'ul-eh', name:'Республиканский центр электронного здравоохранения', desc:'Развитие электронных сервисов и стандартов данных.' },
+    ];
+
+    // FAQ
+    const C_faq={ blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], teal:['#EBFAFF','#35B9E9'], orange:['#FEF3EB','#F17B2C'], purple:['#EEEBFF','#6E3FF3'], red:['#FDEDF0','#DF1C41'] };
+    const faqAudData=[ {id:'nas',label:'Населению'},{id:'med',label:'Медработникам'},{id:'post',label:'Поставщикам'} ];
+    const faqAuds=faqAudData.map(a=>({ ...a, onClick:()=>{ const d=faqDB[a.id]; const t0=d[0]; const s0=t0.subs[0]; this.setState({ faqAud:a.id, faqTheme:t0.id, faqSub:s0.id, faqOpenQ:0 }); },
+      style:`padding:10px 20px;border:none;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.faqAud===a.id?'background:#4D42E9;color:#fff;':'background:transparent;color:#525866;'}` }));
+
+    // 3-level FAQ database: audience → theme → subtopic → questions
+    const faqDB={
+      nas:[
+        { id:'soc', label:'Социологические исследования и опросы населения', icon:'ri-star-line', c:C_faq.orange, subs:[
+          { id:'soc-res', label:'Результаты опросов', qs:[
+            { q:'Где публикуются результаты социологических опросов?', a:'Результаты ежегодных опросов об удовлетворённости медицинской помощью публикуются в разделе «Новости» и на официальном ресурсе фонда социального медицинского страхования.' },
+            { q:'Как принять участие в опросе?', a:'Опросы проводятся после получения медицинских услуг — вам приходит уведомление в личном кабинете или SMS со ссылкой на анкету. Участие добровольное и анонимное.' },
+          ] },
+        ] },
+        { id:'status', label:'Узнать статус / Калькулятор ОСМС', icon:'ri-calculator-line', c:C_faq.blue, subs:[
+          { id:'categories', label:'Категории участников в ОСМС', qs:[
+            { q:'Категория граждан социального благополучия D (кризисный уровень) и E (экстренный уровень)', a:'За граждан, отнесённых к категориям социального благополучия D (кризисный уровень) и E (экстренный уровень), взносы на ОСМС уплачивает государство. Отнесение к категории определяется по цифровой карте семьи на основании уровня дохода и социального положения.' },
+            { q:'Работодатели и налоговые агенты*', a:'Работодатели ежемесячно исчисляют и перечисляют отчисления на ОСМС за своих работников (3% от дохода работника), а также удерживают взносы работника (2%). Налоговые агенты перечисляют платежи в составе единого платежа с заработной платы.' },
+            { q:'Индивидуальные помощники*', a:'Индивидуальные помощники, оказывающие услуги лицам с инвалидностью, участвуют в системе ОСМС. Взносы за них уплачиваются в порядке, установленном для соответствующей категории занятости.' },
+            { q:'Льготные категории населения, взносы на ОСМС за которых платит государство', a:'Государство уплачивает взносы за 15 льготных категорий, среди которых: дети; многодетные матери; пенсионеры; лица с инвалидностью; беременные женщины и мамы в декрете; студенты; безработные, зарегистрированные в центрах занятости; получатели адресной социальной помощи и другие.' },
+            { q:'Плательщики единого платежа', a:'Плательщики единого совокупного платежа (ЕСП) — неформально занятые лица, уплачивающие фиксированный платёж, часть которого направляется на ОСМС. Уплата ЕСП обеспечивает статус застрахованного.' },
+            { q:'Самостоятельные плательщики', a:'Самостоятельные плательщики — лица, не относящиеся к другим категориям, уплачивающие взносы за себя самостоятельно (5% от 1 МЗП). Это позволяет сохранять статус застрахованного при отсутствии официальной занятости.' },
+            { q:'Индивидуальные предприниматели (ИП), лица, занимающиеся частной практикой и владельцы крестьянских хозяйств (КХ)', a:'ИП, лица частной практики (адвокаты, нотариусы, частные судебные исполнители) и владельцы КХ уплачивают взносы на ОСМС за себя самостоятельно — 5% от 1,4-кратного минимального размера заработной платы ежемесячно.' },
+          ] },
+          { id:'insured', label:'Узнать статус застрахованности', qs:[
+            { q:'Как узнать, застрахован ли я в системе ОСМС?', a:'Воспользуйтесь сервисом «Проверка ОСМС» на портале: введите ИИН (12 цифр) и нажмите «Проверить». Статус отобразится мгновенно, авторизация не требуется. Также проверка доступна в мобильном приложении и по номеру 1406.' },
+            { q:'Что делать, если статус «Не застрахован»?', a:'Уточните категорию занятости и наличие оплаты взносов. При официальной работе — обратитесь к работодателю. Если вы относитесь к льготной категории — проверьте корректность данных. Иначе можно вносить взносы как самостоятельный плательщик.' },
+            { q:'Как часто обновляется статус застрахованности?', a:'Статус пересчитывается ежемесячно на основании поступивших отчислений и взносов. Право на медицинскую помощь в системе ОСМС сохраняется при регулярной уплате.' },
+          ] },
+          { id:'calc', label:'Калькулятор ОСМС', qs:[
+            { q:'Для чего нужен калькулятор ОСМС?', a:'Калькулятор помогает рассчитать сумму ежемесячных взносов и отчислений на ОСМС в зависимости от категории плательщика и размера дохода.' },
+            { q:'Как рассчитываются взносы для самостоятельного плательщика?', a:'Взнос составляет 5% от 1 минимальной заработной платы. Введите актуальный размер МЗП в калькулятор, и он покажет сумму к уплате за месяц.' },
+          ] },
+          { id:'refund', label:'Возврат ошибочно перечисленных платежей на ОСМС', qs:[
+            { q:'Как вернуть ошибочно перечисленный платёж?', a:'Подайте заявление на возврат через личный кабинет или в отделении фонда, приложив документ, подтверждающий ошибочный платёж. Возврат осуществляется на реквизиты плательщика в установленный срок.' },
+            { q:'В какой срок возвращаются средства?', a:'Возврат ошибочно уплаченных сумм производится в течение установленного законодательством срока после регистрации заявления и проверки платежа.' },
+          ] },
+          { id:'sums', label:'Получить информацию о суммах, перечисленных на ОСМС', qs:[
+            { q:'Где посмотреть историю перечислений на ОСМС?', a:'В личном кабинете пациента или в сервисе «Проверка ОСМС» доступна история отчислений и взносов за последние 12 месяцев с указанием даты, суммы и плательщика.' },
+            { q:'Кто перечисляет за меня взносы?', a:'В истории отображается источник платежа: работодатель, государство (для льготных категорий) или вы сами (самостоятельный плательщик).' },
+          ] },
+        ] },
+        { id:'rights', label:'Права населения', icon:'ri-file-list-3-line', c:C_faq.green, subs:[
+          { id:'rights-insured', label:'Права застрахованных', qs:[
+            { q:'На какую медицинскую помощь я имею право по ОСМС?', a:'Застрахованные лица имеют право на расширенный пакет медицинской помощи: консультации профильных специалистов, плановую госпитализацию, диагностику (МРТ, КТ, УЗИ), реабилитацию и лекарственное обеспечение по показаниям.' },
+            { q:'Чем ГОБМП отличается от ОСМС?', a:'ГОБМП — гарантированный государством бесплатный объём (неотложная помощь, вакцинация, помощь при социально значимых заболеваниях) — доступен всем. ОСМС — расширенный пакет для застрахованных лиц.' },
+          ] },
+          { id:'rights-complaint', label:'Как защитить свои права', qs:[
+            { q:'Куда обратиться при отказе в медицинской помощи?', a:'Обратитесь в службу поддержки пациентов медорганизации, на горячую линию 1406 или подайте обращение через портал. Все обращения регистрируются и рассматриваются в установленный срок.' },
+          ] },
+        ] },
+        { id:'faq', label:'Частые вопросы', icon:'ri-question-line', c:C_faq.purple, subs:[
+          { id:'faq-general', label:'Общие вопросы', qs:[
+            { q:'Как прикрепиться к поликлинике?', a:'Авторизуйтесь на портале, откройте раздел «Прикрепление к поликлинике», выберите медорганизацию по адресу проживания и подтвердите заявку. Статус обновится в установленный срок.' },
+            { q:'Как записаться на приём к врачу?', a:'Авторизуйтесь → «Каталог медицинских услуг» → выберите организацию → выберите врача → подтвердите запись.' },
+            { q:'Как вызвать врача на дом?', a:'В каталоге услуг выберите «Вызов врача на дом», укажите адрес и симптомы, подтвердите время визита.' },
+            { q:'Как получить больничный лист?', a:'Лист временной нетрудоспособности оформляет лечащий врач по результатам приёма. В электронном виде он передаётся работодателю и доступен в кабинете.' },
+          ] },
+        ] },
+        { id:'report', label:'Отчёт по обращениям', icon:'ri-file-edit-line', c:C_faq.teal, subs:[
+          { id:'report-how', label:'Как подать обращение', qs:[
+            { q:'Как подать обращение или жалобу?', a:'Подайте обращение через портал (раздел обратной связи), по телефону 1406 или в отделении фонда. Укажите суть вопроса и контактные данные для ответа.' },
+            { q:'Как отследить статус обращения?', a:'Статус рассмотрения обращения отображается в личном кабинете; о результате вы получите уведомление в установленный срок.' },
+          ] },
+        ] },
+      ],
+      med:[
+        { id:'accred', label:'Аккредитация и сертификация', icon:'ri-award-line', c:C_faq.blue, subs:[
+          { id:'accred-cert', label:'Сертификация специалистов', qs:[
+            { q:'Как пройти сертификацию специалиста?', a:'В разделе «Профессиональная деятельность» подайте заявление на сертификацию, приложите документы об образовании и стаже и отслеживайте статус рассмотрения.' },
+            { q:'Как присвоить квалификационную категорию?', a:'Подайте заявление с подтверждением стажа и квалификации; решение принимается аттестационной комиссией по итогам оценки.' },
+          ] },
+          { id:'accred-org', label:'Аккредитация медорганизаций', qs:[
+            { q:'Что нужно для аккредитации медорганизации?', a:'Подготовьте документы о соответствии стандартам, подайте заявку через профильный сервис и пройдите оценку внешними экспертами.' },
+          ] },
+        ] },
+        { id:'proto', label:'Клинические протоколы и стандарты', icon:'ri-file-text-line', c:C_faq.purple, subs:[
+          { id:'proto-find', label:'Доступ к протоколам', qs:[
+            { q:'Где найти актуальные клинические протоколы?', a:'Актуальные клинические протоколы и стандарты медицинской помощи доступны в разделе «Клинические протоколы» с фильтрацией по профилю и коду МКБ-10.' },
+            { q:'Как часто обновляются протоколы?', a:'Протоколы пересматриваются и обновляются регулярно; в разделе отображается дата последней редакции каждого документа.' },
+          ] },
+        ] },
+        { id:'docs-med', label:'Документация и отчётность', icon:'ri-clipboard-line', c:C_faq.green, subs:[
+          { id:'docs-forms', label:'Электронные формы', qs:[
+            { q:'Как получить доступ к электронным медицинским формам?', a:'Доступ предоставляется через личный кабинет медработника после подтверждения места работы и роли в системе.' },
+            { q:'Как формируется отчётность?', a:'Отчётные формы заполняются в электронном виде в кабинете и автоматически передаются в информационную систему здравоохранения.' },
+          ] },
+        ] },
+      ],
+      post:[
+        { id:'pharma', label:'Фармацевтическая деятельность', icon:'ri-capsule-line', c:C_faq.green, subs:[
+          { id:'pharma-lic', label:'Лицензирование', qs:[
+            { q:'Как получить лицензию на фармацевтическую деятельность?', a:'В разделе «Фармацевтика» подайте электронное заявление, приложите учредительные и разрешительные документы и оплатите госпошлину. Статус рассмотрения отслеживается в кабинете.' },
+            { q:'Как зарегистрировать цену на лекарственное средство?', a:'Воспользуйтесь сервисом «Регистрация цены на лекарственные средства», подайте заявление в электронном виде и приложите обосновывающие документы.' },
+          ] },
+          { id:'pharma-bad', label:'Регистрация БАД', qs:[
+            { q:'Как зарегистрировать БАД?', a:'Регистрация выполняется через профильный сервис: подача заявления, экспертиза состава и внесение в реестр разрешённой продукции.' },
+          ] },
+        ] },
+        { id:'sanepid', label:'Санитарно-эпидемиологический надзор', icon:'ri-shield-cross-line', c:C_faq.teal, subs:[
+          { id:'sanepid-exp', label:'Экспертиза и надзор', qs:[
+            { q:'Как пройти санитарно-эпидемиологическую экспертизу?', a:'Подайте заявку в разделе «Санитарно-эпидемиологический надзор», приложите документы на продукцию и дождитесь заключения экспертизы.' },
+            { q:'Какие документы требуются для экспертизы?', a:'Комплект зависит от вида продукции: как правило, это техническая документация, протоколы испытаний и сведения о производителе.' },
+          ] },
+        ] },
+        { id:'contracts', label:'Закуп и договоры с фондом', icon:'ri-file-list-3-line', c:C_faq.orange, subs:[
+          { id:'contracts-how', label:'Договоры на оказание услуг', qs:[
+            { q:'Как заключить договор с фондом социального медицинского страхования?', a:'Медорганизация подаёт заявку на закуп услуг, проходит проверку соответствия требованиям и заключает договор в электронном формате.' },
+          ] },
+        ] },
+      ],
+    };
+
+    const themes=faqDB[s.faqAud];
+    let curTheme=themes.find(t=>t.id===s.faqTheme) || themes[0];
+    let curSub=curTheme.subs.find(x=>x.id===s.faqSub) || curTheme.subs[0];
+    const faqThemes=themes.map(t=>{ const open=s.faqTheme===t.id; return { id:t.id, label:t.label, icon:t.icon, open,
+      chev: open?'ri-arrow-up-s-line':'ri-arrow-down-s-line',
+      iconWrap:`width:38px;height:38px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${t.c[0]};color:${t.c[1]};`,
+      wrap:`border:1px solid ${open?'#C6D0FF':'#E2E4E9'};border-radius:14px;background:${open?'#FBFCFD':'#fff'};overflow:hidden;box-shadow:var(--sh-xs);transition:.15s;`,
+      onClick:()=>this.setState(st=>{ if(st.faqTheme===t.id) return { faqTheme:null }; return { faqTheme:t.id, faqSub:t.subs[0].id, faqOpenQ:0 }; }),
+      subs:t.subs.map(sub=>{ const on=s.faqSub===sub.id && s.faqTheme===t.id; return { id:sub.id, label:sub.label, count:sub.qs.length,
+        onClick:()=>this.setState({ faqTheme:t.id, faqSub:sub.id, faqOpenQ:0 }),
+        style:`width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border:none;border-radius:9px;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};cursor:pointer;transition:.12s;margin-bottom:2px;${on?'background:#EEF2FF;color:#4D42E9;':'background:transparent;color:#525866;'}`,
+        dot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${on?'#4D42E9':'#CDD0D5'};`,
+        badge:`font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${on?'#fff':'#F6F8FA'};color:${on?'#4D42E9':'#868C98'};` }; }),
+    }; });
+    const faqQuestions=curSub.qs.map((q,i)=>({ ...q, num:(i+1), open:s.faqOpenQ===i,
+      toggle:s.faqOpenQ===i?'ri-subtract-line':'ri-add-line', toggleColor:s.faqOpenQ===i?'#4D42E9':'#868C98',
+      wrap:`border:1px solid ${s.faqOpenQ===i?'#C6D0FF':'#E2E4E9'};border-radius:12px;background:${s.faqOpenQ===i?'#FBFCFD':'#fff'};overflow:hidden;transition:.15s;`,
+      onClick:()=>this.setState(st=>({ faqOpenQ: st.faqOpenQ===i ? -1 : i })) }));
+    const faqCrumbAud=faqAudData.find(a=>a.id===s.faqAud).label;
+    const faqCrumbTheme=curTheme.label;
+    const faqCrumbSub=curSub.label;
+
+    // НОВОСТИ
+    const tag = (c)=>`align-self:flex-start;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:${c[0]};color:${c[1]};`;
+    const newsTabData = [
+      { id:'services', label:'Новые услуги', c:C.blue },
+      { id:'drugs', label:'Лекарства', c:C.green },
+      { id:'osms', label:'ОСМС', c:C.teal },
+      { id:'prevent', label:'Профилактика', c:C.orange },
+    ];
+    const newsTabs = newsTabData.map(t => ({ ...t, onClick:()=>this.setState({ newsTab:t.id }),
+      style:`padding:9px 16px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:.15s;white-space:nowrap;${s.newsTab===t.id?'background:#4D42E9;color:#fff;':'background:transparent;color:#525866;'}` }));
+    const allNews = [
+      { tab:'services', slot:'news-s1-empty', c:C.blue, category:'Новые услуги', title:'Запущена онлайн-запись к узким специалистам', desc:'Записаться к кардиологу и эндокринологу теперь можно полностью онлайн.', date:'24 июня 2026' },
+      { tab:'services', slot:'news-s2', c:C.blue, category:'Новые услуги', title:'Электронные направления на обследования', desc:'Направления на МРТ, КТ и УЗИ доступны в личном кабинете.', date:'21 июня 2026' },
+      { tab:'services', slot:'news-s3', c:C.blue, category:'Новые услуги', title:'Вызов врача на дом через портал', desc:'Оформление вызова участкового врача с подтверждением времени.', date:'18 июня 2026' },
+      { tab:'drugs', slot:'news-d1', c:C.green, category:'Лекарства', title:'Обновлён перечень бесплатных лекарств', desc:'В список ГОБМП включены новые позиции для пациентов с диабетом.', date:'22 июня 2026' },
+      { tab:'drugs', slot:'news-d2', c:C.green, category:'Лекарства', title:'Проверка наличия лекарств в аптеках', desc:'Остатки препаратов в аптеках по выбранному региону.', date:'20 июня 2026' },
+      { tab:'drugs', slot:'news-d3', c:C.green, category:'Лекарства', title:'Расширен справочник аналогов', desc:'Добавлены сведения о действующих веществах и аналогах.', date:'16 июня 2026' },
+      { tab:'osms', slot:'news-o1', c:C.teal, category:'ОСМС', title:'Расширен пакет услуг по ОСМС на 2026 год', desc:'Включены новые виды диагностики и реабилитации.', date:'24 июня 2026' },
+      { tab:'osms', slot:'news-o2', c:C.teal, category:'ОСМС', title:'Упрощена проверка статуса застрахованного', desc:'Проверка по ИИН без авторизации за несколько секунд.', date:'19 июня 2026' },
+      { tab:'osms', slot:'news-o3', c:C.teal, category:'ОСМС', title:'Новые категории, освобождённые от взносов', desc:'Уточнён перечень граждан, за которых платит государство.', date:'15 июня 2026' },
+      { tab:'prevent', slot:'news-p1', c:C.orange, category:'Профилактика', title:'Стартовала кампания вакцинации против гриппа', desc:'Прививку можно сделать бесплатно по месту прикрепления.', date:'23 июня 2026' },
+      { tab:'prevent', slot:'news-p2', c:C.orange, category:'Профилактика', title:'Месяц профилактики сердечно-сосудистых заболеваний', desc:'Бесплатные скрининги давления и холестерина.', date:'17 июня 2026' },
+      { tab:'prevent', slot:'news-p3', c:C.orange, category:'Профилактика', title:'Школы здоровья для будущих мам', desc:'Бесплатные занятия по подготовке к родам.', date:'14 июня 2026' },
+    ];
+    const visibleNews = allNews.filter(n => n.tab===s.newsTab).map(n => ({ ...n, tagStyle:tag(n.c) }));
+
+    // AI overlay
+    const aiSuggest = (s.role==='business'
+      ? ['Как получить лицензию','Регистрация цены ЛС','Сан-эпид экспертиза']
+      : s.role==='medical'
+      ? ['Где найти клинические протоколы','Как пройти сертификацию','Электронные формы']
+      : ['Справка','Болит голова','Записаться к врачу','Проверить ОСМС','Где ближайшая поликлиника']
+    ).map(label => ({ label, onClick:()=>this.send(label) }));
+
+    const aiMessages = s.messages.map(m => ({
+      text:m.text,
+      row:`display:flex;${m.role==='user'?'justify-content:flex-end;':'justify-content:flex-start;'}`,
+      bubble:m.role==='user'
+        ? 'background:#fff;color:#0A0D14;border-radius:18px 18px 4px 18px;padding:14px 18px;font-size:15px;line-height:1.5;white-space:pre-line;'
+        : 'background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:18px 18px 18px 4px;padding:14px 18px;font-size:15px;line-height:1.6;white-space:pre-line;',
+      hasChips: !!(m.chips && m.chips.length),
+      chips: (m.chips||[]).map(label => ({ label, onClick:()=>this.send(label) })),
+      hasCta: !!m.cta,
+      ctaLabel: m.cta ? m.cta.label : '', ctaHref: m.cta ? m.cta.href : '#', ctaIcon: m.cta ? m.cta.icon : 'ri-arrow-right-line',
+    }));
+
+    return {
+      roles, tabs,
+      panelOpen: !!activeTab, panelGroups, panelPopular,
+      closePanel: ()=>this.setState({ tab:null }),
+      searchChips,
+      openSearch: ()=>this.setState({ searchOpen:true, tab:null }),
+      closeSearch: ()=>this.setState({ searchOpen:false }),
+      searchOpen: s.searchOpen,
+      newCards, carouselRef:this.carouselRef,
+      scrollLeft: ()=>this.carouselRef.current && this.carouselRef.current.scrollBy({left:-560,behavior:'smooth'}),
+      scrollRight: ()=>this.carouselRef.current && this.carouselRef.current.scrollBy({left:560,behavior:'smooth'}),
+      showUseful: s.role==='business', usefulLinks,
+      faqAuds, faqThemes, faqQuestions, faqCrumbAud, faqCrumbTheme, faqCrumbSub,
+      newsTabs, visibleNews,
+      aiMessages, showAiSuggest: s.messages.length<=1, aiSuggest, chatRef:this.chatRef,
+      aiInput:s.aiInput, onAiInput:(e)=>this.setState({aiInput:e.target.value}), onAiKey:(e)=>{ if(e.key==='Enter') this.send(); }, sendAi:()=>this.send(),
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M50 120 h28 l18 -44 24 88 18 -44 h32" fill="none" stroke="#4D42E9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></g></svg></template>
+</body>
+</html>

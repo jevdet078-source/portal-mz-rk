@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-lighter:#EEF2FF;--n0:#fff;--n100:#F6F8FA;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--pink:#E255F2;--pink-l:#FDEBFF;--green:#38C793;--green-l:#EFFAF6;--orange:#F17B2C;--orange-l:#FEF3EB;--stroke:#E2E4E9;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:#F6F8FA;-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
+  <main style="flex:1;">
+    <div style="max-width:1240px;margin:0 auto;padding:24px 40px 80px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:24px;">
+        <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a>
+        <i class="ri-arrow-right-s-line"></i><span style="color:var(--n700);font-weight:500;">Беременность и материнство</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;">
+        <div style="width:48px;height:48px;border-radius:13px;background:var(--pink-l);display:flex;align-items:center;justify-content:center;"><i class="ri-bear-smile-line" style="font-size:26px;color:var(--pink);"></i></div>
+        <h1 style="font-size:30px;font-weight:600;letter-spacing:-.02em;margin:0;">Беременность и материнство</h1>
+      </div>
+      <p style="font-size:15px;color:var(--n500);margin:0 0 24px;">Информация для беременных женщин и молодых родителей: по неделям, обследования и права.</p>
+
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:28px;align-items:start;">
+        <nav style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;position:sticky;top:90px;">
+          <sc-for list="{{ menu }}" as="m" hint-placeholder-count="4">
+            <button onClick="{{ m.onClick }}" style="{{ m.style }}"><i class="{{ m.icon }}" style="font-size:18px;"></i>{{ m.label }}</button>
+          </sc-for>
+        </nav>
+
+        <div>
+          <h2 style="font-size:22px;font-weight:600;letter-spacing:-.01em;margin:0 0 18px;">{{ sectionTitle }}</h2>
+
+          <sc-if value="{{ isStages }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <sc-for list="{{ stages }}" as="st" hint-placeholder-count="5">
+                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;display:flex;flex-direction:column;">
+                  <div style="width:42px;height:42px;border-radius:11px;background:var(--pink-l);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class="{{ st.icon }}" style="color:var(--pink);font-size:22px;"></i></div>
+                  <div style="font-size:17px;font-weight:600;margin-bottom:6px;">{{ st.title }}</div>
+                  <p style="font-size:13px;line-height:1.55;color:var(--n500);margin:0 0 12px;flex:1;">{{ st.desc }}</p>
+                  <div style="font-size:12px;color:var(--n400);background:var(--n100);border-radius:10px;padding:10px 12px;line-height:1.5;">{{ st.rec }}</div>
+                  <button style="margin-top:14px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">Подробнее</button>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isWeeks }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:18px 20px;margin-bottom:18px;">
+                <div style="font-size:13px;color:var(--n500);margin-bottom:12px;">Выберите неделю беременности</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <sc-for list="{{ weeks }}" as="w" hint-placeholder-count="10">
+                    <button onClick="{{ w.onClick }}" style="{{ w.style }}">{{ w.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background:linear-gradient(120deg,var(--pink-l),#fff);border:1px solid var(--stroke);border-radius:16px;padding:22px;margin-bottom:16px;animation:mp-slidein .2s ease;">
+                <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--pink);margin-bottom:6px;">{{ weekTri }}</div>
+                <div style="font-size:20px;font-weight:600;">{{ weekTitle }}</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;animation:mp-slidein .2s ease;">
+                <sc-for list="{{ weekBlocks }}" as="b" hint-placeholder-count="4">
+                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><i class="{{ b.icon }}" style="font-size:20px;color:{{ b.color }};"></i><span style="font-size:15px;font-weight:600;">{{ b.title }}</span></div>
+                    <p style="font-size:13px;line-height:1.55;color:var(--n500);margin:0;">{{ b.text }}</p>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isExams }}" hint-placeholder-val="{{ false }}">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <sc-for list="{{ exams }}" as="e" hint-placeholder-count="4">
+                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="width:42px;height:42px;border-radius:11px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="{{ e.icon }}" style="color:var(--primary);font-size:22px;"></i></div>
+                    <span style="font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:5px 10px;border-radius:999px;">{{ e.term }}</span>
+                  </div>
+                  <div style="font-size:17px;font-weight:600;margin-bottom:6px;">{{ e.title }}</div>
+                  <div style="font-size:13px;color:var(--n400);margin-bottom:8px;">Цель: {{ e.goal }}</div>
+                  <p style="font-size:13px;line-height:1.55;color:var(--n500);margin:0;">{{ e.desc }}</p>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isRights }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ rights }}" as="r" hint-placeholder-count="5">
+                <div style="{{ r.wrap }}">
+                  <button onClick="{{ r.onClick }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:18px 20px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+                    <div style="width:40px;height:40px;border-radius:10px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ r.icon }}" style="color:var(--green);font-size:20px;"></i></div>
+                    <span style="flex:1;font-size:15px;font-weight:600;">{{ r.title }}</span>
+                    <i class="{{ r.toggle }}" style="font-size:22px;color:var(--n400);"></i>
+                  </button>
+                  <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:0 20px 20px 74px;font-size:14px;line-height:1.6;color:var(--n500);animation:mp-slidein .2s ease;">{{ r.text }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </main>
+  <div style="margin-top:32px;"><dc-import name="Footer" hint-size="100%,360px"></dc-import></div>
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { active:'stages', week:12, openRight:0 };
+  renderVals(){
+    const s = this.state;
+    const items = [
+      { id:'stages', label:'Беременность', icon:'ri-heart-line' },
+      { id:'weeks', label:'Что делать по неделям', icon:'ri-calendar-event-line' },
+      { id:'exams', label:'Обследования', icon:'ri-test-tube-line' },
+      { id:'rights', label:'Права беременных', icon:'ri-scales-3-line' },
+    ];
+    const menu = items.map(m => ({ ...m, onClick:()=>this.setState({active:m.id}),
+      style:`width:100%;display:flex;align-items:center;gap:10px;padding:11px 14px;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;text-align:left;cursor:pointer;transition:.12s;margin-bottom:2px;${s.active===m.id?'background:#EEF2FF;color:#4D42E9;':'background:transparent;color:#31353F;'}` }));
+
+    const stages = [
+      { icon:'ri-seedling-line', title:'Планирование беременности', desc:'Подготовка организма, обследования и приём фолиевой кислоты до зачатия.', rec:'Рекомендация: пройти обследование у гинеколога и терапевта.' },
+      { icon:'ri-leaf-line', title:'Первый триместр', desc:'1–13 недели. Закладка органов малыша, ранний токсикоз, постановка на учёт.', rec:'Рекомендация: встать на учёт до 12 недель.' },
+      { icon:'ri-plant-line', title:'Второй триместр', desc:'14–27 недели. Активный рост, первые шевеления, второй скрининг.', rec:'Рекомендация: сбалансированное питание и умеренная активность.' },
+      { icon:'ri-flower-line', title:'Третий триместр', desc:'28–40 недели. Подготовка к родам, контроль состояния и веса.', rec:'Рекомендация: чаще наблюдаться у врача.' },
+      { icon:'ri-hearts-line', title:'Подготовка к родам', desc:'Сбор документов, выбор роддома, дыхательные техники и план родов.', rec:'Рекомендация: подготовить обменную карту и вещи заранее.' },
+    ];
+
+    const weekData = {
+      4:{ tri:'Первый триместр', title:'4 неделя', child:'Эмбрион имплантируется в стенку матки, начинается формирование зародышевых листков.', body:'Возможны лёгкая тошнота и повышенная чувствительность груди.', rec:'Приём фолиевой кислоты, отказ от вредных привычек, полноценный сон.', warn:'Сильные боли внизу живота или кровянистые выделения.' },
+      8:{ tri:'Первый триместр', title:'8 неделя', child:'Формируются основные органы, появляются зачатки ручек и ножек.', body:'Может усилиться токсикоз, повышается утомляемость.', rec:'Дробное питание, прогулки, достаточное питьё.', warn:'Неукротимая рвота, обезвоживание.' },
+      12:{ tri:'Первый триместр', title:'12 неделя', child:'Завершается формирование органов, малыш начинает двигаться.', body:'Токсикоз обычно стихает, улучшается самочувствие.', rec:'Первый скрининг, постановка на учёт, витамины по назначению.', warn:'Повышение температуры, боли внизу живота.' },
+      16:{ tri:'Второй триместр', title:'16 неделя', child:'Активно развивается мышечная и нервная система, малыш слышит звуки.', body:'Округляется живот, повышается аппетит.', rec:'Сбалансированное питание, умеренная активность, гимнастика.', warn:'Отёки, головные боли, повышение давления.' },
+      20:{ tri:'Второй триместр', title:'20 неделя', child:'Экватор беременности, можно определить пол, ощущаются шевеления.', body:'Заметный рост живота, возможна изжога.', rec:'Второй скрининг (УЗИ), удобная одежда и обувь.', warn:'Резкое снижение активности малыша.' },
+      28:{ tri:'Третий триместр', title:'28 неделя', child:'Малыш набирает вес, открывает глаза, формируется режим сна.', body:'Возможна одышка, тяжесть в ногах.', rec:'Контроль веса и давления, дыхательные упражнения.', warn:'Сильные отёки, головная боль с нарушением зрения.' },
+      36:{ tri:'Третий триместр', title:'36 неделя', child:'Малыш занимает положение для родов, лёгкие почти созрели.', body:'Учащается мочеиспускание, появляются тренировочные схватки.', rec:'Подготовка документов и роддома, отдых.', warn:'Регулярные схватки, подтекание вод.' },
+      40:{ tri:'Третий триместр', title:'40 неделя', child:'Малыш полностью готов к рождению.', body:'Организм готовится к родам, опускается живот.', rec:'Готовность к роддому, наблюдение врача.', warn:'Отхождение вод, регулярные схватки — в роддом.' },
+    };
+    const weekList = [4,8,12,16,20,28,36,40];
+    const weeks = weekList.map(w => ({ label:`${w} нед.`, onClick:()=>this.setState({week:w}),
+      style:`padding:9px 14px;border:1px solid ${s.week===w?'#E255F2':'#E2E4E9'};border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;${s.week===w?'background:#FDEBFF;color:#9C23A9;':'background:#fff;color:#525866;'}` }));
+    const wd = weekData[s.week];
+    const weekBlocks = [
+      { title:'Развитие ребёнка', icon:'ri-bubble-chart-line', color:'#E255F2', text:wd.child },
+      { title:'Изменения в организме', icon:'ri-women-line', color:'#4D42E9', text:wd.body },
+      { title:'Рекомендации', icon:'ri-checkbox-circle-line', color:'#38C793', text:wd.rec },
+      { title:'На что обратить внимание', icon:'ri-alarm-warning-line', color:'#F17B2C', text:wd.warn },
+    ];
+
+    const exams = [
+      { icon:'ri-scan-line', title:'УЗИ', term:'10–14, 18–21 нед.', goal:'оценка развития плода', desc:'Ультразвуковое исследование для контроля роста и состояния малыша.' },
+      { icon:'ri-test-tube-line', title:'Скрининги', term:'1 и 2 триместр', goal:'оценка рисков патологий', desc:'Комбинированное исследование крови и УЗИ для раннего выявления рисков.' },
+      { icon:'ri-flask-line', title:'Анализы', term:'каждый триместр', goal:'контроль здоровья', desc:'Общий и биохимический анализ крови, мочи, определение группы крови.' },
+      { icon:'ri-user-heart-line', title:'Консультации специалистов', term:'по плану наблюдения', goal:'комплексное наблюдение', desc:'Осмотр терапевта, окулиста, стоматолога и других специалистов.' },
+    ];
+
+    const rightData = [
+      { icon:'ri-file-list-3-line', title:'Постановка на учёт', text:'Беременная имеет право встать на медицинский учёт в выбранной поликлинике. Ранняя постановка (до 12 недель) обеспечивает своевременное наблюдение.' },
+      { icon:'ri-calendar-todo-line', title:'Отпуск по беременности и родам', text:'Предоставляется оплачиваемый отпуск по беременности и родам на основании листа нетрудоспособности, выданного медорганизацией.' },
+      { icon:'ri-hand-coin-line', title:'Социальные выплаты', text:'Предусмотрены единовременные и ежемесячные выплаты в связи с рождением ребёнка и уходом за ним согласно законодательству.' },
+      { icon:'ri-briefcase-line', title:'Трудовые права', text:'Запрещены увольнение по инициативе работодателя и привлечение к тяжёлым и вредным работам. Возможен перевод на лёгкий труд.' },
+      { icon:'ri-bookmark-line', title:'Оформление документов после рождения', text:'После рождения ребёнка оформляются свидетельство о рождении, регистрация и прикрепление малыша к поликлинике.' },
+    ];
+    const rights = rightData.map((r,i) => ({ ...r, open:s.openRight===i, toggle:s.openRight===i?'ri-subtract-line':'ri-add-line',
+      wrap:`border:1px solid ${s.openRight===i?'#CBF5E5':'#E2E4E9'};border-radius:16px;background:#fff;overflow:hidden;transition:.15s;`,
+      onClick:()=>this.setState(st=>({openRight:st.openRight===i?-1:i})) }));
+
+    const title = items.find(i=>i.id===s.active).label;
+    return { menu, sectionTitle:title,
+      isStages:s.active==='stages', isWeeks:s.active==='weeks', isExams:s.active==='exams', isRights:s.active==='rights',
+      stages, weeks, weekTri:wd.tri, weekTitle:wd.title, weekBlocks, exams, rights };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M50 120 h28 l18 -44 24 88 18 -44 h32" fill="none" stroke="#4D42E9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></g></svg></template>
+</body>
+</html>

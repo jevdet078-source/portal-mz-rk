@@ -1,0 +1,52 @@
+<!-- @dsCard group="Brand" viewport="700x260" name="Logo & lockups" subtitle="Медпортал wordmark — primary mark, monochrome, and badge sizes" -->
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" />
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" />
+<style>
+  body{margin:0;background:var(--bg-white-0);font-family:var(--font-sans);padding:28px;display:flex;flex-direction:column;gap:22px}
+  .row{display:flex;align-items:center;gap:40px;flex-wrap:wrap}
+  .lock{display:inline-flex;align-items:center;gap:10px}
+  .mark{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:var(--primary-base);color:#fff;box-shadow:inset 0 -4px 8px rgba(255,255,255,.24)}
+  .wm{font:500 22px/1 var(--font-display);letter-spacing:-0.02em;color:var(--text-main-900)}
+  .wm b{color:var(--primary-base);font-weight:500}
+  .dark{background:var(--bg-strong-900);border-radius:16px;padding:18px 24px}
+  .dark .wm{color:#fff}
+  .lbl{font:500 11px/16px var(--font-sans);letter-spacing:.06em;text-transform:uppercase;color:var(--text-soft-400)}
+</style>
+</head><body>
+  <div class="row">
+    <div>
+      <div class="lbl" style="margin-bottom:10px">Primary lockup</div>
+      <div class="lock">
+        <span class="mark" style="width:40px;height:40px"><i class="ri-heart-pulse-fill" style="font-size:24px"></i></span>
+        <span class="wm">Мед<b>портал</b></span>
+      </div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:10px">On dark</div>
+      <div class="dark lock">
+        <span class="mark" style="width:36px;height:36px;background:#fff;color:var(--primary-base)"><i class="ri-heart-pulse-fill" style="font-size:22px"></i></span>
+        <span class="wm">Мед<b style="color:#fff">портал</b></span>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <div class="lbl" style="margin-bottom:10px">App mark — sizes</div>
+      <div class="row" style="gap:16px">
+        <span class="mark" style="width:56px;height:56px;border-radius:16px"><i class="ri-heart-pulse-fill" style="font-size:32px"></i></span>
+        <span class="mark" style="width:40px;height:40px"><i class="ri-heart-pulse-fill" style="font-size:24px"></i></span>
+        <span class="mark" style="width:28px;height:28px;border-radius:8px"><i class="ri-heart-pulse-fill" style="font-size:17px"></i></span>
+        <span class="mark" style="width:20px;height:20px;border-radius:6px"><i class="ri-heart-pulse-fill" style="font-size:12px"></i></span>
+      </div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:10px">Monochrome</div>
+      <div class="lock">
+        <span class="mark" style="width:40px;height:40px;background:var(--bg-strong-900)"><i class="ri-heart-pulse-fill" style="font-size:24px"></i></span>
+        <span class="wm" style="color:var(--text-main-900)">Медпортал</span>
+      </div>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,131 @@
+<!-- @template name="Clinic Portal" description="Medical clinic dashboard — sidebar, stat widgets, schedule and patient table built from AlignUI primitives." -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clinic Portal — AlignUI template</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="./ds-base.js"></script>
+<style>
+  html, body, #root { height: 100%; }
+  body { margin: 0; font-family: var(--font-sans); background: var(--bg-weak-100); color: var(--text-main-900); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--neutral-200); border-radius: 999px; border: 3px solid var(--bg-weak-100); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  function mount() {
+    const NS = window.AlignUIDesignSystem_6ff166;
+    if (!NS || !window.Babel) { return setTimeout(mount, 40); }
+    const { Card, Button, IconButton, Input, Avatar, Badge, StatusBadge, Tabs, ProgressBar, LinkButton } = NS;
+
+    const STATS = [
+      { label: "Today's appointments", value: '14', delta: '+3', icon: 'calendar-line', color: ['var(--blue-lighter)','var(--blue-base)'] },
+      { label: 'Active patients', value: '328', delta: '+12', icon: 'group-line', color: ['var(--green-lighter)','var(--green-base)'] },
+      { label: 'Pending labs', value: '7', delta: '-2', icon: 'test-tube-line', color: ['var(--orange-lighter)','var(--orange-base)'] },
+      { label: 'Unread messages', value: '5', delta: '+5', icon: 'chat-3-line', color: ['var(--purple-lighter)','var(--purple-base)'] },
+    ];
+    const SCHEDULE = [
+      { time: '09:00', name: 'Анна Иванова', initials: 'АИ', color: 'blue', reason: 'Follow-up · Hypertension', status: 'completed' },
+      { time: '10:30', name: 'Ольга Кузнецова', initials: 'ОК', color: 'orange', reason: 'New consultation', status: 'in_progress' },
+      { time: '11:30', name: 'Дмитрий Орлов', initials: 'ДО', color: 'purple', reason: 'Post-op check', status: 'pending' },
+      { time: '14:30', name: 'Сергей Волков', initials: 'СВ', color: 'green', reason: 'Telemedicine', status: 'pending' },
+    ];
+    const NAV = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'dashboard-line' },
+      { id: 'appointments', label: 'Appointments', icon: 'calendar-line', badge: '14' },
+      { id: 'patients', label: 'Patients', icon: 'group-line' },
+      { id: 'labs', label: 'Lab results', icon: 'test-tube-line' },
+      { id: 'messages', label: 'Messages', icon: 'chat-3-line', badge: '5' },
+    ];
+
+    function App() {
+      const [active, setActive] = React.useState('dashboard');
+      const [tab, setTab] = React.useState('today');
+      return (
+        <div style={{ display: 'flex', height: '100%' }}>
+          {/* sidebar */}
+          <aside style={{ width: 248, flex: '0 0 248px', background: 'var(--bg-white-0)', borderRight: '1px solid var(--stroke-soft-200)', padding: '20px 16px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 4px 20px' }}>
+              <span style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--primary-base)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><i className="ri-heart-pulse-fill" style={{ fontSize: 20 }} /></span>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18, letterSpacing: '-0.02em' }}>Мед<span style={{ color: 'var(--primary-base)' }}>портал</span></span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {NAV.map(n => {
+                const on = active === n.id;
+                return (
+                  <button key={n.id} onClick={() => setActive(n.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', borderRadius: 'var(--r-8)', border: 'none', background: on ? 'var(--bg-weak-100)' : 'transparent', cursor: 'pointer' }}>
+                    <i className={'ri-' + n.icon} style={{ fontSize: 20, color: on ? 'var(--primary-base)' : 'var(--icon-soft-400)' }} />
+                    <span className="text-label-sm" style={{ flex: 1, textAlign: 'left', color: on ? 'var(--text-main-900)' : 'var(--text-sub-500)' }}>{n.label}</span>
+                    {n.badge && <Badge color={on ? 'blue' : 'gray'} variant="light" size="small">{n.badge}</Badge>}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--stroke-soft-200)', paddingTop: 14 }}>
+              <Avatar initials="EP" color="purple" size={36} status="online" />
+              <div style={{ flex: 1, minWidth: 0 }}><div className="text-label-sm">Dr. Petrova</div><div className="text-paragraph-xs" style={{ color: 'var(--text-soft-400)' }}>Cardiologist</div></div>
+            </div>
+          </aside>
+
+          {/* main */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <header style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 28px', background: 'var(--bg-white-0)', borderBottom: '1px solid var(--stroke-soft-200)' }}>
+              <div style={{ flex: 1 }}><div className="text-label-lg">Dashboard</div><div className="text-paragraph-sm" style={{ color: 'var(--text-soft-400)' }}>Thursday, 13 June 2026</div></div>
+              <div style={{ width: 260 }}><Input leadingIcon="search-line" placeholder="Search…" /></div>
+              <IconButton icon="notification-3-line" variant="neutral" mode="stroke" />
+              <Button variant="primary" leadingIcon="add-line">New appointment</Button>
+            </header>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: 28, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+                {STATS.map((s, i) => (
+                  <Card key={i} padding={18} hover>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ width: 40, height: 40, borderRadius: 'var(--r-10)', background: s.color[0], color: s.color[1], display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><i className={'ri-' + s.icon} style={{ fontSize: 22 }} /></span>
+                      <Badge color={s.delta[0] === '+' ? 'green' : 'red'} variant="light" size="small">{s.delta}</Badge>
+                    </div>
+                    <div className="text-title-h4" style={{ marginTop: 14 }}>{s.value}</div>
+                    <div className="text-paragraph-sm" style={{ color: 'var(--text-soft-400)', marginTop: 2 }}>{s.label}</div>
+                  </Card>
+                ))}
+              </div>
+
+              <Card padding={20}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="text-label-lg">Today's schedule</div>
+                  <LinkButton trailingIcon="arrow-right-s-line">Full calendar</LinkButton>
+                </div>
+                <Tabs value={tab} onChange={setTab} variant="pill" items={[{ value: 'today', label: 'Today', badge: 4 }, { value: 'week', label: 'This week' }]} />
+                <div style={{ marginTop: 6 }}>
+                  {SCHEDULE.map((a, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: i < SCHEDULE.length - 1 ? '1px solid var(--stroke-soft-200)' : 'none' }}>
+                      <div className="text-label-sm" style={{ width: 48, color: 'var(--text-sub-500)' }}>{a.time}</div>
+                      <Avatar initials={a.initials} color={a.color} size={40} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="text-label-sm">{a.name}</div>
+                        <div className="text-paragraph-xs" style={{ color: 'var(--text-soft-400)' }}>{a.reason}</div>
+                      </div>
+                      <StatusBadge status={a.status} />
+                      <Button size="xsmall" variant="neutral" mode="stroke">Open</Button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  }
+  mount();
+</script>
+</body>
+</html>

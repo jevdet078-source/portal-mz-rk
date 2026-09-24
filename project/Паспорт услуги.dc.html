@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Портальный паспорт услуги. Роутинг по #id.
+
+  Два вида услуг:
+  • внешние (internal: false) — оказываются на elicense.kz, кнопка «Заказать услугу онлайн» уводит наружу;
+  • внутренние (internal: true) — оказываются в кабинете заявителя «Единое окно» на портале:
+      #price-ls — регистрация цены на лекарственные средства
+      #price-mi — регистрация цены на медицинские изделия
+
+  «Получить услугу» у внутренних услуг — гейт:
+    1. не вошёл как бизнес (localStorage['mp-profile'] !== 'business')
+         → Вход.dc.html?profile=business&return=Паспорт услуги.dc.html?start=1#<id>
+         после входа паспорт открывается снова и продолжает сам (?start=1, затем убирается из адреса);
+    2. онбординг не пройден (mp-biz-step = 1 | 2) → окно «Подготовьте организацию к подаче»,
+         услуга запоминается в mp-pending-service, чтобы вернуть к ней после подготовки;
+    3. иначе → лоадер «Открываем форму заявки…» → Заявка на регистрацию цены.dc.html#ls | #mi.
+  Если заявка уже подана (mp-price-<ls|mi>), в сайдбаре — её статус и ссылка.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--yellow-l:#FEF7EC;--yellow-d:#693D11;--red:#DF1C41;--red-l:#FDEDF0;--stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:#F6F8FA;-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  a{color:var(--primary);}
+  a:hover{color:var(--primary-dark);}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
+
+  <!-- hero band -->
+  <div style="background:linear-gradient(120deg,var(--primary-lighter),#fff 70%);border-bottom:1px solid var(--stroke);">
+    <div style="max-width:1240px;margin:0 auto;padding:22px 40px 26px;">
+      <nav aria-label="Хлебные крошки" style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:14px;flex-wrap:wrap;">
+        <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="4">
+          <span style="display:inline-flex;align-items:center;gap:8px;">
+            <sc-if value="{{ c.isLink }}" hint-placeholder-val="{{ true }}"><a href="{{ c.href }}" onClick="{{ c.onClick }}" style="color:var(--n400);text-decoration:none;">{{ c.label }}</a></sc-if>
+            <sc-if value="{{ c.isText }}" hint-placeholder-val="{{ false }}"><span style="{{ c.style }}">{{ c.label }}</span></sc-if>
+            <sc-if value="{{ c.hasArrow }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line"></i></sc-if>
+          </span>
+        </sc-for>
+      </nav>
+      <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--primary);background:var(--n0);border:1px solid var(--primary-light);padding:5px 12px;border-radius:999px;margin-bottom:12px;"><i class="{{ svc.catIcon }}" style="font-size:14px;"></i>{{ svc.category }}</span>
+      <h1 style="font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.3;margin:0;max-width:900px;">{{ svc.title }}</h1>
+    </div>
+  </div>
+
+  <main style="flex:1;">
+    <div style="max-width:1240px;margin:0 auto;padding:28px 40px 72px;">
+
+      <!-- service switcher: услуги той же группы -->
+      <sc-if value="{{ hasTabs }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.onClick }}" aria-pressed="{{ t.on }}" style="{{ t.style }}">{{ t.short }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+        <!-- LEFT -->
+        <div style="display:flex;flex-direction:column;gap:18px;animation:mp-slidein .2s ease;">
+
+          <sc-if value="{{ isExternal }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:12px;background:var(--teal-l);border:1px solid #B8E9F9;border-radius:14px;padding:14px 18px;">
+              <i class="ri-external-link-line" style="font-size:20px;color:#164564;flex:0 0 auto;"></i>
+              <span style="flex:1;font-size:13.5px;color:#164564;line-height:1.5;">Услуга оказывается на портале «электронного лицензирования» www.elicense.kz — авторизация на портале Минздрава не требуется.</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isInternal }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:12px;background:var(--primary-lighter);border:1px solid var(--primary-light);border-radius:14px;padding:14px 18px;">
+              <i class="ri-briefcase-4-line" style="font-size:20px;color:var(--primary);flex:0 0 auto;"></i>
+              <span style="flex:1;font-size:13.5px;color:var(--primary-darker);line-height:1.5;">Услуга оказывается онлайн в кабинете заявителя «Единое окно» на этом портале. Для подачи нужен вход с ЭЦП организации.</span>
+            </div>
+
+            <!-- Что понадобится -->
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-xs);">
+              <div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--stroke);">
+                <div style="width:36px;height:36px;border-radius:10px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;"><i class="ri-checkbox-multiple-line" style="font-size:19px;color:var(--orange);"></i></div>
+                <div style="font-size:16px;font-weight:600;">Что понадобится</div>
+                <span style="margin-left:auto;font-size:12px;color:var(--n400);">договор и заявка на платёж — один раз для организации</span>
+              </div>
+              <div style="padding:18px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;">
+                <sc-for list="{{ needs }}" as="nd" hint-placeholder-count="4">
+                  <div style="display:flex;gap:12px;align-items:flex-start;">
+                    <div style="width:34px;height:34px;border-radius:9px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ nd.icon }}" style="font-size:18px;color:var(--n500);"></i></div>
+                    <div><div style="font-size:14px;font-weight:600;line-height:1.4;">{{ nd.title }}</div><div style="font-size:13px;line-height:1.5;color:var(--n500);margin-top:2px;">{{ nd.text }}</div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- порядок -->
+          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-xs);">
+            <div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--stroke);">
+              <div style="width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-file-list-3-line" style="font-size:19px;color:var(--primary);"></i></div>
+              <div style="font-size:16px;font-weight:600;">Как получить услугу онлайн</div>
+              <span style="margin-left:auto;font-size:12px;color:var(--n400);">{{ stepsNote }}</span>
+            </div>
+            <div style="padding:22px;">
+              <ol style="display:flex;flex-direction:column;list-style:none;margin:0;padding:0;">
+                <sc-for list="{{ svc.steps }}" as="st" hint-placeholder-count="5">
+                  <li style="display:flex;gap:14px;">
+                    <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+                      <div style="width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;">{{ st.n }}</div>
+                      <div style="{{ st.line }}"></div>
+                    </div>
+                    <p style="font-size:14px;line-height:1.6;color:var(--n600);margin:4px 0 18px;">{{ st.text }}</p>
+                  </li>
+                </sc-for>
+              </ol>
+            </div>
+          </div>
+
+          <!-- результат -->
+          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-xs);">
+            <div style="display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--stroke);">
+              <div style="width:36px;height:36px;border-radius:10px;background:var(--green-l);display:flex;align-items:center;justify-content:center;"><i class="ri-check-double-line" style="font-size:19px;color:var(--green);"></i></div>
+              <div style="font-size:16px;font-weight:600;">Результат оказания услуги</div>
+            </div>
+            <div style="padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;align-items:flex-start;gap:12px;background:var(--green-l);border-radius:12px;padding:14px 16px;">
+                <i class="ri-checkbox-circle-fill" style="font-size:19px;color:var(--green);flex:0 0 auto;margin-top:1px;"></i>
+                <div><div style="font-size:14px;line-height:1.55;color:var(--n700);">{{ svc.resultPositive }}</div><span style="display:inline-block;margin-top:8px;font-size:11px;font-weight:600;color:var(--green-d);background:#fff;padding:3px 10px;border-radius:999px;">Положительный</span></div>
+              </div>
+              <div style="display:flex;align-items:flex-start;gap:12px;background:var(--red-l);border-radius:12px;padding:14px 16px;">
+                <i class="ri-close-circle-fill" style="font-size:19px;color:var(--red);flex:0 0 auto;margin-top:1px;"></i>
+                <div><div style="font-size:14px;line-height:1.55;color:var(--n700);">{{ svc.resultNegative }}</div><span style="display:inline-block;margin-top:8px;font-size:11px;font-weight:600;color:var(--red);background:#fff;padding:3px 10px;border-radius:999px;">Отрицательный</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- дополнительно -->
+          <sc-if value="{{ hasNpa }}" hint-placeholder-val="{{ true }}">
+            <div style="background:var(--primary-lighter);border:1px solid var(--primary-light);border-radius:14px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;">
+              <i class="ri-information-line" style="font-size:19px;color:var(--primary);flex:0 0 auto;margin-top:1px;"></i>
+              <div style="font-size:13.5px;line-height:1.6;color:var(--n600);">
+                <span style="font-weight:600;color:var(--primary-darker);">Дополнительно:</span>
+                <a href="{{ svc.npa }}" target="_blank" rel="noopener" style="display:block;margin-top:4px;">Правила оказания государственной услуги</a>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- RIGHT sidebar -->
+        <aside style="position:sticky;top:92px;display:flex;flex-direction:column;gap:14px;">
+          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-xs);">
+            <div style="background:var(--n50);border-bottom:1px solid var(--stroke);padding:13px 20px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);">Информация об услуге</div>
+            <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+              <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:6px;">{{ providerLabel }}</div><div style="display:flex;align-items:flex-start;gap:8px;font-size:13.5px;font-weight:600;line-height:1.45;"><i class="ri-government-line" style="font-size:16px;color:var(--n400);flex:0 0 auto;margin-top:2px;"></i>{{ svc.provider }}</div></div>
+              <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:6px;">Получатели услуги</div><div style="display:flex;align-items:center;gap:8px;font-size:13.5px;"><i class="{{ svc.recIcon }}" style="font-size:16px;color:var(--n400);"></i>{{ svc.recipients }}</div></div>
+              <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:6px;">Срок оказания услуги</div><div style="display:flex;align-items:center;gap:8px;background:var(--primary-lighter);border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:600;color:var(--primary-darker);"><i class="ri-time-line" style="font-size:16px;"></i>{{ svc.term }}</div></div>
+              <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:6px;">Стоимость услуги</div><div style="{{ costStyle }}"><i class="ri-money-dollar-circle-line" style="font-size:16px;"></i>{{ svc.cost }}</div></div>
+              <div>
+                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:8px;">Способы предоставления</div>
+                <sc-for list="{{ svc.methods }}" as="m" hint-placeholder-count="1">
+                  <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n600);"><span style="width:7px;height:7px;border-radius:50%;background:var(--primary);flex:0 0 auto;"></span>{{ m }}</div>
+                </sc-for>
+              </div>
+
+              <sc-if value="{{ isExternal }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:9px;padding-top:4px;">
+                  <a href="{{ svc.order }}" target="_blank" rel="noopener" style="height:46px;border:none;border-radius:11px;background:var(--primary);color:#fff;font-size:14.5px;font-weight:600;text-decoration:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--sh-sm);"><i class="ri-external-link-line" style="font-size:18px;"></i>Заказать услугу онлайн</a>
+                  <a href="{{ backHref }}" style="height:44px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:17px;"></i>{{ backLabel }}</a>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isInternal }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:10px;padding-top:4px;">
+                  <sc-if value="{{ hasApp }}" hint-placeholder-val="{{ false }}">
+                    <a href="{{ appHref }}" style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n50);text-decoration:none;color:inherit;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span style="font-size:13px;font-weight:600;color:var(--n900);">Ваша заявка № 000001</span><span style="{{ appBadge }}">{{ appStatus }}</span></div>
+                      <div style="font-size:12px;color:var(--n400);">Отправлена {{ appAt }}</div>
+                      <div style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--primary);">Открыть заявку<i class="ri-arrow-right-line" style="font-size:15px;"></i></div>
+                    </a>
+                  </sc-if>
+                  <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--n500);"><i class="ri-briefcase-4-line" style="font-size:15px;color:var(--orange);"></i>ТОО «Астана Групп» · БИН 180540024521</div>
+                  </sc-if>
+                  <button onClick="{{ getService }}" style="height:46px;border:none;border-radius:11px;background:var(--primary);color:#fff;font-family:inherit;font-size:14.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--sh-sm);">{{ ctaLabel }}<i class="ri-arrow-right-line" style="font-size:18px;"></i></button>
+                  <div style="display:flex;align-items:flex-start;justify-content:center;gap:6px;font-size:12px;line-height:1.45;color:var(--n500);text-align:center;"><i class="{{ ctaHintIcon }}" style="font-size:14px;color:var(--n400);margin-top:1px;"></i><span>{{ ctaHint }}</span></div>
+                  <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+                    <a href="{{ myAppsHref }}" style="height:44px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-file-list-3-line" style="font-size:17px;"></i>Мои заявки</a>
+                  </sc-if>
+                  <a href="{{ backHref }}" style="height:44px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:17px;"></i>{{ backLabel }}</a>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <dc-import name="Footer" hint-size="100%,360px"></dc-import>
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- Подготовка организации к подаче -->
+  <sc-if value="{{ gate }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeGate }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.28);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;animation:mp-fade .15s ease;">
+      <div role="dialog" aria-modal="true" aria-labelledby="gate-title" onClick="{{ stop }}" style="width:500px;max-width:100%;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(10,13,20,.28);overflow:hidden;animation:mp-pop .2s ease;">
+        <div style="display:flex;gap:14px;padding:22px 20px 16px 22px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-list-check-3" style="font-size:22px;color:var(--primary);"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div id="gate-title" style="font-size:17px;line-height:1.35;font-weight:600;letter-spacing:-.01em;">Подготовьте организацию к подаче</div>
+            <div style="font-size:13.5px;line-height:1.5;color:var(--n500);margin-top:4px;">Заявки в «Едином окне» подаются после заключения договора с НЦЭЛС и создания заявки на платёж. Это делается один раз — дальше услуги доступны сразу.</div>
+          </div>
+          <button onClick="{{ closeGate }}" aria-label="Закрыть" style="width:32px;height:32px;border:none;border-radius:8px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+        </div>
+        <div style="margin:0 22px;padding:9px 12px;border-radius:10px;background:var(--n100);display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--n600);"><i class="ri-briefcase-4-line" style="font-size:16px;color:var(--orange);"></i>ТОО «Астана Групп» · БИН 180540024521</div>
+        <ol style="list-style:none;margin:0;padding:18px 22px 2px;display:flex;flex-direction:column;">
+          <sc-for list="{{ gateSteps }}" as="g" hint-placeholder-count="3">
+            <li style="display:flex;gap:12px;">
+              <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
+                <div style="{{ g.dot }}"><sc-if value="{{ g.done }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:16px;"></i></sc-if><sc-if value="{{ g.notDone }}" hint-placeholder-val="{{ true }}"><span>{{ g.n }}</span></sc-if></div>
+                <div style="{{ g.line }}"></div>
+              </div>
+              <div style="flex:1;min-width:0;padding:4px 0 16px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="{{ g.titleStyle }}">{{ g.title }}</span><span style="{{ g.badge }}">{{ g.status }}</span></div>
+                <div style="font-size:12.5px;line-height:1.45;color:var(--n500);margin-top:2px;">{{ g.desc }}</div>
+              </div>
+            </li>
+          </sc-for>
+        </ol>
+        <div style="display:flex;align-items:center;gap:10px;padding:14px 20px 14px 22px;border-top:1px solid var(--stroke);background:var(--n50);">
+          <a href="Кабинет бизнеса.dc.html" onClick="{{ rememberService }}" style="margin-right:auto;font-size:13.5px;font-weight:500;color:var(--n500);text-decoration:none;">Открыть кабинет</a>
+          <button onClick="{{ closeGate }}" style="height:40px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;">Позже</button>
+          <a ref="{{ gateBtnRef }}" href="{{ gateHref }}" onClick="{{ rememberService }}" style="height:40px;padding:0 12px 0 16px;border-radius:10px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--sh-sm);outline-offset:2px;">{{ gateCta }}<i class="ri-arrow-right-line" style="font-size:17px;"></i></a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Переход в кабинет заявителя -->
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="position:fixed;inset:0;z-index:70;background:rgba(10,13,20,.32);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:mp-fade .15s ease;">
+      <span style="width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.35);border-top-color:#fff;animation:mp-spin .8s linear infinite;"></span>
+      <div style="text-align:center;color:#fff;"><div style="font-size:15px;font-weight:500;">Открываем форму заявки…</div><div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:2px;">Кабинет заявителя «Единое окно»</div></div>
+    </div>
+  </sc-if>
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#4D42E9"/>
+    <g transform="translate(480 280)">
+      <rect width="240" height="240" rx="48" fill="#ffffff"/>
+      <path d="M70 120 l35 35 65 -70" fill="none" stroke="#4D42E9" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.gateBtnRef = React.createRef();
+    this.state = { id:'cert-clinical', gate:false, loading:false, profile:null, step:'done', app:null, appAt:'' };
+  }
+
+  db(){
+    const stepsA=[
+      'Перейти на данной странице по кнопке «Заказать услугу онлайн», после чего в новом окне откроется портал «электронного лицензирования».',
+      'Войти в систему или зарегистрироваться на портале «электронного лицензирования».',
+      'В паспорте услуги ознакомиться с пакетом документов и перейти по кнопке «Заказать услугу онлайн», или выбрать необходимый подвид деятельности и перейти по кнопке «Далее».',
+      'Указать необходимые данные, заполнить заявление и подписать вашей ЭЦП.',
+      'Отследить статус поданного заявления можно в Личном кабинете в разделе «Мои заявления». О получении разрешения можете узнать в разделе «Мои разрешительные документы», о получении уведомления — в разделе «Мои извещения».',
+    ];
+    const stepsB=[
+      'Перейти по кнопке «Заказать услугу онлайн», после чего в новом окне откроется портал «электронного лицензирования».',
+      'Авторизоваться или зарегистрироваться на портале «электронного лицензирования».',
+      'На странице портала «электронного лицензирования», открывшейся после нажатия кнопки «Заказать услугу онлайн», перейти по ссылке «Подать заявление».',
+      'Заполнить заявление и подписать вашей ЭЦП.',
+      'Отследить статус поданного заявления можно в разделе «Мои заявления». О получении разрешения можете узнать в разделе «Мои разрешительные документы», о получении уведомления — в разделе «Мои уведомления».',
+    ];
+    const priceSteps = (object, form) => [
+      'Нажмите «Получить услугу» и войдите на портал с ЭЦП организации — откроется кабинет заявителя «Единое окно».',
+      'Если организация подаёт заявку впервые, заключите договор с НЦЭЛС и создайте заявку на платёж. Это делается один раз — портал подскажет, какой шаг остался.',
+      `Выберите ${form} и заполните заявление: сведения о заявителе, данные о ${object}, сведения о цене, данные о поставке и реализации.`,
+      'Подпишите заявление ЭЦП и отправьте на рассмотрение.',
+      'Отслеживайте статус в кабинете заявителя, в разделе «Услуги». Заключение или мотивированный отказ поступят туда же в форме электронного документа.',
+    ];
+    const EL='https://elicense.kz';
+    const PROF = { group:'prof', category:'Профессиональная деятельность', catIcon:'ri-medal-line', internal:false,
+      provider:'Министерство здравоохранения РК', recipients:'Физические лица', recIcon:'ri-user-3-line',
+      cost:'Бесплатно', paid:false, methods:['Портал «электронного лицензирования»'],
+      resultNegative:'Мотивированный отказ в оказании государственной услуги.' };
+    const PHARMA = { group:'pharma', category:'Фармацевтика', catIcon:'ri-capsule-line', internal:true,
+      provider:'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» МЗ РК',
+      recipients:'Физические и юридические лица', recIcon:'ri-group-line',
+      term:'10 рабочих дней', cost:'Платно', paid:true, methods:['Кабинет заявителя «Единое окно» на портале МЗ РК'] };
+    return {
+      'cert-clinical':{ ...PROF, short:'Клиническая практика', title:'Выдача сертификата специалиста для допуска к клинической практике', term:'5 рабочих дней', steps:stepsA,
+        npa:'https://adilet.zan.kz/rus/docs/V2000021843', order:EL,
+        resultPositive:'Сертификат специалиста для допуска к клинической практике.' },
+      'cert-sanepid':{ ...PROF, short:'Сан-эпид благополучие', title:'Выдача сертификата специалиста в сфере санитарно-эпидемиологического благополучия населения', term:'10 рабочих дней', steps:stepsB,
+        npa:'https://adilet.zan.kz/rus/docs/V2000021843', order:EL,
+        resultPositive:'Сертификат специалиста.' },
+      'cert-foreign':{ ...PROF, short:'Иностранный специалист', title:'Выдача сертификата иностранному специалисту для допуска к клинической практике', term:'5 рабочих дней', steps:stepsA,
+        npa:'https://adilet.zan.kz/rus/docs/V2000021843', order:EL,
+        resultPositive:'Сертификат иностранного специалиста для допуска к клинической практике.' },
+      'cert-pharma':{ ...PROF, short:'Обращение ЛС и медизделий', title:'Выдача сертификата специалиста в сфере обращения лекарственных средств и медицинских изделий', term:'5 рабочих дней', steps:stepsB,
+        npa:'https://adilet.zan.kz/rus/docs/V2000021843', order:EL,
+        resultPositive:'Сертификат специалиста в сфере обращения лекарственных средств и медицинских изделий.' },
+      'accred':{ ...PROF, short:'Аккредитация', title:'Аккредитация в области здравоохранения', term:'В соответствии с Правилами', steps:stepsB,
+        npa:'https://zan.gov.kz/client/#!/doc/150241/rus/1241',
+        order:'https://elicense.kz/LicensingContent/Passport?servicesType=El4&servicesParameters=%7B%22PackageCode%22%3A%222013.%D0%9C%D0%97.%D0%A08%22%2C%22ServiceCode%22%3A%222013.%D0%9C%D0%97.%D0%A08%22%2C%22VersionPackage%22%3A%221.0.1%22%2C%22OperationTypeId%22%3A%221%22%2C%22ActivityTypeCode%22%3A%22EL4-R13_MZ8-V1%22%7D&lang=ru',
+        resultPositive:'Свидетельство об аккредитации в области здравоохранения.' },
+      'price-ls':{ ...PHARMA, cabinetId:'ls', short:'Лекарственные средства',
+        title:'Регистрация цены производителя лекарственного средства и внесение изменений в зарегистрированную цену',
+        steps: priceSteps('лекарственном средстве', 'тип цены'), npa:'',
+        needs:[
+          { icon:'ri-key-2-line', title:'ЭЦП организации', text:'Ключ для подписи (GOSTKNCA) руководителя или уполномоченного лица.' },
+          { icon:'ri-file-text-line', title:'Договор с НЦЭЛС', text:'Заключается в кабинете заявителя, раздел «Договора».' },
+          { icon:'ri-bank-card-line', title:'Заявка на платёж', text:'Создаётся в кабинете, раздел «Платежи». Её номер понадобится в заявлении.' },
+          { icon:'ri-folder-3-line', title:'Документы', text:'Документ о праве регистрировать цену, сведения о ценах в референтных странах, копии договора и платёжного поручения.' },
+        ],
+        resultPositive:'Заключение о зарегистрированной цене производителя лекарственного средства или о внесении изменений в зарегистрированную цену.',
+        resultNegative:'Мотивированный отказ в регистрации цены или во внесении изменений в зарегистрированную цену производителя лекарственного средства.' },
+      'price-mi':{ ...PHARMA, cabinetId:'mi', short:'Медицинские изделия',
+        title:'Регистрация цены производителя медицинского изделия и внесение изменений в зарегистрированную цену',
+        steps: priceSteps('медицинском изделии', 'тип заявления'), npa:'https://adilet.zan.kz/rus/docs/G26RR000030',
+        needs:[
+          { icon:'ri-key-2-line', title:'ЭЦП организации', text:'Ключ для подписи (GOSTKNCA) руководителя или уполномоченного лица.' },
+          { icon:'ri-file-text-line', title:'Договор с НЦЭЛС', text:'Заключается в кабинете заявителя, раздел «Договора».' },
+          { icon:'ri-bank-card-line', title:'Заявка на платёж', text:'Создаётся в кабинете, раздел «Платежи». Её номер понадобится в заявлении.' },
+          { icon:'ri-folder-3-line', title:'Документы', text:'Документ о праве регистрировать цену, подтверждения цены поставки (инвойсы, таможенные декларации), договор на оказание услуг и платёжное поручение.' },
+        ],
+        resultPositive:'Заключение о зарегистрированной цене производителя медицинского изделия или о внесении изменения в зарегистрированную цену.',
+        resultNegative:'Мотивированный отказ в регистрации цены или во внесении изменения в зарегистрированную цену производителя медицинского изделия.' },
+    };
+  }
+
+  session(id){
+    const out = { profile:null, step:'done', app:null, appAt:'' };
+    try {
+      out.profile = localStorage.getItem('mp-profile');
+      out.step = localStorage.getItem('mp-biz-step') || 'done';
+      const svc = this.db()[id];
+      if(svc && svc.cabinetId){
+        out.app = localStorage.getItem('mp-price-' + svc.cabinetId);
+        out.appAt = localStorage.getItem('mp-price-' + svc.cabinetId + '-at') || '';
+      }
+    } catch(e){}
+    return out;
+  }
+  idFromHash(){ const h = (location.hash || '').replace('#',''); return this.db()[h] ? h : null; }
+  syncRole(id){
+    // паспорт услуги для бизнеса — шапка портала переключается на роль «Бизнесу»
+    if(this.db()[id].group !== 'pharma') return;
+    try {
+      if(localStorage.getItem('mp-role') !== 'business'){
+        localStorage.setItem('mp-role', 'business');
+        window.dispatchEvent(new CustomEvent('mp-role-change', { detail:'business' }));
+      }
+    } catch(e){}
+  }
+
+  componentDidMount(){
+    const id = this.idFromHash() || 'cert-clinical';
+    this.setState({ id, ...this.session(id) });
+    // шапка монтируется параллельно — роль отправляем после её подписки на событие
+    setTimeout(() => this.syncRole(id), 0);
+
+    this._onHash = () => { const x = this.idFromHash(); if(x){ this.setState({ id:x, gate:false, ...this.session(x) }); this.syncRole(x); window.scrollTo(0, 0); } };
+    window.addEventListener('hashchange', this._onHash);
+    this._onKey = (e) => { if(e.key === 'Escape' && this.state.gate) this.setState({ gate:false }); };
+    window.addEventListener('keydown', this._onKey);
+    // возврат кнопкой «Назад» из кабинета: снять лоадер и перечитать состояние
+    this._onShow = () => this.setState({ loading:false, ...this.session(this.state.id) });
+    window.addEventListener('pageshow', this._onShow);
+
+    // вернулись со страницы входа — продолжаем получение услуги
+    try {
+      const q = new URLSearchParams(location.search);
+      if(q.get('start') === '1'){
+        history.replaceState(null, '', location.pathname + location.hash);
+        if(this.db()[id].internal && this.session(id).profile === 'business') this._tStart = setTimeout(() => this.getService(), 400);
+      }
+    } catch(e){}
+  }
+  componentWillUnmount(){
+    window.removeEventListener('hashchange', this._onHash);
+    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('pageshow', this._onShow);
+    clearTimeout(this._t); clearTimeout(this._tStart);
+  }
+
+  getService(){
+    const id = this.state.id, svc = this.db()[id];
+    if(!svc.internal) return;
+    const { profile, step } = this.session(id);
+    if(profile !== 'business'){
+      location.href = 'Вход.dc.html?profile=business&return=' + encodeURIComponent('Паспорт услуги.dc.html?start=1#' + id);
+      return;
+    }
+    if(step === '1' || step === '2'){
+      this.setState({ gate:true, profile, step }, () => setTimeout(() => { if(this.gateBtnRef.current) this.gateBtnRef.current.focus(); }, 60));
+      return;
+    }
+    try {
+      if(step === '3') localStorage.setItem('mp-biz-step', 'done');
+      localStorage.removeItem('mp-pending-service');
+    } catch(e){}
+    this.setState({ loading:true });
+    this._t = setTimeout(() => { location.href = 'Заявка на регистрацию цены.dc.html#' + svc.cabinetId; }, 900);
+  }
+
+  renderVals(){
+    const s = this.state;
+    const DB = this.db();
+    const cur = DB[s.id];
+    const svc = { ...cur, steps: cur.steps.map((text, i, arr) => ({ n:i + 1, text, line:`width:2px;flex:1;background:${i === arr.length - 1 ? 'transparent' : '#E2E4E9'};min-height:6px;` })) };
+    const pharma = cur.group === 'pharma';
+
+    const tabs = Object.keys(DB).filter(id => DB[id].group === cur.group).map(id => { const on = s.id === id; return { id, short:DB[id].short, on,
+      onClick:() => { location.hash = id; },
+      style:`height:40px;padding:0 16px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:${on ? '600' : '500'};cursor:pointer;transition:.15s;${on ? 'background:#4D42E9;color:#fff;' : 'background:#fff;color:#31353F;'}` }; });
+
+    const toBusiness = () => { try { localStorage.setItem('mp-role', 'business'); } catch(e){} };
+    const HOME = 'Портал Минздрава - Главная.dc.html';
+    const crumbList = pharma
+      ? [ { label:'Главная', href:HOME }, { label:'Услуги для бизнеса', href:HOME, onClick:toBusiness }, { label:'Фармацевтика', href:HOME + '#pharma' }, { label:'Паспорт услуги' } ]
+      : [ { label:'Главная', href:HOME }, { label:'Услуги' }, { label:cur.category }, { label:'Паспорт услуги' } ];
+    const crumbs = crumbList.map((c, i, arr) => { const last = i === arr.length - 1; return { label:c.label, href:c.href || '#', onClick:c.onClick || (() => {}),
+      isLink: !!c.href, isText: !c.href, hasArrow: !last, style: last ? 'color:#20232D;font-weight:500;' : '' }; });
+
+    const business = s.profile === 'business';
+    const lvl = s.step === '1' ? 1 : s.step === '2' ? 2 : 3;
+    const preparing = business && lvl < 3;
+
+    const APP = { pending:['На проверке','#EEF2FF','#362DA6'], ok:['Положительное решение','#EFFAF6','#176448'], no:['Отказ','#FDEDF0','#DF1C41'] }[s.app];
+
+    const gateSteps = [
+      ['Заключить договор', 'Договор с НЦЭЛС на проведение экспертизы — раздел «Договора».'],
+      ['Создать заявку на платёж', 'Заявка на оплату экспертизы — раздел «Платежи».'],
+      ['Подать заявку', cur.cabinetId === 'mi' ? 'Регистрация цены на медицинское изделие.' : 'Регистрация цены на лекарственное средство.'],
+    ].map(([title, desc], i) => {
+      const n = i + 1, done = n < lvl, now = n === lvl;
+      return { n, title, desc, done, notDone:!done,
+        status: done ? 'Выполнено' : now ? 'Следующий шаг' : 'Затем',
+        dot:`width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;${done ? 'background:#CBF5E5;color:#2D9F75;' : now ? 'background:#4D42E9;color:#fff;box-shadow:0 0 0 4px #EEF2FF;' : 'background:#F6F8FA;color:#868C98;'}`,
+        line:`width:2px;flex:1;min-height:10px;margin:4px 0;border-radius:2px;background:${i === 2 ? 'transparent' : done ? '#CBF5E5' : '#E2E4E9'};`,
+        titleStyle:`font-size:14px;font-weight:600;color:${n > lvl ? '#868C98' : '#0A0D14'};`,
+        badge:`font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;${done ? 'background:#EFFAF6;color:#176448;' : now ? 'background:#EEF2FF;color:#362DA6;' : 'background:#F6F8FA;color:#868C98;'}` };
+    });
+
+    return {
+      svc, tabs, hasTabs: tabs.length > 1, crumbs,
+      isInternal: !!cur.internal, isExternal: !cur.internal,
+      needs: cur.needs || [],
+      stepsNote: cur.internal ? 'в кабинете заявителя на портале МЗ РК' : 'на портале «электронного лицензирования» www.elicense.kz',
+      hasNpa: !!cur.npa,
+      providerLabel: cur.internal ? 'Услугодатель' : 'Государственный орган',
+      costStyle:`display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:${cur.paid ? '#6E330C' : '#176448'};`,
+      backHref: pharma ? HOME + '#pharma' : HOME,
+      backLabel: pharma ? 'Все услуги фармацевтики' : 'Вернуться к списку',
+
+      isBusiness: business,
+      hasApp: business && !!APP,
+      appStatus: APP ? APP[0] : '',
+      appBadge: APP ? `font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;background:${APP[1]};color:${APP[2]};` : '',
+      appAt: s.appAt || '—',
+      appHref: 'Заявка на регистрацию цены.dc.html#' + (cur.cabinetId || 'ls') + '-result',
+      myAppsHref: 'Услуги.dc.html#' + (cur.cabinetId || 'ls'),
+      ctaLabel: business && APP ? 'Подать новую заявку' : 'Получить услугу',
+      ctaHintIcon: !business ? 'ri-key-2-line' : preparing ? 'ri-list-check-3' : 'ri-window-line',
+      ctaHint: !business ? 'Потребуется вход с ЭЦП организации'
+        : lvl === 1 ? 'Перед подачей: заключить договор и создать заявку на платёж'
+        : lvl === 2 ? 'Перед подачей осталось создать заявку на платёж'
+        : 'Откроется форма заявки в кабинете заявителя',
+      getService: () => this.getService(),
+
+      gate: s.gate, gateSteps, gateBtnRef: this.gateBtnRef,
+      gateCta: lvl === 1 ? 'Перейти к договорам' : 'Создать заявку на платёж',
+      gateHref: lvl === 1 ? 'Договора.dc.html' : 'Платежи.dc.html',
+      rememberService: () => { try { localStorage.setItem('mp-pending-service', s.id); } catch(e){} },
+      closeGate: () => this.setState({ gate:false }),
+      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+      loading: s.loading,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,946 @@
+[
+  {
+    "name": "--base-darker",
+    "value": "var(--blue-darker)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--base-primary",
+    "value": "var(--blue-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--bg-soft-200",
+    "value": "var(--neutral-200)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--bg-strong-900",
+    "value": "var(--neutral-900)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--bg-surface-700",
+    "value": "var(--neutral-700)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--bg-weak-100",
+    "value": "var(--neutral-100)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--bg-white-0",
+    "value": "var(--neutral-0)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--blue-base",
+    "value": "rgb(77,66,233)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--blue-dark",
+    "value": "rgb(54,45,166)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--blue-darker",
+    "value": "rgb(49,45,134)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--blue-light",
+    "value": "rgb(198,208,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--blue-lighter",
+    "value": "rgb(238,242,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--green-base",
+    "value": "rgb(56,199,147)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--green-dark",
+    "value": "rgb(45,159,117)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--green-darker",
+    "value": "rgb(23,100,72)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--green-light",
+    "value": "rgb(203,245,229)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--green-lighter",
+    "value": "rgb(239,250,246)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--icon-disabled-300",
+    "value": "var(--neutral-300)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--icon-soft-400",
+    "value": "var(--neutral-400)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--icon-strong-900",
+    "value": "var(--neutral-900)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--icon-sub-500",
+    "value": "var(--neutral-500)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--icon-white-0",
+    "value": "var(--neutral-0)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-0",
+    "value": "rgb(255,255,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-100",
+    "value": "rgb(246,248,250)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-200",
+    "value": "rgb(226,228,233)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-300",
+    "value": "rgb(205,208,213)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-400",
+    "value": "rgb(134,140,152)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-500",
+    "value": "rgb(82,88,102)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-600",
+    "value": "rgb(49,53,63)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-700",
+    "value": "rgb(32,35,45)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-800",
+    "value": "rgb(22,25,34)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--neutral-900",
+    "value": "rgb(10,13,20)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--orange-base",
+    "value": "rgb(241,123,44)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--orange-dark",
+    "value": "rgb(194,84,10)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--orange-darker",
+    "value": "rgb(110,51,12)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--orange-light",
+    "value": "rgb(255,218,194)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--orange-lighter",
+    "value": "rgb(254,243,235)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--pink-base",
+    "value": "rgb(226,85,242)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--pink-dark",
+    "value": "rgb(156,35,169)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--pink-darker",
+    "value": "rgb(98,15,108)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--pink-light",
+    "value": "rgb(249,194,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--pink-lighter",
+    "value": "rgb(253,235,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-base",
+    "value": "var(--blue-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-dark",
+    "value": "var(--blue-dark)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-darker",
+    "value": "var(--blue-darker)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-light",
+    "value": "var(--blue-light)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-lighter",
+    "value": "var(--blue-lighter)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--purple-base",
+    "value": "rgb(110,63,243)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--purple-dark",
+    "value": "rgb(90,54,191)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--purple-darker",
+    "value": "rgb(43,22,100)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--purple-light",
+    "value": "rgb(202,194,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--purple-lighter",
+    "value": "rgb(238,235,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--radius-0",
+    "value": "0",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-10",
+    "value": "10",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-12",
+    "value": "12",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-16",
+    "value": "16",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-20",
+    "value": "20",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-4",
+    "value": "4",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-6",
+    "value": "6",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-8",
+    "value": "8",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--radius-full",
+    "value": "999",
+    "kind": "radius",
+    "definedIn": "tokens/primitives.css"
+  },
+  {
+    "name": "--red-base",
+    "value": "rgb(223,28,65)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--red-dark",
+    "value": "rgb(175,29,56)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--red-darker",
+    "value": "rgb(113,14,33)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--red-light",
+    "value": "rgb(248,201,210)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--red-lighter",
+    "value": "rgb(253,237,240)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-away",
+    "value": "var(--yellow-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-error",
+    "value": "var(--red-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-feature",
+    "value": "var(--purple-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-information",
+    "value": "var(--blue-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-neutral",
+    "value": "var(--neutral-400)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-success",
+    "value": "var(--green-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-verified",
+    "value": "var(--teal-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--state-warning",
+    "value": "var(--orange-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--stroke-disabled-100",
+    "value": "var(--neutral-100)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--stroke-soft-200",
+    "value": "var(--neutral-200)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--stroke-strong-900",
+    "value": "var(--neutral-900)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--stroke-sub-300",
+    "value": "var(--neutral-300)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--stroke-white-0",
+    "value": "var(--neutral-0)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--teal-base",
+    "value": "rgb(53,185,233)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--teal-dark",
+    "value": "rgb(31,135,173)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--teal-darker",
+    "value": "rgb(22,69,100)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--teal-light",
+    "value": "rgb(194,239,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--teal-lighter",
+    "value": "rgb(235,250,255)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--text-disabled-300",
+    "value": "var(--neutral-300)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--text-main-900",
+    "value": "var(--neutral-900)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--text-soft-400",
+    "value": "var(--neutral-400)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--text-sub-500",
+    "value": "var(--neutral-500)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--text-white-0",
+    "value": "var(--neutral-0)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--yellow-base",
+    "value": "rgb(242,174,64)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--yellow-dark",
+    "value": "rgb(180,120,24)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--yellow-darker",
+    "value": "rgb(105,61,17)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--yellow-light",
+    "value": "rgb(251,223,177)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--yellow-lighter",
+    "value": "rgb(254,247,236)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-base",
+    "value": "var(--purple-base)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "scope": ":root[data-mode=\"purple\"]",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-dark",
+    "value": "var(--purple-dark)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "scope": ":root[data-mode=\"purple\"]",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-darker",
+    "value": "var(--purple-darker)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "scope": ":root[data-mode=\"purple\"]",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-light",
+    "value": "var(--purple-light)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "scope": ":root[data-mode=\"purple\"]",
+    "annotation": "color"
+  },
+  {
+    "name": "--primary-lighter",
+    "value": "var(--purple-lighter)",
+    "kind": "color",
+    "definedIn": "tokens/primitives.css",
+    "scope": ":root[data-mode=\"purple\"]",
+    "annotation": "color"
+  },
+  {
+    "name": "--font-sans",
+    "value": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    "kind": "font",
+    "definedIn": "tokens/typography.css"
+  },
+  {
+    "name": "--font-display",
+    "value": "'Inter Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    "kind": "font",
+    "definedIn": "tokens/typography.css"
+  },
+  {
+    "name": "--fw-regular",
+    "value": "400",
+    "kind": "other",
+    "definedIn": "tokens/typography.css",
+    "annotation": "other"
+  },
+  {
+    "name": "--fw-medium",
+    "value": "500",
+    "kind": "other",
+    "definedIn": "tokens/typography.css",
+    "annotation": "other"
+  },
+  {
+    "name": "--fw-semibold",
+    "value": "600",
+    "kind": "other",
+    "definedIn": "tokens/typography.css",
+    "annotation": "other"
+  },
+  {
+    "name": "--shadow-xs",
+    "value": "0 1px 2px 0 rgba(10, 13, 20, 0.03)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-sm",
+    "value": "0 2px 4px 0 rgba(27, 28, 29, 0.04)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-md",
+    "value": "0 16px 32px -12px rgba(14, 18, 27, 0.10)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-lg",
+    "value": "0 16px 40px -12px rgba(14, 18, 27, 0.14)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-xl",
+    "value": "0 24px 56px -16px rgba(14, 18, 27, 0.18)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-2xl",
+    "value": "0 40px 96px -24px rgba(14, 18, 27, 0.24)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-tooltip",
+    "value": "0 12px 24px 0 rgba(14, 18, 27, 0.06), 0 1px 2px 0 rgba(14, 18, 27, 0.03)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-toggle",
+    "value": "0 6px 10px 0 rgba(14, 18, 27, 0.06), 0 2px 4px 0 rgba(14, 18, 27, 0.03)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--shadow-card",
+    "value": "inset 0 0 0 1px rgba(226, 228, 233, 1), 0 2px 4px 0 rgba(27, 28, 29, 0.04)",
+    "kind": "shadow",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--ring-primary",
+    "value": "0 0 0 2px var(--neutral-0), 0 0 0 4px var(--primary-light)",
+    "kind": "color",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--ring-error",
+    "value": "0 0 0 2px var(--neutral-0), 0 0 0 4px var(--red-light)",
+    "kind": "color",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--ring-neutral",
+    "value": "0 0 0 2px var(--neutral-0), 0 0 0 4px var(--neutral-200)",
+    "kind": "color",
+    "definedIn": "tokens/shadows.css"
+  },
+  {
+    "name": "--space-0",
+    "value": "0",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-1",
+    "value": "2px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-2",
+    "value": "4px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-3",
+    "value": "6px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-4",
+    "value": "8px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-5",
+    "value": "10px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-6",
+    "value": "12px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-8",
+    "value": "16px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-10",
+    "value": "20px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-12",
+    "value": "24px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-14",
+    "value": "28px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-16",
+    "value": "32px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-20",
+    "value": "40px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-24",
+    "value": "48px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-32",
+    "value": "64px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--space-40",
+    "value": "80px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-4",
+    "value": "4px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-6",
+    "value": "6px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-8",
+    "value": "8px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-10",
+    "value": "10px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-12",
+    "value": "12px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-16",
+    "value": "16px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-20",
+    "value": "20px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-24",
+    "value": "24px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  },
+  {
+    "name": "--r-full",
+    "value": "999px",
+    "kind": "spacing",
+    "definedIn": "tokens/spacing.css"
+  }
+]

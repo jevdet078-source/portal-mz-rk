@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-lighter:#EEF2FF;--primary-darker:#312D86;
+    --n0:#FFFFFF;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --stroke:#E2E4E9;--red:#DF1C41;--red-l:#FDEDF0;--green:#38C793;
+    --sh-icon:0 1px 2px rgba(82,88,102,.06);
+    --sh-menu:0 16px 32px -12px rgba(14,18,27,.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+</style>
+</helmet>
+
+<div style="padding:40px;font-family:'Inter',sans-serif;">
+  <div style="max-width:900px;margin:0 auto;display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;">
+
+    <!-- МЕНЮ ДЕЙСТВИЙ -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Меню действий по строке реестра</div>
+      <div style="{{ menuBox }}">
+        <sc-for list="{{ menu }}" as="grp" hint-placeholder-count="2">
+          <div>
+            <sc-if value="{{ grp.hasCaption }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:8px;font-size:11px;line-height:12px;font-weight:500;text-transform:uppercase;letter-spacing:.22px;color:var(--n400);">{{ grp.caption }}</div>
+            </sc-if>
+            <sc-for list="{{ grp.items }}" as="it" hint-placeholder-count="3">
+              <button onClick="{{ it.onClick }}" style="{{ it.style }}">
+                <sc-if value="{{ it.hasIcon }}" hint-placeholder-val="{{ true }}">
+                  <i class="{{ it.icon }}" style="{{ it.iconStyle }}"></i>
+                </sc-if>
+                <span style="{{ it.labelStyle }}">{{ it.label }}</span>
+                <sc-if value="{{ it.hasShortcut }}" hint-placeholder-val="{{ false }}">
+                  <span style="border:1px solid var(--stroke);border-radius:6px;padding:2px 8px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n400);flex:0 0 auto;">{{ it.shortcut }}</span>
+                </sc-if>
+              </button>
+            </sc-for>
+            <sc-if value="{{ grp.hasDivider }}" hint-placeholder-val="{{ true }}">
+              <div style="height:1px;background:var(--stroke);margin:6px 0;"></div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- КОМБОБОКС -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Комбобокс — выбор МНН</div>
+      <div style="{{ menuBox }}">
+
+        <!-- поле поиска -->
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:var(--n0);border-bottom:1px solid var(--stroke);margin-bottom:6px;">
+          <i class="ri-search-2-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
+          <input value="{{ query }}" onInput="{{ onQuery }}" placeholder="Поиск по МНН или торговому наименованию…"
+                 style="flex:1;min-width:0;border:none;outline:none;background:none;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);" />
+          <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ clearQuery }}" style="background:none;border:none;padding:0;cursor:pointer;display:flex;flex:0 0 auto;"><i class="ri-close-circle-fill" style="font-size:18px;color:var(--n300);"></i></button>
+          </sc-if>
+        </div>
+
+        <!-- результаты -->
+        <sc-for list="{{ options }}" as="o" hint-placeholder-count="5">
+          <button onClick="{{ o.onClick }}" style="{{ o.style }}">
+            <div style="{{ o.iconWrap }}"><i class="{{ o.icon }}" style="font-size:20px;color:{{ o.iconColor }};"></i></div>
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;align-items:flex-start;">
+              <div style="display:flex;align-items:center;gap:4px;width:100%;">
+                <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);white-space:nowrap;">{{ o.label }}</span>
+                <span style="font-size:12px;line-height:16px;color:var(--n400);white-space:nowrap;">{{ o.sub }}</span>
+              </div>
+              <div style="font-size:12px;line-height:16px;color:var(--n500);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%;">{{ o.desc }}</div>
+            </div>
+            <sc-if value="{{ o.checked }}" hint-placeholder-val="{{ false }}">
+              <i class="ri-check-line" style="font-size:20px;color:var(--primary);flex:0 0 auto;"></i>
+            </sc-if>
+          </button>
+        </sc-for>
+
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:24px 8px;text-align:center;">
+            <i class="ri-search-line" style="font-size:24px;color:var(--n300);"></i>
+            <div style="font-size:13px;color:var(--n500);margin-top:8px;">Ничего не найдено по запросу «{{ query }}»</div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:980,&quot;height&quot;:620}}">
+/*
+  Dropdown / Menu / Combobox — перенесено из AlignUI Design System v1.0 (EO)
+  Figma: файл 6ohVPNSxbI71uG1xQzm8DT, страница 530:8059
+
+  Исходные компоненты:
+    • Dropdown Items      [1.0] — 4680:66819 — 60 вариантов
+        Type:  Basic / Avatar / Brand / Company / Provider / Country
+        State: Default / Hover / Selected / Selected Hover / Disabled
+        Size:  Large (56) / Small (36)
+    • Dropdown Misc Items [1.0] — 4702:46717 — Search / Button / Caption
+    • Inline Dropdown     [1.0] — 6684:3614  — Icon / Country × 4 состояния
+
+  Отдельного Combobox в AlignUI нет — он собирается как
+  Search-итем из Misc Items + список Dropdown Items. Так и сделано ниже.
+
+  Геометрия, снятая с Figma:
+    Пункт Large (56)  bg --bg-white-0, padding 8, радиус 10, gap 12, по центру.
+                      Левая иконка: белый круг, рамка --stroke-soft-200, padding 10,
+                      радиус 980, тень 0 1px 2px rgba(82,88,102,.06), иконка 20.
+                      Текст: колонка gap 4 — ярлык 14/20 Medium --text-main-900,
+                      подъярлык 12/16 Regular --text-soft-400,
+                      описание 12/16 Regular --text-sub-500.
+                      Бейдж: bg --bg-weak-100, padding 2×8, радиус 999,
+                      текст 11/12 Medium uppercase tracking .22 --text-sub-500.
+                      Горячая клавиша: рамка --stroke-soft-200, padding 2×8, радиус 6,
+                      текст 14/20 Medium --text-soft-400.
+    Поиск             bg --bg-white-0, padding 8, радиус 8, gap 8,
+                      иконка search-2-line 20, плейсхолдер 14/20 Regular --text-sub-500.
+
+  Заливка состояний Hover и Selected взята из правила дизайн-системы
+  (design-system/readme.md): «ghost/stroke controls gain a --bg-weak-100 wash».
+  Выбранный пункт дополнительно помечается галочкой ri-check-line цветом --primary.
+*/
+class Component extends DCLogic {
+  state = { query:'', picked:'amoxicillin' };
+
+  renderVals(){
+    const s = this.state;
+
+    const menuBox = 'width:360px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;'
+      + 'padding:8px;box-shadow:var(--sh-menu);';
+
+    // ——— базовый стиль пункта ———
+    const item = (o) => {
+      const bg = o.selected ? 'var(--n100)' : 'transparent';
+      const color = o.danger ? 'var(--red)' : 'var(--n900)';
+      return 'width:100%;display:flex;align-items:center;gap:12px;padding:8px;border-radius:10px;'
+        + `border:none;background:${bg};cursor:${o.disabled ? 'not-allowed' : 'pointer'};`
+        + `font-family:inherit;text-align:left;transition:.15s;opacity:${o.disabled ? .48 : 1};color:${color};`;
+    };
+
+    // ——— меню действий ———
+    const mk = (o) => ({
+      label: o.label,
+      icon: o.icon,
+      hasIcon: !!o.icon,
+      hasShortcut: !!o.shortcut,
+      shortcut: o.shortcut || '',
+      style: item(o),
+      iconStyle: `font-size:20px;flex:0 0 auto;color:${o.danger ? 'var(--red)' : 'var(--n500)'};`,
+      labelStyle: `flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;`
+        + `color:${o.danger ? 'var(--red)' : 'var(--n900)'};`,
+      onClick: () => {},
+    });
+
+    const menu = [
+      {
+        hasCaption: true, caption: 'Заявка', hasDivider: true,
+        items: [
+          mk({ label:'Открыть карточку', icon:'ri-eye-line', shortcut:'↵' }),
+          mk({ label:'Скачать пакет документов', icon:'ri-download-2-line' }),
+          mk({ label:'История рассмотрения', icon:'ri-time-line' }),
+        ],
+      },
+      {
+        hasCaption: true, caption: 'Решение', hasDivider: true,
+        items: [
+          mk({ label:'Согласовать', icon:'ri-check-double-line' }),
+          mk({ label:'Отправить на доработку', icon:'ri-edit-line' }),
+          mk({ label:'Назначить эксперта', icon:'ri-user-add-line', disabled:true }),
+        ],
+      },
+      {
+        hasCaption: false, caption: '', hasDivider: false,
+        items: [ mk({ label:'Отклонить заявку', icon:'ri-close-circle-line', danger:true }) ],
+      },
+    ];
+
+    // ——— комбобокс: выбор МНН ———
+    const DB = [
+      { id:'amoxicillin', label:'Амоксициллин', sub:'(amoxicillin)', desc:'Антибиотик пенициллинового ряда · J01CA04', icon:'ri-capsule-line', color:'var(--primary)' },
+      { id:'ibuprofen',   label:'Ибупрофен',    sub:'(ibuprofen)',   desc:'НПВС · M01AE01', icon:'ri-capsule-line', color:'var(--primary)' },
+      { id:'metformin',   label:'Метформин',    sub:'(metformin)',   desc:'Гипогликемическое средство · A10BA02', icon:'ri-capsule-line', color:'var(--primary)' },
+      { id:'paracetamol', label:'Парацетамол',  sub:'(paracetamol)', desc:'Анальгетик-антипиретик · N02BE01', icon:'ri-capsule-line', color:'var(--primary)' },
+      { id:'glucometer',  label:'Глюкометр',    sub:'(МИ)',          desc:'Изделие медицинского назначения', icon:'ri-pulse-line', color:'var(--green)' },
+    ];
+
+    const q = s.query.trim().toLowerCase();
+    const found = q
+      ? DB.filter(o => (o.label + ' ' + o.sub + ' ' + o.desc).toLowerCase().includes(q))
+      : DB;
+
+    const options = found.map(o => ({
+      label: o.label, sub: o.sub, desc: o.desc, icon: o.icon, iconColor: o.color,
+      checked: s.picked === o.id,
+      style: item({ selected: s.picked === o.id }),
+      iconWrap: 'width:40px;height:40px;border-radius:980px;background:var(--n0);border:1px solid var(--stroke);'
+        + 'box-shadow:var(--sh-icon);display:flex;align-items:center;justify-content:center;flex:0 0 auto;',
+      onClick: () => this.setState({ picked: o.id }),
+    }));
+
+    return {
+      menuBox, menu, options,
+      query: s.query,
+      hasQuery: !!s.query,
+      isEmpty: found.length === 0,
+      onQuery: (e) => this.setState({ query: e.target.value }),
+      clearQuery: () => this.setState({ query:'' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

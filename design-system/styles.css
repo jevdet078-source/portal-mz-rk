@@ -1,0 +1,10 @@
+/* ═══════════════════════════════════════════════════════════════
+   AlignUI Design System — global stylesheet (entry point)
+   Consumers link THIS file. It is a manifest of @import lines only.
+   ═══════════════════════════════════════════════════════════════ */
+
+@import './tokens/fonts.css';
+@import './tokens/primitives.css';   /* color palette + semantic aliases + radius (Figma Variables) */
+@import './tokens/typography.css';   /* type roles + utility classes */
+@import './tokens/shadows.css';      /* elevation + focus rings */
+@import './tokens/spacing.css';      /* spacing + radius px aliases */

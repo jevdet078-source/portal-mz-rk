@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-lighter:#EEF2FF;
+    --n0:#FFFFFF;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --stroke:#E2E4E9;
+    --sh-compact:0 2px 4px rgba(27,28,29,.04);
+    --sh-btn:0 1px 2px rgba(82,88,102,.06);
+    --sh-btn-primary:0 1px 2px rgba(55,93,251,.08);
+    --sh-picker:0 16px 32px -12px rgba(88,92,95,.1);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+</style>
+</helmet>
+
+<div style="padding:40px;font-family:'Inter',sans-serif;">
+  <div style="max-width:1400px;margin:0 auto;display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap;">
+
+    <!-- ОДИНОЧНАЯ ДАТА -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Date Picker — одиночная дата</div>
+      <div style="{{ card }}">
+        <div style="padding:20px;display:flex;flex-direction:column;gap:8px;">
+
+          <!-- селектор месяца -->
+          <div style="background:var(--n100);border-radius:8px;padding:6px;display:flex;align-items:center;gap:6px;">
+            <button onClick="{{ single.prev }}" style="{{ navBtn }}"><i class="ri-arrow-left-s-line" style="font-size:20px;color:var(--n500);"></i></button>
+            <span style="flex:1;text-align:center;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ single.label }}</span>
+            <button onClick="{{ single.next }}" style="{{ navBtn }}"><i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n500);"></i></button>
+          </div>
+
+          <!-- дни недели -->
+          <div style="display:flex;gap:8px;">
+            <sc-for list="{{ dow }}" as="d" hint-placeholder-count="7">
+              <div style="flex:1;min-width:0;padding:10px 0;text-align:center;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n400);">{{ d }}</div>
+            </sc-for>
+          </div>
+
+          <!-- сетка -->
+          <sc-for list="{{ single.weeks }}" as="w" hint-placeholder-count="6">
+            <div style="display:flex;gap:8px;">
+              <sc-for list="{{ w }}" as="c" hint-placeholder-count="7">
+                <button onClick="{{ c.onClick }}" style="{{ c.style }}">
+                  {{ c.day }}
+                  <sc-if value="{{ c.marked }}" hint-placeholder-val="{{ false }}">
+                    <span style="{{ c.dotStyle }}"></span>
+                  </sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+
+        </div>
+
+        <!-- футер -->
+        <div style="{{ footer }}">
+          <button onClick="{{ single.cancel }}" style="{{ btnGhost }}">Отмена</button>
+          <button onClick="{{ single.apply }}" style="{{ btnPrimary }}">Применить</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--n500);margin-top:10px;">Выбрано: <b style="color:var(--n900);">{{ single.picked }}</b></div>
+    </div>
+
+    <!-- ДИАПАЗОН -->
+    <div>
+      <div style="font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);margin-bottom:14px;">Range Picker — диапазон с пресетами</div>
+      <div style="{{ cardWide }}">
+        <div style="display:flex;align-items:stretch;">
+
+          <!-- пресеты периодов -->
+          <div style="width:200px;flex:0 0 auto;border-right:1px solid var(--stroke);padding:20px 12px;display:flex;flex-direction:column;gap:2px;">
+            <sc-for list="{{ presets }}" as="p" hint-placeholder-count="8">
+              <button onClick="{{ p.onClick }}" style="{{ p.style }}">{{ p.label }}</button>
+            </sc-for>
+          </div>
+
+          <!-- два месяца -->
+          <div style="flex:1;display:flex;">
+            <sc-for list="{{ range.months }}" as="m" hint-placeholder-count="2">
+              <div style="{{ m.wrap }}">
+                <div style="background:var(--n100);border-radius:8px;padding:6px;display:flex;align-items:center;gap:6px;">
+                  <sc-if value="{{ m.hasPrev }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ range.prev }}" style="{{ navBtn }}"><i class="ri-arrow-left-s-line" style="font-size:20px;color:var(--n500);"></i></button>
+                  </sc-if>
+                  <span style="flex:1;text-align:center;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ m.label }}</span>
+                  <sc-if value="{{ m.hasNext }}" hint-placeholder-val="{{ true }}">
+                    <button onClick="{{ range.next }}" style="{{ navBtn }}"><i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n500);"></i></button>
+                  </sc-if>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <sc-for list="{{ dow }}" as="d" hint-placeholder-count="7">
+                    <div style="flex:1;min-width:0;padding:10px 0;text-align:center;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n400);">{{ d }}</div>
+                  </sc-for>
+                </div>
+
+                <sc-for list="{{ m.weeks }}" as="w" hint-placeholder-count="6">
+                  <div style="display:flex;gap:8px;margin-top:8px;">
+                    <sc-for list="{{ w }}" as="c" hint-placeholder-count="7">
+                      <button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.day }}</button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- футер диапазона -->
+        <div style="{{ footer }}">
+          <span style="flex:1;font-size:14px;line-height:20px;color:var(--n500);">Период: <b style="color:var(--n900);">{{ range.label }}</b></span>
+          <button onClick="{{ range.cancel }}" style="{{ btnGhostAuto }}">Сбросить</button>
+          <button onClick="{{ range.apply }}" style="{{ btnPrimaryAuto }}">Применить</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:760}}">
+/*
+  Date & Range Picker — перенесено из AlignUI Design System v1.0 (EO)
+  Figma: файл 6ohVPNSxbI71uG1xQzm8DT, страница 3502:36491
+
+  Исходные компоненты:
+    • Date & Range Picker [1.0] — 4254:56058
+        Type=Date Picker  — 4254:56057, 368×484
+        Type=Range Picker — 4254:56056, 936×484
+    • Day Cells    [1.0] — 4176:49059 — 10 вариантов (Basic/Range × Hover/Active/Disabled/Marked)
+    • Day Labels   [1.0] — 4176:49824
+    • Period Range [1.0] — 4207:50967 — Default / Hover / Selected
+    • Date Selector[1.0] — 4190:50178 — 4 варианта по иконкам
+
+  Геометрия, снятая с Figma:
+    Контейнер     bg --bg-white-0, ширина 368 (одиночный), радиус 16,
+                  тень 0 16px 32px -12px rgba(88,92,95,.1).
+    Тело          padding 20, колонка, gap 8. Ряды: gap 8.
+    Селектор даты bg --bg-weak-100, padding 6, радиус 8, gap 6.
+                  Кнопки: белые, padding 2, радиус 6, тень 0 2px 4px rgba(27,28,29,.04), иконка 20.
+                  Подпись 14/20 Medium --text-main-900 по центру.
+    Дни недели    padding 10 по вертикали, 14/20 Medium --text-soft-400.
+    Ячейка дня    padding 10, радиус 8, 14/20 Medium.
+                  Default  — bg --bg-white-0, текст --text-main-900
+                  Hover    — bg --bg-weak-100
+                  Active   — bg --primary-base, текст --text-white-0
+                  Disabled — текст --text-disabled-300 #CDD0D5
+                  Marked   — точка 3px внизу по центру, отступ 6
+    Футер         рамка сверху --stroke-soft-200, padding 16, gap 16.
+                  «Отмена»: белая, рамка --stroke-soft-200, радиус 10, padding 10×24,
+                  тень 0 1px 2px rgba(82,88,102,.06), текст 14/20 Medium --text-sub-500.
+                  «Применить»: bg --primary-base, радиус 10, padding 10×24,
+                  тень 0 1px 2px rgba(55,93,251,.08), текст белый.
+
+  Локализация: неделя начинается с понедельника, подписи и месяцы на русском.
+  Пресеты периодов — перевод набора из Figma (Today … All time).
+*/
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const now = new Date();
+    this.state = {
+      sy: now.getFullYear(), sm: now.getMonth(),
+      picked: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      ry: now.getFullYear(), rm: now.getMonth() - 1,
+      from: null, to: null, preset: null,
+    };
+  }
+
+  static MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь',
+                   'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+  key(d){ return d ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : ''; }
+  same(a, b){ return !!a && !!b && this.key(a) === this.key(b); }
+  fmt(d){
+    if(!d) return '—';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+  }
+
+  /** Шесть недель по семь дней для месяца. */
+  grid(year, month){
+    const first = new Date(year, month, 1);
+    const start = (first.getDay() + 6) % 7;              // понедельник = 0
+    const inMonth = new Date(year, month + 1, 0).getDate();
+    const inPrev = new Date(year, month, 0).getDate();
+    const weeks = [];
+    for(let w = 0; w < 6; w++){
+      const row = [];
+      for(let i = 0; i < 7; i++){
+        const n = w * 7 + i;
+        let day, date, other = false;
+        if(n < start){ day = inPrev - start + 1 + n; date = new Date(year, month - 1, day); other = true; }
+        else if(n < start + inMonth){ day = n - start + 1; date = new Date(year, month, day); }
+        else { day = n - start - inMonth + 1; date = new Date(year, month + 1, day); other = true; }
+        row.push({ day, date, other });
+      }
+      weeks.push(row);
+    }
+    return weeks;
+  }
+
+  pickRange(d){
+    const s = this.state;
+    if(!s.from || (s.from && s.to)) this.setState({ from:d, to:null, preset:null });
+    else if(d < s.from) this.setState({ from:d, to:s.from, preset:null });
+    else this.setState({ to:d, preset:null });
+  }
+
+  applyPreset(id){
+    const now = new Date();
+    const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const minus = (n) => { const x = new Date(t); x.setDate(x.getDate() - n); return x; };
+    const map = {
+      today:  [t, t],
+      d7:     [minus(6), t],
+      d30:    [minus(29), t],
+      m3:     [new Date(t.getFullYear(), t.getMonth() - 3, t.getDate()), t],
+      m12:    [new Date(t.getFullYear() - 1, t.getMonth(), t.getDate()), t],
+      mtd:    [new Date(t.getFullYear(), t.getMonth(), 1), t],
+      ytd:    [new Date(t.getFullYear(), 0, 1), t],
+      all:    [null, null],
+    };
+    const [from, to] = map[id];
+    this.setState({ from, to, preset:id, ry: (from || t).getFullYear(), rm: (from || t).getMonth() });
+  }
+
+  renderVals(){
+    const s = this.state;
+    const M = Component.MONTHS;
+
+    // ——— общие стили ———
+    const card = 'width:368px;background:var(--n0);border-radius:16px;box-shadow:var(--sh-picker);overflow:hidden;';
+    const cardWide = 'background:var(--n0);border-radius:16px;box-shadow:var(--sh-picker);overflow:hidden;';
+    const navBtn = 'background:var(--n0);border:none;padding:2px;border-radius:6px;box-shadow:var(--sh-compact);'
+      + 'cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;';
+    const footer = 'border-top:1px solid var(--stroke);padding:16px;display:flex;align-items:center;gap:16px;';
+    const btnBase = 'border-radius:10px;padding:10px 24px;font-family:inherit;font-size:14px;line-height:20px;'
+      + 'font-weight:500;letter-spacing:-.006em;cursor:pointer;';
+    const btnGhost = `${btnBase}flex:1;background:var(--n0);border:1px solid var(--stroke);color:var(--n500);box-shadow:var(--sh-btn);`;
+    const btnPrimary = `${btnBase}flex:1;background:var(--primary);border:none;color:#fff;box-shadow:var(--sh-btn-primary);`;
+    const btnGhostAuto = btnGhost.replace('flex:1;', '');
+    const btnPrimaryAuto = btnPrimary.replace('flex:1;', '');
+
+    const cellBase = 'flex:1;min-width:0;position:relative;padding:10px;border-radius:8px;border:none;'
+      + 'font-family:inherit;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;'
+      + 'cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center;';
+
+    // ——— одиночная дата ———
+    const marked = new Set(['-5', '-22']);   // дни с отметкой: демонстрация состояния Marked
+    const singleWeeks = this.grid(s.sy, s.sm).map(row => row.map(c => {
+      const active = this.same(c.date, s.picked);
+      const isMarked = !c.other && marked.has('-' + c.day);
+      let style = cellBase;
+      if(active) style += 'background:var(--primary);color:#fff;';
+      else if(c.other) style += 'background:var(--n0);color:var(--n300);';
+      else style += 'background:var(--n0);color:var(--n900);';
+      return {
+        day: c.day,
+        marked: isMarked && !active,
+        dotStyle: 'position:absolute;bottom:6px;left:50%;transform:translateX(-50%);width:3px;height:3px;'
+          + 'border-radius:50%;background:var(--primary);',
+        style,
+        onClick: () => this.setState({ picked: c.date, sy: c.date.getFullYear(), sm: c.date.getMonth() }),
+      };
+    }));
+
+    const single = {
+      label: `${M[s.sm]} ${s.sy}`,
+      weeks: singleWeeks,
+      picked: this.fmt(s.picked),
+      prev: () => this.setState({ sm: s.sm - 1 < 0 ? 11 : s.sm - 1, sy: s.sm - 1 < 0 ? s.sy - 1 : s.sy }),
+      next: () => this.setState({ sm: s.sm + 1 > 11 ? 0 : s.sm + 1, sy: s.sm + 1 > 11 ? s.sy + 1 : s.sy }),
+      cancel: () => this.setState({ picked: null }),
+      apply: () => {},
+    };
+
+    // ——— диапазон ———
+    const inRange = (d) => s.from && s.to && d > s.from && d < s.to;
+    const monthAt = (offset) => {
+      let m = s.rm + offset, y = s.ry;
+      while(m > 11){ m -= 12; y += 1; }
+      while(m < 0){ m += 12; y -= 1; }
+      return { y, m };
+    };
+
+    const months = [0, 1].map(offset => {
+      const { y, m } = monthAt(offset);
+      return {
+        wrap: 'flex:1;padding:20px;' + (offset === 0 ? 'border-right:1px solid var(--stroke);' : ''),
+        label: `${M[m]} ${y}`,
+        hasPrev: offset === 0,
+        hasNext: offset === 1,
+        weeks: this.grid(y, m).map(row => row.map(c => {
+          const isFrom = this.same(c.date, s.from), isTo = this.same(c.date, s.to);
+          const mid = inRange(c.date);
+          let style = cellBase;
+          if(isFrom || isTo) style += 'background:var(--primary);color:#fff;';
+          else if(mid) style += 'background:var(--primary-lighter);color:var(--primary);border-radius:0;';
+          else if(c.other) style += 'background:var(--n0);color:var(--n300);';
+          else style += 'background:var(--n0);color:var(--n900);';
+          return { day: c.day, style, onClick: () => this.pickRange(c.date) };
+        })),
+      };
+    });
+
+    const range = {
+      months,
+      label: s.from || s.to ? `${this.fmt(s.from)} — ${this.fmt(s.to)}` : 'не выбран',
+      prev: () => this.setState({ rm: s.rm - 1 < 0 ? 11 : s.rm - 1, ry: s.rm - 1 < 0 ? s.ry - 1 : s.ry }),
+      next: () => this.setState({ rm: s.rm + 1 > 11 ? 0 : s.rm + 1, ry: s.rm + 1 > 11 ? s.ry + 1 : s.ry }),
+      cancel: () => this.setState({ from: null, to: null, preset: null }),
+      apply: () => {},
+    };
+
+    // ——— пресеты периодов (перевод набора из Figma) ———
+    const presets = [
+      { id:'today', label:'Сегодня' },
+      { id:'d7',    label:'Последние 7 дней' },
+      { id:'d30',   label:'Последние 30 дней' },
+      { id:'m3',    label:'Последние 3 месяца' },
+      { id:'m12',   label:'Последние 12 месяцев' },
+      { id:'mtd',   label:'С начала месяца' },
+      { id:'ytd',   label:'С начала года' },
+      { id:'all',   label:'Всё время' },
+    ].map(p => ({
+      label: p.label,
+      onClick: () => this.applyPreset(p.id),
+      style: 'width:100%;text-align:left;padding:8px 12px;border:none;border-radius:8px;font-family:inherit;'
+        + 'font-size:14px;line-height:20px;letter-spacing:-.006em;cursor:pointer;transition:.12s;'
+        + (s.preset === p.id
+            ? 'background:var(--n100);color:var(--n900);font-weight:500;'
+            : 'background:transparent;color:var(--n500);font-weight:400;'),
+    }));
+
+    return {
+      card, cardWide, navBtn, footer, btnGhost, btnPrimary, btnGhostAuto, btnPrimaryAuto,
+      dow: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
+      single, range, presets,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+/* ───────────────────────────────────────────────────────────────
+   AlignUI Typography
+   Families: Inter (UI), Inter Display (large titles).
+   Four roles: Title, Label, Paragraph, Subheading.
+   Tokens expose a CSS `font` shorthand-friendly set of vars plus
+   ready-to-use utility classes.
+   ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Inter Display', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* weights */
+  --fw-regular: 400; /* @kind other */
+  --fw-medium: 500; /* @kind other */
+  --fw-semibold: 600; /* @kind other */
+}
+
+/* Titles — Inter Display, medium, tight tracking */
+.text-title-h1 { font-family: var(--font-display); font-weight: 500; font-size: 56px; line-height: 64px; letter-spacing: -0.01em; }
+.text-title-h2 { font-family: var(--font-display); font-weight: 500; font-size: 48px; line-height: 56px; letter-spacing: -0.01em; }
+.text-title-h3 { font-family: var(--font-display); font-weight: 500; font-size: 40px; line-height: 48px; letter-spacing: -0.01em; }
+.text-title-h4 { font-family: var(--font-display); font-weight: 500; font-size: 32px; line-height: 40px; letter-spacing: -0.01em; }
+.text-title-h5 { font-family: var(--font-display); font-weight: 500; font-size: 24px; line-height: 32px; letter-spacing: -0.01em; }
+.text-title-h6 { font-family: var(--font-display); font-weight: 500; font-size: 20px; line-height: 28px; letter-spacing: -0.01em; }
+
+/* Labels — Inter, medium */
+.text-label-xl { font-family: var(--font-sans); font-weight: 500; font-size: 24px; line-height: 32px; letter-spacing: -0.015em; }
+.text-label-lg { font-family: var(--font-sans); font-weight: 500; font-size: 18px; line-height: 24px; letter-spacing: -0.015em; }
+.text-label-md { font-family: var(--font-sans); font-weight: 500; font-size: 16px; line-height: 24px; letter-spacing: -0.011em; }
+.text-label-sm { font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: -0.006em; }
+.text-label-xs { font-family: var(--font-sans); font-weight: 500; font-size: 12px; line-height: 16px; }
+
+/* Paragraphs — Inter, regular */
+.text-paragraph-xl { font-family: var(--font-sans); font-weight: 400; font-size: 24px; line-height: 32px; letter-spacing: -0.015em; }
+.text-paragraph-lg { font-family: var(--font-sans); font-weight: 400; font-size: 18px; line-height: 24px; letter-spacing: -0.015em; }
+.text-paragraph-md { font-family: var(--font-sans); font-weight: 400; font-size: 16px; line-height: 24px; letter-spacing: -0.011em; }
+.text-paragraph-sm { font-family: var(--font-sans); font-weight: 400; font-size: 14px; line-height: 20px; letter-spacing: -0.006em; }
+.text-paragraph-xs { font-family: var(--font-sans); font-weight: 400; font-size: 12px; line-height: 16px; }
+
+/* Subheadings — Inter, medium, UPPERCASE, open tracking */
+.text-subheading-md  { font-family: var(--font-sans); font-weight: 500; font-size: 16px; line-height: 24px; letter-spacing: 0.06em; text-transform: uppercase; }
+.text-subheading-sm  { font-family: var(--font-sans); font-weight: 500; font-size: 14px; line-height: 20px; letter-spacing: 0.06em; text-transform: uppercase; }
+.text-subheading-xs  { font-family: var(--font-sans); font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.04em; text-transform: uppercase; }
+.text-subheading-2xs { font-family: var(--font-sans); font-weight: 500; font-size: 11px; line-height: 12px; letter-spacing: 0.02em; text-transform: uppercase; }

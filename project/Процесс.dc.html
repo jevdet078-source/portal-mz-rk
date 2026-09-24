@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Мои процессы → страница сквозного процесса.
+  Источник: Figma e-Health (cMe8P7iJNaTBgG04okquEG)
+    ЛС, секция 14202:257661: этап 1 — 257698, 257865 · этап 2 — 258032, 258238, 258469 (модалка), 258702
+                             этап 3 — 258944 · этапы 4 и 5 — 259233, 259535
+    МИ, секция 16638:217943: та же структура, 4 этапа (без формуляра), этап 4 — 219479, 219742
+  Контент 1:1, заменена оболочка (шапка портала + BusinessNav, свёрнутый — как в Figma).
+  Геометрия:
+    hero — градиент, py 28/32, бейдж r999 (иконка 16, 12/16 medium), заголовок 20/28 medium, мета 14/20
+    «Текущий этап» и карточки этапов — Widgets [HR Management] r16 p16 gap12, иконка-кружок 40
+    бейдж статуса h20 r999 (Завершен green-light/green-darker · В работе blue-lighter/blue-dark · Ожидает n100/n500)
+    таймлайн — кружок 24 (done green-light · в процессе yellow-light · lock n100), линия 2px
+    алерты — px10 py8 r8, иконка 20, 14/20 · File Upload Area — dashed n300 r12 p20 · File card r12 p16/16/16/14
+    Status Modals [1.0] — r16, контент p20 gap16, футер px20 py16
+
+  Процесс — #ls / #mi. Состояние процесса (этап) — панель прототипа внизу справа,
+  хранится в localStorage['mp-proc-<id>'] = p1 | p2 | p3 | p45 | done.
+  Этап 2 интерактивный: загрузить чек → «Отправить» → подтверждение в модалке → чек отправлен.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --green:#38C793;--green-light:#CBF5E5;--green-lighter:#EFFAF6;--teal:#35B9E9;--red:#DF1C41;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="processes" collapsed="1" hint-size="80px,827px"></dc-import>
+    </div>
+
+    <main style="flex:1;min-width:0;">
+      <!-- HERO -->
+      <div style="border-bottom:1px solid var(--stroke);background:linear-gradient(105deg,rgba(198,208,255,.14) 0%,rgba(77,66,233,.06) 51%,rgba(53,185,233,.08) 100%);padding:28px 32px 32px;">
+        <div style="max-width:834px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+          <a href="{{ backHref }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:20px;"></i>Мои процессы</a>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:2px;padding:2px 8px 2px 4px;border-radius:999px;background:var(--primary-lighter);font-size:12px;line-height:16px;font-weight:500;color:var(--primary-darker);"><i class="{{ proc.tagIcon }}" style="font-size:14px;"></i>{{ proc.tag }}</span>
+            <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ proc.title }}</h1>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">
+              <span>{{ proc.num }}</span><span style="font-weight:500;">·</span><span>Создан {{ proc.created }}</span><span style="font-weight:500;">·</span><span>Сквозной процесс из {{ proc.count }} этапов</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BODY -->
+      <div style="padding:24px 32px 96px;">
+        <div style="max-width:834px;margin:0 auto;">
+          <div style="max-width:800px;display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
+
+            <!-- Текущий этап -->
+            <sc-if value="{{ hasCurrent }}" hint-placeholder-val="{{ true }}">
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:16px;display:flex;align-items:center;gap:12px;">
+                <div style="width:40px;height:40px;border-radius:8px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ current.icon }}" style="font-size:20px;color:var(--primary);"></i></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">Текущий этап</div>
+                  <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ current.title }}</div>
+                </div>
+                <button onClick="{{ goCurrent }}" style="display:inline-flex;align-items:center;gap:4px;padding:8px 8px 8px 12px;border:1px solid var(--primary);border-radius:8px;background:var(--n0);color:var(--primary);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);flex:0 0 auto;">Перейти<i class="ri-arrow-down-s-line" style="font-size:20px;"></i></button>
+              </div>
+            </sc-if>
+
+            <!-- Этапы -->
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ stages }}" as="st" hint-placeholder-count="5">
+                <div id="{{ st.domId }}" style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;scroll-margin-top:96px;">
+                  <button onClick="{{ st.onToggle }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:16px;border:none;background:transparent;font-family:inherit;text-align:left;cursor:pointer;">
+                    <sc-if value="{{ st.isDone }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:40px;height:40px;border-radius:40px;background:var(--green-light);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-check-line" style="font-size:20px;color:#2D9F75;"></i></div>
+                    </sc-if>
+                    <sc-if value="{{ st.isWork }}" hint-placeholder-val="{{ false }}">
+                      <div style="width:40px;height:40px;border-radius:40px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><span style="width:16px;height:16px;border:2px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:mp-spin 1s linear infinite;"></span></div>
+                    </sc-if>
+                    <sc-if value="{{ st.isWait }}" hint-placeholder-val="{{ true }}">
+                      <div style="width:40px;height:40px;border-radius:40px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px;line-height:24px;font-weight:500;color:var(--n500);">{{ st.n }}</div>
+                    </sc-if>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);">Этап {{ st.n }}</span>
+                        <span style="{{ st.badgeStyle }}"><span style="{{ st.dotStyle }}"></span>{{ st.badgeLabel }}</span>
+                      </div>
+                      <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ st.title }}</div>
+                      <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ st.sub }}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+                      <i class="{{ st.icon }}" style="font-size:20px;color:var(--n400);"></i>
+                      <i class="{{ st.chevron }}" style="font-size:20px;color:var(--n500);"></i>
+                    </div>
+                  </button>
+
+                  <sc-if value="{{ st.isOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="border-top:1px solid var(--stroke);padding:16px;display:flex;flex-direction:column;gap:16px;">
+
+                      <sc-for list="{{ st.bannersTop }}" as="b" hint-placeholder-count="1">
+                        <div style="{{ b.style }}"><i class="{{ b.icon }}" style="{{ b.iconStyle }}"></i><span>{{ b.text }}</span></div>
+                      </sc-for>
+
+                      <sc-if value="{{ st.hasSteps }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;flex-direction:column;">
+                          <sc-for list="{{ st.steps }}" as="sp" hint-placeholder-count="3">
+                            <div style="display:flex;gap:10px;">
+                              <div style="display:flex;flex-direction:column;align-items:center;width:24px;flex:0 0 auto;">
+                                <div style="{{ sp.iconBox }}"><i class="{{ sp.icon }}" style="{{ sp.iconStyle }}"></i></div>
+                                <div style="{{ sp.lineStyle }}"></div>
+                              </div>
+                              <div style="{{ sp.textStyle }}">
+                                <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ sp.title }}</div>
+                                <sc-if value="{{ sp.hasDate }}" hint-placeholder-val="{{ true }}"><div style="font-size:12px;line-height:16px;color:var(--n400);margin-top:2px;">{{ sp.date }}</div></sc-if>
+                                <sc-if value="{{ sp.hasNote }}" hint-placeholder-val="{{ false }}">
+                                  <div style="display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:8px;border-radius:8px;background:var(--primary-lighter);font-size:12px;line-height:16px;color:var(--n900);">
+                                    <i class="ri-information-line" style="font-size:16px;color:var(--primary);"></i>{{ sp.note }}
+                                    <a href="#" onClick="{{ sp.onNote }}" style="display:inline-flex;align-items:center;gap:4px;font-weight:500;color:var(--primary);text-decoration:none;">Открыть<i class="ri-external-link-line" style="font-size:14px;"></i></a>
+                                  </div>
+                                </sc-if>
+                              </div>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+
+                      <!-- реквизиты госпошлины -->
+                      <sc-if value="{{ st.hasReq }}" hint-placeholder-val="{{ false }}">
+                        <div style="border:1px solid var(--stroke);border-radius:16px;overflow:hidden;background:var(--n0);box-shadow:var(--sh-xs);">
+                          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:var(--n100);border-bottom:1px solid var(--stroke);">
+                            <div style="display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n500);"><i class="ri-error-warning-line" style="font-size:20px;"></i>{{ st.reqHead }}</div>
+                            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:2px;padding:6px 10px 6px 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);flex:0 0 auto;"><i class="ri-download-line" style="font-size:20px;"></i><span style="padding:0 4px;">Скачать реквизиты</span></button>
+                          </div>
+                          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;font-size:14px;line-height:20px;letter-spacing:-.006em;">
+                            <div><div style="color:var(--n500);margin-bottom:2px;">Сумма пошлины</div><div style="color:var(--n900);">На регистрацию <span style="font-weight:500;">11 МРП</span>,<br />На перерегистрацию <span style="font-weight:500;">5 МРП</span></div></div>
+                            <div><div style="color:var(--n500);margin-bottom:2px;">Получатель</div><div style="color:var(--n900);">РГУ «Комитет медицинского и фармацевтического контроля Министерства здравоохранения Республики Казахстан»</div></div>
+                            <div><div style="color:var(--n500);margin-bottom:2px;">Реквизиты</div><div style="color:var(--n900);">КНП 911, КБК 105428</div></div>
+                            <div><div style="color:var(--n500);margin-bottom:2px;">Срок оплаты</div><div style="color:var(--n900);">-</div></div>
+                          </div>
+                        </div>
+                      </sc-if>
+
+                      <!-- загрузка чека и доверенности -->
+                      <sc-for list="{{ st.slots }}" as="sl" hint-placeholder-count="0">
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                          <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ sl.label }}<span style="font-weight:400;color:var(--n500);">{{ sl.labelSub }}</span><span style="color:var(--red);">{{ sl.star }}</span></div>
+                          <sc-if value="{{ sl.empty }}" hint-placeholder-val="{{ true }}">
+                            <div onClick="{{ sl.onPick }}" style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border:1px dashed var(--n300);border-radius:12px;background:var(--n0);cursor:pointer;">
+                              <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);"><i class="ri-upload-cloud-2-line" style="font-size:24px;color:var(--n400);"></i>Выберите файл или перетащите его сюда</div>
+                                <div style="font-size:12px;line-height:16px;color:var(--n400);">Форматы: <span style="font-style:italic;color:var(--n500);">PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG, до 10 МБ.</span></div>
+                              </div>
+                              <span style="flex:0 0 auto;padding:6px 12px;border:1px solid var(--primary);border-radius:8px;background:var(--n0);color:var(--primary);font-size:14px;line-height:20px;font-weight:500;box-shadow:0 1px 2px rgba(77,66,233,.08);">Загрузить</span>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ sl.uploaded }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;align-items:center;gap:12px;padding:16px 16px 16px 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);">
+                              <div style="position:relative;width:40px;height:40px;flex:0 0 auto;">
+                                <img src="assets/file-page.svg" alt="" style="display:block;width:40px;height:40px;" />
+                                <span style="position:absolute;left:0;bottom:6px;padding:2px 3px;border-radius:4px;background:var(--red);color:#fff;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;">PDF</span>
+                              </div>
+                              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                                <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">document_11022024_001211.pdf</div>
+                                <div style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n500);"><span>120 KB</span><span>∙</span><i class="ri-checkbox-circle-fill" style="font-size:16px;color:var(--green);"></i><span style="color:var(--n900);">Загружен</span></div>
+                              </div>
+                              <button onClick="{{ sl.onRemove }}" title="Удалить файл" style="border:none;background:none;padding:2px;border-radius:6px;cursor:pointer;display:flex;flex:0 0 auto;"><i class="ri-delete-bin-line" style="font-size:20px;color:var(--n500);"></i></button>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+
+                      <sc-if value="{{ st.hasSend }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ openModal }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;padding:8px 12px 8px 8px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);"><i class="ri-send-plane-line" style="font-size:20px;"></i><span style="padding:0 4px;">Отправить</span></button>
+                      </sc-if>
+
+                      <!-- документы: заключение, свидетельство, отправленные файлы -->
+                      <sc-for list="{{ st.cards }}" as="c" hint-placeholder-count="0">
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                          <sc-if value="{{ c.hasLabel }}" hint-placeholder-val="{{ false }}">
+                            <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ c.label }}<span style="font-weight:400;color:var(--n500);">{{ c.labelSub }}</span></div>
+                          </sc-if>
+                          <div style="display:flex;align-items:center;gap:12px;padding:16px 16px 16px 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);">
+                            <div style="position:relative;width:40px;height:40px;flex:0 0 auto;">
+                              <img src="assets/file-page.svg" alt="" style="display:block;width:40px;height:40px;" />
+                              <span style="position:absolute;left:0;bottom:6px;padding:2px 3px;border-radius:4px;background:var(--red);color:#fff;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;">PDF</span>
+                            </div>
+                            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                              <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.title }}</div>
+                              <div style="font-size:12px;line-height:16px;color:var(--n500);">{{ c.meta }}</div>
+                            </div>
+                            <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:2px;padding:6px 10px 6px 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);flex:0 0 auto;"><i class="ri-download-line" style="font-size:20px;"></i><span style="padding:0 4px;">{{ c.action }}</span></button>
+                          </div>
+                        </div>
+                      </sc-for>
+
+                      <sc-for list="{{ st.bannersBottom }}" as="b" hint-placeholder-count="0">
+                        <div style="{{ b.style }}"><i class="{{ b.icon }}" style="{{ b.iconStyle }}"></i><span>{{ b.text }}</span></div>
+                      </sc-for>
+
+                      <sc-if value="{{ st.hasGo }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ noop }}" title="Услуга оформляется во внешней информационной системе" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;padding:8px 8px 8px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);">Перейти к услуге<i class="ri-external-link-line" style="font-size:20px;"></i></button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Status Modals [1.0] — «Отправить чек?» -->
+  <sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:mp-fade .15s ease;">
+      <div onClick="{{ stop }}" style="width:434px;max-width:calc(100% - 32px);background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);overflow:hidden;">
+        <div style="display:flex;gap:16px;padding:20px;">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-information-fill" style="font-size:24px;color:var(--primary);"></i></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+            <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">Отправить чек?</div>
+            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">После отправки замена файла будет недоступна. Убедитесь, что файл корректен.</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 20px;border-top:1px solid var(--stroke);">
+          <button onClick="{{ closeModal }}" style="padding:8px 12px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);">Отмена</button>
+          <button onClick="{{ confirmSend }}" style="padding:8px 12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);">Подтвердить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Панель прототипа: процесс и его этап -->
+  <div style="position:fixed;right:20px;bottom:20px;z-index:50;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:8px 8px 8px 14px;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
+    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+      <sc-for list="{{ demoProc }}" as="o" hint-placeholder-count="2">
+        <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+      </sc-for>
+    </div>
+    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+      <sc-for list="{{ demoPhase }}" as="o" hint-placeholder-count="5">
+        <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = { id:'ls', phase:'p1', open:null, receipt:false, poa:false, sent:false, modal:false };
+  }
+  componentDidMount(){
+    this.readHash();
+    this._onHash = () => this.readHash();
+    window.addEventListener('hashchange', this._onHash);
+  }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+
+  readHash(){
+    const id = (location.hash || '').replace('#','') === 'mi' ? 'mi' : 'ls';
+    let phase = id === 'mi' ? 'p45' : 'p1';
+    try { const v = localStorage.getItem('mp-proc-' + id); if(['p1','p2','p3','p45','done'].includes(v)) phase = v; } catch(e){}
+    this.setState({ id, phase, open:null, receipt:false, poa:false, sent:false, modal:false });
+  }
+  setPhase(phase){
+    this.setState({ phase, open:null, receipt:false, poa:false, sent:false, modal:false });
+    try { localStorage.setItem('mp-proc-' + this.state.id, phase); } catch(e){}
+  }
+  openList(){
+    if(this.state.open) return this.state.open;
+    const D = {
+      ls:{ p1:[1], p2:[2,3], p3:[2,3,4,5], p45:[3,4,5], done:[4,5] },
+      mi:{ p1:[1], p2:[2,3], p3:[2,3,4], p45:[3,4], done:[4] },
+    };
+    return D[this.state.id][this.state.phase];
+  }
+  toggle(n){
+    const cur = this.openList();
+    this.setState({ open: cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n] });
+  }
+  goTo(nums){
+    const cur = this.openList();
+    this.setState({ open: [...new Set([...cur, ...nums])] }, () => {
+      const el = document.getElementById('stage-' + nums[0]);
+      if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+  }
+
+  procs(){
+    const stage1 = { n:1, kind:'expert', icon:'ri-shield-line', title:'Выдача заключения о безопасности, качестве и эффективности', sub:'ИС «Экспертиза» · Экспертное заключение' };
+    const stage2 = { n:2, kind:'fee', icon:'ri-bank-card-line', title:'Оплата государственной пошлины', sub:'Переход между услугами' };
+    return {
+      ls:{ tag:'Лекарственные средства', tagIcon:'ri-capsule-fill', num:'7040547', created:'30.03.2026',
+        title:'Экспертиза, регистрация, перерегистрация, внесение изменений в регистрационное досье лекарственного средства и регистрация цены, внесение изменения в цену производителя, а также формирования Казахстанского национального лекарственного формуляра',
+        cert:'Свидетельство о регистрации №РК-РЛС-5-№ 024169',
+        parallelTitle:'Параллельно: Регистрация цены и Включение в формуляр',
+        stages:[ stage1, stage2,
+          { n:3, kind:'reg', icon:'ri-clipboard-line', title:'Государственная регистрация лекарственного средства', sub:'Основная услуга' },
+          { n:4, kind:'par', icon:'ri-price-tag-3-line', title:'Регистрация цены производителя', sub:'Подуслуга',
+            waitNote:'Станет доступно после завершения государственной регистрации. Запустится автоматически вместе с этапом 5.',
+            doneNote:'Цена производителя зарегистрирована — 08.04.2026' },
+          { n:5, kind:'par', icon:'ri-book-line', title:'Включение в Казахстанский национальный лекарственный формуляр', sub:'Финальный этап',
+            waitNote:'Станет доступно после завершения государственной регистрации. Запустится автоматически вместе с этапом 4.',
+            doneNote:'Препарат включён в Национальный лекарственный формуляр — 08.04.2026' },
+        ] },
+      mi:{ tag:'Медицинские изделия', tagIcon:'ri-stethoscope-fill', num:'7040547', created:'30.03.2026',
+        title:'Экспертиза, регистрация, перерегистрация, внесение изменений в регистрационное досье медицинского изделия и регистрация цены, внесение изменения в цену производителя',
+        cert:'Свидетельство о регистрации №РК-МИ-5-№ 024169',
+        parallelTitle:'Регистрация цены производителя',
+        stages:[ stage1, stage2,
+          { n:3, kind:'reg', icon:'ri-clipboard-line', title:'Государственная регистрация медицинского изделия', sub:'Основная услуга' },
+          { n:4, kind:'par', icon:'ri-price-tag-3-line', title:'Регистрация цены производителя медицинского изделия', sub:'Подуслуга',
+            waitNote:'Станет доступно после завершения государственной регистрации.',
+            doneNote:'Цена производителя зарегистрирована — 08.04.2026' },
+        ] },
+    };
+  }
+
+  renderVals(){
+    const s = this.state;
+    const proc = this.procs()[s.id];
+    const phase = s.phase;
+    const idx = { p1:1, p2:2, p3:3, p45:4, done:99 }[phase];
+    const statusOf = (n) => phase === 'done' ? 'done' : phase === 'p45' ? (n <= 3 ? 'done' : 'work') : (n < idx ? 'done' : n === idx ? 'work' : 'wait');
+    const open = this.openList();
+    const noop = (e) => { if(e && e.preventDefault) e.preventDefault(); };
+
+    const banner = (type, text) => {
+      const T = { warn:['#FEF3EB','ri-time-line','#F17B2C'], ok:['#EFFAF6','ri-checkbox-circle-fill','#38C793'],
+                  info:['#EEF2FF','ri-information-line','#4D42E9'], par:['#FEF3EB','ri-shuffle-line','#F17B2C'] }[type];
+      return { text, icon:T[1],
+        style:`display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:${T[0]};font-size:14px;line-height:20px;letter-spacing:-.006em;color:#0A0D14;`,
+        iconStyle:`font-size:20px;color:${T[2]};flex:0 0 auto;` };
+    };
+    const steps = (arr) => arr.map(([title, st, date, note], i) => {
+      const last = i === arr.length - 1, hasDate = !!date;
+      const S = { done:['#CBF5E5','ri-check-line','#2D9F75'], prog:['#FBDFB1','ri-loop-right-line','#B47818'], lock:['#F6F8FA','ri-lock-line','#525866'] }[st];
+      return { title, date:date || '', hasDate, hasNote:!!note, note:note || '', onNote:noop, icon:S[1],
+        iconBox:`width:24px;height:24px;border-radius:40px;background:${S[0]};display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:${hasDate ? 7 : 0}px;`,
+        iconStyle:`font-size:16px;color:${S[2]};`,
+        lineStyle:`width:2px;flex:1;min-height:8px;border-radius:2px;margin:4px 0;background:${last ? 'transparent' : S[0]};`,
+        textStyle:`flex:1;min-width:0;padding:${hasDate ? 0 : 2}px 0 ${last ? 0 : 16}px;` };
+    });
+    const card = (title, meta, action, label, labelSub) => ({ title, meta, action, hasLabel:!!label, label:label || '', labelSub:labelSub || '' });
+    const FILE = 'document_11022024_001211.pdf';
+    const slot = (kind) => ({
+      label: kind === 'receipt' ? 'Загрузите чек оплаты' : 'Загрузите доверенность',
+      labelSub: kind === 'poa' ? ' (Для иностранных производителей)' : '',
+      star: kind === 'receipt' ? '*' : '',
+      empty: !s[kind], uploaded: !!s[kind],
+      onPick: () => this.setState({ [kind]:true }),
+      onRemove: () => this.setState({ [kind]:false }),
+    });
+    const EXPERT_NOTE = 'Отслеживание статуса доступно на портале ИС «Экспертиза»';
+
+    const body = (st, status) => {
+      const b = { bannersTop:[], bannersBottom:[], steps:[], hasReq:false, reqHead:'', slots:[], hasSend:false, cards:[], hasGo:false };
+      if(st.kind === 'expert'){
+        if(status === 'done'){
+          b.steps = steps([['Подача заявления','done','30.03.2026',EXPERT_NOTE], ['Обработка заявления','done','31.03.2026'], ['Результат услуги сформирован','done','03.04.2026']]);
+          b.cards = [card('Заключение №ЭКС-2026/0481', 'PDF ∙ 1.2 МБ ∙ 03.04.2026', 'Скачать заключение')];
+        } else {
+          b.steps = steps([['Подача заявления','done','30.03.2026',EXPERT_NOTE], ['Обработка заявления','prog','31.03.2026'], ['Результат услуги','lock']]);
+        }
+      }
+      if(st.kind === 'fee'){
+        if(status === 'wait'){
+          b.bannersBottom = [banner('info', 'Этап станет доступен после получения заключения о безопасности.')];
+        } else if(status === 'work' && !s.sent){
+          b.bannersTop = [banner('warn', 'Ожидается оплата государственной пошлины')];
+          b.hasReq = true; b.reqHead = 'Оплатите пошлину по указанным реквизитам и прикрепите чек';
+          b.slots = [slot('receipt'), slot('poa')];
+          b.hasSend = s.receipt;
+        } else {
+          const done = status === 'done';
+          b.bannersTop = [banner('ok', done ? 'Чек успешно отправлен — 03.04.2026. Оплата подтверждена.' : 'Чек успешно отправлен — 03.04.2026. Этап 3 будет запущен автоматически.')];
+          b.hasReq = true; b.reqHead = 'Реквизиты';
+          b.cards = [card(FILE, 'PDF ∙ 1.2 МБ ∙ 05.04.2026', 'Скачать', 'Чек оплаты')];
+          if(done || s.poa) b.cards.push(card(FILE, 'PDF ∙ 1.2 МБ ∙ 05.04.2026', 'Скачать', 'Доверенность', ' (Для иностранных производителей)'));
+        }
+      }
+      if(st.kind === 'reg'){
+        if(status === 'wait'){
+          b.steps = steps([['Заявление создано','lock'], ['На рассмотрении','lock'], ['Результат услуги','lock']]);
+          b.bannersBottom = [banner('info', 'Этап будет автоматически запущен после подтверждения оплаты госпошлины.')];
+        } else if(status === 'work'){
+          b.bannersTop = [banner('info', 'Заявление передано в ИС СУЛО. Статус обновляется автоматически.')];
+          b.steps = steps([['Заявление создано','done','04.04.2026'], ['На рассмотрении','prog','04.04.2026'], ['Результат услуги','lock']]);
+        } else {
+          b.bannersTop = [banner('ok', 'Государственная регистрация завершена — свидетельство выдано.')];
+          b.steps = steps([['Заявление создано','done','04.04.2026'], ['На рассмотрении','done','04.04.2026'], ['Результат услуги','done','05.04.2026']]);
+          b.cards = [card(proc.cert, 'PDF ∙ 1.2 МБ ∙ 05.04.2026', 'Скачать заключение')];
+        }
+      }
+      if(st.kind === 'par'){
+        if(status === 'wait'){
+          b.steps = steps([['Создание заявления','lock'], ['На рассмотрении','lock'], ['Результат услуги','lock']]);
+          b.bannersBottom = [banner('info', st.waitNote)];
+        } else if(status === 'work'){
+          b.bannersTop = [banner('par', 'Параллельный этап')];
+          b.steps = steps([['Создание заявления','done','06.04.2026'], ['На рассмотрении','prog','06.04.2026'], ['Результат услуги','lock']]);
+          b.hasGo = true;
+        } else {
+          b.bannersTop = [banner('ok', st.doneNote)];
+          b.steps = steps([['Создание заявления','done','06.04.2026'], ['На рассмотрении','done','06.04.2026'], ['Результат услуги','done','08.04.2026']]);
+          b.hasGo = true;
+        }
+      }
+      b.hasSteps = b.steps.length > 0;
+      return b;
+    };
+
+    const BADGE = { done:['Завершен','#CBF5E5','#176448','#38C793'], work:['В работе','#EEF2FF','#362DA6','#4D42E9'], wait:['Ожидает','#F6F8FA','#525866','#868C98'] };
+    const stages = proc.stages.map(st => {
+      const status = statusOf(st.n), isOpen = open.includes(st.n), B = BADGE[status];
+      return { ...st, ...body(st, status), isOpen,
+        isDone: status === 'done', isWork: status === 'work', isWait: status === 'wait',
+        domId: 'stage-' + st.n, badgeLabel: B[0],
+        badgeStyle:`display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 8px 0 6px;border-radius:999px;background:${B[1]};color:${B[2]};font-size:12px;line-height:16px;font-weight:500;`,
+        dotStyle:`width:6px;height:6px;border-radius:50%;background:${B[3]};`,
+        chevron: isOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+        onToggle: () => this.toggle(st.n) };
+    });
+
+    let current = null;
+    if(phase === 'p45'){
+      current = { icon:'ri-price-tag-3-line', title:proc.parallelTitle, nums: proc.stages.filter(x => x.n >= 4).map(x => x.n) };
+    } else if(phase !== 'done'){
+      const st = proc.stages[idx - 1];
+      current = { icon:st.icon, title:st.title, nums:[idx] };
+    }
+
+    const seg = (on) => `height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const demoProc = [['ls','ЛС'], ['mi','МИ']].map(([id, label]) => ({ label, style:seg(s.id === id), onClick: () => { location.hash = id; } }));
+    const demoPhase = [['p1','Этап 1'], ['p2','Этап 2'], ['p3','Этап 3'], ['p45', s.id === 'ls' ? 'Этапы 4–5' : 'Этап 4'], ['done','Завершён']]
+      .map(([id, label]) => ({ label, style:seg(phase === id), onClick: () => this.setPhase(id) }));
+
+    return {
+      proc: { ...proc, count: proc.stages.length },
+      backHref: 'Мои процессы.dc.html#' + s.id,
+      hasCurrent: !!current,
+      current: current || { icon:'', title:'' },
+      goCurrent: () => { if(current) this.goTo(current.nums); },
+      stages, noop,
+      modal: s.modal,
+      openModal: () => this.setState({ modal:true }),
+      closeModal: () => this.setState({ modal:false }),
+      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+      confirmSend: () => this.setState({ modal:false, sent:true }),
+      demoProc, demoPhase,
+    };
+  }
+}
+</script>
+</body>
+</html>

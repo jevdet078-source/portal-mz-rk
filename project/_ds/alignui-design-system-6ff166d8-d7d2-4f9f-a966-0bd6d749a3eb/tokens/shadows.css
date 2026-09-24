@@ -1,0 +1,26 @@
+/* ───────────────────────────────────────────────────────────────
+   AlignUI Shadows
+   Subtle, layered elevation. Keep shadows quiet — strong shadows
+   fight the clean surface language.
+   ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --shadow-xs: 0 1px 2px 0 rgba(10, 13, 20, 0.03);
+  --shadow-sm: 0 2px 4px 0 rgba(27, 28, 29, 0.04);
+  --shadow-md: 0 16px 32px -12px rgba(14, 18, 27, 0.10);
+  --shadow-lg: 0 16px 40px -12px rgba(14, 18, 27, 0.14);
+  --shadow-xl: 0 24px 56px -16px rgba(14, 18, 27, 0.18);
+  --shadow-2xl: 0 40px 96px -24px rgba(14, 18, 27, 0.24);
+
+  /* component-specific */
+  --shadow-tooltip: 0 12px 24px 0 rgba(14, 18, 27, 0.06), 0 1px 2px 0 rgba(14, 18, 27, 0.03);
+  --shadow-toggle: 0 6px 10px 0 rgba(14, 18, 27, 0.06), 0 2px 4px 0 rgba(14, 18, 27, 0.03);
+
+  /* hairline ring used on cards/inputs (inset border + soft drop) */
+  --shadow-card: inset 0 0 0 1px rgba(226, 228, 233, 1), 0 2px 4px 0 rgba(27, 28, 29, 0.04);
+
+  /* focus rings — primary & error */
+  --ring-primary: 0 0 0 2px var(--neutral-0), 0 0 0 4px var(--primary-light);
+  --ring-error: 0 0 0 2px var(--neutral-0), 0 0 0 4px var(--red-light);
+  --ring-neutral: 0 0 0 2px var(--neutral-0), 0 0 0 4px var(--neutral-200);
+}

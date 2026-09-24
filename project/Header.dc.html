@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;--primary-lighter:#EEF2FF;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;--orange:#F17B2C;--orange-l:#FEF3EB;--purple:#6E3FF3;--purple-l:#CAC2FF;--purple-ll:#EEEBFF;--purple-d:#2B1664;}
+  @keyframes hdr-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<header style="background:#fff;border-bottom:1px solid var(--stroke);font-family:'Inter',sans-serif;">
+  <div style="{{ barStyle }}">
+    <a href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;">
+      <img src="uploads/images.jpg" alt="Герб Республики Казахстан" style="width:48px;height:48px;object-fit:contain;flex:0 0 auto;" />
+      <div style="line-height:1.2;max-width:240px;">
+        <div style="font-size:14px;font-weight:600;color:var(--n900);letter-spacing:-.01em;">Министерство здравоохранения</div>
+        <div style="font-size:12px;color:var(--n400);font-weight:500;">Республики Казахстан</div>
+      </div>
+    </a>
+
+    <sc-if value="{{ showRoles }}" hint-placeholder-val="{{ true }}">
+      <nav style="display:flex;align-items:stretch;gap:4px;flex:0 0 auto;align-self:stretch;margin-left:8px;">
+        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+          <button onClick="{{ r.onClick }}" style="{{ r.style }}">
+            <span style="display:flex;align-items:center;gap:8px;"><i class="{{ r.icon }}" style="font-size:18px;"></i>{{ r.label }}</span>
+            <span style="{{ r.underline }}"></span>
+          </button>
+        </sc-for>
+      </nav>
+    </sc-if>
+
+    <div style="flex:1;"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
+      <sc-if value="{{ showBell }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative;">
+          <button onClick="{{ toggleBell }}" title="Уведомления" style="{{ bellStyle }}">
+            <i class="ri-notification-3-line" style="font-size:20px;"></i>
+            <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
+              <span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;line-height:16px;font-weight:600;text-align:center;border:2px solid #fff;box-sizing:content-box;">{{ unread }}</span>
+            </sc-if>
+          </button>
+          <sc-if value="{{ bellOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeBell }}" style="position:fixed;inset:0;z-index:44;"></div>
+            <div style="position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:312px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);overflow:hidden;animation:hdr-drop .15s ease;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px 14px 16px;border-bottom:1px solid var(--stroke);">
+                <span style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">Уведомления</span>
+                <button onClick="{{ closeBell }}" title="Закрыть" style="padding:2px;border:none;background:none;cursor:pointer;display:flex;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+              </div>
+              <div style="max-height:360px;overflow-y:auto;">
+                <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
+                  <a href="{{ n.href }}" style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;">
+                    <span style="{{ n.dotStyle }}"></span>
+                    <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                      <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
+                      <span style="{{ n.titleStyle }}">{{ n.title }}</span>
+                      <span style="font-size:12px;line-height:16px;color:var(--n500);">Эксперт: {{ n.expert }}</span>
+                      <span style="{{ n.statusStyle }}">{{ n.status }}</span>
+                    </span>
+                  </a>
+                </sc-for>
+              </div>
+              <div style="padding:12px 16px;">
+                <a href="Уведомления.dc.html" style="display:flex;align-items:center;justify-content:center;height:36px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;">Посмотреть все</a>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <div style="position:relative;">
+        <button onClick="{{ toggleLang }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--n600);cursor:pointer;">
+          <i class="ri-global-line" style="font-size:18px;color:var(--n400);"></i>{{ currentLang }}<i class="{{ chevron }}" style="font-size:18px;color:var(--n400);"></i>
+        </button>
+        <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeLang }}" style="position:fixed;inset:0;z-index:44;"></div>
+          <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:6px;min-width:160px;box-shadow:0 12px 24px -8px rgba(10,13,20,.16);animation:hdr-drop .15s ease;">
+            <sc-for list="{{ langs }}" as="l" hint-placeholder-count="3">
+              <button onClick="{{ l.onClick }}" style="{{ l.style }}"><span>{{ l.name }}</span><i class="{{ l.check }}" style="font-size:18px;color:var(--primary);"></i></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+        <a href="Вход.dc.html" style="height:40px;padding:0 18px;border-radius:10px;background:var(--primary);color:#fff;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(10,13,20,.04);text-decoration:none;">
+          <i class="ri-shield-user-line" style="font-size:18px;"></i>Войти
+        </a>
+      </sc-if>
+      <sc-if value="{{ showCabinet }}" hint-placeholder-val="{{ false }}">
+        <a href="Кабинет бизнеса.dc.html" title="ТОО «Астана Групп»" style="height:40px;padding:0 16px 0 12px;border-radius:10px;background:var(--primary);color:#fff;font-size:14px;font-weight:500;font-family:inherit;display:flex;align-items:center;gap:8px;box-shadow:0 1px 2px rgba(10,13,20,.04);text-decoration:none;">
+          <i class="ri-briefcase-4-line" style="font-size:18px;"></i>Кабинет бизнеса
+        </a>
+      </sc-if>
+      <!--
+        Организация + роль в ней. Роль — часть контекста «от чьего имени и в каком качестве
+        я работаю», поэтому живёт в одном элементе с организацией, а не отдельной вкладкой.
+        Активная роль видна всегда (плашка справа), переключение — в выпадающем меню.
+      -->
+      <sc-if value="{{ hasOrg }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative;">
+          <button onClick="{{ toggleOrg }}" aria-haspopup="menu" aria-expanded="{{ orgOpen }}" title="Организация и роль" style="{{ orgBtnStyle }}">
+            <span style="width:32px;height:32px;border-radius:8px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:18px;color:var(--orange);"></i></span>
+            <span style="line-height:1.2;white-space:nowrap;text-align:left;">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--n900);">{{ org }}</span>
+              <span style="display:block;font-size:12px;color:var(--n400);">{{ bin }}</span>
+            </span>
+            <sc-if value="{{ showRolePill }}" hint-placeholder-val="{{ true }}">
+              <span style="{{ rolePillStyle }}"><i class="{{ roleIcon }}" style="font-size:14px;"></i>{{ roleLabel }}</span>
+            </sc-if>
+            <i class="{{ orgChevron }}" style="font-size:18px;color:var(--n400);flex:0 0 auto;"></i>
+          </button>
+
+          <sc-if value="{{ orgOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeOrg }}" style="position:fixed;inset:0;z-index:44;"></div>
+            <div role="menu" style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:328px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:hdr-drop .15s ease;">
+              <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--n50);border-bottom:1px solid var(--stroke);">
+                <span style="width:36px;height:36px;border-radius:9px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:19px;color:var(--orange);"></i></span>
+                <span style="min-width:0;line-height:1.3;">
+                  <span style="display:block;font-size:13.5px;font-weight:600;color:var(--n900);">{{ org }}</span>
+                  <span style="display:block;font-size:12px;color:var(--n400);">{{ bin }}</span>
+                </span>
+              </div>
+              <div style="padding:12px 16px 6px;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Роль в организации</div>
+              <div style="padding:0 8px 8px;">
+                <sc-for list="{{ bizRoles }}" as="r" hint-placeholder-count="2">
+                  <button onClick="{{ r.onClick }}" role="menuitemradio" aria-checked="{{ r.on }}" style="{{ r.style }}">
+                    <span style="{{ r.iconWrap }}"><i class="{{ r.icon }}" style="font-size:18px;"></i></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
+                      <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ r.label }}</span>
+                      <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ r.desc }}</span>
+                    </span>
+                    <i class="{{ r.check }}" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="padding:10px 16px 12px;border-top:1px solid var(--stroke);display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:16px;color:var(--n400);">
+                <i class="ri-information-line" style="font-size:15px;flex:0 0 auto;margin-top:.5px;"></i><span>Роль администратора открывает группу «Администрирование» в меню кабинета.</span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
+        <a href="Портал Минздрава - Главная.dc.html" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;">
+          <i class="ri-home-4-line" style="font-size:18px;"></i>На главную
+        </a>
+      </sc-if>
+    </div>
+  </div>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:70}}">
+class Component extends DCLogic {
+  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, read:['97','96','95','94'] };
+  componentDidMount(){
+    // прочитанные уведомления — общий ключ со страницей «Уведомления»
+    try { const v = localStorage.getItem('mp-notif-read'); if(v){ const r = JSON.parse(v); if(Array.isArray(r)) this.setState({ read:r }); } } catch(e){}
+    this._onNotif = (e) => { if(e && Array.isArray(e.detail)) this.setState({ read:e.detail }); };
+    window.addEventListener('mp-notif-change', this._onNotif);
+    try { const r = localStorage.getItem('mp-role'); if(r) this.setState({ role:r }); } catch(e){}
+    try { const l = localStorage.getItem('mp-lang'); if(l) this.setState({ lang:l }); } catch(e){}
+    // вошедшей организации вместо «Войти» — вход в кабинет (у бизнеса есть «Выйти», сбрасывающий профиль)
+    try { this.setState({ biz: localStorage.getItem('mp-profile') === 'business' }); } catch(e){}
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._onRole);
+    // роль внутри кабинета бизнеса: заявитель / администратор организации
+    try { const b = localStorage.getItem('mp-biz-role'); if(b) this.setState({ bizRole:b }); } catch(e){}
+    this._onBizRole = (e) => { if(e && e.detail) this.setState({ bizRole:e.detail }); };
+    window.addEventListener('mp-biz-role-change', this._onBizRole);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); }
+  setBizRole(id){
+    this.setState({ bizRole:id, orgOpen:false });
+    try { localStorage.setItem('mp-biz-role', id); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:id })); } catch(e){}
+    // у ролей разный состав разделов — уводим на стартовую страницу новой роли
+    setTimeout(() => { location.href = id === 'admin' ? 'Рабочий календарь.dc.html' : 'Кабинет бизнеса.dc.html'; }, 120);
+  }
+  setRole(id){
+    this.setState({ role:id });
+    try { localStorage.setItem('mp-role', id); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-role-change', { detail:id })); } catch(e){}
+  }
+  setLang(code){
+    this.setState({ lang:code, langOpen:false });
+    try { localStorage.setItem('mp-lang', code); } catch(e){}
+  }
+  renderVals(){
+    const s = this.state;
+    const roleData = [
+      { id:'citizens', label:'Гражданам', icon:'ri-user-3-line' },
+      { id:'business', label:'Бизнесу', icon:'ri-briefcase-4-line' },
+      { id:'medical', label:'Медперсоналу', icon:'ri-stethoscope-line' },
+    ];
+    const roles = roleData.map(r => { const on = s.role===r.id; return { ...r, onClick:()=>this.setRole(r.id),
+      style:`position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 16px;height:46px;border:none;background:none;font-family:inherit;font-size:14px;font-weight:${on?'600':'500'};cursor:pointer;transition:color .15s;white-space:nowrap;color:${on?'#4D42E9':'#525866'};`,
+      underline:`position:absolute;left:6px;right:6px;bottom:-1px;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};transition:.15s;` }; });
+
+    const langData = [ { code:'ҚАЗ', name:'Қазақша' }, { code:'РУС', name:'Русский' }, { code:'ENG', name:'English' } ];
+    const langs = langData.map(l => ({ ...l, onClick:()=>this.setLang(l.code), check: s.lang===l.code ? 'ri-check-line' : 'ri-checkbox-blank-line',
+      style:`width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;border:none;border-radius:8px;font-family:inherit;font-size:14px;font-weight:${s.lang===l.code?'600':'500'};text-align:left;cursor:pointer;background:${s.lang===l.code?'#EEF2FF':'transparent'};color:${s.lang===l.code?'#312D86':'#31353F'};` }));
+    const langs2 = langs.map(l => ({ ...l, check: s.lang===l.code ? 'ri-check-line' : '' }));
+
+    const isAccount = this.props.variant === 'account';
+    // layout="app" — шапка кабинета на всю ширину (Page Header в Figma: слева 16, справа 32);
+    // слева 16px: центр герба (48px) совпадает с центром свёрнутого меню кабинета (80px)
+    const isApp = this.props.layout === 'app';
+
+    // Уведомления (Figma 6406:104361) — последние три, полный список на отдельной странице
+    const PRICE = 'Регистрация цены производителя лекарственного средства';
+    const CHANGE = 'Внесение изменений в зарегистрированную цену производителя лекарственного средства';
+    const noteData = [
+      { n:'99', meta:'ID 123456 · 2 минуты назад', title:PRICE, ok:true },
+      { n:'98', meta:'ID 123456 · 01.01.2025, 10:00', title:PRICE, ok:false },
+      { n:'97', meta:'ID 123456 · 01.01.2025, 10:00', title:CHANGE, ok:true },
+    ];
+    const unread = noteData.filter(n => s.read.indexOf(n.n) === -1).length;
+    const notes = noteData.map(n => { const isNew = s.read.indexOf(n.n) === -1; return {
+      meta:n.meta, title:n.title, expert:'Иванов. И.И.', status:'Завершена', href:'Уведомления.dc.html',
+      dotStyle:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
+      titleStyle:`font-size:14px;line-height:20px;font-weight:${isNew ? '600' : '500'};color:#0A0D14;`,
+      statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${n.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` }; });
+
+    // ——— роль внутри кабинета бизнеса ———
+    const isAdmin = s.bizRole === 'admin';
+    const bizRoleData = [
+      { id:'applicant', label:'Заявитель',     desc:'Договоры, платежи, подача заявок на ЛС и МИ', icon:'ri-briefcase-4-line' },
+      { id:'admin',     label:'Администратор', desc:'То же плюс «Администрирование»: рабочий календарь', icon:'ri-shield-user-line' },
+    ];
+    const bizRoles = bizRoleData.map(r => { const on = s.bizRole === r.id; return { ...r, on,
+      onClick: () => { if(on){ this.setState({ orgOpen:false }); return; } this.setBizRole(r.id); },
+      check: on ? 'ri-check-line' : '',
+      iconWrap: `width:34px;height:34px;flex:0 0 auto;border-radius:9px;display:flex;align-items:center;justify-content:center;background:${on ? '#EEF2FF' : '#F6F8FA'};color:${on ? '#4D42E9' : '#868C98'};`,
+      style: `width:100%;display:flex;align-items:center;gap:10px;padding:9px 8px;border:none;border-radius:10px;font-family:inherit;text-align:left;cursor:pointer;transition:background .12s;background:${on ? '#FBFCFD' : 'transparent'};` }; });
+
+    return {
+      isAccount,
+      // колокольчик — только в оболочке «Единого окна» (layout="app"); у гражданина свой раздел уведомлений
+      showBell: isAccount && isApp,
+      bellOpen: s.bellOpen,
+      bellStyle:`position:relative;width:40px;height:40px;border:1px solid ${s.bellOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:${s.bellOpen ? '#EEF2FF' : '#fff'};color:${s.bellOpen ? '#4D42E9' : '#525866'};font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;`,
+      toggleBell: () => this.setState(st => ({ bellOpen:!st.bellOpen, langOpen:false })),
+      closeBell: () => this.setState({ bellOpen:false }),
+      notes, unread, hasUnread: unread > 0,
+      barStyle: isApp
+        ? 'padding:12px 32px 12px 16px;display:flex;align-items:center;gap:24px;'
+        : 'max-width:1440px;margin:0 auto;padding:12px 40px;display:flex;align-items:center;gap:24px;',
+      roles,
+      showRoles: !isAccount,
+      showLogin: !isAccount && !s.biz,
+      showCabinet: !isAccount && !!s.biz,
+      // кабинет бизнеса: организация, от имени которой работает пользователь, и роль в ней
+      hasOrg: isAccount && !!this.props.org,
+      org: this.props.org || '',
+      bin: this.props.bin || '',
+      bizRoles, orgOpen: s.orgOpen,
+      toggleOrg: () => this.setState(st => ({ orgOpen:!st.orgOpen, langOpen:false, bellOpen:false })),
+      closeOrg: () => this.setState({ orgOpen:false }),
+      orgChevron: s.orgOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+      orgBtnStyle: `display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 4px;border:1px solid ${s.orgOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:#fff;font-family:inherit;cursor:pointer;transition:border-color .15s;`,
+      // активная роль видна всегда: «Администратор» — приподнятый контекст, отмечен отдельным цветом
+      showRolePill: true,
+      roleLabel: isAdmin ? 'Администратор' : 'Заявитель',
+      roleIcon: isAdmin ? 'ri-shield-user-line' : 'ri-briefcase-4-line',
+      rolePillStyle: `display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;flex:0 0 auto;${isAdmin ? 'background:#EEEBFF;color:#2B1664;' : 'background:#F6F8FA;color:#525866;'}`,
+      currentLang: s.lang,
+      langOpen: s.langOpen,
+      chevron: s.langOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+      toggleLang: ()=>this.setState(st=>({ langOpen:!st.langOpen, bellOpen:false })),
+      closeLang: ()=>this.setState({ langOpen:false }),
+      langs: langs2,
+    };
+  }
+}
+</script>
+</body>
+</html>

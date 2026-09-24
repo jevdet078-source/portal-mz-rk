@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;--green:#38C793;--n100:#F6F8FA;--n400:#868C98;--n500:#525866;--n700:#20232D;--n900:#0A0D14;--stroke:#E2E4E9;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+  .mp-scroll::-webkit-scrollbar{width:0;height:0;}
+</style>
+</helmet>
+<div style="font-family:'Inter',sans-serif;">
+  <div style="position:fixed;right:28px;bottom:28px;z-index:50;">
+    <button onClick="{{ open }}" title="Задайте вопрос о здоровье или работе портала" style="display:flex;align-items:center;gap:10px;height:54px;padding:0 22px 0 18px;border:none;border-radius:999px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 16px 32px -12px rgba(10,13,20,.25);">
+      <i class="ri-sparkling-2-fill" style="font-size:22px;"></i>AI-помощник
+    </button>
+  </div>
+  <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ close }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.5);display:flex;align-items:flex-end;justify-content:flex-end;padding:24px;animation:mp-fade .2s ease;">
+      <div onClick="{{ stop }}" style="width:440px;max-width:100%;height:640px;max-height:90vh;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(10,13,20,.3);display:flex;flex-direction:column;overflow:hidden;animation:mp-pop .25s ease;">
+        <div style="padding:18px 20px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));display:flex;align-items:center;justify-content:center;"><i class="ri-sparkling-2-fill" style="color:#fff;font-size:20px;"></i></div>
+          <div style="flex:1;"><div style="font-size:16px;font-weight:600;">AI-помощник по здоровью</div><div style="font-size:12px;color:var(--green);display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);"></span>В сети</div></div>
+          <button onClick="{{ close }}" style="width:34px;height:34px;border:none;border-radius:8px;background:var(--n100);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+        </div>
+        <div ref="{{ chatRef }}" class="mp-scroll" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;background:var(--n100);">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="1">
+            <div style="{{ m.row }}"><div style="{{ m.bubble }}">{{ m.text }}</div></div>
+          </sc-for>
+          <sc-if value="{{ showSuggestions }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+              <div style="font-size:12px;color:var(--n400);font-weight:500;">Попробуйте спросить:</div>
+              <sc-for list="{{ suggestions }}" as="sg" hint-placeholder-count="4">
+                <button onClick="{{ sg.onClick }}" style="text-align:left;background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:11px 14px;font-size:13px;color:var(--n700);font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;"><i class="ri-question-answer-line" style="color:var(--primary);font-size:16px;"></i>{{ sg.text }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:14px 16px;border-top:1px solid var(--stroke);background:#fff;">
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <input value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="Введите вопрос" style="flex:1;height:46px;border:1px solid var(--stroke);border-radius:12px;padding:0 14px;font-size:14px;font-family:inherit;background:var(--n100);outline:none;" />
+            <button onClick="{{ send }}" style="width:46px;height:46px;border:none;border-radius:12px;background:var(--primary);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-send-plane-fill" style="font-size:20px;"></i></button>
+          </div>
+          <div style="font-size:11px;color:var(--n400);margin-top:10px;line-height:1.4;display:flex;gap:6px;"><i class="ri-information-line" style="font-size:14px;flex:0 0 auto;margin-top:1px;"></i>Информация носит справочный характер и не заменяет консультацию медицинского работника.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.chatRef = React.createRef();
+    this.state = { open:false, input:'', messages:[{ role:'bot', text:'Здравствуйте! Я помогу с вопросами о здоровье и работе портала. Опишите симптом или задайте вопрос — я подскажу, что делать и куда обратиться.' }] };
+  }
+  componentDidUpdate(){ if(this.chatRef.current) this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight; }
+  botReply(q){
+    const t = q.toLowerCase();
+    if(/(голов|мигрен)/.test(t)) return 'Головная боль может быть вызвана переутомлением, повышенным давлением, обезвоживанием или простудой.\n\nРекомендации: отдохните, выпейте воды, измерьте давление. Если боль резкая, сопровождается нарушением зрения или речи — обратитесь за помощью незамедлительно.\n\nРекомендуемый специалист: терапевт, при повторяющихся болях — невролог.\nРаздел портала: «Каталог медицинских услуг» → запись на приём.';
+    if(/(температ|жар|39|38|лихорад)/.test(t)) return 'Высокая температура — признак воспалительного процесса или инфекции.\n\nРекомендации: обильное питьё, покой, жаропонижающее при температуре выше 38,5 °C. Если держится более 3 дней или выше 39,5 °C — вызовите врача на дом.\n\nРекомендуемый специалист: терапевт (для детей — педиатр).\nСервис: «Вызов врача на дом» в каталоге услуг.';
+    if(/(груд|сердц|инфаркт)/.test(t)) return '⚠ Боль в груди может быть признаком сердечного состояния и требует внимания.\n\nЕсли боль сильная, отдаёт в руку или челюсть, есть одышка и холодный пот — немедленно вызывайте скорую по номеру 103.\n\nВ плановом порядке — консультация кардиолога.\nРаздел: «Экстренная помощь» → Инфаркт.';
+    if(/(мрт|осмс|кт|узи|бесплатн|направлени)/.test(t)) return 'Чтобы получить МРТ по ОСМС, нужно: 1) быть застрахованным в системе ОСМС; 2) получить направление от лечащего врача; 3) выбрать медорганизацию из каталога.\n\nПроверить статус страхования: сервис «Проверка ОСМС».\nНайти услугу и медорганизации: «Каталог медицинских услуг» → МРТ.';
+    if(/(поликлиник|ближайш|организац|больниц|где наход|адрес)/.test(t)) return 'Найти ближайшую медицинскую организацию можно в сервисе «Медицинские организации» — там есть поиск по региону и интерактивная карта с метками поликлиник, стационаров, аптек и лабораторий.\n\nДля прикрепления к поликлинике потребуется авторизация в личном кабинете пациента.';
+    if(/(лекарств|таблетк|препарат|аналог|аптек)/.test(t)) return 'Информацию о препарате — инструкцию, показания, противопоказания и аналоги — можно найти в сервисе «Лекарства».\n\nТам же есть проверка наличия препарата в аптеках по региону.\nВажно: подбор и замену препаратов должен назначать врач.';
+    return 'Спасибо за вопрос. Я могу подсказать по симптомам, записи к врачу, статусу ОСМС, лекарствам и поиску медорганизаций.\n\nУточните, пожалуйста, ваш запрос — например, опишите симптом или назовите услугу, которая вас интересует.';
+  }
+  send(text){
+    const q = (text != null ? text : this.state.input).trim();
+    if(!q) return;
+    const reply = this.botReply(q);
+    this.setState(s => ({ messages:[...s.messages, { role:'user', text:q }, { role:'bot', text:reply }], input:'' }));
+  }
+  renderVals(){
+    const s = this.state;
+    const messages = s.messages.map(m => ({
+      text:m.text,
+      row:`display:flex;${m.role==='user'?'justify-content:flex-end;':'justify-content:flex-start;'}`,
+      bubble:m.role==='user'
+        ?'max-width:80%;background:#4D42E9;color:#fff;border-radius:16px 16px 4px 16px;padding:12px 14px;font-size:14px;line-height:1.5;white-space:pre-line;'
+        :'max-width:88%;background:#fff;color:#0A0D14;border:1px solid #E2E4E9;border-radius:16px 16px 16px 4px;padding:12px 14px;font-size:14px;line-height:1.55;white-space:pre-line;box-shadow:0 1px 2px rgba(10,13,20,.03);',
+    }));
+    const suggestions = ['У меня болит голова','Температура 39 градусов','К какому врачу при боли в груди','Как получить МРТ по ОСМС','Где находится ближайшая поликлиника']
+      .map(text => ({ text, onClick: () => this.send(text) }));
+    return {
+      isOpen:s.open, open:()=>this.setState({open:true}), close:()=>this.setState({open:false}), stop:(e)=>e.stopPropagation(),
+      messages, showSuggestions:s.messages.length<=1, suggestions, chatRef:this.chatRef,
+      input:s.input, onInput:(e)=>this.setState({input:e.target.value}), onKey:(e)=>{ if(e.key==='Enter') this.send(); }, send:()=>this.send(),
+    };
+  }
+}
+</script>
+</body>
+</html>

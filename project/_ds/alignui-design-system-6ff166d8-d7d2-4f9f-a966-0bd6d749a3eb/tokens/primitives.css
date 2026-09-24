@@ -1,0 +1,107 @@
+/* Generated from Figma Variables. First mode = :root default.
+   FLOAT tokens are unitless — multiply by 1px in calc() where a length is needed. */
+
+:root {
+  --base-darker: var(--blue-darker); /* @kind color */
+  --base-primary: var(--blue-base); /* @kind color */
+  --bg-soft-200: var(--neutral-200); /* @kind color */
+  --bg-strong-900: var(--neutral-900); /* @kind color */
+  --bg-surface-700: var(--neutral-700); /* @kind color */
+  --bg-weak-100: var(--neutral-100); /* @kind color */
+  --bg-white-0: var(--neutral-0); /* @kind color */
+  --blue-base: rgb(77,66,233); /* @kind color */
+  --blue-dark: rgb(54,45,166); /* @kind color */
+  --blue-darker: rgb(49,45,134); /* @kind color */
+  --blue-light: rgb(198,208,255); /* @kind color */
+  --blue-lighter: rgb(238,242,255); /* @kind color */
+  --green-base: rgb(56,199,147); /* @kind color */
+  --green-dark: rgb(45,159,117); /* @kind color */
+  --green-darker: rgb(23,100,72); /* @kind color */
+  --green-light: rgb(203,245,229); /* @kind color */
+  --green-lighter: rgb(239,250,246); /* @kind color */
+  --icon-disabled-300: var(--neutral-300); /* @kind color */
+  --icon-soft-400: var(--neutral-400); /* @kind color */
+  --icon-strong-900: var(--neutral-900); /* @kind color */
+  --icon-sub-500: var(--neutral-500); /* @kind color */
+  --icon-white-0: var(--neutral-0); /* @kind color */
+  --neutral-0: rgb(255,255,255); /* @kind color */
+  --neutral-100: rgb(246,248,250); /* @kind color */
+  --neutral-200: rgb(226,228,233); /* @kind color */
+  --neutral-300: rgb(205,208,213); /* @kind color */
+  --neutral-400: rgb(134,140,152); /* @kind color */
+  --neutral-500: rgb(82,88,102); /* @kind color */
+  --neutral-600: rgb(49,53,63); /* @kind color */
+  --neutral-700: rgb(32,35,45); /* @kind color */
+  --neutral-800: rgb(22,25,34); /* @kind color */
+  --neutral-900: rgb(10,13,20); /* @kind color */
+  --orange-base: rgb(241,123,44); /* @kind color */
+  --orange-dark: rgb(194,84,10); /* @kind color */
+  --orange-darker: rgb(110,51,12); /* @kind color */
+  --orange-light: rgb(255,218,194); /* @kind color */
+  --orange-lighter: rgb(254,243,235); /* @kind color */
+  --pink-base: rgb(226,85,242); /* @kind color */
+  --pink-dark: rgb(156,35,169); /* @kind color */
+  --pink-darker: rgb(98,15,108); /* @kind color */
+  --pink-light: rgb(249,194,255); /* @kind color */
+  --pink-lighter: rgb(253,235,255); /* @kind color */
+  --primary-base: var(--blue-base); /* @kind color */
+  --primary-dark: var(--blue-dark); /* @kind color */
+  --primary-darker: var(--blue-darker); /* @kind color */
+  --primary-light: var(--blue-light); /* @kind color */
+  --primary-lighter: var(--blue-lighter); /* @kind color */
+  --purple-base: rgb(110,63,243); /* @kind color */
+  --purple-dark: rgb(90,54,191); /* @kind color */
+  --purple-darker: rgb(43,22,100); /* @kind color */
+  --purple-light: rgb(202,194,255); /* @kind color */
+  --purple-lighter: rgb(238,235,255); /* @kind color */
+  --radius-0: 0;
+  --radius-10: 10;
+  --radius-12: 12;
+  --radius-16: 16;
+  --radius-20: 20;
+  --radius-4: 4;
+  --radius-6: 6;
+  --radius-8: 8;
+  --radius-full: 999;
+  --red-base: rgb(223,28,65); /* @kind color */
+  --red-dark: rgb(175,29,56); /* @kind color */
+  --red-darker: rgb(113,14,33); /* @kind color */
+  --red-light: rgb(248,201,210); /* @kind color */
+  --red-lighter: rgb(253,237,240); /* @kind color */
+  --state-away: var(--yellow-base); /* @kind color */
+  --state-error: var(--red-base); /* @kind color */
+  --state-feature: var(--purple-base); /* @kind color */
+  --state-information: var(--blue-base); /* @kind color */
+  --state-neutral: var(--neutral-400); /* @kind color */
+  --state-success: var(--green-base); /* @kind color */
+  --state-verified: var(--teal-base); /* @kind color */
+  --state-warning: var(--orange-base); /* @kind color */
+  --stroke-disabled-100: var(--neutral-100); /* @kind color */
+  --stroke-soft-200: var(--neutral-200); /* @kind color */
+  --stroke-strong-900: var(--neutral-900); /* @kind color */
+  --stroke-sub-300: var(--neutral-300); /* @kind color */
+  --stroke-white-0: var(--neutral-0); /* @kind color */
+  --teal-base: rgb(53,185,233); /* @kind color */
+  --teal-dark: rgb(31,135,173); /* @kind color */
+  --teal-darker: rgb(22,69,100); /* @kind color */
+  --teal-light: rgb(194,239,255); /* @kind color */
+  --teal-lighter: rgb(235,250,255); /* @kind color */
+  --text-disabled-300: var(--neutral-300); /* @kind color */
+  --text-main-900: var(--neutral-900); /* @kind color */
+  --text-soft-400: var(--neutral-400); /* @kind color */
+  --text-sub-500: var(--neutral-500); /* @kind color */
+  --text-white-0: var(--neutral-0); /* @kind color */
+  --yellow-base: rgb(242,174,64); /* @kind color */
+  --yellow-dark: rgb(180,120,24); /* @kind color */
+  --yellow-darker: rgb(105,61,17); /* @kind color */
+  --yellow-light: rgb(251,223,177); /* @kind color */
+  --yellow-lighter: rgb(254,247,236); /* @kind color */
+}
+
+:root[data-mode="purple"] {
+  --primary-base: var(--purple-base); /* @kind color */
+  --primary-dark: var(--purple-dark); /* @kind color */
+  --primary-darker: var(--purple-darker); /* @kind color */
+  --primary-light: var(--purple-light); /* @kind color */
+  --primary-lighter: var(--purple-lighter); /* @kind color */
+}

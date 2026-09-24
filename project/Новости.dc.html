@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--teal-d:#164564;--orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.14);--sh-modal:0 24px 48px -12px rgba(10,13,20,.22);}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:#F6F8FA;-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-drawer{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+  .nw-scroll::-webkit-scrollbar{width:8px;}
+  .nw-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:8px;}
+  .nw-card{transition:transform .15s,box-shadow .15s;}
+  .nw-card:hover{transform:translateY(-3px);box-shadow:var(--sh-md);}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;flex-direction:column;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
+
+  <main style="flex:1;">
+    <div style="max-width:1240px;margin:0 auto;padding:24px 40px 80px;">
+      <!-- breadcrumb -->
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:22px;">
+        <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a>
+        <i class="ri-arrow-right-s-line"></i><span style="color:var(--n700);font-weight:500;">Новости здравоохранения</span>
+      </div>
+
+      <!-- header -->
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px;">
+        <div>
+          <div style="font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;">Пресс-центр</div>
+          <h1 style="font-size:34px;font-weight:600;letter-spacing:-.02em;margin:0;">Новости здравоохранения</h1>
+          <p style="font-size:15px;color:var(--n500);margin:8px 0 0;max-width:620px;line-height:1.5;">Официальные новости Министерства здравоохранения Республики Казахстан: новые услуги, лекарственное обеспечение, изменения по ОСМС и профилактические кампании.</p>
+        </div>
+        <div style="position:relative;min-width:280px;">
+          <i class="ri-search-line" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--n400);font-size:18px;"></i>
+          <input placeholder="Поиск по новостям" style="width:100%;height:46px;border:1px solid var(--stroke);border-radius:11px;padding:0 14px 0 42px;font-size:14px;font-family:inherit;background:var(--n0);outline:none;" />
+        </div>
+      </div>
+
+      <!-- category tabs -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px;">
+        <sc-for list="{{ cats }}" as="c" hint-placeholder-count="5">
+          <button onClick="{{ c.onClick }}" style="{{ c.style }}"><i class="{{ c.icon }}" style="font-size:17px;"></i>{{ c.label }}<span style="{{ c.badge }}">{{ c.count }}</span></button>
+        </sc-for>
+      </div>
+
+      <!-- featured -->
+      <sc-if value="{{ hasFeatured }}" hint-placeholder-val="{{ true }}">
+        <div onClick="{{ featured.onClick }}" class="nw-card" style="display:grid;grid-template-columns:1.15fr 1fr;gap:0;background:var(--n0);border:1px solid var(--stroke);border-radius:20px;overflow:hidden;box-shadow:var(--sh-xs);margin-bottom:28px;cursor:pointer;">
+          <div style="{{ featured.banner }}">
+            <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(circle at 78% 22%,rgba(255,255,255,.35),transparent 45%);"></div>
+            <i class="{{ featured.icon }}" style="position:relative;font-size:120px;color:rgba(255,255,255,.9);"></i>
+            <span style="position:absolute;top:18px;left:18px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.9);color:{{ featured.color }};padding:5px 12px;border-radius:999px;">{{ featured.catLabel }}</span>
+          </div>
+          <div style="padding:32px;display:flex;flex-direction:column;">
+            <div style="display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--primary);margin-bottom:12px;"><i class="ri-flashlight-fill"></i>Главная новость</div>
+            <h2 style="font-size:24px;font-weight:600;line-height:1.3;letter-spacing:-.01em;margin:0 0 12px;">{{ featured.title }}</h2>
+            <p style="font-size:14.5px;line-height:1.6;color:var(--n500);margin:0;flex:1;">{{ featured.excerpt }}</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;padding-top:18px;border-top:1px solid var(--stroke);">
+              <div style="display:flex;align-items:center;gap:14px;font-size:13px;color:var(--n400);"><span style="display:flex;align-items:center;gap:6px;"><i class="ri-calendar-line" style="font-size:15px;"></i>{{ featured.date }}</span><span style="display:flex;align-items:center;gap:6px;"><i class="ri-time-line" style="font-size:15px;"></i>{{ featured.read }}</span></div>
+              <span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--primary);">Читать<i class="ri-arrow-right-line" style="font-size:16px;"></i></span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- grid -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+        <sc-for list="{{ items }}" as="n" hint-placeholder-count="6">
+          <div onClick="{{ n.onClick }}" class="nw-card" style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;overflow:hidden;box-shadow:var(--sh-xs);display:flex;flex-direction:column;cursor:pointer;">
+            <div style="{{ n.banner }}">
+              <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(circle at 80% 25%,rgba(255,255,255,.3),transparent 45%);"></div>
+              <i class="{{ n.icon }}" style="position:relative;font-size:56px;color:rgba(255,255,255,.92);"></i>
+              <span style="position:absolute;top:14px;left:14px;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:rgba(255,255,255,.92);color:{{ n.color }};padding:4px 10px;border-radius:999px;">{{ n.catLabel }}</span>
+            </div>
+            <div style="padding:20px;display:flex;flex-direction:column;flex:1;">
+              <h3 style="font-size:16px;font-weight:600;line-height:1.4;letter-spacing:-.01em;margin:0 0 8px;">{{ n.title }}</h3>
+              <p style="font-size:13px;line-height:1.5;color:var(--n500);margin:0;flex:1;">{{ n.excerpt }}</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+                <span style="font-size:12px;color:var(--n400);">{{ n.date }}</span>
+                <span style="display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--primary);">Подробнее<i class="ri-arrow-right-line" style="font-size:15px;"></i></span>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- pagination -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:36px;">
+        <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-arrow-left-s-line" style="font-size:22px;color:var(--n500);"></i></button>
+        <button style="width:40px;height:40px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;">1</button>
+        <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;font-family:inherit;cursor:pointer;">2</button>
+        <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;font-family:inherit;cursor:pointer;">3</button>
+        <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-arrow-right-s-line" style="font-size:22px;color:var(--n500);"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <div style="margin-top:48px;"><dc-import name="Footer" hint-size="100%,360px"></dc-import></div>
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- ARTICLE FULL VIEW -->
+  <sc-if value="{{ articleOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="nw-scroll" style="position:fixed;inset:0;z-index:70;background:var(--n0);overflow-y:auto;animation:mp-fade .2s ease;">
+      <!-- sticky top bar -->
+      <div style="position:sticky;top:0;z-index:5;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke);">
+        <div style="max-width:1080px;margin:0 auto;padding:14px 40px;display:flex;align-items:center;gap:14px;">
+          <button onClick="{{ closeArticle }}" style="display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;white-space:nowrap;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;"><i class="ri-arrow-left-line" style="font-size:17px;"></i>Все новости</button>
+          <div style="flex:1;"></div>
+          <span style="{{ art.chipStyle }}">{{ art.catLabel }}</span>
+        </div>
+      </div>
+
+      <!-- hero -->
+      <div style="{{ art.hero }}">
+        <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(circle at 82% 22%,rgba(255,255,255,.32),transparent 48%);"></div>
+        <i class="{{ art.icon }}" style="position:relative;font-size:120px;color:rgba(255,255,255,.9);"></i>
+      </div>
+
+      <!-- article body -->
+      <article style="max-width:760px;margin:0 auto;padding:40px 40px 72px;">
+        <h1 style="font-size:34px;font-weight:600;line-height:1.25;letter-spacing:-.02em;margin:0 0 16px;">{{ art.title }}</h1>
+        <div style="display:flex;align-items:center;gap:18px;font-size:13.5px;color:var(--n400);padding-bottom:22px;border-bottom:1px solid var(--stroke);margin-bottom:26px;flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:6px;"><i class="ri-calendar-line" style="font-size:16px;"></i>{{ art.date }}</span>
+          <span style="display:flex;align-items:center;gap:6px;"><i class="ri-time-line" style="font-size:16px;"></i>{{ art.read }}</span>
+          <span style="display:flex;align-items:center;gap:6px;"><i class="ri-government-line" style="font-size:16px;"></i>Пресс-служба МЗ РК</span>
+          <div style="flex:1;"></div>
+          <button style="display:flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n500);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;"><i class="ri-share-line" style="font-size:16px;"></i>Поделиться</button>
+        </div>
+        <div style="font-size:17px;line-height:1.75;color:var(--n700);white-space:pre-line;">{{ art.body }}</div>
+
+        <sc-if value="{{ art.hasBullets }}" hint-placeholder-val="{{ false }}">
+          <div style="background:var(--primary-lighter);border:1px solid var(--primary-light);border-radius:16px;padding:24px 26px;margin-top:28px;">
+            <div style="font-size:15px;font-weight:600;color:var(--primary-darker);margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-checkbox-circle-line" style="font-size:19px;"></i>{{ art.bulletsTitle }}</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <sc-for list="{{ art.bullets }}" as="b" hint-placeholder-count="3">
+                <div style="display:flex;align-items:flex-start;gap:11px;font-size:15px;line-height:1.55;color:var(--n600);"><i class="ri-arrow-right-circle-fill" style="font-size:18px;color:var(--primary);flex:0 0 auto;margin-top:1px;"></i>{{ b }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ art.hasCta }}" hint-placeholder-val="{{ false }}">
+          <a href="{{ art.ctaHref }}" style="display:inline-flex;align-items:center;gap:8px;height:50px;padding:0 24px;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;text-decoration:none;margin-top:28px;box-shadow:var(--sh-sm);"><i class="{{ art.ctaIcon }}" style="font-size:20px;"></i>{{ art.ctaLabel }}</a>
+        </sc-if>
+
+        <!-- related -->
+        <div style="margin-top:44px;padding-top:28px;border-top:1px solid var(--stroke);">
+          <div style="font-size:18px;font-weight:600;letter-spacing:-.01em;margin-bottom:16px;">Похожие новости</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <sc-for list="{{ related }}" as="r" hint-placeholder-count="2">
+              <div onClick="{{ r.onClick }}" class="nw-card" style="display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--stroke);border-radius:14px;cursor:pointer;background:var(--n0);">
+                <div style="{{ r.mini }}"><i class="{{ r.icon }}" style="font-size:24px;color:#fff;"></i></div>
+                <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;line-height:1.4;">{{ r.title }}</div><div style="font-size:12px;color:var(--n400);margin-top:3px;">{{ r.catLabel }} · {{ r.date }}</div></div>
+                <i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </article>
+    </div>
+  </sc-if>
+</div>
+
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#4D42E9"/>
+    <g transform="translate(480 280)">
+      <rect width="240" height="240" rx="48" fill="#ffffff"/>
+      <path d="M60 80 h120 M60 120 h120 M60 160 h80" stroke="#4D42E9" stroke-width="16" stroke-linecap="round"/>
+    </g>
+  </svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { cat:'all', article:null };
+  renderVals(){
+    const s=this.state;
+    const CAT={
+      services:{ label:'Новые услуги', icon:'ri-service-line', grad:'linear-gradient(135deg,#4D42E9,#6B61F2)', color:'#4D42E9' },
+      drugs:{ label:'Новые лекарства', icon:'ri-capsule-line', grad:'linear-gradient(135deg,#0F9D6C,#38C793)', color:'#176448' },
+      osms:{ label:'Изменения по ОСМС', icon:'ri-shield-check-line', grad:'linear-gradient(135deg,#1B8FB8,#35B9E9)', color:'#164564' },
+      prevent:{ label:'Профилактика', icon:'ri-heart-pulse-line', grad:'linear-gradient(135deg,#D9631A,#F17B2C)', color:'#6E330C' },
+    };
+    const banner=(cat,h)=>`position:relative;height:${h}px;display:flex;align-items:center;justify-content:center;background:${CAT[cat].grad};overflow:hidden;`;
+    const mini=(cat)=>`width:44px;height:44px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${CAT[cat].grad};`;
+
+    const NEWS=[
+      { id:'s1', cat:'services', date:'24 июня 2026', read:'4 мин', title:'Запущена онлайн-запись к узким специалистам', excerpt:'Записаться к кардиологу, эндокринологу и неврологу теперь можно полностью онлайн — без посещения регистратуры и звонков в поликлинику.',
+        body:'Министерство здравоохранения Республики Казахстан запустило сервис онлайн-записи к врачам узких специальностей на едином портале. Теперь пациентам не нужно посещать регистратуру или дозваниваться в поликлинику — вся запись проходит в несколько кликов.\n\nСервис синхронизирован с расписанием медицинских организаций в режиме реального времени: пациент видит только свободные слоты и выбирает удобное время. После подтверждения записи в личный кабинет и на телефон приходит уведомление с датой, временем и кабинетом приёма.\n\nНа первом этапе доступна запись к кардиологу, эндокринологу, неврологу, офтальмологу и оториноларингологу. До конца года перечень специальностей будет расширен, а также появится возможность онлайн-переноса и отмены записи.',
+        bulletsTitle:'Что доступно уже сейчас', bullets:['Запись к 5 узким специальностям без направления от терапевта, где это предусмотрено','Просмотр свободных слотов в реальном времени','Напоминание о приёме за сутки в личном кабинете и по SMS','Отмена записи онлайн не позднее чем за 2 часа'],
+        cta:{ label:'Записаться к врачу', href:'Каталог услуг.dc.html', icon:'ri-calendar-check-line' } },
+      { id:'s2', cat:'services', date:'21 июня 2026', read:'3 мин', title:'Электронные направления на МРТ, КТ и УЗИ', excerpt:'Направления на инструментальную диагностику выдаются в электронном виде и автоматически появляются в личном кабинете пациента.',
+        body:'Направления на магнитно-резонансную и компьютерную томографию, а также на ультразвуковые исследования теперь оформляются в электронном виде. Пациенту больше не нужно хранить бумажный бланк — направление автоматически привязывается к его электронному паспорту здоровья.\n\nВрач формирует направление во время приёма, и оно мгновенно становится доступным в личном кабинете. При записи на исследование система сама проверяет действительность направления и источник финансирования — ГОБМП или ОСМС.',
+        bulletsTitle:'Преимущества', bullets:['Направление нельзя потерять — оно хранится в кабинете','Автоматическая проверка права на бесплатное исследование','Прозрачная запись в медорганизации, где выполняется услуга'],
+        cta:{ label:'Каталог медицинских услуг', href:'Каталог услуг.dc.html', icon:'ri-service-line' } },
+      { id:'s3', cat:'services', date:'18 июня 2026', read:'3 мин', title:'Вызов врача на дом через портал', excerpt:'Оформить вызов участкового врача можно онлайн с подтверждением времени визита — без звонка в регистратуру.',
+        body:'На портале заработал сервис вызова врача на дом. Пациент указывает адрес, симптомы и удобный интервал времени, а система направляет вызов в поликлинику по месту прикрепления.\n\nСтатус вызова отображается в личном кабинете: принят, назначен врач, врач в пути. Услуга особенно востребована при высокой температуре, для маломобильных граждан и родителей с маленькими детьми.',
+        cta:{ label:'Вызвать врача на дом', href:'Каталог услуг.dc.html', icon:'ri-home-heart-line' } },
+      { id:'s4', cat:'services', date:'12 июня 2026', read:'4 мин', title:'Телемедицина: видеоконсультации со специалистами', excerpt:'Жители удалённых регионов получили доступ к видеоконсультациям профильных врачей из областных центров.',
+        body:'Сервис телемедицины позволяет получить консультацию профильного специалиста дистанционно — через защищённую видеосвязь. Это особенно важно для сельских районов, где нет узких специалистов.\n\nВрач видит электронный паспорт здоровья пациента, результаты анализов и обследований, даёт рекомендации и при необходимости оформляет направление. Все консультации фиксируются в медицинской карте.',
+        bulletsTitle:'Кому это полезно', bullets:['Жителям сёл и удалённых населённых пунктов','Пациентам для повторных консультаций без повторного визита','Для интерпретации результатов обследований'] },
+      { id:'s5', cat:'services', date:'5 июня 2026', read:'2 мин', title:'Электронный паспорт здоровья доступен всем гражданам', excerpt:'Полная история здоровья — приёмы, анализы, прививки и назначения — теперь в одном месте.',
+        body:'Каждый гражданин получил доступ к электронному паспорту здоровья через личный кабинет на портале. В нём собрана вся медицинская история: посещения врачей, результаты анализов и обследований, вакцинация, назначения и выданные документы.\n\nДоступ к данным защищён, а любой просмотр медицинским работником фиксируется и возможен только с согласия пациента.',
+        cta:{ label:'Открыть личный кабинет', href:'Вход.dc.html', icon:'ri-profile-line' } },
+
+      { id:'d1', cat:'drugs', date:'22 июня 2026', read:'3 мин', title:'Обновлён перечень бесплатных лекарств по ГОБМП', excerpt:'В список амбулаторного лекарственного обеспечения включены новые препараты для пациентов с сахарным диабетом.',
+        body:'Министерство здравоохранения обновило перечень лекарственных средств, отпускаемых бесплатно в рамках гарантированного объёма бесплатной медицинской помощи и ОСМС. В список включены современные препараты для пациентов с сахарным диабетом 2 типа и сердечно-сосудистыми заболеваниями.\n\nПолучить препараты можно по электронному рецепту в аптеках, участвующих в программе. Наличие препаратов отображается на портале.',
+        bulletsTitle:'Что нового', bullets:['Расширен список сахароснижающих препаратов','Добавлены современные кардиопрепараты','Электронный рецепт действует во всех аптеках-участниках'],
+        cta:{ label:'Справочник лекарств', href:'Лекарства.dc.html', icon:'ri-capsule-line' } },
+      { id:'d2', cat:'drugs', date:'20 июня 2026', read:'2 мин', title:'Проверка наличия лекарств в аптеках онлайн', excerpt:'Сервис «Лекарства» показывает остатки препаратов в аптеках по выбранному региону.',
+        body:'На портале заработал сервис проверки наличия лекарственных препаратов в аптеках. Достаточно ввести название препарата и выбрать город — система покажет аптеки, где он есть в наличии, с адресами и графиком работы.\n\nСервис помогает не тратить время на обзвон аптек и планировать получение препаратов по рецепту.',
+        cta:{ label:'Проверить наличие', href:'Лекарства.dc.html', icon:'ri-search-line' } },
+      { id:'d3', cat:'drugs', date:'16 июня 2026', read:'2 мин', title:'Расширен справочник аналогов препаратов', excerpt:'Добавлены сведения о действующих веществах и доступных аналогах лекарств.',
+        body:'Справочник лекарств пополнился информацией о международных непатентованных наименованиях (действующих веществах) и аналогах препаратов. Это помогает пациентам и врачам подбирать доступные по цене или наличию заменители.\n\nВажно: замену препарата должен согласовывать лечащий врач.',
+        cta:{ label:'Открыть справочник', href:'Лекарства.dc.html', icon:'ri-capsule-line' } },
+
+      { id:'o1', cat:'osms', date:'24 июня 2026', read:'4 мин', title:'Расширен пакет услуг по ОСМС на 2026 год', excerpt:'В систему обязательного социального медицинского страхования включены новые виды диагностики и реабилитации.',
+        body:'С 2026 года пакет медицинских услуг по обязательному социальному медицинскому страхованию расширен. В него включены дополнительные виды высокотехнологичной диагностики, реабилитационные услуги и расширенное лекарственное обеспечение при хронических заболеваниях.\n\nВоспользоваться расширенным пакетом могут застрахованные лица. Проверить свой статус можно по ИИН на портале без авторизации.',
+        bulletsTitle:'Что добавилось', bullets:['Новые виды инструментальной диагностики','Реабилитация после перенесённых заболеваний','Расширенное лекарственное обеспечение хронических пациентов'],
+        cta:{ label:'Проверить статус ОСМС', href:'ОСМС.dc.html', icon:'ri-shield-check-line' } },
+      { id:'o2', cat:'osms', date:'19 июня 2026', read:'2 мин', title:'Упрощена проверка статуса застрахованного', excerpt:'Проверить статус ОСМС теперь можно по ИИН без авторизации за несколько секунд.',
+        body:'Проверка статуса застрахованного лица в системе ОСМС стала проще: достаточно ввести ИИН на портале — авторизация не требуется. Результат отображается мгновенно, вместе с историей отчислений за последние 12 месяцев.\n\nСервис также доступен по телефону 1406 и в мобильном приложении.',
+        cta:{ label:'Проверить ОСМС', href:'ОСМС.dc.html', icon:'ri-shield-check-line' } },
+      { id:'o3', cat:'osms', date:'15 июня 2026', read:'3 мин', title:'Уточнён перечень категорий, освобождённых от взносов', excerpt:'Обновлён список граждан, за которых взносы на ОСМС уплачивает государство.',
+        body:'Министерство здравоохранения уточнило перечень льготных категорий населения, за которых взносы на ОСМС уплачивает государство. В него входят дети, пенсионеры, лица с инвалидностью, беременные женщины, многодетные матери, студенты и другие категории.\n\nГражданам этих категорий не нужно платить взносы самостоятельно — статус застрахованного присваивается автоматически при наличии данных в информационных системах.',
+        cta:{ label:'Категории участников ОСМС', href:'ОСМС.dc.html', icon:'ri-team-line' } },
+
+      { id:'p1', cat:'prevent', date:'23 июня 2026', read:'3 мин', title:'Стартовала кампания вакцинации против гриппа', excerpt:'Прививку можно сделать бесплатно в поликлинике по месту прикрепления.',
+        body:'В стране началась ежегодная кампания вакцинации против сезонного гриппа. Прививка проводится бесплатно в поликлиниках по месту прикрепления, в первую очередь для групп риска: детей, пожилых людей, беременных женщин и лиц с хроническими заболеваниями.\n\nЗаписаться на вакцинацию можно онлайн через портал. Вакцинация — самый эффективный способ профилактики тяжёлого течения гриппа.',
+        bulletsTitle:'Кому рекомендована прививка', bullets:['Детям и пожилым людям','Беременным женщинам','Людям с хроническими заболеваниями','Работникам образования и здравоохранения'],
+        cta:{ label:'Пункты вакцинации', href:'Вакцинация.dc.html', icon:'ri-syringe-line' } },
+      { id:'p2', cat:'prevent', date:'17 июня 2026', read:'2 мин', title:'Месяц профилактики сердечно-сосудистых заболеваний', excerpt:'Бесплатные скрининги артериального давления и уровня холестерина в медорганизациях страны.',
+        body:'Объявлен месяц профилактики сердечно-сосудистых заболеваний. В поликлиниках проводятся бесплатные скрининги: измерение артериального давления, определение уровня холестерина и глюкозы, оценка сердечно-сосудистого риска.\n\nСердечно-сосудистые заболевания остаются основной причиной смертности, и раннее выявление факторов риска позволяет вовремя начать профилактику.',
+        cta:{ label:'Справочник заболеваний', href:'Заболевания.dc.html', icon:'ri-heart-pulse-line' } },
+      { id:'p3', cat:'prevent', date:'14 июня 2026', read:'2 мин', title:'Школы здоровья для будущих мам', excerpt:'Открыты бесплатные занятия по подготовке к родам и уходу за новорождённым.',
+        body:'При женских консультациях открылись школы здоровья для будущих мам. На занятиях специалисты рассказывают о течении беременности, подготовке к родам, грудном вскармливании и уходе за новорождённым.\n\nЗанятия бесплатные, записаться можно через портал в разделе «Беременность и материнство».',
+        cta:{ label:'Беременность и материнство', href:'Беременность.dc.html', icon:'ri-bear-smile-line' } },
+    ];
+
+    const catList=[
+      { id:'all', label:'Все новости', icon:'ri-newspaper-line' },
+      { id:'services', label:'Новые услуги', icon:'ri-service-line' },
+      { id:'drugs', label:'Новые лекарства', icon:'ri-capsule-line' },
+      { id:'osms', label:'Изменения по ОСМС', icon:'ri-shield-check-line' },
+      { id:'prevent', label:'Профилактика', icon:'ri-heart-pulse-line' },
+    ];
+    const countOf=(id)=> id==='all'?NEWS.length:NEWS.filter(n=>n.cat===id).length;
+    const cats=catList.map(c=>{ const on=s.cat===c.id; return { ...c, count:countOf(c.id),
+      onClick:()=>this.setState({ cat:c.id }),
+      style:`display:flex;align-items:center;gap:8px;height:42px;padding:0 16px;white-space:nowrap;border:1px solid ${on?'#4D42E9':'#E2E4E9'};border-radius:11px;font-family:inherit;font-size:14px;font-weight:${on?'600':'500'};cursor:pointer;transition:.15s;${on?'background:#4D42E9;color:#fff;':'background:#fff;color:#31353F;'}`,
+      badge:`font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:${on?'rgba(255,255,255,.25)':'#F6F8FA'};color:${on?'#fff':'#868C98'};` }; });
+
+    const filtered = s.cat==='all' ? NEWS : NEWS.filter(n=>n.cat===s.cat);
+    const decorate=(n)=>({ ...n, catLabel:CAT[n.cat].label, icon:CAT[n.cat].icon, color:CAT[n.cat].color,
+      banner:banner(n.cat, 110), onClick:()=>this.setState({ article:n.id }) });
+
+    const featuredRaw=filtered[0];
+    const featured=featuredRaw ? { ...decorate(featuredRaw), banner:banner(featuredRaw.cat, 320) } : null;
+    const items=filtered.slice(1).map(decorate);
+
+    const artRaw=NEWS.find(n=>n.id===s.article);
+    let art=null, related=[];
+    if(artRaw){
+      art={ ...artRaw, catLabel:CAT[artRaw.cat].label, icon:CAT[artRaw.cat].icon, color:CAT[artRaw.cat].color, banner:banner(artRaw.cat,220),
+        hero:`position:relative;height:300px;display:flex;align-items:center;justify-content:center;background:${CAT[artRaw.cat].grad};overflow:hidden;`,
+        chipStyle:`font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:${CAT[artRaw.cat].color}1a;color:${CAT[artRaw.cat].color};padding:6px 13px;border-radius:999px;`,
+        hasBullets:!!artRaw.bullets, bulletsTitle:artRaw.bulletsTitle||'', bullets:artRaw.bullets||[],
+        hasCta:!!artRaw.cta, ctaLabel:artRaw.cta?artRaw.cta.label:'', ctaHref:artRaw.cta?artRaw.cta.href:'#', ctaIcon:artRaw.cta?artRaw.cta.icon:'ri-arrow-right-line' };
+      related=NEWS.filter(n=>n.cat===artRaw.cat && n.id!==artRaw.id).slice(0,3).map(n=>({ id:n.id, title:n.title, date:n.date, catLabel:CAT[n.cat].label, icon:CAT[n.cat].icon, mini:mini(n.cat), onClick:()=>this.setState({ article:n.id }) }));
+    }
+
+    return {
+      cats, hasFeatured:!!featured, featured: featured||{ banner:'', icon:'', color:'', catLabel:'', title:'', excerpt:'', date:'', read:'', onClick:()=>{} },
+      items,
+      articleOpen:!!art, art: art||{ banner:'',hero:'',chipStyle:'',icon:'',color:'',catLabel:'',title:'',date:'',read:'',body:'',hasBullets:false,bulletsTitle:'',bullets:[],hasCta:false,ctaLabel:'',ctaHref:'#',ctaIcon:'' }, related,
+      closeArticle:()=>this.setState({ article:null }), stop:(e)=>e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>

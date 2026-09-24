@@ -1,0 +1,70 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Form Controls" subtitle="Input, Select, Textarea, Checkbox, Radio, Switch, Label, Hint" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../../styles.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>
+  body { margin: 0; background: var(--bg-weak-100); font-family: var(--font-sans); padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; max-width: 640px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .opts { display: flex; flex-direction: column; gap: 12px; }
+  .opt { display: flex; align-items: center; gap: 10px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+  const { Input, Select, Textarea, Checkbox, Radio, Switch, Label, Hint } = window.AlignUIDesignSystem_6ff166;
+  function Demo() {
+    const [c1, setC1] = React.useState(true);
+    const [r, setR] = React.useState('email');
+    const [s, setS] = React.useState(true);
+    return (
+      <div className="grid">
+        <div className="field">
+          <Label htmlFor="n" required>Full name</Label>
+          <Input id="n" leadingIcon="user-3-line" defaultValue="Анна Петрова" />
+          <Hint>As shown on your medical record.</Hint>
+        </div>
+        <div className="field">
+          <Label htmlFor="d">Department</Label>
+          <Select id="d" leadingIcon="stethoscope-line" defaultValue="cardio"
+            options={[{value:'cardio',label:'Cardiology'},{value:'neuro',label:'Neurology'},{value:'derm',label:'Dermatology'}]} />
+          <Hint state="success">Available today.</Hint>
+        </div>
+        <div className="field">
+          <Label htmlFor="e">Email</Label>
+          <Input id="e" leadingIcon="mail-line" error defaultValue="anna@@clinic" />
+          <Hint state="error">Enter a valid email address.</Hint>
+        </div>
+        <div className="field">
+          <Label>Notify me by</Label>
+          <div className="opts">
+            <div className="opt"><Radio checked={r==='email'} onChange={()=>setR('email')} /><span className="text-paragraph-sm">Email</span></div>
+            <div className="opt"><Radio checked={r==='sms'} onChange={()=>setR('sms')} /><span className="text-paragraph-sm">SMS reminder</span></div>
+          </div>
+        </div>
+        <div className="field">
+          <Label htmlFor="t">Notes</Label>
+          <Textarea id="t" rows={2} showCounter maxLength={120} defaultValue="Patient reports mild symptoms." />
+        </div>
+        <div className="field">
+          <Label>Preferences</Label>
+          <div className="opts">
+            <div className="opt"><Checkbox checked={c1} onChange={setC1} /><span className="text-paragraph-sm">Share results with GP</span></div>
+            <div className="opt"><Switch checked={s} onChange={setS} /><span className="text-paragraph-sm">Appointment reminders</span></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

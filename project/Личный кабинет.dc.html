@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--teal-d:#164564;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--yellow:#F2AE40;--yellow-l:#FEF7EC;--yellow-d:#693D11;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--purple:#6E3FF3;--purple-l:#EEEBFF;--pink:#E255F2;--pink-l:#FDEBFF;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .mp-scroll::-webkit-scrollbar{width:0;height:0;}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+
+  <div style="max-width:1320px;margin:0 auto;padding:28px 40px 80px;">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:24px;">
+      <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a>
+      <i class="ri-arrow-right-s-line"></i><span style="color:var(--n700);font-weight:500;">Личный кабинет</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;">
+
+      <!-- LEFT: profile + nav -->
+      <aside style="position:sticky;top:90px;display:flex;flex-direction:column;gap:16px;">
+        <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:24px;text-align:center;box-shadow:var(--sh-xs);">
+          <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 14px;border:3px solid var(--primary-lighter);background:var(--n100);">
+            <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="lk-avatar" shape="circle" placeholder="Фото" hint-size="96px,96px"></x-import>
+          </div>
+          <div style="font-size:18px;font-weight:600;letter-spacing:-.01em;">Аружан Сейтжанова</div>
+          <div style="font-size:13px;color:var(--n400);margin-top:2px;">ИИН 020116501540</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:6px 12px;border-radius:999px;"><i class="ri-shield-check-fill"></i>ОСМС: застрахован</div>
+        </div>
+        <nav style="background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:var(--sh-xs);">
+          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+            <button onClick="{{ n.onClick }}" style="{{ n.style }}">
+              <i class="{{ n.icon }}" style="font-size:20px;"></i><span style="flex:1;text-align:left;">{{ n.label }}</span>
+              <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeStyle }}">{{ n.badge }}</span></sc-if>
+            </button>
+          </sc-for>
+        </nav>
+        <a href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n500);font-size:14px;font-weight:500;text-decoration:none;"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
+      </aside>
+
+      <!-- RIGHT: content -->
+      <main style="min-width:0;">
+
+        <!-- ===== ОБЗОР ===== -->
+        <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:24px;animation:mp-slidein .2s ease;">
+
+            <!-- greeting -->
+            <div>
+              <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;">Здравствуйте, Аружан!</h1>
+              <p style="font-size:15px;color:var(--n500);margin:0;">Мы собрали то, что важно для вашего здоровья прямо сейчас.</p>
+            </div>
+
+            <!-- PRIORITY: pregnancy proactive scenario -->
+            <div style="border-radius:22px;overflow:hidden;border:1px solid var(--primary-light);box-shadow:var(--sh-md);">
+              <div style="background:linear-gradient(120deg,var(--primary) 0%,var(--primary-darker) 100%);padding:24px 26px;color:#fff;position:relative;">
+                <div style="position:absolute;inset:0;opacity:.4;background-image:radial-gradient(1.5px 1.5px at 25% 40%,#fff 50%,transparent),radial-gradient(2px 2px at 75% 30%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 55% 75%,#fff 50%,transparent);pointer-events:none;"></div>
+                <div style="position:relative;display:flex;align-items:center;gap:14px;">
+                  <div style="width:50px;height:50px;border-radius:13px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-bear-smile-line" style="font-size:26px;"></i></div>
+                  <div style="flex:1;">
+                    <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:18px;font-weight:600;">Беременность · 19 недель 4 дня</span><span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);padding:3px 9px;border-radius:999px;">II триместр</span></div>
+                    <div style="font-size:13px;color:rgba(255,255,255,.82);margin-top:3px;">ПДР: 14 ноября 2026 · ведёт врач Ахметова А.К.</div>
+                  </div>
+                </div>
+                <div style="position:relative;margin-top:18px;">
+                  <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;"><div style="width:49%;height:100%;background:#fff;border-radius:999px;"></div></div>
+                  <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.75);margin-top:6px;"><span>1 триместр</span><span>2 триместр</span><span>3 триместр</span></div>
+                </div>
+              </div>
+              <div style="background:var(--n0);padding:22px 26px;">
+                <div style="display:flex;align-items:flex-start;gap:14px;">
+                  <div style="width:42px;height:42px;border-radius:11px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-calendar-event-line" style="font-size:22px;color:var(--orange);"></i></div>
+                  <div style="flex:1;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="font-size:16px;font-weight:600;">Пора пройти второй скрининг (УЗИ)</span><span style="font-size:11px;font-weight:600;color:var(--orange-d);background:var(--orange-l);padding:3px 9px;border-radius:999px;">через 5 дней</span></div>
+                    <p style="font-size:13.5px;line-height:1.55;color:var(--n500);margin:0 0 14px;">Второй скрининг проводится на 18–21 неделе. Рекомендуем записаться в вашей медорганизации — есть свободные слоты на этой неделе.</p>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                      <button onClick="{{ openBooking }}" style="height:44px;padding:0 20px;border:none;border-radius:11px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;"><i class="ri-calendar-check-line" style="font-size:18px;"></i>Выбрать слот и записаться</button>
+                      <button style="height:44px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;">Напомнить позже</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- recommendations row -->
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                <h2 style="font-size:18px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px;"><i class="ri-magic-line" style="color:var(--primary);font-size:20px;"></i>Рекомендации для вас</h2>
+                <span style="font-size:13px;color:var(--n400);">Обновлено сегодня</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <sc-for list="{{ recommendations }}" as="r" hint-placeholder-count="4">
+                  <div style="background:var(--n0);border:1px solid var(--stroke);border-left:3px solid {{ r.color }};border-radius:14px;padding:18px;display:flex;flex-direction:column;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                      <div style="width:38px;height:38px;border-radius:10px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ r.icon }}" style="font-size:20px;color:{{ r.color }};"></i></div>
+                      <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;line-height:1.3;">{{ r.title }}</div></div>
+                      <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+                    </div>
+                    <p style="font-size:13px;line-height:1.5;color:var(--n500);margin:0 0 14px;flex:1;">{{ r.desc }}</p>
+                    <button style="align-self:flex-start;height:38px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;">{{ r.action }}<i class="ri-arrow-right-line" style="font-size:15px;"></i></button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- quick stats -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+              <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><i class="{{ st.icon }}" style="font-size:18px;color:{{ st.color }};"></i><span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">{{ st.label }}</span></div>
+                  <div style="font-size:17px;font-weight:600;line-height:1.3;">{{ st.value }}</div>
+                  <div style="font-size:12px;color:var(--n400);margin-top:2px;">{{ st.sub }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <!-- two columns: upcoming + recent -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="font-size:16px;font-weight:600;margin:0;">Предстоящие записи</h3><button onClick="{{ goAppointments }}" style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">Все</button></div>
+                <div style="display:flex;flex-direction:column;gap:12px;">
+                  <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="2">
+                    <div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid var(--stroke);border-radius:12px;">
+                      <div style="width:48px;text-align:center;flex:0 0 auto;"><div style="font-size:20px;font-weight:700;color:var(--primary);line-height:1;">{{ u.day }}</div><div style="font-size:11px;color:var(--n400);text-transform:uppercase;">{{ u.mon }}</div></div>
+                      <div style="width:1px;align-self:stretch;background:var(--stroke);"></div>
+                      <div style="flex:1;"><div style="font-size:14px;font-weight:600;">{{ u.title }}</div><div style="font-size:12.5px;color:var(--n500);margin-top:2px;">{{ u.doctor }} · {{ u.time }}</div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="font-size:16px;font-weight:600;margin:0;">Последние посещения</h3><button onClick="{{ goVisits }}" style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">История</button></div>
+                <div style="display:flex;flex-direction:column;gap:2px;">
+                  <sc-for list="{{ recentVisits }}" as="v" hint-placeholder-count="3">
+                    <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--stroke);">
+                      <div style="width:36px;height:36px;border-radius:9px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ v.icon }}" style="font-size:18px;color:var(--n500);"></i></div>
+                      <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">{{ v.title }}</div><div style="font-size:12px;color:var(--n400);">{{ v.org }}</div></div>
+                      <span style="font-size:12px;color:var(--n400);white-space:nowrap;">{{ v.date }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== ЭПЗ: краткая информация ===== -->
+        <sc-if value="{{ isEpz }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:24px;animation:mp-slidein .2s ease;">
+            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">Электронный паспорт здоровья</h1>
+
+            <!-- personal data -->
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:24px;box-shadow:var(--sh-xs);">
+              <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:16px;">Персональные данные</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;">
+                <sc-for list="{{ personal }}" as="p" hint-placeholder-count="6">
+                  <div><div style="font-size:12px;color:var(--n400);margin-bottom:4px;">{{ p.label }}</div><div style="font-size:15px;font-weight:600;">{{ p.value }}</div></div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- summary tiles -->
+            <div>
+              <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:14px;">Краткая информация</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+                <sc-for list="{{ epzSummary }}" as="e" hint-placeholder-count="6">
+                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="width:38px;height:38px;border-radius:10px;background:{{ e.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ e.icon }}" style="font-size:20px;color:{{ e.color }};"></i></div><span style="font-size:13px;color:var(--n400);">{{ e.label }}</span></div>
+                    <div style="font-size:16px;font-weight:600;line-height:1.3;">{{ e.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- attachment + doctor -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;display:flex;gap:14px;align-items:center;">
+                <div style="width:46px;height:46px;border-radius:12px;background:var(--purple-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-hospital-line" style="font-size:24px;color:var(--purple);"></i></div>
+                <div><div style="font-size:12px;color:var(--n400);">Прикреплённая организация</div><div style="font-size:15px;font-weight:600;margin-top:2px;">Городская поликлиника №5</div><div style="font-size:12.5px;color:var(--n500);">г. Астана, ул. Сарыарка, 15</div></div>
+              </div>
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;display:flex;gap:14px;align-items:center;">
+                <div style="width:46px;height:46px;border-radius:12px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-user-heart-line" style="font-size:24px;color:var(--teal);"></i></div>
+                <div><div style="font-size:12px;color:var(--n400);">Участковый врач</div><div style="font-size:15px;font-weight:600;margin-top:2px;">Ахметова Айгуль Кайратовна</div><div style="font-size:12.5px;color:var(--n500);">Врач акушер-гинеколог</div></div>
+              </div>
+            </div>
+
+            <!-- ЭПЗ structure accordions -->
+            <div>
+              <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:14px;">Детальная информация</div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <sc-for list="{{ epzSections }}" as="sec" hint-placeholder-count="5">
+                  <div style="{{ sec.wrap }}">
+                    <button onClick="{{ sec.onClick }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:16px 18px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;">
+                      <div style="width:40px;height:40px;border-radius:10px;background:{{ sec.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ sec.icon }}" style="font-size:21px;color:{{ sec.color }};"></i></div>
+                      <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ sec.title }}</div><div style="font-size:12.5px;color:var(--n400);">{{ sec.hint }}</div></div>
+                      <i class="{{ sec.toggle }}" style="font-size:22px;color:var(--n400);"></i>
+                    </button>
+                    <sc-if value="{{ sec.open }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:0 18px 18px 72px;animation:mp-slidein .2s ease;">
+                        <div style="display:flex;flex-direction:column;gap:1px;">
+                          <sc-for list="{{ sec.rows }}" as="row" hint-placeholder-count="3">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--stroke);">
+                              <div style="flex:1;"><div style="font-size:14px;font-weight:500;color:var(--n900);">{{ row.name }}</div><div style="font-size:12.5px;color:var(--n400);">{{ row.meta }}</div></div>
+                              <span style="{{ row.badgeStyle }}">{{ row.badge }}</span>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== История приёмов ===== -->
+        <sc-if value="{{ isVisits }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
+            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">История приёмов и обследований</h1>
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:8px 24px;box-shadow:var(--sh-xs);">
+              <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="5">
+                <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid var(--stroke);">
+                  <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:46px;">
+                    <div style="width:38px;height:38px;border-radius:10px;background:{{ t.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ t.icon }}" style="font-size:20px;color:{{ t.color }};"></i></div>
+                  </div>
+                  <div style="flex:1;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;"><span style="font-size:15px;font-weight:600;">{{ t.title }}</span><span style="font-size:12.5px;color:var(--n400);white-space:nowrap;">{{ t.date }}</span></div>
+                    <div style="font-size:13px;color:var(--n500);margin-top:3px;">{{ t.doctor }} · {{ t.org }}</div>
+                    <div style="font-size:13px;color:var(--n600);margin-top:8px;line-height:1.5;background:var(--n100);border-radius:10px;padding:12px 14px;">{{ t.note }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== Результаты ===== -->
+        <sc-if value="{{ isResults }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
+            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">Результаты анализов и обследований</h1>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <sc-for list="{{ results }}" as="r" hint-placeholder-count="4">
+                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;"><div style="width:40px;height:40px;border-radius:10px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ r.icon }}" style="font-size:20px;color:{{ r.color }};"></i></div><div><div style="font-size:15px;font-weight:600;">{{ r.title }}</div><div style="font-size:12px;color:var(--n400);">{{ r.date }}</div></div></div>
+                    <span style="{{ r.statusStyle }}">{{ r.status }}</span>
+                  </div>
+                  <p style="font-size:13px;line-height:1.5;color:var(--n500);margin:0 0 14px;">{{ r.summary }}</p>
+                  <button style="width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n700);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-download-2-line" style="font-size:16px;"></i>Скачать заключение</button>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== ОСМС ===== -->
+        <sc-if value="{{ isOsms }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
+            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">Страхование ОСМС</h1>
+            <div style="background:linear-gradient(120deg,var(--green-l),#fff);border:1px solid #CBF5E5;border-radius:18px;padding:24px;display:flex;align-items:center;gap:18px;">
+              <div style="width:56px;height:56px;border-radius:14px;background:var(--n0);display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-shadow:var(--sh-xs);"><i class="ri-shield-check-fill" style="font-size:30px;color:var(--green);"></i></div>
+              <div style="flex:1;"><div style="font-size:20px;font-weight:600;color:var(--green-d);">Вы застрахованы</div><div style="font-size:13.5px;color:var(--n500);margin-top:2px;">Статус активен · последнее отчисление: июнь 2026</div></div>
+              <a href="ОСМС.dc.html" style="height:42px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n700);font-size:13.5px;font-weight:500;text-decoration:none;display:inline-flex;align-items:center;gap:8px;">Подробнее об ОСМС</a>
+            </div>
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:24px;box-shadow:var(--sh-xs);">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;"><div style="font-size:16px;font-weight:600;">История отчислений</div><div style="font-size:13px;color:var(--n400);">За последние 12 месяцев</div></div>
+              <div style="display:flex;align-items:flex-end;gap:8px;height:120px;margin:20px 0 8px;">
+                <sc-for list="{{ osmsBars }}" as="b" hint-placeholder-count="12">
+                  <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;">
+                    <div style="width:100%;border-radius:6px 6px 0 0;background:{{ b.color }};height:{{ b.h }};"></div>
+                    <span style="font-size:10px;color:var(--n400);">{{ b.m }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;margin-top:14px;">
+                <sc-for list="{{ osmsRows }}" as="d" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-top:1px solid var(--stroke);">
+                    <div><div style="font-size:14px;font-weight:600;">{{ d.month }}</div><div style="font-size:12px;color:var(--n400);margin-top:2px;">{{ d.org }} · {{ d.date }}</div></div>
+                    <div style="font-size:15px;font-weight:600;color:var(--green-d);white-space:nowrap;">{{ d.sum }}</div>
+                  </div>
+                </sc-for>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0 0;margin-top:6px;border-top:2px solid var(--stroke);"><span style="font-size:14px;font-weight:600;color:var(--n700);">Итого за 12 месяцев</span><span style="font-size:18px;font-weight:700;">{{ osmsTotal }}</span></div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== Уведомления ===== -->
+        <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
+            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">Уведомления</h1>
+            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:8px 24px;box-shadow:var(--sh-xs);">
+              <sc-for list="{{ notifications }}" as="n" hint-placeholder-count="5">
+                <div style="display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--stroke);align-items:flex-start;">
+                  <div style="width:40px;height:40px;border-radius:10px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ n.icon }}" style="font-size:20px;color:{{ n.color }};"></i></div>
+                  <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;">{{ n.title }}</div><p style="font-size:13px;line-height:1.5;color:var(--n500);margin:4px 0 0;">{{ n.desc }}</p></div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto;"><span style="font-size:12px;color:var(--n400);white-space:nowrap;">{{ n.time }}</span><sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:50%;background:var(--primary);"></span></sc-if></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- BOOKING MODAL -->
+  <sc-if value="{{ bookingOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeBooking }}" style="position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;padding:24px;animation:mp-slidein .2s ease;">
+      <div onClick="{{ stop }}" style="width:560px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--n0);border-radius:20px;box-shadow:var(--sh-lg);">
+        <div style="padding:22px 24px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--n0);z-index:1;">
+          <div style="width:42px;height:42px;border-radius:11px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:22px;color:var(--primary);"></i></div>
+          <div style="flex:1;"><div style="font-size:17px;font-weight:600;">Запись на второй скрининг (УЗИ)</div><div style="font-size:13px;color:var(--n500);">Городская поликлиника №5 · кабинет 214</div></div>
+          <button onClick="{{ closeBooking }}" style="width:34px;height:34px;border:none;border-radius:8px;background:var(--n100);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+        </div>
+        <div style="padding:24px;">
+          <div style="font-size:13px;font-weight:600;color:var(--n500);margin-bottom:12px;">Выберите дату</div>
+          <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;">
+            <sc-for list="{{ bookDays }}" as="d" hint-placeholder-count="4">
+              <button onClick="{{ d.onClick }}" style="{{ d.style }}"><span style="font-size:11px;text-transform:uppercase;">{{ d.dow }}</span><span style="font-size:18px;font-weight:700;">{{ d.day }}</span><span style="font-size:11px;">{{ d.mon }}</span></button>
+            </sc-for>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--n500);margin-bottom:12px;">Свободные слоты</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
+            <sc-for list="{{ bookSlots }}" as="sl" hint-placeholder-count="8">
+              <button onClick="{{ sl.onClick }}" style="{{ sl.style }}">{{ sl.time }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ confirmBooking }}" style="width:100%;height:50px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;">{{ confirmLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- BOOKING SUCCESS TOAST -->
+  <sc-if value="{{ booked }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;right:28px;bottom:96px;z-index:85;background:var(--n900);color:#fff;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:12px;box-shadow:var(--sh-lg);animation:mp-slidein .25s ease;max-width:360px;">
+      <i class="ri-checkbox-circle-fill" style="font-size:24px;color:var(--green);flex:0 0 auto;"></i>
+      <div><div style="font-size:14px;font-weight:600;">Вы записаны на УЗИ</div><div style="font-size:13px;color:rgba(255,255,255,.75);">{{ bookedWhen }} · напоминание придёт за день</div></div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { tab:'overview', epzOpen:0, bookingOpen:false, bookDay:1, bookSlot:null, booked:false, bookedWhen:'' };
+
+  renderVals(){
+    const s = this.state;
+    const C = { blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], teal:['#EBFAFF','#35B9E9'], orange:['#FEF3EB','#F17B2C'], purple:['#EEEBFF','#6E3FF3'], red:['#FDEDF0','#DF1C41'], yellow:['#FEF7EC','#F2AE40'], pink:['#FDEBFF','#E255F2'] };
+
+    const navData = [
+      { id:'overview', label:'Обзор', icon:'ri-dashboard-line' },
+      { id:'epz', label:'Паспорт здоровья', icon:'ri-profile-line' },
+      { id:'visits', label:'История приёмов', icon:'ri-history-line' },
+      { id:'results', label:'Результаты', icon:'ri-test-tube-line' },
+      { id:'osms', label:'Страхование ОСМС', icon:'ri-shield-check-line' },
+      { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', badge:'3' },
+    ];
+    const nav = navData.map(n => ({ ...n, hasBadge:!!n.badge, badge:n.badge,
+      onClick:()=>this.setState({ tab:n.id }),
+      badgeStyle:`font-size:11px;font-weight:600;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:${s.tab===n.id?'rgba(255,255,255,.25)':'#DF1C41'};color:#fff;`,
+      style:`width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:${s.tab===n.id?'600':'500'};cursor:pointer;transition:.12s;margin-bottom:2px;${s.tab===n.id?'background:#4D42E9;color:#fff;':'background:transparent;color:#31353F;'}` }));
+
+    // recommendations
+    const recData = [
+      { icon:'ri-syringe-line', c:C.teal, title:'Вакцинация против гриппа', tag:'Сезон', tagC:C.teal, desc:'Началась сезонная кампания. Беременным рекомендована прививка во II–III триместре.', action:'Узнать о вакцинации' },
+      { icon:'ri-test-tube-line', c:C.orange, title:'Сдать анализ крови (ОАК)', tag:'Плановое', tagC:C.orange, desc:'Перед скринингом нужен общий анализ крови. Действителен 10 дней.', action:'Записаться на анализ' },
+      { icon:'ri-capsule-line', c:C.green, title:'Приём витаминов', tag:'Назначение', tagC:C.green, desc:'Врач назначил фолиевую кислоту и препараты железа. Не прерывайте курс.', action:'Открыть назначение' },
+      { icon:'ri-heart-pulse-line', c:C.red, title:'Контроль давления', tag:'Рекомендация', tagC:C.red, desc:'Измеряйте давление 1 раз в день и фиксируйте показатели к следующему приёму.', action:'Как измерять' },
+    ];
+    const recommendations = recData.map(r => ({ ...r, color:r.c[1], bg:r.c[0],
+      tagStyle:`font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;background:${r.tagC[0]};color:${r.tagC[1]};` }));
+
+    const stats = [
+      { icon:'ri-shield-check-line', color:'#38C793', label:'ОСМС', value:'Застрахован', sub:'активен' },
+      { icon:'ri-hospital-line', color:'#6E3FF3', label:'Прикрепление', value:'Поликлиника №5', sub:'г. Астана' },
+      { icon:'ri-drop-line', color:'#DF1C41', label:'Группа крови', value:'II (A), Rh+', sub:'подтверждено' },
+      { icon:'ri-calendar-check-line', color:'#4D42E9', label:'Ближайшая запись', value:'30 июня', sub:'УЗИ-скрининг' },
+    ];
+
+    const upcoming = [
+      { day:'30', mon:'июн', title:'Второй скрининг (УЗИ)', doctor:'Ахметова А.К.', time:'10:30' },
+      { day:'07', mon:'июл', title:'Приём акушера-гинеколога', doctor:'Ахметова А.К.', time:'09:15' },
+    ];
+    const recentVisits = [
+      { icon:'ri-stethoscope-line', title:'Приём гинеколога', org:'Поликлиника №5', date:'10 июн' },
+      { icon:'ri-test-tube-line', title:'Общий анализ крови', org:'Лаборатория Invivo', date:'09 июн' },
+      { icon:'ri-scan-line', title:'Первый скрининг (УЗИ)', org:'Поликлиника №5', date:'02 апр' },
+    ];
+
+    // ЭПЗ
+    const personal = [
+      { label:'ФИО', value:'Аружан Сейтжанова' },
+      { label:'ИИН', value:'020116501540' },
+      { label:'Дата рождения', value:'16 января 2002' },
+      { label:'Пол', value:'Женский' },
+      { label:'Возраст', value:'24 года' },
+      { label:'Телефон', value:'+7 (777) 086-00-77' },
+    ];
+    const epzSummary = [
+      { label:'Статус ОСМС', value:'Застрахован', icon:'ri-shield-check-line', c:C.green },
+      { label:'Группа крови', value:'II (A), Rh+', icon:'ri-drop-line', c:C.red },
+      { label:'Аллергии', value:'Не выявлено', icon:'ri-alert-line', c:C.orange },
+      { label:'Беременность', value:'19 недель', icon:'ri-bear-smile-line', c:C.pink },
+      { label:'Хронические заболевания', value:'Не выявлено', icon:'ri-heart-pulse-line', c:C.teal },
+      { label:'Д-учёт', value:'Беременность (норма)', icon:'ri-clipboard-line', c:C.blue },
+    ].map(e => ({ ...e, color:e.c[1], bg:e.c[0] }));
+
+    const badge = (text, c)=>({ badge:text, badgeStyle:`font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap;background:${c[0]};color:${c[1]};` });
+    const secData = [
+      { id:0, title:'Амбулаторная помощь', hint:'Приёмы, анализы, диагностика', icon:'ri-stethoscope-line', c:C.blue,
+        rows:[ { name:'Приём акушера-гинеколога', meta:'10 июня 2026 · Ахметова А.К.', ...badge('Завершён',C.green) },
+               { name:'Общий анализ крови', meta:'09 июня 2026 · Лаборатория Invivo', ...badge('Готов',C.green) },
+               { name:'Первый скрининг (УЗИ)', meta:'02 апреля 2026 · Поликлиника №5', ...badge('Завершён',C.green) } ] },
+      { id:1, title:'Направления', hint:'Активные и закрытые направления', icon:'ri-file-list-3-line', c:C.purple,
+        rows:[ { name:'Направление на УЗИ-скрининг (II)', meta:'Выдано 22 июня 2026 · действует до 06.07', ...badge('Активно',C.blue) },
+               { name:'Направление на ОАК', meta:'Выдано 22 июня 2026', ...badge('Активно',C.blue) } ] },
+      { id:2, title:'Медицинские заключения', hint:'Заключения и назначения врача', icon:'ri-file-text-line', c:C.teal,
+        rows:[ { name:'Заключение: беременность 19 недель, норма', meta:'10 июня 2026 · Ахметова А.К.', ...badge('Норма',C.green) },
+               { name:'Назначение: фолиевая кислота, железо', meta:'10 июня 2026', ...badge('Активно',C.blue) } ] },
+      { id:3, title:'Вакцинация', hint:'История прививок', icon:'ri-syringe-line', c:C.orange,
+        rows:[ { name:'АДС-М (ревакцинация)', meta:'14 марта 2020', ...badge('Выполнено',C.green) },
+               { name:'Вакцина против гриппа', meta:'Рекомендована в этом сезоне', ...badge('Рекомендовано',C.orange) } ] },
+      { id:4, title:'Больничные и справки', hint:'Электронные документы', icon:'ri-file-paper-2-line', c:C.green,
+        rows:[ { name:'Справка о постановке на учёт по беременности', meta:'05 апреля 2026', ...badge('Выдана',C.green) } ] },
+    ];
+    const epzSections = secData.map(sec => ({ ...sec, color:sec.c[1], bg:sec.c[0],
+      open:s.epzOpen===sec.id, toggle:s.epzOpen===sec.id?'ri-subtract-line':'ri-add-line',
+      wrap:`border:1px solid ${s.epzOpen===sec.id?'#C6D0FF':'#E2E4E9'};border-radius:14px;background:${s.epzOpen===sec.id?'#FBFCFD':'#fff'};overflow:hidden;transition:.15s;`,
+      onClick:()=>this.setState(st=>({ epzOpen: st.epzOpen===sec.id ? -1 : sec.id })) }));
+
+    // visits timeline
+    const timeline = [
+      { icon:'ri-stethoscope-line', c:C.blue, title:'Приём акушера-гинеколога', date:'10 июня 2026', doctor:'Ахметова А.К.', org:'Поликлиника №5', note:'Беременность 19 недель, развитие в норме. Назначены фолиевая кислота и препараты железа. Рекомендован второй скрининг.' },
+      { icon:'ri-test-tube-line', c:C.green, title:'Общий анализ крови', date:'09 июня 2026', doctor:'Лаборант', org:'Лаборатория Invivo', note:'Показатели в пределах нормы. Гемоглобин 118 г/л. Рекомендован контроль через месяц.' },
+      { icon:'ri-scan-line', c:C.purple, title:'Первый скрининг (УЗИ)', date:'02 апреля 2026', doctor:'Ахметова А.К.', org:'Поликлиника №5', note:'Срок 11 недель. Патологий не выявлено. Сердцебиение плода в норме.' },
+      { icon:'ri-user-heart-line', c:C.teal, title:'Постановка на учёт по беременности', date:'05 апреля 2026', doctor:'Ахметова А.К.', org:'Поликлиника №5', note:'Беременная поставлена на диспансерный учёт. Заведена обменная карта.' },
+      { icon:'ri-syringe-line', c:C.orange, title:'Ревакцинация АДС-М', date:'14 марта 2020', doctor:'Медсестра', org:'Поликлиника №5', note:'Плановая ревакцинация против дифтерии и столбняка выполнена.' },
+    ].map(t => ({ ...t, color:t.c[1], bg:t.c[0] }));
+
+    // results
+    const resData = [
+      { icon:'ri-scan-line', c:C.purple, title:'УЗИ (первый скрининг)', date:'02 апреля 2026', status:'Норма', statusC:C.green, summary:'Срок 11 недель. Патологий не выявлено, развитие соответствует сроку.' },
+      { icon:'ri-test-tube-line', c:C.green, title:'Общий анализ крови', date:'09 июня 2026', status:'Норма', statusC:C.green, summary:'Гемоглобин 118 г/л, лейкоциты в норме. Все показатели в референсных значениях.' },
+      { icon:'ri-flask-line', c:C.blue, title:'Биохимический анализ', date:'09 июня 2026', status:'Норма', statusC:C.green, summary:'Глюкоза, белок, печёночные показатели в пределах нормы.' },
+      { icon:'ri-microscope-line', c:C.orange, title:'Общий анализ мочи', date:'09 июня 2026', status:'Внимание', statusC:C.orange, summary:'Незначительные отклонения. Рекомендован повторный анализ через 7 дней.' },
+    ];
+    const results = resData.map(r => ({ ...r, color:r.c[1], bg:r.c[0],
+      statusStyle:`font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap;background:${r.statusC[0]};color:${r.statusC[1]};` }));
+
+    // OSMS
+    const months = ['Июл','Авг','Сен','Окт','Ноя','Дек','Янв','Фев','Мар','Апр','Май','Июн'];
+    const amounts = [2630,2630,2745,2745,2745,2745,2860,2860,2860,2975,2975,2975];
+    const maxA = Math.max(...amounts);
+    const osmsBars = months.map((m,i)=>({ m, h:Math.round(40+(amounts[i]/maxA)*70)+'px', color: i===11?'#4D42E9':'#C6D0FF' }));
+    const fmt = (n)=> n.toLocaleString('ru-RU').replace(/,/g,' ') + ' ₸';
+    const fullMonths = ['Июнь 2026','Май 2026','Апрель 2026','Март 2026','Февраль 2026','Январь 2026'];
+    const dd = ['10.06.2026','12.05.2026','10.04.2026','11.03.2026','10.02.2026','13.01.2026'];
+    const aa = [2975,2975,2975,2860,2860,2860];
+    const osmsRows = fullMonths.map((m,i)=>({ month:m, date:dd[i], org:'ТОО «Астана Групп»', sum:fmt(aa[i]) }));
+    const osmsTotal = fmt(amounts.reduce((a,b)=>a+b,0));
+
+    // notifications
+    const notifData = [
+      { icon:'ri-calendar-event-line', c:C.orange, title:'Приближается второй скрининг', desc:'Рекомендуем записаться на УЗИ до 6 июля. Есть свободные слоты на этой неделе.', time:'2 часа назад', unread:true },
+      { icon:'ri-test-tube-line', c:C.green, title:'Готовы результаты анализа крови', desc:'Общий анализ крови от 9 июня готов. Показатели в норме.', time:'1 день назад', unread:true },
+      { icon:'ri-syringe-line', c:C.teal, title:'Сезон вакцинации против гриппа', desc:'Беременным рекомендована прививка. Уточните у врача удобное время.', time:'2 дня назад', unread:true },
+      { icon:'ri-file-text-line', c:C.blue, title:'Новое назначение врача', desc:'Ахметова А.К. добавила назначение: фолиевая кислота, препараты железа.', time:'10 июня', unread:false },
+      { icon:'ri-shield-check-line', c:C.green, title:'Поступило отчисление ОСМС', desc:'За июнь 2026 зачислено 2 975 ₸. Статус застрахованного активен.', time:'10 июня', unread:false },
+    ];
+    const notifications = notifData.map(n => ({ ...n, color:n.c[1], bg:n.c[0] }));
+
+    // booking modal
+    const dayData = [ { dow:'Пн', day:'30', mon:'июн' }, { dow:'Ср', day:'02', mon:'июл' }, { dow:'Чт', day:'03', mon:'июл' }, { dow:'Пт', day:'04', mon:'июл' } ];
+    const bookDays = dayData.map((d,i)=>({ ...d, onClick:()=>this.setState({ bookDay:i }),
+      style:`display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;padding:12px 0;border:1.5px solid ${s.bookDay===i?'#4D42E9':'#E2E4E9'};border-radius:13px;font-family:inherit;cursor:pointer;transition:.15s;${s.bookDay===i?'background:#EEF2FF;color:#4D42E9;':'background:#fff;color:#31353F;'}` }));
+    const slotTimes = ['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:15'];
+    const bookSlots = slotTimes.map((time,i)=>({ time, onClick:()=>this.setState({ bookSlot:i }),
+      style:`height:42px;border:1.5px solid ${s.bookSlot===i?'#4D42E9':'#E2E4E9'};border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.bookSlot===i?'background:#4D42E9;color:#fff;':'background:#fff;color:#31353F;'}` }));
+
+    const confirmBooking = ()=>{
+      const d = dayData[s.bookDay]; const t = s.bookSlot!=null ? slotTimes[s.bookSlot] : '10:30';
+      this.setState({ bookingOpen:false, booked:true, bookedWhen:`${d.day} ${d.mon}, ${t}` });
+      setTimeout(()=>this.setState({ booked:false }), 4500);
+    };
+
+    return {
+      nav,
+      isOverview:s.tab==='overview', isEpz:s.tab==='epz', isVisits:s.tab==='visits', isResults:s.tab==='results', isOsms:s.tab==='osms', isNotif:s.tab==='notif',
+      recommendations, stats, upcoming, recentVisits,
+      goAppointments:()=>this.setState({ tab:'visits' }), goVisits:()=>this.setState({ tab:'visits' }),
+      personal, epzSummary, epzSections,
+      timeline, results,
+      osmsBars, osmsRows, osmsTotal,
+      notifications,
+      openBooking:()=>this.setState({ bookingOpen:true }), closeBooking:()=>this.setState({ bookingOpen:false }), stop:(e)=>e.stopPropagation(),
+      bookingOpen:s.bookingOpen, bookDays, bookSlots,
+      confirmLabel: s.bookSlot!=null ? 'Подтвердить запись' : 'Выберите время',
+      confirmBooking,
+      booked:s.booked, bookedWhen:s.bookedWhen,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M50 120 h28 l18 -44 24 88 18 -44 h32" fill="none" stroke="#4D42E9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></g></svg></template>
+</body>
+</html>

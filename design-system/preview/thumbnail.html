@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html,body{margin:0;padding:0;width:1280px;height:854px;overflow:hidden}
+  .tile{display:flex;width:1280px;height:854px}
+  .main{flex:1;background:var(--primary-base);display:flex;align-items:center;justify-content:center;padding:0 48px}
+  .mark{font-family:var(--font-display);font-weight:600;font-size:210px;line-height:1;letter-spacing:-0.03em;color:var(--neutral-0);white-space:nowrap}
+  .strip{width:320px;display:flex;flex-direction:column}
+  .strip span{flex:1;display:block}
+</style>
+</head>
+<body>
+<div class="tile">
+  <div class="main"><div class="mark">AlignUI</div></div>
+  <div class="strip">
+    <span style="background:var(--yellow-base)"></span>
+    <span style="background:var(--green-base)"></span>
+    <span style="background:var(--teal-base)"></span>
+    <span style="background:var(--red-base)"></span>
+  </div>
+</div>
+</body>
+</html>

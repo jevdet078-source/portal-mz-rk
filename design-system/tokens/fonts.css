@@ -1,0 +1,40 @@
+/* AlignUI typefaces.
+   The system uses Inter (UI text) and Inter Display (large titles, optical size).
+   "Inter Display" is not published as a standalone Google Fonts family — it is the
+   display optical size of Inter. We load Inter (variable) from Google Fonts for UI
+   text, and declare an `Inter Display` @font-face backed by Inter's own binaries so
+   the --font-display token resolves and ships to consumers. This is a faithful
+   stand-in (same typeface) — if you have the licensed Inter Display optical cut,
+   replace the src URLs below with those binaries and nothing else needs to change. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+
+/* Inter Display — stand-in backed by Inter binaries until licensed Display cut is supplied. */
+@font-face {
+  font-family: 'Inter Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Display';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter Display';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.woff2') format('woff2');
+}
