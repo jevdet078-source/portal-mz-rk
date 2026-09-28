@@ -72,10 +72,12 @@ const tabs = data.map(t => ({
 
 | Ключ | Значение | Кто пишет / читает |
 |---|---|---|
-| `mp-role` | `citizens` / `business` / `medical` | `Header` ↔ главная |
+| `mp-role` | `citizens` / `business` / `medical` | `Header` ↔ главная; `Вход` выставляет по профилю |
 | `mp-lang` | `ҚАЗ` / `РУС` / `ENG` | `Header` |
 | `mp-iin` | ИИН после входа | `Вход` |
 | `mp-profile` | `citizen` / `business` / `medical` / `gov` | `Вход` |
+| `mp-users` | тестовые учётные записи: ИИН → `{ status, password, profiles:[{ kind, bin, org, level, role, sign, consent }] }` | `EcpPicker` (заполняет, сбрасывает), `Регистрация` (пишет), `Вход` (читает) |
+| `mp-ecp-handoff` (sessionStorage) | `{ cert, profile?, at }` — выбранный ключ ЭЦП, чтобы не выбирать его снова при переходе «Вход» ↔ «Регистрация»; живёт 10 минут | `Вход` ↔ `Регистрация` |
 | `mp-biz-step` | `1` / `2` / `3` / `done` — шаг онбординга «Единого окна» | `Кабинет бизнеса` ↔ `BusinessNav` (событие `mp-biz-step-change`) |
 | `mp-biz-role` | `applicant` / `admin` — роль в организации внутри кабинета бизнеса | `Header` (переключатель) ↔ `BusinessNav`, `Рабочий календарь` (событие `mp-biz-role-change`) |
 | `mp-pending-service` | `price-ls` / `price-mi` — услуга, ради которой организация начала подготовку (договор, платёж) | `Паспорт услуги` → `Кабинет бизнеса`, `Платежи`; сбрасывает `Заявка на регистрацию цены` |

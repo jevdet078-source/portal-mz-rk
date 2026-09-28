@@ -29,6 +29,8 @@
 | [Header.dc.html](../project/Header.dc.html) | Шапка: герб, переключатель ролей, язык, вход. Вариант `variant="account"` |
 | [Footer.dc.html](../project/Footer.dc.html) | Подвал |
 | [Assistant.dc.html](../project/Assistant.dc.html) | Плавающий AI-помощник |
+| [AuthAside.dc.html](../project/AuthAside.dc.html) | Бренд-панель «Входа» и «Регистрации», `variant="login"` / `"register"` |
+| [EcpPicker.dc.html](../project/EcpPicker.dc.html) | Заглушка окна NCALayer: тестовые сертификаты под все сценарии постановок. События `mp-ecp-open` → `mp-ecp-select` / `mp-ecp-cancel` |
 
 ## Использование
 
