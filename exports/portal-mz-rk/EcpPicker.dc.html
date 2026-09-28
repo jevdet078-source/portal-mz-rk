@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Выбор ключа ЭЦП — заглушка окна NCALayer для прототипа.
+  В рабочей версии портал вызывает NCALayer, пользователь выбирает ключ и вводит его пароль
+  в окне NCALayer, а сервер валидирует подпись. Здесь вместо этого — список тестовых
+  сертификатов: от выбранного зависит сценарий (ФЛ / ЮЛ, КГД, справочник госорганов, СУР,
+  ГБД, ошибки внешних систем).
+
+  Протокол (события window):
+    'mp-ecp-open'    ← страница просит открыть окно
+    'mp-ecp-select'  → detail = объект сертификата (см. CERTS ниже)
+    'mp-ecp-cancel'  → окно закрыто без выбора
+
+  Тестовая «база» зарегистрированных пользователей — localStorage['mp-users']
+  (JHI_USER → USER_PROFILE). Компонент заполняет её при первом показе и умеет сбросить.
+  Пароль всех тестовых учётных записей — Demo#2026.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{--primary:#4D42E9;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;}
+  @keyframes ecp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes ecp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  .ecp-item{transition:background .12s,border-color .12s;}
+  .ecp-item:hover{background:var(--n50) !important;border-color:var(--primary-light) !important;}
+  .ecp-item:focus-visible,.ecp-btn:focus-visible{outline:none !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  .ecp-btn:hover{background:var(--n100) !important;}
+</style>
+</helmet>
+<div>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+    <div onKeyDown="{{ onKey }}" style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Inter',sans-serif;">
+      <div onClick="{{ cancel }}" style="position:absolute;inset:0;background:rgba(10,13,20,.48);animation:ecp-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="ecp-title" style="position:relative;width:100%;max-width:560px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:ecp-pop .18s ease;overflow:hidden;">
+
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px;border-bottom:1px solid var(--stroke);">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-key-2-line" style="font-size:20px;color:var(--primary);"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div id="ecp-title" style="font-size:16px;font-weight:600;line-height:24px;color:var(--n900);">Выберите сертификат ЭЦП</div>
+            <div style="font-size:13px;line-height:1.5;color:var(--n500);margin-top:2px;">В рабочей версии откроется окно NCALayer. В прототипе выберите тестовый сертификат — от него зависит сценарий.</div>
+          </div>
+          <button autoFocus class="ecp-btn" onClick="{{ cancel }}" aria-label="Закрыть" style="width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+
+        <div style="overflow-y:auto;padding:8px 20px 16px;">
+          <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+            <div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 0 8px;">
+                <span style="font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">{{ g.title }}</span>
+                <sc-if value="{{ g.canToggle }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ g.onToggle }}" aria-expanded="{{ g.expanded }}" style="border:none;background:none;padding:2px 0;font-family:inherit;font-size:12px;font-weight:500;color:var(--primary);cursor:pointer;display:flex;align-items:center;gap:2px;">{{ g.toggleLabel }}<i class="{{ g.toggleIcon }}" style="font-size:16px;"></i></button>
+                </sc-if>
+              </div>
+              <sc-if value="{{ g.expanded }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="3">
+                    <button class="ecp-item" onClick="{{ c.onClick }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;font-family:inherit;text-align:left;cursor:pointer;">
+                      <span style="{{ c.iconWrap }}"><i class="{{ c.icon }}" style="font-size:20px;"></i></span>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:14px;line-height:20px;font-weight:600;color:var(--n900);">{{ c.fio }}</span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ c.meta }}</span>
+                      </span>
+                      <span style="{{ c.tagStyle }}">{{ c.tag }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--stroke);background:var(--n50);">
+          <button class="ecp-btn" onClick="{{ reset }}" style="height:36px;padding:0 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;color:var(--n500);cursor:pointer;display:flex;align-items:center;gap:6px;"><i class="{{ resetIcon }}" style="font-size:16px;"></i>{{ resetLabel }}</button>
+          <button class="ecp-btn" onClick="{{ cancel }}" style="height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:500;color:var(--n600);cursor:pointer;">Отмена</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:800,&quot;height&quot;:760}}">
+// Тестовые сертификаты. type: fl — личная ЭЦП физлица, ul — ЭЦП юрлица (ИИН сотрудника + БИН).
+// Поля сценария: kgd (ip | no | down | timeout), sur (match | nomatch | notfound | down),
+// gbd (ok | down | noorg), certErr (expired | revoked | wrongkey | ncalayer).
+const CERTS = [
+  { id:'fl-seit', group:'reg', type:'fl', fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', kgd:'ip', tag:'Гражданин + ИП', tone:'green' },
+  { id:'ul-astana', group:'reg', type:'ul', fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', bin:'150840014521', org:'ТОО «Астана Групп»', sign:true, sur:'nomatch', tag:'Бизнес', tone:'green' },
+  { id:'ul-poly', group:'reg', type:'ul', fio:'Ахметов Серик Кайратович', iin:'850612300218', bin:'990140002374', org:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', sign:false, sur:'match', post:'Врач-терапевт', tag:'Медперсонал', tone:'green' },
+
+  { id:'fl-kasym', group:'new', type:'fl', fio:'Касымов Ерлан Болатович', iin:'880704350127', kgd:'ip', tag:'ИП в КГД', tone:'blue' },
+  { id:'fl-nurl', group:'new', type:'fl', fio:'Нурланова Айгерим Сериковна', iin:'010923600845', kgd:'no', tag:'Не ИП', tone:'blue' },
+  { id:'ul-hosp', group:'new', type:'ul', fio:'Омарова Сауле Ерлановна', iin:'790218450331', bin:'060540008912', org:'ГКП на ПХВ «Многопрофильная городская больница № 2»', sign:true, sur:'match', post:'Заместитель главного врача', tag:'Медорганизация', tone:'blue' },
+  { id:'ul-ncels', group:'new', type:'ul', fio:'Жумабаева Динара Талгатовна', iin:'870330450612', bin:'980240003251', org:'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» МЗ РК', short:'НЦЭЛС', sign:true, orgGo:true, tag:'Госорган', tone:'blue' },
+  { id:'ul-farm', group:'new', type:'ul', fio:'Ибраев Марат Нурланович', iin:'910511300744', bin:'180340021196', org:'ТОО «Фарм Импорт KZ»', sign:false, sur:'nomatch', tag:'Без права подписи', tone:'blue' },
+
+  { id:'err-ncalayer', group:'err', type:'fl', fio:'NCALayer не запущен', iin:'', certErr:'ncalayer', tag:'NCALayer', tone:'red' },
+  { id:'err-expired', group:'err', type:'fl', fio:'Бекова Жанар Асылбековна', iin:'830905400219', certErr:'expired', validTo:'12.03.2026', tag:'Срок истёк', tone:'red' },
+  { id:'err-revoked', group:'err', type:'fl', fio:'Тулегенов Арман Серикович', iin:'900228300461', certErr:'revoked', tag:'Отозван', tone:'red' },
+  { id:'err-wrongkey', group:'err', type:'fl', fio:'Касымов Ерлан Болатович', iin:'880704350127', certErr:'wrongkey', tag:'Ключ подписи', tone:'red' },
+  { id:'err-kgd', group:'err', type:'fl', fio:'Серикбаев Нуржан Ерланович', iin:'950417300382', kgd:'down', tag:'КГД недоступна', tone:'red' },
+  { id:'err-kgd-timeout', group:'err', type:'fl', fio:'Серикбаев Нуржан Ерланович', iin:'950417300382', kgd:'timeout', tag:'КГД: тайм-аут', tone:'red' },
+  { id:'err-sur', group:'err', type:'ul', fio:'Мухамедиева Алия Кайратовна', iin:'860714450293', bin:'030840005517', org:'ТОО «Медицинский центр Шипагер»', sign:true, sur:'down', tag:'СУР недоступна', tone:'red' },
+  { id:'err-sur-nf', group:'err', type:'ul', fio:'Мухамедиева Алия Кайратовна', iin:'860714450293', bin:'030840005517', org:'ТОО «Медицинский центр Шипагер»', sign:true, sur:'notfound', tag:'Нет в СУР', tone:'red' },
+  { id:'err-gbd', group:'err', type:'fl', fio:'Абенов Даурен Маратович', iin:'990812300156', kgd:'no', gbd:'down', tag:'ГБД недоступна', tone:'red' },
+  { id:'err-noorg', group:'err', type:'ul', fio:'Исаев Руслан Бахытович', iin:'840126300417', bin:'210240031187', org:'ТОО «Нова Трейд»', sign:true, sur:'nomatch', gbd:'noorg', tag:'Нет в ГБД ЮЛ', tone:'red' },
+  { id:'err-inactive', group:'err', type:'fl', fio:'Досова Гульнара Ермековна', iin:'770101400555', kgd:'no', tag:'Учётка заблокирована', tone:'red' },
+];
+
+// JHI_USER → USER_PROFILE (LEVEL, ROLE, BIN) для уже зарегистрированных тестовых пользователей
+const SEED = {
+  '920315401540': { status:'ACTIVE', password:'Demo#2026', profiles:[
+    { kind:'citizen', level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
+    { kind:'business', bin:'920315401540', org:'ИП Сейтжанова А. М.', ip:true, level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
+    { kind:'business', bin:'150840014521', org:'ТОО «Астана Групп»', level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
+  ] },
+  '850612300218': { status:'ACTIVE', password:'Demo#2026', profiles:[
+    { kind:'medical', bin:'990140002374', org:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', level:'MEDICAL', role:'MEDICAL_STAFF', status:'ACTIVE' },
+  ] },
+  '770101400555': { status:'INACTIVE', password:'Demo#2026', profiles:[
+    { kind:'citizen', level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
+  ] },
+};
+
+class Component extends DCLogic {
+  state = { open:false, showErr:false, resetDone:false };
+  componentDidMount(){
+    try { if(!localStorage.getItem('mp-users')) localStorage.setItem('mp-users', JSON.stringify(SEED)); } catch(e){}
+    this._onOpen = () => this.setState({ open:true, resetDone:false });
+    window.addEventListener('mp-ecp-open', this._onOpen);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-ecp-open', this._onOpen); }
+  cancel(){
+    this.setState({ open:false });
+    try { window.dispatchEvent(new CustomEvent('mp-ecp-cancel')); } catch(e){}
+  }
+  pick(c){
+    this.setState({ open:false });
+    try { window.dispatchEvent(new CustomEvent('mp-ecp-select', { detail:{ ...c } })); } catch(e){}
+  }
+  renderVals(){
+    const s = this.state;
+    const TONE = {
+      green:'background:#EFFAF6;color:#176448;',
+      blue:'background:#EEF2FF;color:#312D86;',
+      red:'background:#FDEDF0;color:#710E21;',
+    };
+    const item = (c) => {
+      const ul = c.type === 'ul';
+      const meta = c.certErr === 'ncalayer' ? 'Сервис подписи на компьютере не отвечает'
+        : ul ? `ЭЦП ЮЛ · ${c.short || c.org} · БИН ${c.bin}`
+        : `Личная ЭЦП ФЛ · ИИН ${c.iin}`;
+      return { ...c, meta,
+        icon: c.certErr === 'ncalayer' ? 'ri-plug-line' : ul ? 'ri-building-2-line' : 'ri-user-3-line',
+        iconWrap:`width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;${ul ? 'background:#FEF3EB;color:#F17B2C;' : 'background:#EEF2FF;color:#4D42E9;'}`,
+        tagStyle:`flex:0 0 auto;max-width:132px;padding:2px 8px;border-radius:999px;font-size:11px;line-height:16px;font-weight:500;text-align:center;${TONE[c.tone]}`,
+        onClick:()=>this.pick(c) };
+    };
+    const G = [
+      { id:'reg', title:'Уже зарегистрированы' },
+      { id:'new', title:'Новые пользователи' },
+      { id:'err', title:'Ошибки и исключения', canToggle:true },
+    ];
+    const groups = G.map(g => {
+      const expanded = g.canToggle ? s.showErr : true;
+      return { ...g, expanded, canToggle:!!g.canToggle,
+        toggleLabel: expanded ? 'Свернуть' : 'Показать',
+        toggleIcon: expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+        onToggle:()=>this.setState({ showErr:!s.showErr }),
+        items: CERTS.filter(c => c.group === g.id).map(item) };
+    });
+    return {
+      open: s.open, groups,
+      cancel:()=>this.cancel(),
+      onKey:(e)=>{ if(e.key === 'Escape') this.cancel(); },
+      resetLabel: s.resetDone ? 'Тестовые данные сброшены' : 'Сбросить тестовые данные',
+      resetIcon: s.resetDone ? 'ri-check-line' : 'ri-refresh-line',
+      reset:()=>{ try { localStorage.setItem('mp-users', JSON.stringify(SEED)); } catch(e){} this.setState({ resetDone:true }); },
+    };
+  }
+}
+</script>
+</body>
+</html>

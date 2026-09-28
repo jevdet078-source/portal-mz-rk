@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Регистрация на портале — по постановке «Регистрация пользователей».
+    1. ЭЦП: проверка подписи и сертификата, ИИН / БИН / тип ЭЦП / право подписи.
+         ЭЦП ФЛ → ИС КГД (SDFIefourActual): ИП подтверждён → Гражданин + Бизнес, иначе только Гражданин.
+         ЭЦП ЮЛ → справочник organization_go по БИН → Госорган (LEVEL по portal.user_level_role, ROLE = null);
+                  нет в справочнике → ИС СУР (sur2_service: GetMoFpPersonalIin → GetMoInfoItems, сверка БИН)
+                  → БИН совпал: Медперсонал + Бизнес; не медорганизация: только Бизнес.
+         Существующий пользователь: уже зарегистрированные профили недоступны; все заняты → «уже зарегистрирован».
+    2. Профиль: выбор из сформированного списка. БИН, организацию, LEVEL и ROLE пользователь не выбирает.
+    3. «Продолжить регистрацию» → ГБД ФЛ (GBDFLUniversal_token) или ГБД ЮЛ (GbdulInfoByBin_v2; ГБД ФЛ не вызывается)
+       → данные на проверку + согласие на обработку ПД (без галочки «Далее» недоступна; сохраняем факт и дату/время).
+    4. Пароль + повтор (≥ 8 символов, заглавная, строчная, спецсимвол) → USER / USER_PROFILE → готово.
+       Новый профиль существующему пользователю пароль не меняет — шаг пропускается.
+
+  Сертификат — EcpPicker (заглушка NCALayer), учётные записи — localStorage['mp-users'].
+  Ключ, выбранный на «Входе», приходит через sessionStorage['mp-ecp-handoff'] — повторно не выбираем.
+  ?profile / ?return из «Входа» сохраняются и возвращаются обратно после регистрации.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-light:#CBF5E5;--green-d:#176448;--red:#DF1C41;--red-l:#FDEDF0;--red-light:#F8C9D2;--red-d:#710E21;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-light:#FFDAC2;--teal:#35B9E9;--teal-l:#EBFAFF;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --stroke:#E2E4E9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  @keyframes mp-pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
+
+  .auth-grid{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .auth-aside{position:sticky;top:0;height:100vh;}
+  .auth-main{min-height:100vh;display:flex;flex-direction:column;padding:24px 48px 32px;}
+  .auth-top{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:40px;}
+  .auth-mlogo{display:none;}
+  .auth-body{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 0;}
+  .kv{display:grid;grid-template-columns:minmax(0,40%) minmax(0,1fr);gap:12px;padding:10px 0;border-top:1px solid var(--n100);font-size:13px;line-height:18px;}
+  @media (max-width:1023px){
+    .auth-grid{grid-template-columns:minmax(0,1fr);}
+    .auth-aside{display:none;}
+    .auth-top{justify-content:space-between;}
+    .auth-mlogo{display:flex;}
+  }
+  @media (max-width:560px){
+    .auth-main{padding:16px 16px 24px;} .auth-body{align-items:flex-start;padding-top:20px;}
+    .kv{grid-template-columns:minmax(0,1fr);gap:2px;}
+  }
+
+  .btn-p{transition:background .15s,box-shadow .15s;}
+  .btn-p:hover{background:var(--primary-dark) !important;}
+  .btn-p:disabled{background:var(--n200) !important;color:var(--n400) !important;box-shadow:none !important;cursor:not-allowed !important;}
+  .btn-s{transition:background .15s;}
+  .btn-s:hover{background:var(--n100) !important;}
+  .lnk:hover{text-decoration:underline !important;}
+  .opt{transition:border-color .15s,box-shadow .15s,background .15s;}
+  .opt:not(:disabled):hover{border-color:var(--primary-light) !important;}
+  .inp{transition:border-color .15s,box-shadow .15s,background .15s;}
+  .inp:hover{border-color:var(--n300) !important;}
+  .inp:focus{outline:none !important;border-color:var(--primary) !important;background:#fff !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  .inp-err,.inp-err:hover,.inp-err:focus{border-color:var(--red) !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-light) !important;}
+  .chk{width:20px;height:20px;margin:0;flex:0 0 auto;accent-color:var(--primary);cursor:pointer;}
+  .btn-p:focus-visible,.btn-s:focus-visible,.opt:focus-visible,.lnk:focus-visible,.eye:focus-visible,.chk:focus-visible{outline:none !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+</style>
+</helmet>
+<div class="auth-grid">
+  <div class="auth-aside"><dc-import name="AuthAside" variant="register" style="height:100%;" hint-size="100%,100%"></dc-import></div>
+
+  <main class="auth-main">
+    <div class="auth-top">
+      <a class="auth-mlogo" href="Портал Минздрава - Главная.dc.html" style="align-items:center;gap:10px;text-decoration:none;color:var(--n900);">
+        <img src="uploads/images.jpg" alt="Герб РК" style="width:36px;height:36px;object-fit:contain;background:#fff;border:1px solid var(--stroke);border-radius:9px;padding:2px;" />
+        <span style="line-height:1.2;"><span style="display:block;font-size:13px;font-weight:600;">Министерство здравоохранения</span><span style="display:block;font-size:12px;color:var(--n400);">Республики Казахстан</span></span>
+      </a>
+      <a class="lnk" href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--n500);text-decoration:none;border-radius:6px;white-space:nowrap;flex:0 0 auto;"><i class="ri-home-5-line" style="font-size:18px;"></i>На главную</a>
+    </div>
+
+    <div class="auth-body">
+      <div style="width:100%;max-width:460px;">
+
+        <!-- степпер: ЭЦП → Профиль → Данные → Пароль -->
+        <sc-if value="{{ showSteps }}" hint-placeholder-val="{{ true }}">
+          <div aria-label="{{ stepAria }}" style="display:flex;gap:8px;margin-bottom:28px;">
+            <sc-for list="{{ steps }}" as="st" hint-placeholder-count="4">
+              <div style="flex:1;min-width:0;">
+                <div style="{{ st.bar }}"></div>
+                <div style="{{ st.label }}"><i class="{{ st.icon }}" style="font-size:14px;"></i>{{ st.text }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 1. Старт ═══ -->
+        <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Регистрация на портале</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 20px;">Понадобится ключ ЭЦП — личный или сотрудника организации. Анкету заполнять не нужно.</p>
+
+            <ol style="list-style:none;margin:0 0 24px;padding:4px 16px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);">
+              <sc-for list="{{ howto }}" as="h" hint-placeholder-count="4">
+                <li style="{{ h.style }}">
+                  <span style="width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ h.icon }}" style="font-size:18px;"></i></span>
+                  <span style="min-width:0;"><span style="display:block;font-size:14px;line-height:20px;font-weight:600;">{{ h.title }}</span><span style="display:block;font-size:13px;line-height:18px;color:var(--n500);">{{ h.text }}</span></span>
+                </li>
+              </sc-for>
+            </ol>
+
+            <button class="btn-p" onClick="{{ openEcp }}" disabled="{{ waiting }}" style="width:100%;height:52px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+              <sc-if value="{{ waiting }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--n300);border-top-color:var(--n500);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+              <sc-if value="{{ notWaiting }}" hint-placeholder-val="{{ true }}"><i class="ri-key-2-line" style="font-size:20px;"></i></sc-if>
+              {{ ecpLabel }}
+            </button>
+            <div style="display:flex;gap:8px;align-items:flex-start;justify-content:center;margin-top:12px;font-size:12px;line-height:1.5;color:var(--n400);text-align:center;"><span>Для работы с ЭЦП нужен запущенный NCALayer. <a class="lnk" href="https://pki.gov.kz/ncalayer/" target="_blank" rel="noopener" style="color:var(--primary);font-weight:500;text-decoration:none;">Скачать</a></span></div>
+
+            <div style="display:flex;align-items:center;gap:12px;margin:28px 0 20px;"><span style="flex:1;height:1px;background:var(--stroke);"></span><span style="font-size:12px;color:var(--n400);">Уже есть учётная запись?</span><span style="flex:1;height:1px;background:var(--stroke);"></span></div>
+            <a class="btn-s" href="{{ loginHref }}" style="width:100%;height:48px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-login-box-line" style="font-size:18px;color:var(--n500);"></i>Войти</a>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 1a. Проверка ЭЦП, КГД / справочник / СУР ═══ -->
+        <sc-if value="{{ isCheck }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">{{ checkTitle }}</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 24px;">{{ checkLead }}</p>
+            <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+              <div aria-live="polite" style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:6px 16px;box-shadow:0 1px 2px rgba(10,13,20,.03);">
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+                  <div style="{{ r.style }}">
+                    <span style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+                      <sc-if value="{{ r.run }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+                      <sc-if value="{{ r.hasIcon }}" hint-placeholder-val="{{ true }}"><i class="{{ r.icon }}" style="{{ r.iconStyle }}"></i></sc-if>
+                    </span>
+                    <span style="flex:1;min-width:0;">
+                      <span style="{{ r.labelStyle }}">{{ r.label }}</span>
+                      <sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;line-height:16px;color:var(--n500);margin-top:2px;">{{ r.sub }}</span></sc-if>
+                    </span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="{{ errBox }}">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                  <i class="{{ errIcon }}" style="{{ errIconStyle }}"></i>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">{{ errTitle }}</div>
+                    <div style="font-size:14px;line-height:21px;color:var(--n600);margin-top:4px;">{{ errText }}</div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+                  <sc-for list="{{ errActions }}" as="a" hint-placeholder-count="2">
+                    <button class="{{ a.cls }}" onClick="{{ a.onClick }}" style="{{ a.style }}"><i class="{{ a.icon }}" style="font-size:18px;"></i>{{ a.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 2. Профиль ═══ -->
+        <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px 10px 10px;margin-bottom:24px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);">
+              <span style="{{ who.avatar }}"><i class="{{ who.icon }}" style="font-size:20px;"></i></span>
+              <span style="flex:1;min-width:0;line-height:1.3;"><span style="display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ who.title }}</span><span style="display:block;font-size:12px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ who.meta }}</span></span>
+              <button class="lnk" onClick="{{ openEcp }}" style="border:none;background:none;padding:4px;font-family:inherit;font-size:13px;font-weight:500;color:var(--primary);cursor:pointer;flex:0 0 auto;border-radius:6px;">Сменить ключ</button>
+            </div>
+
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Выберите профиль</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 16px;">{{ profileLead }}</p>
+
+            <div role="status" style="{{ notice.box }}">
+              <i class="{{ notice.icon }}" style="{{ notice.iconStyle }}"></i>
+              <div style="min-width:0;"><div style="font-size:14px;line-height:20px;font-weight:600;color:var(--n900);">{{ notice.title }}</div><div style="font-size:13px;line-height:18px;color:var(--n600);margin-top:2px;">{{ notice.text }}</div></div>
+            </div>
+            <sc-if value="{{ userExists }}" hint-placeholder-val="{{ false }}">
+              <div role="note" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin-top:10px;border-radius:12px;background:var(--primary-lighter);border:1px solid var(--primary-light);">
+                <i class="ri-user-follow-line" style="font-size:20px;color:var(--primary);flex:0 0 auto;"></i>
+                <div style="font-size:13px;line-height:18px;color:var(--primary-darker);">У вас уже есть учётная запись. Новый профиль добавим к ней — логин и пароль останутся прежними.</div>
+              </div>
+            </sc-if>
+
+            <div role="radiogroup" aria-label="Доступные профили" style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+              <sc-for list="{{ opts }}" as="o" hint-placeholder-count="2">
+                <button class="opt" role="radio" aria-checked="{{ o.on }}" disabled="{{ o.taken }}" onClick="{{ o.onClick }}" style="{{ o.style }}">
+                  <span style="{{ o.radio }}"><span style="{{ o.radioDot }}"></span></span>
+                  <span style="{{ o.iconWrap }}"><i class="{{ o.icon }}" style="font-size:22px;"></i></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">{{ o.label }}</span><sc-if value="{{ o.taken }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;line-height:16px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:2px 8px;border-radius:999px;">Уже зарегистрирован</span></sc-if></span>
+                    <span style="font-size:13px;line-height:18px;color:var(--n500);">{{ o.desc }}</span>
+                    <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                      <sc-for list="{{ o.chips }}" as="ch" hint-placeholder-count="2">
+                        <span style="font-size:11px;line-height:16px;font-weight:500;color:var(--n600);background:var(--n100);padding:2px 8px;border-radius:6px;">{{ ch }}</span>
+                      </sc-for>
+                    </span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:flex-start;margin:14px 2px 0;font-size:12px;line-height:1.5;color:var(--n500);"><i class="ri-lock-2-line" style="font-size:16px;color:var(--n400);flex:0 0 auto;"></i><span>Организация, БИН, уровень доступа и роль определяются автоматически по ЭЦП и данным государственных систем — изменить их нельзя.</span></div>
+
+            <button class="btn-p" onClick="{{ goData }}" disabled="{{ noSel }}" style="width:100%;height:52px;margin-top:24px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);">Продолжить регистрацию<i class="ri-arrow-right-line" style="font-size:18px;"></i></button>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 3. Данные из ГБД + согласие ═══ -->
+        <sc-if value="{{ isData }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">{{ dataTitle }}</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 20px;">{{ dataLead }}</p>
+
+            <sc-if value="{{ gbdLoading }}" hint-placeholder-val="{{ false }}">
+              <div aria-live="polite" style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;">
+                <span style="width:20px;height:20px;border:2px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:mp-spin .7s linear infinite;flex:0 0 auto;"></span>
+                <span style="font-size:14px;line-height:20px;color:var(--n600);">{{ gbdWait }}</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gbdFail }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="padding:16px;border-radius:16px;background:var(--red-l);border:1px solid var(--red-light);">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                  <i class="ri-error-warning-fill" style="font-size:24px;color:var(--red);flex:0 0 auto;"></i>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;line-height:22px;font-weight:600;">{{ gbdErrTitle }}</div><div style="font-size:14px;line-height:21px;color:var(--n600);margin-top:4px;">{{ gbdErrText }}</div></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+                  <sc-if value="{{ gbdRetry }}" hint-placeholder-val="{{ true }}">
+                    <button class="btn-p" onClick="{{ goData }}" style="width:100%;height:48px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-refresh-line" style="font-size:18px;"></i>Повторить попытку</button>
+                  </sc-if>
+                  <button class="btn-s" onClick="{{ gbdBack }}" style="width:100%;height:44px;border:1px solid var(--stroke);border-radius:12px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="{{ gbdBackIcon }}" style="font-size:18px;"></i>{{ gbdBackLabel }}</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ gbdOk }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="2">
+                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:14px 16px 4px;margin-bottom:12px;box-shadow:0 1px 2px rgba(10,13,20,.03);">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                      <span style="display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:600;"><i class="{{ sec.icon }}" style="font-size:18px;color:var(--n400);"></i>{{ sec.title }}</span>
+                      <span style="display:flex;align-items:center;gap:4px;font-size:11px;line-height:16px;font-weight:500;color:var(--green-d);background:var(--green-l);padding:2px 8px;border-radius:999px;white-space:nowrap;"><i class="ri-shield-check-line" style="font-size:13px;"></i>{{ sec.source }}</span>
+                    </div>
+                    <sc-for list="{{ sec.rows }}" as="kv" hint-placeholder-count="4">
+                      <div class="kv"><span style="color:var(--n500);">{{ kv.k }}</span><span style="font-weight:500;color:var(--n900);overflow-wrap:anywhere;">{{ kv.v }}</span></div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+
+                <div style="{{ consentBox }}">
+                  <label for="reg-agree" style="display:flex;gap:12px;align-items:flex-start;cursor:pointer;">
+                    <input id="reg-agree" class="chk" type="checkbox" checked="{{ agreed }}" onChange="{{ toggleAgree }}" aria-describedby="reg-agree-text" />
+                    <span style="font-size:14px;line-height:20px;font-weight:600;color:var(--n900);">Я принимаю условия пользовательского соглашения</span>
+                  </label>
+                  <p id="reg-agree-text" style="margin:10px 0 0 32px;font-size:13px;line-height:20px;color:var(--n500);">Настоящим подтверждаю свое согласие на сбор, обработку, хранение и распространение моих персональных данных в порядке, установленным законодательством Республики Казахстан, в том числе в соответствии с Законом Республики Казахстан от 21 мая 2013 года № 94-V «О персональных данных и их защите» и статьей 147 Уголовного кодекса Республики Казахстан от 3 июля 2014 года № 226-V.</p>
+                </div>
+
+                <button class="btn-p" onClick="{{ confirmData }}" disabled="{{ notAgreed }}" style="width:100%;height:52px;margin-top:20px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+                  <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--n300);border-top-color:var(--n500);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+                  {{ dataNext }}
+                </button>
+                <sc-if value="{{ notAgreed }}" hint-placeholder-val="{{ true }}">
+                  <div style="margin-top:8px;font-size:12px;line-height:16px;color:var(--n400);text-align:center;">Чтобы продолжить, примите условия пользовательского соглашения</div>
+                </sc-if>
+                <button class="btn-s" onClick="{{ backToProfile }}" style="width:100%;height:44px;margin-top:10px;border:1px solid var(--stroke);border-radius:12px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Назад</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 4. Пароль ═══ -->
+        <sc-if value="{{ isPassword }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Придумайте пароль</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 20px;">Логин для входа — ваш ИИН <span style="font-weight:600;color:var(--n900);white-space:nowrap;">{{ iin }}</span>. Пароль понадобится при каждом входе вместе с ЭЦП.</p>
+
+            <form onSubmit="{{ finish }}" noValidate>
+              <input type="text" name="username" autoComplete="username" value="{{ iin }}" readOnly tabIndex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;" />
+
+              <label for="reg-pass" style="display:block;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);margin-bottom:6px;">Пароль</label>
+              <div style="position:relative;">
+                <input ref="{{ passRef }}" id="reg-pass" name="new-password" autoComplete="new-password" class="inp" type="{{ type1 }}" value="{{ pass }}" onChange="{{ onPass }}" onKeyDown="{{ onCaps }}" onKeyUp="{{ onCaps }}" aria-describedby="reg-rules" placeholder="Не менее 8 символов" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 48px 0 14px;font-size:16px;font-family:inherit;background:var(--n0);color:var(--n900);" />
+                <button type="button" class="eye" onClick="{{ toggle1 }}" aria-label="{{ eye1Label }}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="{{ eye1 }}" style="font-size:20px;"></i></button>
+              </div>
+              <ul id="reg-rules" aria-live="polite" style="list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;">
+                <sc-for list="{{ rules }}" as="ru" hint-placeholder-count="4">
+                  <li style="{{ ru.style }}"><i class="{{ ru.icon }}" style="{{ ru.iconStyle }}"></i>{{ ru.text }}</li>
+                </sc-for>
+              </ul>
+              <sc-if value="{{ caps }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;line-height:16px;color:var(--orange);"><i class="ri-font-size" style="font-size:16px;"></i>Включён Caps Lock</div>
+              </sc-if>
+
+              <label for="reg-pass2" style="display:block;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);margin:20px 0 6px;">Повтор пароля</label>
+              <div style="position:relative;">
+                <input id="reg-pass2" name="confirm-password" autoComplete="new-password" class="{{ pass2Class }}" type="{{ type2 }}" value="{{ pass2 }}" onChange="{{ onPass2 }}" onBlur="{{ onBlur2 }}" aria-invalid="{{ mismatch }}" aria-describedby="reg-pass2-msg" placeholder="Введите пароль ещё раз" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 48px 0 14px;font-size:16px;font-family:inherit;background:var(--n0);color:var(--n900);" />
+                <button type="button" class="eye" onClick="{{ toggle2 }}" aria-label="{{ eye2Label }}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="{{ eye2 }}" style="font-size:20px;"></i></button>
+              </div>
+              <div id="reg-pass2-msg" aria-live="polite" style="min-height:22px;padding-top:6px;">
+                <sc-if value="{{ mismatch }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:16px;font-weight:500;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Пароли не совпадают.</span></sc-if>
+                <sc-if value="{{ matched }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:16px;font-weight:500;color:var(--green-d);"><i class="ri-checkbox-circle-fill" style="font-size:16px;color:var(--green);"></i>Пароли совпадают</span></sc-if>
+              </div>
+
+              <button type="submit" class="btn-p" disabled="{{ cantFinish }}" style="width:100%;height:52px;margin-top:10px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+                <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--n300);border-top-color:var(--n500);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+                {{ finishLabel }}
+              </button>
+            </form>
+            <button class="btn-s" onClick="{{ backToData }}" style="width:100%;height:44px;margin-top:10px;border:1px solid var(--stroke);border-radius:12px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Назад</button>
+          </div>
+        </sc-if>
+
+        <!-- ═══ Готово ═══ -->
+        <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;text-align:center;">
+            <div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:var(--green-l);display:flex;align-items:center;justify-content:center;animation:mp-pop .4s ease;"><i class="ri-checkbox-circle-fill" style="font-size:44px;color:var(--green);"></i></div>
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">{{ doneTitle }}</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 auto 24px;max-width:380px;">{{ doneLead }}</p>
+            <div style="text-align:left;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:6px 16px;box-shadow:0 1px 2px rgba(10,13,20,.03);">
+              <sc-for list="{{ summary }}" as="kv" hint-placeholder-count="4">
+                <div style="{{ kv.style }}"><span style="color:var(--n500);">{{ kv.k }}</span><span style="font-weight:500;color:var(--n900);overflow-wrap:anywhere;">{{ kv.v }}</span></div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ govNote }}" hint-placeholder-val="{{ false }}">
+              <div role="note" style="display:flex;gap:10px;align-items:flex-start;text-align:left;padding:12px 14px;margin-top:12px;border-radius:12px;background:var(--purple-l);">
+                <i class="ri-shield-user-line" style="font-size:20px;color:var(--purple);flex:0 0 auto;"></i>
+                <div style="font-size:13px;line-height:18px;color:var(--n700);">Роль в системе назначит администратор. До этого функции госоргана будут недоступны — право подписи из ЭЦП сохранено.</div>
+              </div>
+            </sc-if>
+            <button class="btn-p" onClick="{{ toLogin }}" style="width:100%;height:52px;margin-top:24px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);"><i class="ri-login-box-line" style="font-size:20px;"></i>Войти на портал</button>
+            <a class="btn-s" href="Портал Минздрава - Главная.dc.html" style="width:100%;height:44px;margin-top:10px;border:1px solid var(--stroke);border-radius:12px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;">На главную</a>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+    <dc-import name="EcpPicker" hint-size="0px,0px"></dc-import>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const HANDOFF = 'mp-ecp-handoff';
+const KIND = {
+  citizen:  { label:'Гражданин',             icon:'ri-user-heart-line',  bg:'#EEF2FF', fg:'#4D42E9' },
+  business: { label:'Бизнес',                icon:'ri-briefcase-4-line', bg:'#FEF3EB', fg:'#F17B2C' },
+  medical:  { label:'Медперсонал',           icon:'ri-stethoscope-line', bg:'#EBFAFF', fg:'#35B9E9' },
+  gov:      { label:'Государственный орган', icon:'ri-government-line',  bg:'#EEEBFF', fg:'#6E3FF3' },
+};
+const LEVEL_TEXT = { APPLICANT:'Заявитель', MEDICAL:'Медицинский', BY_ORGANIZATION:'по организации' };
+const ROLE_TEXT = { SPECIALIST_WITH_SIGN:'специалист с правом подписи', SPECIALIST_NO_SIGN:'специалист без права подписи', MEDICAL_STAFF:'медицинский персонал' };
+// Справочник organization_go — организации, которым доступен профиль «Государственный орган»
+const ORG_GO = {
+  '201040018899':'РГУ «Комитет медицинского и фармацевтического контроля МЗ РК»',
+  '980240003251':'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» МЗ РК',
+  '110340017483':'РГП на ПХВ «Национальный научный центр развития здравоохранения имени Салидат Каирбековой» МЗ РК',
+};
+const MSG = {
+  kgd:'Не удалось получить сведения о статусе индивидуального предпринимателя. Повторите попытку позже.',
+  sur:'Не удалось проверить сведения о сотруднике. Повторите попытку позже.',
+  surNotFound:'Не подтверждена принадлежность к указанной организации. Регистрация невозможна.',
+  gbd:'Не удалось получить необходимые сведения. Повторите попытку позже.',
+  exists:'Пользователь уже зарегистрирован в системе. Для продолжения работы пройдите авторизацию.',
+  inactive:'Учетная запись недоступна. Обратитесь к администратору системы.',
+};
+const ADDR = {
+  '880704350127':'г. Алматы, Бостандыкский р-н, ул. Тимирязева, д. 42, кв. 17',
+  '010923600845':'г. Шымкент, Аль-Фарабийский р-н, пр. Тауке хана, д. 5, кв. 30',
+  '920315401540':'г. Астана, р-н Есиль, ул. Сыганак, д. 18, кв. 42',
+};
+const pad = (n) => String(n).padStart(2, '0');
+const stamp = (d) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const shortName = (fio) => { const w = (fio || '').split(' '); return w[0] + (w[1] ? ' ' + w[1][0] + '.' : '') + (w[2] ? ' ' + w[2][0] + '.' : ''); };
+// дата рождения и пол — из ИИН (ГГММДД + цифра века/пола)
+const fromIin = (iin) => {
+  const c = +iin[6]; const cent = c <= 2 ? 1800 : c <= 4 ? 1900 : 2000;
+  return { birth:`${iin.slice(4, 6)}.${iin.slice(2, 4)}.${cent + +iin.slice(0, 2)}`, sex: c % 2 ? 'Мужской' : 'Женский' };
+};
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = { phase:'start', waiting:false, cert:null, rows:[], err:null, opts:[], selKey:null, userExists:false,
+                   gbd:'idle', gbdErr:null, agreed:false, consentAt:null, pass:'', pass2:'', show1:false, show2:false, blur2:false, caps:false,
+                   saving:false, done:null };
+    this.timers = [];
+    this.passRef = React.createRef();
+  }
+  componentDidMount(){
+    this._onSel = (e) => { this.setState({ waiting:false }); if(e && e.detail) this.verify(e.detail); };
+    this._onCancel = () => this.setState({ waiting:false });
+    window.addEventListener('mp-ecp-select', this._onSel);
+    window.addEventListener('mp-ecp-cancel', this._onCancel);
+    // ключ уже выбран на «Входе» — продолжаем с ним, не просим выбирать снова
+    try {
+      const h = JSON.parse(sessionStorage.getItem(HANDOFF) || 'null');
+      sessionStorage.removeItem(HANDOFF);
+      if(h && h.cert && Date.now() - h.at < 10*60*1000) this.verify(h.cert);
+    } catch(e){}
+  }
+  // новый шаг — показываем его с начала (на длинных экранах пользователь мог прокрутить вниз)
+  componentDidUpdate(){
+    if(this._phase !== this.state.phase){ this._phase = this.state.phase; try { window.scrollTo(0, 0); } catch(e){} }
+  }
+  componentWillUnmount(){
+    this.clearTimers();
+    window.removeEventListener('mp-ecp-select', this._onSel);
+    window.removeEventListener('mp-ecp-cancel', this._onCancel);
+  }
+  later(fn, ms){ this.timers.push(setTimeout(fn, ms)); }
+  clearTimers(){ this.timers.forEach(clearTimeout); this.timers = []; }
+  users(){ try { return JSON.parse(localStorage.getItem('mp-users') || '{}') || {}; } catch(e){ return {}; } }
+  search(){ try { return location.search || ''; } catch(e){ return ''; } }
+  openEcp(){
+    this.clearTimers();
+    this.setState({ waiting:true });
+    try { window.dispatchEvent(new CustomEvent('mp-ecp-open')); } catch(e){}
+  }
+  toLogin(profileKey){
+    try { sessionStorage.setItem(HANDOFF, JSON.stringify({ cert:this.state.cert, profile:profileKey || null, at:Date.now() })); } catch(e){}
+    location.href = 'Вход.dc.html' + this.search();
+  }
+  patchRow(i, p){ this.setState({ rows: this.state.rows.map((r, j) => j === i ? { ...r, ...p } : r) }); }
+
+  // Доступные профили — только из ответов КГД / справочника / СУР, пользователь их не редактирует
+  buildProfiles(c){
+    if(c.type === 'fl'){
+      const list = [ { kind:'citizen', level:'APPLICANT', role:'SPECIALIST_WITH_SIGN' } ];
+      if(c.kgd === 'ip') list.push({ kind:'business', ip:true, bin:c.iin, org:'ИП ' + shortName(c.fio), level:'APPLICANT', role:'SPECIALIST_WITH_SIGN' });
+      return list;
+    }
+    if(ORG_GO[c.bin]) return [ { kind:'gov', bin:c.bin, org:c.org, level:'BY_ORGANIZATION', role:null, sign:!!c.sign } ];
+    const biz = { kind:'business', bin:c.bin, org:c.org, level:'APPLICANT', role: c.sign ? 'SPECIALIST_WITH_SIGN' : 'SPECIALIST_NO_SIGN', sign:!!c.sign };
+    return c.sur === 'match' ? [ { kind:'medical', bin:c.bin, org:c.org, level:'MEDICAL', role:'MEDICAL_STAFF', sign:!!c.sign }, biz ] : [ biz ];
+  }
+  keyOf(p){ return p.kind + ':' + (p.bin || ''); }
+
+  // Стадия 1: ЭЦП → КГД / справочник / СУР → учётная запись
+  verify(c){
+    this.clearTimers();
+    this.setState({ phase:'check', cert:c, err:null, opts:[], selKey:null, userExists:false, gbd:'idle', gbdErr:null, agreed:false, consentAt:null, pass:'', pass2:'', blur2:false, saving:false, done:null });
+    if(c.certErr === 'ncalayer'){
+      this.setState({ rows:[], err:{ tone:'red', title:'NCALayer не запущен', text:'Не удалось подключиться к NCALayer — программе для работы с ЭЦП. Запустите её и повторите попытку.', kind:'ncalayer' } });
+      return;
+    }
+    const ul = c.type === 'ul';
+    const retry = { kind:'retry' };
+    const rows = [
+      { label:'Подпись и сертификат', run:()=> c.certErr === 'wrongkey'
+          ? { st:'fail', sub:'Ключ не для аутентификации', err:{ tone:'red', title:'Выбран ключ для подписания документов', text:'Этот ключ предназначен для подписания документов. Выберите ключ аутентификации — в имени его файла обычно есть «AUTH».' } }
+          : { sub:'Подпись действительна' } },
+      { label:'Срок действия и статус сертификата', run:()=> {
+          if(c.certErr === 'expired') return { st:'fail', sub:`Срок истёк ${c.validTo}`, err:{ tone:'red', title:'Срок действия сертификата истёк', text:`Сертификат действовал до ${c.validTo}. Получите новый ключ ЭЦП в НУЦ РК и повторите регистрацию.` } };
+          if(c.certErr === 'revoked') return { st:'fail', sub:'Сертификат отозван', err:{ tone:'red', title:'Сертификат отозван', text:'Удостоверяющий центр отозвал этот сертификат. Выберите действующий ключ ЭЦП.' } };
+          return { sub:'Действителен, не отозван' }; } },
+      { label: ul ? 'ИИН, БИН и право подписи' : 'ИИН и тип ЭЦП', run:()=> ({ sub: ul
+          ? `ЭЦП ЮЛ · БИН ${c.bin} · ${c.sign ? 'с правом подписи' : 'без права подписи'}`
+          : `Личная ЭЦП ФЛ · ИИН ${c.iin}` }) },
+    ];
+    if(!ul){
+      rows.push({ label:'Статус ИП · ИС КГД', run:()=> {
+        if(c.kgd === 'down' || c.kgd === 'timeout') return { st:'fail', sub: c.kgd === 'timeout' ? 'Сервис не ответил вовремя' : 'Сервис недоступен', err:{ tone:'red', title:'ИС КГД не ответила', text:MSG.kgd, ...retry } };
+        return c.kgd === 'ip' ? { sub:'Статус ИП подтверждён' } : { st:'info', sub:'Не зарегистрирован как ИП' };
+      } });
+    } else {
+      rows.push({ label:'Справочник государственных органов', run:()=> ORG_GO[c.bin] ? { sub:'Организация найдена' } : { st:'info', sub:'Не найдена — проверяем в ИС СУР' } });
+      if(!ORG_GO[c.bin]) rows.push({ label:'Сотрудник и организация · ИС СУР', run:()=> {
+        if(c.sur === 'down') return { st:'fail', sub:'Сервис недоступен', err:{ tone:'red', title:'ИС СУР не ответила', text:MSG.sur, ...retry } };
+        if(c.sur === 'notfound') return { st:'fail', sub:'Сотрудник не найден', err:{ tone:'red', title:'Сотрудник не найден в ИС СУР', text:MSG.surNotFound, kind:'stop' } };
+        return c.sur === 'match' ? { sub:'Медицинская организация подтверждена, БИН совпадает' } : { st:'info', sub:'Не подтверждена как медицинская организация' };
+      } });
+    }
+    rows.push({ label:'Учётная запись', run:()=> {
+      const u = this.users()[c.iin];
+      const opts = this.buildProfiles(c).map(p => ({ ...p, taken: !!(u && (u.profiles || []).some(x => this.keyOf(x) === this.keyOf(p))) }));
+      if(u && u.status !== 'ACTIVE') return { st:'fail', sub:'Заблокирована', err:{ tone:'red', title:'Учётная запись заблокирована', text:MSG.inactive } };
+      if(opts.every(o => o.taken)) return { st:'warn', sub:'Уже зарегистрирован', err:{ tone:'orange', title:'Учётная запись уже есть', text:MSG.exists, kind:'exists', profile:this.keyOf(opts[0]) } };
+      return { sub: u ? 'Найдена — добавим новый профиль' : 'Новый пользователь', opts, exists:!!u };
+    } });
+
+    this.setState({ rows: rows.map(r => ({ label:r.label, st:'wait', sub:'' })) });
+    const step = (i) => {
+      this.patchRow(i, { st:'run' });
+      this.later(() => {
+        const res = rows[i].run() || {};
+        this.patchRow(i, { st: res.st || 'ok', sub: res.sub || '' });
+        if(res.err){ this.setState({ rows:this.state.rows.slice(0, i + 1) }); this.later(() => this.setState({ err:res.err }), 250); return; }
+        if(res.opts){
+          // предвыбор: пришли за услугой для организации (?profile=business) — «Бизнес», иначе первый свободный
+          const free = res.opts.filter(o => !o.taken);
+          const forBiz = /(^|[?&])profile=business(&|$)/.test(this.search());
+          const pre = (forBiz && free.find(o => o.kind === 'business')) || free[0];
+          this.later(() => this.setState({ phase:'profile', opts:res.opts, userExists:res.exists, selKey: pre ? this.keyOf(pre) : null }), 500);
+          return;
+        }
+        step(i + 1);
+      }, i === 0 ? 650 : 480);
+    };
+    this.later(() => step(0), 150);
+  }
+
+  // «Продолжить регистрацию» → ГБД ФЛ (по ИИН) или ГБД ЮЛ (по БИН); ГБД ФЛ для ЮЛ не вызываем
+  goData(){
+    const c = this.state.cert;
+    this.clearTimers();
+    this.setState({ phase:'data', gbd:'loading', gbdErr:null });
+    this.later(() => {
+      if(c.gbd === 'down') { this.setState({ gbd:'fail', gbdErr:{ title: c.type === 'ul' ? 'ГБД ЮЛ не ответила' : 'ГБД ФЛ не ответила', text:MSG.gbd, retry:true } }); return; }
+      if(c.gbd === 'noorg') { this.setState({ gbd:'fail', gbdErr:{ title:'Организация не найдена', text:`Сведения об организации с БИН ${c.bin} отсутствуют в ГБД ЮЛ. Регистрация невозможна.`, retry:false } }); return; }
+      this.setState({ gbd:'ok' });
+    }, 1100);
+  }
+  selected(){ return this.state.opts.find(o => this.keyOf(o) === this.state.selKey) || null; }
+
+  // Согласие → фиксируем факт и дату/время, дальше пароль (или сразу профиль — если учётная запись уже есть)
+  confirmData(){
+    if(!this.state.agreed) return;
+    const at = new Date();
+    this.setState({ consentAt: at.toISOString() });
+    if(this.state.userExists) { this.create(); return; }
+    this.setState({ phase:'password', pass:'', pass2:'', blur2:false, show1:false, show2:false });
+    this.later(() => { if(this.passRef.current) this.passRef.current.focus(); }, 60);
+  }
+  rulesOf(p){
+    return [
+      { text:'Не менее 8 символов', ok: p.length >= 8 },
+      { text:'Заглавная буква', ok: /[A-ZА-ЯЁ]/.test(p) },
+      { text:'Строчная буква', ok: /[a-zа-яё]/.test(p) },
+      { text:'Специальный символ', ok: /[^A-Za-zА-Яа-яЁё0-9\s]/.test(p) },
+    ];
+  }
+  finish(e){
+    if(e && e.preventDefault) e.preventDefault();
+    const s = this.state;
+    if(!this.rulesOf(s.pass).every(r => r.ok) || s.pass !== s.pass2){ this.setState({ blur2:true }); return; }
+    this.create();
+  }
+  // JHI_USER → USER_PROFILE → LEVEL → ORGANIZATION/BIN → ROLE; данные ГБД — в сущности ФЛ/ЮЛ
+  create(){
+    const s = this.state, c = s.cert, p = this.selected();
+    if(!p || s.saving) return;
+    this.setState({ saving:true });
+    this.later(() => {
+      const users = this.users();
+      const u = users[c.iin];
+      const at = s.consentAt || new Date().toISOString();
+      const prof = { kind:p.kind, bin:p.bin, org:p.org, ip:!!p.ip, level:p.level, role:p.role, sign:p.sign, status:'ACTIVE', consent:{ accepted:true, at }, createdAt:new Date().toISOString() };
+      if(u && (u.profiles || []).some(x => this.keyOf(x) === this.keyOf(p))){
+        // профиль успели создать в другой вкладке — не дублируем
+        this.setState({ saving:false, phase:'check', rows:[], err:{ tone:'orange', title:'Учётная запись уже есть', text:MSG.exists, kind:'exists', profile:this.keyOf(p) } });
+        return;
+      }
+      if(u) u.profiles.push(prof);
+      // пароль в прототипе лежит в localStorage; в системе хранится только хеш
+      else users[c.iin] = { status:'ACTIVE', password:s.pass, fio:c.fio, createdAt:new Date().toISOString(), profiles:[ prof ] };
+      try { localStorage.setItem('mp-users', JSON.stringify(users)); } catch(e){}
+      this.setState({ saving:false, phase:'done', done:{ key:this.keyOf(p), at, added:!!u } });
+    }, 900);
+  }
+
+  renderVals(){
+    const s = this.state;
+    const c = s.cert || {};
+    const ul = c.type === 'ul';
+    const sel = this.selected();
+
+    // степпер
+    const labels = s.userExists ? ['ЭЦП', 'Профиль', 'Данные'] : ['ЭЦП', 'Профиль', 'Данные', 'Пароль'];
+    const cur = { profile:1, data:2, password:3, done:labels.length }[s.phase] || 0;
+    const steps = labels.map((t, i) => {
+      const done = i < cur, on = i === cur;
+      return { text:t, icon: done ? 'ri-check-line' : '',
+        bar:`height:4px;border-radius:2px;background:${done || on ? '#4D42E9' : '#E2E4E9'};transition:background .2s;`,
+        label:`display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;line-height:16px;font-weight:${on ? '600' : '500'};color:${on ? '#0A0D14' : done ? '#4D42E9' : '#868C98'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;` };
+    });
+
+    const howto = [
+      { icon:'ri-key-2-line', title:'Подпишите ключом ЭЦП', text:'Проверим сертификат и определим доступные профили' },
+      { icon:'ri-user-settings-line', title:'Выберите профиль', text:'Гражданин, бизнес, медперсонал или госорган' },
+      { icon:'ri-file-list-3-line', title:'Проверьте данные', text:'Сведения из ГБД и согласие на обработку ПД' },
+      { icon:'ri-lock-password-line', title:'Придумайте пароль', text:'Логин — ваш ИИН, вводить его не нужно' },
+    ].map((h, i, a) => ({ ...h, style:`display:flex;gap:12px;align-items:center;padding:12px 0;${i < a.length - 1 ? 'border-bottom:1px solid #F6F8FA;' : ''}` }));
+
+    // проверка
+    const rows = s.rows.map((r, i) => {
+      const icon = { ok:'ri-checkbox-circle-fill', fail:'ri-close-circle-fill', warn:'ri-error-warning-fill', info:'ri-information-fill', wait:'ri-checkbox-blank-circle-line' }[r.st] || '';
+      const col = { ok:'#38C793', fail:'#DF1C41', warn:'#F17B2C', info:'#868C98', wait:'#CDD0D5' }[r.st] || '#CDD0D5';
+      return { ...r, run: r.st === 'run', hasIcon: r.st !== 'run', icon, hasSub: !!r.sub,
+        iconStyle:`font-size:22px;color:${col};`,
+        labelStyle:`display:block;font-size:14px;line-height:20px;font-weight:500;color:${r.st === 'wait' ? '#868C98' : '#0A0D14'};`,
+        style:`display:flex;align-items:flex-start;gap:12px;padding:12px 0;${i < s.rows.length - 1 ? 'border-bottom:1px solid #F6F8FA;' : ''}` };
+    });
+    const err = s.err;
+    const TONE = { red:['#FDEDF0','#F8C9D2','#DF1C41','ri-error-warning-fill'], orange:['#FEF3EB','#FFDAC2','#F17B2C','ri-user-follow-line'] };
+    const tn = TONE[err && err.tone] || TONE.red;
+    const P = 'width:100%;height:48px;border:none;border-radius:12px;background:#4D42E9;color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);';
+    const S = 'width:100%;height:44px;border:1px solid #E2E4E9;border-radius:12px;background:#fff;color:#31353F;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
+    const act = (label, icon, fn, primary) => ({ label, icon, onClick:fn, cls: primary ? 'btn-p' : 'btn-s', style: primary ? P : S });
+    let errActions = [];
+    if(err){
+      if(err.kind === 'exists') errActions = [ act('Войти', 'ri-login-box-line', () => this.toLogin(err.profile), true), act('Выбрать другой ключ', 'ri-key-2-line', () => this.openEcp()) ];
+      else if(err.kind === 'retry') errActions = [ act('Повторить попытку', 'ri-refresh-line', () => this.verify(c), true), act('Выбрать другой ключ', 'ri-key-2-line', () => this.openEcp()) ];
+      else if(err.kind === 'ncalayer') errActions = [ act('Повторить', 'ri-refresh-line', () => this.openEcp(), true), act('Скачать NCALayer', 'ri-download-2-line', () => { try { window.open('https://pki.gov.kz/ncalayer/', '_blank', 'noopener'); } catch(e){} }) ];
+      else errActions = [ act('Выбрать другой ключ', 'ri-key-2-line', () => this.openEcp(), true) ];
+    }
+
+    // профиль
+    const who = ul
+      ? { title:c.org || '', meta:`${shortName(c.fio)} · БИН ${c.bin} · ${c.sign ? 'с правом подписи' : 'без права подписи'}`, icon:'ri-building-2-line', avatar:'width:40px;height:40px;border-radius:10px;background:#FEF3EB;color:#F17B2C;display:flex;align-items:center;justify-content:center;flex:0 0 auto;' }
+      : { title:c.fio || '', meta:`Личная ЭЦП ФЛ · ИИН ${c.iin}`, icon:'ri-user-3-line', avatar:'width:40px;height:40px;border-radius:10px;background:#EEF2FF;color:#4D42E9;display:flex;align-items:center;justify-content:center;flex:0 0 auto;' };
+    const N = (tone, icon, title, text) => {
+      const t = { green:['#EFFAF6','#CBF5E5','#38C793'], neutral:['#fff','#E2E4E9','#868C98'], purple:['#EEEBFF','#CAC2FF','#6E3FF3'] }[tone];
+      return { title, text, icon, box:`display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:${t[0]};border:1px solid ${t[1]};`, iconStyle:`font-size:20px;color:${t[2]};flex:0 0 auto;` };
+    };
+    const notice = !ul
+      ? (c.kgd === 'ip' ? N('green', 'ri-checkbox-circle-fill', 'Статус ИП подтверждён', 'ИС КГД подтвердила регистрацию индивидуального предпринимателя — доступен профиль «Бизнес».')
+                        : N('neutral', 'ri-information-fill', 'Статус ИП не подтверждён', 'По данным ИС КГД вы не зарегистрированы как ИП — доступен профиль «Гражданин».'))
+      : ORG_GO[c.bin] ? N('purple', 'ri-government-fill', 'Организация — государственный орган', 'БИН найден в справочнике государственных органов.')
+      : c.sur === 'match' ? N('green', 'ri-checkbox-circle-fill', 'Медицинская организация подтверждена', 'ИС СУР подтвердила, что вы работаете в этой организации.')
+      : N('neutral', 'ri-information-fill', 'Организация не подтверждена как медицинская', 'По данным ИС СУР доступен профиль «Бизнес».');
+    const chipsOf = (p) => p.kind === 'gov'
+      ? [ 'Уровень: по организации', 'Роль назначит администратор', p.sign ? 'С правом подписи' : 'Без права подписи' ]
+      : [ 'Уровень: ' + LEVEL_TEXT[p.level], 'Роль: ' + ROLE_TEXT[p.role] ];
+    const descOf = (p) => p.kind === 'citizen' ? 'Личные услуги, ЭПЗ, запись на приём'
+      : p.kind === 'business' && p.ip ? `${p.org} · ИИН ${p.bin}`
+      : `${p.org} · БИН ${p.bin}`;
+    const opts = s.opts.map(p => {
+      const k = KIND[p.kind], key = this.keyOf(p), on = key === s.selKey && !p.taken;
+      return { label:k.label, icon:k.icon, desc:descOf(p), chips:chipsOf(p), taken:p.taken, on,
+        onClick:() => { if(!p.taken) this.setState({ selKey:key }); },
+        style:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:14px;border-radius:14px;font-family:inherit;text-align:left;${p.taken ? 'cursor:default;background:#F6F8FA;border:1px solid #E2E4E9;opacity:.72;' : on ? 'cursor:pointer;background:#fff;border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'cursor:pointer;background:#fff;border:1px solid #E2E4E9;box-shadow:0 1px 2px rgba(10,13,20,.03);'}`,
+        radio:`width:20px;height:20px;margin-top:12px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;${on ? 'background:#4D42E9;' : 'background:#fff;box-shadow:inset 0 0 0 1.5px #CDD0D5;'}`,
+        radioDot:`width:8px;height:8px;border-radius:50%;background:${on ? '#fff' : 'transparent'};`,
+        iconWrap:`width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:${k.bg};color:${k.fg};` };
+    });
+
+    // данные ГБД
+    let sections = [];
+    if(sel && s.gbd === 'ok'){
+      if(ul){
+        sections = [
+          { title:'Организация', source:'ГБД ЮЛ', icon:'ri-building-2-line', rows:[
+            { k:'Наименование', v:c.org }, { k:'БИН', v:c.bin }, { k:'Юридический адрес', v:'Республика Казахстан, г. Астана' },
+            { k:'Статус', v:'Действующее' } ] },
+          { title:'Сотрудник', source:'Сертификат ЭЦП', icon:'ri-user-3-line', rows:[
+            { k:'ФИО', v:c.fio }, { k:'ИИН', v:c.iin }, ...(c.post ? [ { k:'Должность', v:c.post } ] : []),
+            { k:'Право подписи', v: c.sign ? 'Есть' : 'Нет' } ] },
+        ];
+      } else {
+        const b = fromIin(c.iin || '000000000000');
+        sections = [ { title:'Личные данные', source:'ГБД ФЛ', icon:'ri-user-3-line', rows:[
+          { k:'ФИО', v:c.fio }, { k:'ИИН', v:c.iin }, { k:'Дата рождения', v:b.birth }, { k:'Пол', v:b.sex },
+          { k:'Гражданство', v:'Республика Казахстан' }, { k:'Адрес регистрации', v:ADDR[c.iin] || 'г. Астана, р-н Алматы, ул. Кенесары, д. 40, кв. 12' } ] } ];
+      }
+      sections.push({ title:`Профиль «${KIND[sel.kind].label}»`, source:'', icon:KIND[sel.kind].icon, rows:[
+        ...(sel.org && !ul && sel.kind !== 'citizen' ?[ { k:'Организация', v:sel.org } ] : []),
+        { k:'Уровень доступа', v: sel.kind === 'gov' ? 'Определяется организацией' : LEVEL_TEXT[sel.level] },
+        { k:'Роль', v: sel.role ? ROLE_TEXT[sel.role] : 'Назначит администратор' } ] });
+      sections[sections.length - 1].source = sel.kind === 'citizen' ? 'По ЭЦП' : sel.kind === 'gov' ? 'Справочник госорганов' : ul ? 'ИС СУР' : 'ИС КГД';
+    }
+    const gbdName = ul ? 'ГБД ЮЛ' : 'ГБД ФЛ';
+
+    // пароль
+    const rules = this.rulesOf(s.pass).map(r => ({ ...r,
+      icon: r.ok ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line',
+      iconStyle:`font-size:16px;color:${r.ok ? '#38C793' : '#CDD0D5'};flex:0 0 auto;`,
+      style:`display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:${r.ok ? '#176448' : '#525866'};` }));
+    const rulesOk = rules.every(r => r.ok);
+    const mismatch = !!s.pass2 && s.pass2 !== s.pass && (s.blur2 || s.pass2.length >= s.pass.length);
+    const matched = !!s.pass2 && s.pass2 === s.pass;
+
+    // итог
+    const doneP = s.done ? s.opts.find(o => this.keyOf(o) === s.done.key) : null;
+    const summary = doneP ? [
+      { k:'Профиль', v:KIND[doneP.kind].label },
+      ...(doneP.kind !== 'citizen' ? [ { k: doneP.ip ? 'ИП' : 'Организация', v:doneP.org } ] : []),
+      { k:'Логин', v:`${c.iin} (ИИН)` },
+      { k:'Согласие на обработку ПД', v:'Принято ' + stamp(new Date(s.done.at)) },
+    ].map((kv, i, a) => ({ ...kv, style:`display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:12px;padding:10px 0;font-size:13px;line-height:18px;${i < a.length - 1 ? 'border-bottom:1px solid #F6F8FA;' : ''}` })) : [];
+
+    const phaseCheck = s.phase === 'check';
+    return {
+      showSteps: s.phase !== 'start',
+      steps, stepAria:`Шаг ${Math.min(cur + 1, labels.length)} из ${labels.length}`,
+      isStart: s.phase === 'start', isCheck: phaseCheck, isProfile: s.phase === 'profile', isData: s.phase === 'data', isPassword: s.phase === 'password', isDone: s.phase === 'done',
+      // старт
+      howto, waiting: s.waiting, notWaiting: !s.waiting, ecpLabel: s.waiting ? 'Ожидаем выбор ключа…' : 'Выбрать ключ ЭЦП',
+      openEcp: () => this.openEcp(), loginHref: 'Вход.dc.html' + this.search(),
+      // проверка
+      checkTitle: err ? (err.kind === 'exists' ? 'Вы уже зарегистрированы' : 'Не удалось продолжить регистрацию') : 'Проверяем ЭЦП',
+      checkLead: err ? (err.kind === 'ncalayer' ? 'Подпись не получена' : `${c.fio}${ul ? ' · ' + c.org : ' · личная ЭЦП ФЛ'}`) : 'Сверяем данные с государственными системами — это займёт несколько секунд.',
+      rows, hasRows: rows.length > 0, hasErr: !!err, errTitle: err ? err.title : '', errText: err ? err.text : '', errIcon: tn[3], errActions,
+      errBox:`margin-top:16px;padding:16px;border-radius:16px;background:${tn[0]};border:1px solid ${tn[1]};animation:mp-slidein .2s ease;`,
+      errIconStyle:`font-size:24px;color:${tn[2]};flex:0 0 auto;`,
+      // профиль
+      who, notice, opts, userExists: s.userExists,
+      profileLead: s.opts.length > 1 ? 'По вашей ЭЦП доступно несколько профилей. Выберите, какой зарегистрировать.' : 'По вашей ЭЦП доступен один профиль.',
+      noSel: !sel, goData: () => this.goData(),
+      // данные
+      dataTitle: s.gbd === 'fail' ? 'Не удалось получить данные' : 'Проверьте данные',
+      dataLead: s.gbd === 'ok' ? `Сведения получены из ${gbdName}. Если в них ошибка, обратитесь в ЦОН — на портале они не редактируются.` : s.gbd === 'fail' ? `Запрос в ${gbdName} завершился ошибкой.` : `Запрашиваем сведения в ${gbdName}.`,
+      gbdLoading: s.gbd === 'loading', gbdFail: s.gbd === 'fail', gbdOk: s.gbd === 'ok',
+      gbdWait: ul ? `Получаем сведения об организации по БИН ${c.bin}…` : `Получаем сведения по ИИН ${c.iin}…`,
+      gbdErrTitle: s.gbdErr ? s.gbdErr.title : '', gbdErrText: s.gbdErr ? s.gbdErr.text : '', gbdRetry: !!(s.gbdErr && s.gbdErr.retry),
+      gbdBackLabel: s.gbdErr && !s.gbdErr.retry ? 'Выбрать другой ключ' : 'Назад к выбору профиля',
+      gbdBackIcon: s.gbdErr && !s.gbdErr.retry ? 'ri-key-2-line' : 'ri-arrow-left-line',
+      gbdBack: () => { if(s.gbdErr && !s.gbdErr.retry) this.openEcp(); else { this.clearTimers(); this.setState({ phase:'profile', gbd:'idle' }); } },
+      sections,
+      agreed: s.agreed, notAgreed: !s.agreed, toggleAgree: (e) => this.setState({ agreed: !!(e && e.target ? e.target.checked : !s.agreed) }),
+      consentBox:`padding:16px;border-radius:16px;background:#fff;border:1px solid ${s.agreed ? '#C6D0FF' : '#E2E4E9'};margin-top:4px;transition:border-color .15s;`,
+      confirmData: () => this.confirmData(), saving: s.saving,
+      dataNext: s.userExists ? (s.saving ? 'Добавляем профиль…' : 'Добавить профиль') : 'Далее',
+      backToProfile: () => { this.clearTimers(); this.setState({ phase:'profile', gbd:'idle' }); },
+      // пароль
+      iin: c.iin || '',
+      passRef: this.passRef, pass: s.pass, pass2: s.pass2,
+      onPass: (e) => this.setState({ pass:e.target.value }),
+      onPass2: (e) => this.setState({ pass2:e.target.value }),
+      onBlur2: () => this.setState({ blur2:true }),
+      onCaps: (e) => { try { const on = !!(e.getModifierState && e.getModifierState('CapsLock')); if(on !== s.caps) this.setState({ caps:on }); } catch(er){} },
+      caps: s.caps,
+      type1: s.show1 ? 'text' : 'password', eye1: s.show1 ? 'ri-eye-off-line' : 'ri-eye-line', eye1Label: s.show1 ? 'Скрыть пароль' : 'Показать пароль', toggle1: () => this.setState({ show1:!s.show1 }),
+      type2: s.show2 ? 'text' : 'password', eye2: s.show2 ? 'ri-eye-off-line' : 'ri-eye-line', eye2Label: s.show2 ? 'Скрыть пароль' : 'Показать пароль', toggle2: () => this.setState({ show2:!s.show2 }),
+      rules, mismatch, matched, pass2Class: mismatch ? 'inp inp-err' : 'inp',
+      cantFinish: !rulesOk || !matched || s.saving, finishLabel: s.saving ? 'Создаём учётную запись…' : 'Завершить регистрацию',
+      finish: (e) => this.finish(e), backToData: () => this.setState({ phase:'data' }),
+      // готово
+      doneTitle: s.done && s.done.added ? 'Профиль добавлен' : 'Регистрация завершена',
+      doneLead: s.done && s.done.added ? 'Новый профиль привязан к вашей учётной записи. Войдите с ЭЦП и прежним паролем.' : 'Учётная запись создана. Войдите на портал — ключ ЭЦП уже выбран, останется ввести пароль.',
+      summary, govNote: !!(doneP && doneP.kind === 'gov'),
+      toLogin: () => this.toLogin(s.done ? s.done.key : null),
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M120 70 v100 M70 120 h100" fill="none" stroke="#4D42E9" stroke-width="18" stroke-linecap="round"/></g></svg></template>
+</body>
+</html>

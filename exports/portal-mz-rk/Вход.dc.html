@@ -11,134 +11,292 @@
 <script src="runtime/support.js"></script>
 </head>
 <body>
+<!--
+  Вход на портал — по постановке «Авторизация пользователей».
+    1. ЭЦП: валидация подписи, срока и статуса сертификата, определение ИИН / БИН / типа ЭЦП.
+       Ошибка валидации — дальше не пускаем.
+    2. Поиск JHI_USER по ИИН: нет → «не зарегистрирован» + переход в регистрацию;
+       INACTIVE → «Учетная запись недоступна…».
+    3. Профиль: ЭЦП ФЛ → Гражданин / Бизнес (ИП); ЭЦП ЮЛ → профили с тем же БИН
+       (Бизнес / Медперсонал / Госорган). Единственный профиль выбирается сам — шаг пропускаем.
+    4. Пароль: логин = ИИН из ЭЦП, вводить его не нужно. Ошибка — «Неверный пароль.»
+
+  Сертификат выбирается в EcpPicker (заглушка NCALayer). Учётные записи — localStorage['mp-users'].
+  Передача ключа между «Входом» и «Регистрацией» без повторного выбора —
+  sessionStorage['mp-ecp-handoff'] = { cert, profile?, at }.
+
+  Параметры: ?profile=business — пришли за услугой организации (профиль «Бизнес» первым);
+             ?return=<страница> — куда вернуть после входа в профиль «Бизнес».
+  После входа: localStorage mp-iin, mp-profile (citizen | business | medical | gov), mp-role.
+-->
 <x-dc>
 <helmet>
 <style>
   :root{
     --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
-    --n0:#fff;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
-    --green:#38C793;--green-l:#EFFAF6;--teal:#35B9E9;--teal-l:#EBFAFF;--orange:#F17B2C;--orange-l:#FEF3EB;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--red:#DF1C41;--red-l:#FDEDF0;--red-light:#F8C9D2;--red-d:#710E21;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-light:#FFDAC2;--teal:#35B9E9;--teal-l:#EBFAFF;--purple:#6E3FF3;--purple-l:#EEEBFF;
     --stroke:#E2E4E9;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n100);-webkit-font-smoothing:antialiased;}
   @keyframes mp-slidein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   @keyframes mp-spin{to{transform:rotate(360deg)}}
+
+  .auth-grid{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+  .auth-aside{position:sticky;top:0;height:100vh;}
+  .auth-main{min-height:100vh;display:flex;flex-direction:column;padding:24px 48px 32px;}
+  .auth-top{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:40px;}
+  .auth-mlogo{display:none;}
+  .auth-body{flex:1;display:flex;align-items:center;justify-content:center;padding:24px 0;}
+  @media (max-width:1023px){
+    .auth-grid{grid-template-columns:minmax(0,1fr);}
+    .auth-aside{display:none;}
+    .auth-top{justify-content:space-between;}
+    .auth-mlogo{display:flex;}
+  }
+  @media (max-width:560px){ .auth-main{padding:16px 16px 24px;} .auth-body{align-items:flex-start;padding-top:20px;} }
+
+  .btn-p{transition:background .15s,box-shadow .15s;}
+  .btn-p:hover{background:var(--primary-dark) !important;}
+  .btn-p:disabled{background:var(--n200) !important;color:var(--n400) !important;box-shadow:none !important;cursor:not-allowed !important;}
+  .btn-s{transition:background .15s;}
+  .btn-s:hover{background:var(--n100) !important;}
+  .lnk:hover{text-decoration:underline !important;}
+  .opt{transition:border-color .15s,box-shadow .15s,background .15s;}
+  .opt:hover{border-color:var(--primary-light) !important;background:var(--n50) !important;}
+  .inp{transition:border-color .15s,box-shadow .15s,background .15s;}
+  .inp:hover{border-color:var(--n300) !important;}
+  .inp:focus{outline:none !important;border-color:var(--primary) !important;background:#fff !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  .inp-err,.inp-err:hover,.inp-err:focus{border-color:var(--red) !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-light) !important;}
+  .btn-p:focus-visible,.btn-s:focus-visible,.opt:focus-visible,.lnk:focus-visible,.eye:focus-visible{outline:none !important;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
 </style>
 </helmet>
-<div style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;">
+<div class="auth-grid">
+  <div class="auth-aside"><dc-import name="AuthAside" variant="login" style="height:100%;" hint-size="100%,100%"></dc-import></div>
 
-  <!-- BRAND PANEL -->
-  <div style="position:relative;background:linear-gradient(165deg,var(--primary) 0%,var(--primary-darker) 100%);padding:56px;display:flex;flex-direction:column;color:#fff;overflow:hidden;">
-    <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff 50%,transparent),radial-gradient(2px 2px at 70% 20%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 40% 65%,#fff 50%,transparent),radial-gradient(2px 2px at 85% 75%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 60% 90%,#fff 50%,transparent);pointer-events:none;"></div>
-    <a href="Портал Минздрава - Главная.dc.html" style="position:relative;display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;">
-      <img src="uploads/images.jpg" alt="Герб РК" style="width:46px;height:46px;object-fit:contain;background:#fff;border-radius:10px;padding:3px;" />
-      <div style="line-height:1.2;"><div style="font-size:14px;font-weight:600;">Министерство здравоохранения</div><div style="font-size:12px;color:rgba(255,255,255,.7);">Республики Казахстан</div></div>
-    </a>
-    <div style="position:relative;margin-top:auto;">
-      <h1 style="font-size:36px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0 0 18px;max-width:440px;">Единый вход в цифровые сервисы здравоохранения</h1>
-      <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.82);max-width:420px;margin:0 0 36px;">Войдите, чтобы получить доступ к электронному паспорту здоровья, услугам, записям на приём и персональным рекомендациям.</p>
-      <div style="display:flex;flex-direction:column;gap:16px;max-width:420px;">
-        <sc-for list="{{ perks }}" as="p" hint-placeholder-count="3">
-          <div style="display:flex;align-items:center;gap:14px;">
-            <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:22px;"></i></div>
-            <span style="font-size:15px;color:rgba(255,255,255,.92);">{{ p.text }}</span>
+  <main class="auth-main">
+    <div class="auth-top">
+      <a class="auth-mlogo" href="Портал Минздрава - Главная.dc.html" style="align-items:center;gap:10px;text-decoration:none;color:var(--n900);">
+        <img src="uploads/images.jpg" alt="Герб РК" style="width:36px;height:36px;object-fit:contain;background:#fff;border:1px solid var(--stroke);border-radius:9px;padding:2px;" />
+        <span style="line-height:1.2;"><span style="display:block;font-size:13px;font-weight:600;">Министерство здравоохранения</span><span style="display:block;font-size:12px;color:var(--n400);">Республики Казахстан</span></span>
+      </a>
+      <a class="lnk" href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--n500);text-decoration:none;border-radius:6px;white-space:nowrap;flex:0 0 auto;"><i class="ri-home-5-line" style="font-size:18px;"></i>На главную</a>
+    </div>
+
+    <div class="auth-body">
+      <div style="width:100%;max-width:440px;">
+
+        <!-- степпер: ЭЦП → Профиль → Пароль -->
+        <div aria-label="{{ stepAria }}" style="display:flex;gap:8px;margin-bottom:28px;">
+          <sc-for list="{{ steps }}" as="st" hint-placeholder-count="3">
+            <div style="flex:1;min-width:0;">
+              <div style="{{ st.bar }}"></div>
+              <div style="{{ st.label }}"><i class="{{ st.icon }}" style="font-size:14px;"></i>{{ st.text }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- ═══ 1. ЭЦП ═══ -->
+        <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Вход на портал</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 24px;">Подпишите вход ключом ЭЦП — логин определится по ИИН из сертификата, останется ввести пароль.</p>
+
+            <sc-if value="{{ forBusiness }}" hint-placeholder-val="{{ false }}">
+              <div role="note" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:0 0 20px;border-radius:12px;background:var(--orange-l);border:1px solid var(--orange-light);">
+                <i class="ri-briefcase-4-line" style="font-size:20px;color:var(--orange);flex:0 0 auto;"></i>
+                <div style="font-size:13px;line-height:1.5;color:var(--n700);"><span style="font-weight:600;">Вход для подачи заявки от организации.</span> Войдите с ЭЦП и выберите профиль «Бизнес» — после входа вы вернётесь к услуге.</div>
+              </div>
+            </sc-if>
+
+            <button class="btn-p" onClick="{{ openEcp }}" disabled="{{ waiting }}" style="width:100%;height:52px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+              <sc-if value="{{ waiting }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--n300);border-top-color:var(--n500);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+              <sc-if value="{{ notWaiting }}" hint-placeholder-val="{{ true }}"><i class="ri-key-2-line" style="font-size:20px;"></i></sc-if>
+              {{ ecpLabel }}
+            </button>
+
+            <div style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--n0);border:1px solid var(--stroke);">
+              <i class="ri-information-line" style="font-size:18px;color:var(--n400);flex:0 0 auto;margin-top:1px;"></i>
+              <div style="font-size:13px;line-height:1.5;color:var(--n500);">Понадобится запущенный NCALayer и ключ ЭЦП: личный — для гражданина и ИП, ключ сотрудника — для организации. <a class="lnk" href="https://pki.gov.kz/ncalayer/" target="_blank" rel="noopener" style="color:var(--primary);font-weight:500;text-decoration:none;white-space:nowrap;">Скачать NCALayer</a></div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:12px;margin:28px 0 20px;"><span style="flex:1;height:1px;background:var(--stroke);"></span><span style="font-size:12px;color:var(--n400);">Впервые на портале?</span><span style="flex:1;height:1px;background:var(--stroke);"></span></div>
+            <a class="btn-s" href="{{ regHref }}" style="width:100%;height:48px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-user-add-line" style="font-size:18px;color:var(--n500);"></i>Зарегистрироваться</a>
+
+            <sc-if value="{{ hasBackToService }}" hint-placeholder-val="{{ false }}">
+              <a class="lnk" href="{{ backToService }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:13px;font-weight:500;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>Вернуться к услуге без входа</a>
+            </sc-if>
           </div>
-        </sc-for>
+        </sc-if>
+
+        <!-- ═══ 1a. Проверка ЭЦП и учётной записи ═══ -->
+        <sc-if value="{{ isCheck }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">{{ checkTitle }}</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 24px;">{{ checkLead }}</p>
+            <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+            <div aria-live="polite" style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:6px 16px;box-shadow:0 1px 2px rgba(10,13,20,.03);">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+                <div style="{{ r.style }}">
+                  <span style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
+                    <sc-if value="{{ r.run }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+                    <sc-if value="{{ r.hasIcon }}" hint-placeholder-val="{{ true }}"><i class="{{ r.icon }}" style="{{ r.iconStyle }}"></i></sc-if>
+                  </span>
+                  <span style="flex:1;min-width:0;">
+                    <span style="{{ r.labelStyle }}">{{ r.label }}</span>
+                    <sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;line-height:16px;color:var(--n500);margin-top:2px;">{{ r.sub }}</span></sc-if>
+                  </span>
+                </div>
+              </sc-for>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="{{ errBox }}">
+                <div style="display:flex;gap:12px;align-items:flex-start;">
+                  <i class="{{ errIcon }}" style="{{ errIconStyle }}"></i>
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">{{ errTitle }}</div>
+                    <div style="font-size:14px;line-height:21px;color:var(--n600);margin-top:4px;">{{ errText }}</div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px;">
+                  <sc-for list="{{ errActions }}" as="a" hint-placeholder-count="2">
+                    <button class="{{ a.cls }}" onClick="{{ a.onClick }}" style="{{ a.style }}"><i class="{{ a.icon }}" style="font-size:18px;"></i>{{ a.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 2. Профиль ═══ -->
+        <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 12px 10px 10px;margin-bottom:24px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);">
+              <span style="width:40px;height:40px;border-radius:50%;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex:0 0 auto;">{{ who.initials }}</span>
+              <span style="flex:1;min-width:0;line-height:1.3;"><span style="display:block;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ who.fio }}</span><span style="display:block;font-size:12px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ who.meta }}</span></span>
+              <button class="lnk" onClick="{{ changeKey }}" style="border:none;background:none;padding:4px;font-family:inherit;font-size:13px;font-weight:500;color:var(--primary);cursor:pointer;flex:0 0 auto;border-radius:6px;">Сменить ключ</button>
+            </div>
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Выберите профиль</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 20px;">{{ roleHint }}</p>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <sc-for list="{{ profiles }}" as="p" hint-placeholder-count="2">
+                <button class="opt" onClick="{{ p.onClick }}" style="{{ p.style }}">
+                  <span style="{{ p.iconWrap }}"><i class="{{ p.icon }}" style="font-size:24px;"></i></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                    <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">{{ p.label }}</span><sc-if value="{{ p.recommended }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;line-height:16px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:2px 8px;border-radius:999px;">Для этой услуги</span></sc-if><sc-if value="{{ p.locked }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;line-height:16px;font-weight:600;color:var(--red-d);background:var(--red-l);padding:2px 8px;border-radius:999px;">Недоступен</span></sc-if></span>
+                    <span style="font-size:13px;line-height:18px;color:var(--n500);">{{ p.desc }}</span>
+                    <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ p.meta }}</span>
+                  </span>
+                  <i class="ri-arrow-right-s-line" style="font-size:22px;color:var(--n400);flex:0 0 auto;"></i>
+                </button>
+              </sc-for>
+            </div>
+            <div style="margin-top:20px;font-size:13px;line-height:20px;color:var(--n500);text-align:center;">Нет нужного профиля? <a class="lnk" href="{{ addProfileHref }}" onClick="{{ toRegister }}" style="color:var(--primary);font-weight:500;text-decoration:none;">Добавить профиль</a></div>
+          </div>
+        </sc-if>
+
+        <!-- ═══ 3. Пароль ═══ -->
+        <sc-if value="{{ isPassword }}" hint-placeholder-val="{{ false }}">
+          <div style="animation:mp-slidein .25s ease;">
+            <h2 style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Введите пароль</h2>
+            <p style="font-size:14px;line-height:22px;color:var(--n500);margin:0 0 20px;">{{ passLead }}</p>
+
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:20px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);">
+              <span style="{{ sel.iconWrap }}"><i class="{{ sel.icon }}" style="font-size:22px;"></i></span>
+              <span style="flex:1;min-width:0;line-height:1.35;"><span style="display:block;font-size:14px;font-weight:600;">{{ sel.label }}</span><span style="display:block;font-size:12px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ sel.desc }}</span></span>
+              <sc-if value="{{ canChangeProfile }}" hint-placeholder-val="{{ true }}">
+                <button class="lnk" onClick="{{ changeProfile }}" style="border:none;background:none;padding:4px;font-family:inherit;font-size:13px;font-weight:500;color:var(--primary);cursor:pointer;flex:0 0 auto;border-radius:6px;">Изменить</button>
+              </sc-if>
+            </div>
+
+            <form onSubmit="{{ submit }}" noValidate>
+              <label for="login-iin" style="display:block;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);margin-bottom:6px;">Логин</label>
+              <div style="position:relative;margin-bottom:6px;">
+                <input id="login-iin" name="username" autoComplete="username" value="{{ login }}" readOnly style="width:100%;height:48px;border:1px solid var(--stroke);border-radius:12px;padding:0 44px 0 14px;font-size:15px;font-family:inherit;letter-spacing:.04em;background:var(--n100);color:var(--n600);outline:none;" />
+                <i class="ri-lock-2-line" aria-hidden="true" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--n400);"></i>
+              </div>
+              <div style="font-size:12px;line-height:16px;color:var(--n400);margin-bottom:18px;">ИИН из сертификата ЭЦП — вводить не нужно</div>
+
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px;">
+                <label for="login-pass" style="font-size:14px;line-height:20px;font-weight:500;color:var(--n700);">Пароль</label>
+                <button type="button" class="lnk" onClick="{{ toggleForgot }}" aria-expanded="{{ forgotOpen }}" style="border:none;background:none;padding:0;font-family:inherit;font-size:13px;font-weight:500;color:var(--primary);cursor:pointer;border-radius:4px;">Забыли пароль?</button>
+              </div>
+              <sc-if value="{{ forgotOpen }}" hint-placeholder-val="{{ false }}">
+                <div role="note" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:var(--primary-lighter);font-size:13px;line-height:1.5;color:var(--primary-darker);"><i class="ri-information-line" style="font-size:16px;flex:0 0 auto;margin-top:1px;"></i><span>Восстановление пароля по ЭЦП появится позже. Пока обратитесь к администратору системы.</span></div>
+              </sc-if>
+              <div style="position:relative;">
+                <input ref="{{ passRef }}" id="login-pass" name="password" autoComplete="current-password" class="{{ passClass }}" type="{{ passType }}" value="{{ pass }}" onChange="{{ onPass }}" onKeyDown="{{ onCaps }}" onKeyUp="{{ onCaps }}" aria-invalid="{{ hasPassErr }}" aria-describedby="login-pass-msg" placeholder="Введите пароль" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 48px 0 14px;font-size:16px;font-family:inherit;background:var(--n0);color:var(--n900);" />
+                <button type="button" class="eye" onClick="{{ toggleEye }}" aria-label="{{ eyeLabel }}" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="{{ eyeIcon }}" style="font-size:20px;"></i></button>
+              </div>
+              <div id="login-pass-msg" aria-live="polite" style="min-height:22px;padding-top:6px;">
+                <sc-if value="{{ hasPassErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:16px;font-weight:500;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;"></i>{{ passErr }}</span></sc-if>
+                <sc-if value="{{ capsOnly }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:16px;color:var(--orange);"><i class="ri-font-size" style="font-size:16px;"></i>Включён Caps Lock</span></sc-if>
+              </div>
+
+              <button type="submit" class="btn-p" disabled="{{ submitDisabled }}" style="width:100%;height:52px;margin-top:10px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid var(--n300);border-top-color:var(--n500);border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
+                {{ submitLabel }}
+              </button>
+            </form>
+            <div style="display:flex;gap:8px;align-items:flex-start;margin-top:16px;padding:10px 12px;border:1px dashed var(--n300);border-radius:10px;font-size:12px;line-height:1.5;color:var(--n500);"><i class="ri-flask-line" style="font-size:16px;color:var(--n400);flex:0 0 auto;"></i><span>Прототип: пароль тестовых учётных записей — <span style="font-weight:600;color:var(--n700);">Demo#2026</span></span></div>
+          </div>
+        </sc-if>
+
       </div>
     </div>
-    <div style="position:relative;margin-top:48px;font-size:13px;color:rgba(255,255,255,.6);">Защищённое соединение · Государственный стандарт безопасности данных</div>
-  </div>
-
-  <!-- FORM PANEL -->
-  <div style="display:flex;align-items:center;justify-content:center;padding:48px;">
-    <div style="width:100%;max-width:420px;">
-
-      <sc-if value="{{ stepForm }}" hint-placeholder-val="{{ true }}">
-        <div style="animation:mp-slidein .25s ease;">
-          <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px;">Шаг 1 из 2 · Авторизация</div>
-          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 6px;">Вход на портал</h2>
-          <p style="font-size:14px;color:var(--n500);margin:0 0 26px;">Выберите способ авторизации.</p>
-          <sc-if value="{{ forBusiness }}" hint-placeholder-val="{{ false }}">
-            <div role="note" style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;margin:-8px 0 22px;border-radius:12px;background:var(--orange-l);border:1px solid #FFDAC2;">
-              <i class="ri-briefcase-4-line" style="font-size:20px;color:var(--orange);flex:0 0 auto;"></i>
-              <div style="font-size:13px;line-height:1.5;color:var(--n700);"><span style="font-weight:600;">Вход для подачи заявки от организации.</span> Войдите с ЭЦП и выберите профиль «Бизнес» — после входа вы вернётесь к услуге.</div>
-            </div>
-          </sc-if>
-
-          <div style="display:flex;background:var(--n100);border:1px solid var(--stroke);border-radius:12px;padding:4px;gap:2px;margin-bottom:24px;">
-            <sc-for list="{{ methods }}" as="m" hint-placeholder-count="2">
-              <button onClick="{{ m.onClick }}" style="{{ m.style }}"><i class="{{ m.icon }}" style="font-size:18px;"></i>{{ m.label }}</button>
-            </sc-for>
-          </div>
-
-          <sc-if value="{{ isIin }}" hint-placeholder-val="{{ true }}">
-            <div>
-              <label style="display:block;font-size:14px;font-weight:500;color:var(--n700);margin-bottom:8px;">ИИН</label>
-              <input ref="{{ iinRef }}" value="{{ iin }}" onChange="{{ onIin }}" placeholder="Введите 12 цифр" inputmode="numeric" maxlength="12" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 16px;font-size:16px;font-family:inherit;letter-spacing:.06em;background:var(--n100);outline:none;margin-bottom:18px;" />
-              <label style="display:block;font-size:14px;font-weight:500;color:var(--n700);margin-bottom:8px;">Пароль / SMS-код</label>
-              <div style="position:relative;margin-bottom:8px;">
-                <input value="{{ pass }}" onChange="{{ onPass }}" type="password" placeholder="Введите пароль" style="width:100%;height:52px;border:1px solid var(--stroke);border-radius:12px;padding:0 16px;font-size:16px;font-family:inherit;background:var(--n100);outline:none;" />
-              </div>
-              <div style="display:flex;justify-content:flex-end;margin-bottom:20px;"><a href="#" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:500;">Забыли пароль?</a></div>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ isEcp }}" hint-placeholder-val="{{ false }}">
-            <div style="margin-bottom:20px;">
-              <div style="border:1.5px dashed var(--primary-light);border-radius:16px;background:var(--primary-lighter);padding:28px;text-align:center;">
-                <div style="width:60px;height:60px;border-radius:15px;background:var(--n0);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;box-shadow:0 2px 4px rgba(10,13,20,.06);"><i class="ri-key-2-line" style="font-size:30px;color:var(--primary);"></i></div>
-                <div style="font-size:15px;font-weight:600;margin-bottom:6px;">Электронная цифровая подпись (ЭЦП)</div>
-                <div style="font-size:13px;color:var(--n500);line-height:1.5;">Выберите ключ авторизации (AUTH_RSA) из хранилища и подтвердите вход.</div>
-              </div>
-              <button style="width:100%;height:48px;margin-top:14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-folder-open-line" style="font-size:18px;"></i>Выбрать ключ ЭЦП</button>
-            </div>
-          </sc-if>
-
-          <button onClick="{{ submit }}" style="width:100%;height:52px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);">
-            <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span style="width:18px;height:18px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:mp-spin .7s linear infinite;"></span></sc-if>
-            {{ submitLabel }}
-          </button>
-          <div style="font-size:12px;color:var(--n400);text-align:center;margin-top:18px;line-height:1.5;">Нажимая «Войти», вы соглашаетесь с условиями обработки персональных данных.</div>
-          <sc-if value="{{ hasBackToService }}" hint-placeholder-val="{{ false }}">
-            <a href="{{ backToService }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;font-size:13px;font-weight:500;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>Вернуться к услуге без входа</a>
-          </sc-if>
-        </div>
-      </sc-if>
-
-      <sc-if value="{{ stepRole }}" hint-placeholder-val="{{ false }}">
-        <div style="animation:mp-slidein .25s ease;">
-          <div style="font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin-bottom:8px;">Шаг 2 из 2 · Профиль</div>
-          <h2 style="font-size:28px;font-weight:600;letter-spacing:-.02em;margin:0 0 6px;">Выберите профиль</h2>
-          <p style="font-size:14px;color:var(--n500);margin:0 0 24px;">{{ roleHint }}</p>
-          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
-            <sc-for list="{{ profiles }}" as="p" hint-placeholder-count="4">
-              <a href="{{ p.href }}" onClick="{{ p.onClick }}" style="{{ p.style }}">
-                <div style="width:46px;height:46px;border-radius:12px;background:{{ p.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:24px;color:{{ p.color }};"></i></div>
-                <div style="flex:1;">
-                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-size:15px;font-weight:600;">{{ p.label }}</span><sc-if value="{{ p.recommended }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:2px 8px;border-radius:999px;">Для этой услуги</span></sc-if></div>
-                  <div style="font-size:13px;color:var(--n500);">{{ p.desc }}</div>
-                </div>
-                <i class="ri-arrow-right-line" style="font-size:20px;color:var(--n400);"></i>
-              </a>
-            </sc-for>
-          </div>
-          <button onClick="{{ back }}" style="width:100%;height:46px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Назад</button>
-        </div>
-      </sc-if>
-
-    </div>
-  </div>
+    <dc-import name="EcpPicker" hint-size="0px,0px"></dc-import>
+  </main>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
+const HANDOFF = 'mp-ecp-handoff';
+const CAB = { citizen:'Личный кабинет.dc.html', business:'Кабинет бизнеса.dc.html', medical:'Кабинет врача.dc.html', gov:'Портал Минздрава - Главная.dc.html' };
+const ROLE_TAB = { citizen:'citizens', business:'business', medical:'medical' };
+const KIND = {
+  citizen:  { label:'Гражданин',               icon:'ri-user-heart-line',  bg:'#EEF2FF', fg:'#4D42E9' },
+  business: { label:'Бизнес',                  icon:'ri-briefcase-4-line', bg:'#FEF3EB', fg:'#F17B2C' },
+  medical:  { label:'Медперсонал',             icon:'ri-stethoscope-line', bg:'#EBFAFF', fg:'#35B9E9' },
+  gov:      { label:'Государственный орган',   icon:'ri-government-line',  bg:'#EEEBFF', fg:'#6E3FF3' },
+};
+const ROLE_TEXT = { SPECIALIST_WITH_SIGN:'с правом подписи', SPECIALIST_NO_SIGN:'без права подписи', MEDICAL_STAFF:'медицинский работник' };
+
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.iinRef = React.createRef();
-    // для бизнеса по умолчанию вход по ЭЦП организации
-    this.state = { step:'form', method: this.query().forBusiness ? 'ecp' : 'iin', iin:'', pass:'', loading:false };
+    this.state = { phase:'start', waiting:false, cert:null, rows:[], err:null, list:[], sel:null,
+                   pass:'', showPass:false, caps:false, passErr:'', loading:false, forgotOpen:false };
+    this.timers = [];
+    this.passRef = React.createRef();
   }
+  focusPass(select){ this.later(() => { const el = this.passRef.current; if(el){ el.focus(); if(select) el.select(); } }, 60); }
+  componentDidMount(){
+    this._onSel = (e) => { this.setState({ waiting:false }); if(e && e.detail) this.verify(e.detail); };
+    this._onCancel = () => this.setState({ waiting:false });
+    window.addEventListener('mp-ecp-select', this._onSel);
+    window.addEventListener('mp-ecp-cancel', this._onCancel);
+    // ключ уже выбран на «Регистрации» — не просим выбирать его снова
+    try {
+      const h = JSON.parse(sessionStorage.getItem(HANDOFF) || 'null');
+      sessionStorage.removeItem(HANDOFF);
+      if(h && h.cert && Date.now() - h.at < 10*60*1000) this.verify(h.cert, h.profile);
+    } catch(e){}
+  }
+  // новый шаг — показываем его с начала (на длинных экранах пользователь мог прокрутить вниз)
+  componentDidUpdate(){
+    if(this._phase !== this.state.phase){ this._phase = this.state.phase; try { window.scrollTo(0, 0); } catch(e){} }
+  }
+  componentWillUnmount(){
+    this.clearTimers();
+    window.removeEventListener('mp-ecp-select', this._onSel);
+    window.removeEventListener('mp-ecp-cancel', this._onCancel);
+  }
+  later(fn, ms){ this.timers.push(setTimeout(fn, ms)); }
+  clearTimers(){ this.timers.forEach(clearTimeout); this.timers = []; }
+
   // ?profile=business — пришли за услугой для организации; ?return=<страница> — куда вернуть после входа
   query(){
     const out = { ret:null, forBusiness:false };
@@ -150,56 +308,203 @@ class Component extends DCLogic {
     } catch(e){}
     return out;
   }
-  submit(){
-    this.setState({ loading:true });
-    setTimeout(()=>{
-      const raw = ((this.iinRef.current && this.iinRef.current.value)||this.state.iin||'').replace(/\D/g,'');
-      try { if(raw) localStorage.setItem('mp-iin', raw); } catch(e){}
-      this.setState({ loading:false, step:'role' });
-    }, 850);
+  users(){ try { return JSON.parse(localStorage.getItem('mp-users') || '{}') || {}; } catch(e){ return {}; } }
+  openEcp(){
+    this.clearTimers();
+    this.setState({ waiting:true });
+    try { window.dispatchEvent(new CustomEvent('mp-ecp-open')); } catch(e){}
   }
+  toRegistration(cert){
+    try { sessionStorage.setItem(HANDOFF, JSON.stringify({ cert, at:Date.now() })); } catch(e){}
+    location.href = 'Регистрация.dc.html' + location.search;
+  }
+
+  // Шаг 1: валидация ЭЦП → ИИН/БИН/тип → поиск JHI_USER
+  verify(c, wantProfile){
+    this.clearTimers();
+    this.setState({ cert:c, err:null, pass:'', passErr:'', forgotOpen:false, showPass:false });
+    if(c.certErr === 'ncalayer'){
+      this.setState({ phase:'check', rows:[], err:{ tone:'red', title:'NCALayer не запущен', text:'Не удалось подключиться к NCALayer — программе для работы с ЭЦП. Запустите её и повторите попытку.', ncalayer:true } });
+      return;
+    }
+    const ul = c.type === 'ul';
+    const rows = [
+      { label:'Подпись и сертификат', run:()=> c.certErr === 'wrongkey'
+          ? { fail:true, sub:'Ключ не для аутентификации', err:{ tone:'red', title:'Выбран ключ для подписания документов', text:'Этот ключ предназначен для подписания документов. Для входа выберите ключ аутентификации — в имени его файла обычно есть «AUTH».' } }
+          : { sub:'Подпись действительна' } },
+      { label:'Срок действия и статус сертификата', run:()=> {
+          if(c.certErr === 'expired') return { fail:true, sub:`Срок истёк ${c.validTo}`, err:{ tone:'red', title:'Срок действия сертификата истёк', text:`Сертификат действовал до ${c.validTo}. Получите новый ключ ЭЦП в НУЦ РК и повторите вход.` } };
+          if(c.certErr === 'revoked') return { fail:true, sub:'Сертификат отозван', err:{ tone:'red', title:'Сертификат отозван', text:'Удостоверяющий центр отозвал этот сертификат. Выберите действующий ключ ЭЦП.' } };
+          return { sub:'Действителен, не отозван' }; } },
+      { label: ul ? 'ИИН, БИН и тип ЭЦП' : 'ИИН и тип ЭЦП', run:()=> ({ sub: ul ? `ЭЦП ЮЛ · ИИН ${c.iin} · БИН ${c.bin}` : `Личная ЭЦП ФЛ · ИИН ${c.iin}` }) },
+      { label:'Учётная запись', run:()=> {
+          const u = this.users()[c.iin];
+          const mine = u ? this.profilesFor(u, c) : [];
+          if(!u || !mine.length) return { fail:true, warn:true, sub:'Не найдена', err:{ tone:'orange', notFound:true, title:'Вы ещё не зарегистрированы',
+            text:'Пользователь не зарегистрирован в системе. Для продолжения необходимо пройти регистрацию.' } };
+          if(u.status !== 'ACTIVE') return { fail:true, sub:'Заблокирована', err:{ tone:'red', title:'Вход невозможен', text:'Учетная запись недоступна. Обратитесь к администратору системы.' } };
+          return { sub:'Найдена', list:mine };
+        } },
+    ];
+    this.setState({ phase:'check', rows: rows.map(r => ({ label:r.label, st:'wait', sub:'' })) });
+    const step = (i) => {
+      if(i >= rows.length) return;
+      this.patchRow(i, { st:'run' });
+      this.later(() => {
+        const res = rows[i].run() || {};
+        this.patchRow(i, { st: res.fail ? (res.warn ? 'warn' : 'fail') : 'ok', sub: res.sub || '' });
+        if(res.fail){ this.setState({ rows:this.state.rows.slice(0, i + 1) }); this.later(() => this.setState({ err:res.err }), 250); return; }
+        if(res.list){ this.later(() => this.afterUser(res.list, wantProfile), 450); return; }
+        step(i + 1);
+      }, i === 0 ? 650 : 480);
+    };
+    this.later(() => step(0), 150);
+  }
+  patchRow(i, p){ this.setState({ rows: this.state.rows.map((r, j) => j === i ? { ...r, ...p } : r) }); }
+
+  // профили USER_PROFILE, доступные с этим ключом: ФЛ — Гражданин и Бизнес (ИП), ЮЛ — только с тем же БИН
+  profilesFor(u, c){
+    const all = (u.profiles || []).map((p, idx) => ({ ...p, key:(p.kind + ':' + (p.bin || '')), idx }));
+    return c.type === 'ul'
+      ? all.filter(p => p.bin === c.bin && !p.ip)
+      : all.filter(p => p.kind === 'citizen' || (p.kind === 'business' && p.ip));
+  }
+  afterUser(list, wantProfile){
+    // единственный профиль (или только что зарегистрированный) выбираем сами — минус один клик
+    const pre = list.find(p => p.key === wantProfile) || (list.length === 1 ? list[0] : null);
+    this.setState({ list });
+    if(pre) this.pickProfile(pre); else this.setState({ phase:'profile' });
+  }
+  pickProfile(p){
+    // Проверка профиля после выбора: заблокированный профиль — дальше не пускаем
+    if(p.status && p.status !== 'ACTIVE'){
+      this.setState({ phase:'check', rows:[], err:{ tone:'red', title:'Вход невозможен', text:'Учетная запись недоступна. Обратитесь к администратору системы.' } });
+      return;
+    }
+    this.setState({ sel:p, phase:'password', pass:'', passErr:'', showPass:false, forgotOpen:false });
+    this.focusPass();
+  }
+
+  // Шаг 3: LOGIN (ИИН из ЭЦП) + PASSWORD → JHI_USER, STATUS = ACTIVE
+  submit(e){
+    if(e && e.preventDefault) e.preventDefault();
+    const s = this.state;
+    if(!s.pass || s.loading) return;
+    this.setState({ loading:true, passErr:'' });
+    this.later(() => {
+      const u = this.users()[s.cert.iin];
+      if(!u || u.status !== 'ACTIVE'){ this.setState({ loading:false, phase:'check', rows:[], err:{ tone:'red', title:'Вход невозможен', text:'Учетная запись недоступна. Обратитесь к администратору системы.' } }); return; }
+      if(u.password !== s.pass){ this.setState({ loading:false, passErr:'Неверный пароль.' }); this.focusPass(true); return; }
+      const p = s.sel;
+      try {
+        localStorage.setItem('mp-iin', s.cert.iin);
+        localStorage.setItem('mp-profile', p.kind);
+        if(ROLE_TAB[p.kind]){ localStorage.setItem('mp-role', ROLE_TAB[p.kind]); window.dispatchEvent(new CustomEvent('mp-role-change', { detail:ROLE_TAB[p.kind] })); }
+      } catch(err){}
+      const q = this.query();
+      location.href = p.kind === 'business' && q.ret ? q.ret : CAB[p.kind];
+    }, 700);
+  }
+
+  profileView(p){
+    const k = KIND[p.kind];
+    const c = this.state.cert || {};
+    const desc = p.kind === 'citizen' ? `Физическое лицо · ИИН ${c.iin || ''}`
+      : p.kind === 'business' && p.ip ? `${p.org} · ИИН ${p.bin}`
+      : `${p.org} · БИН ${p.bin}`;
+    const meta = p.kind === 'gov' ? (p.role ? 'Роль назначена администратором' : 'Роль ещё не назначена администратором')
+      : p.kind === 'medical' ? 'Медицинская организация · медицинский работник'
+      : p.kind === 'citizen' ? 'Личные услуги, ЭПЗ, запись на приём'
+      : 'Заявитель · ' + (ROLE_TEXT[p.role] || '');
+    return { label:k.label, icon:k.icon, desc, meta,
+      iconWrap:`width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:${k.bg};color:${k.fg};` };
+  }
+
   renderVals(){
     const s = this.state;
-    const perks = [
-      { icon:'ri-profile-line', text:'Электронный паспорт здоровья (ЭПЗ)' },
-      { icon:'ri-calendar-check-line', text:'Запись на приём и направления' },
-      { icon:'ri-magic-line', text:'Персональные рекомендации и напоминания' },
-    ];
-    const methods = [
-      { id:'iin', label:'По ИИН', icon:'ri-user-3-line' },
-      { id:'ecp', label:'ЭЦП', icon:'ri-key-2-line' },
-    ].map(m => ({ ...m, onClick:()=>this.setState({ method:m.id }),
-      style:`flex:1;display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:none;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.method===m.id?'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.1);':'background:transparent;color:#525866;'}` }));
-
-    const C = { blue:['#EEF2FF','#4D42E9'], orange:['#FEF3EB','#F17B2C'], teal:['#EBFAFF','#35B9E9'], purple:['#EEEBFF','#6E3FF3'] };
-    const profData = [
-      { id:'citizen', label:'Гражданин (физ. лицо)', desc:'Аружан Сейтжанова · ИИН ···1540', icon:'ri-user-heart-line', c:C.blue, href:'Личный кабинет.dc.html' },
-      { id:'business', label:'Бизнес', desc:'ТОО «Астана Групп» · БИН ···4521', icon:'ri-briefcase-4-line', c:C.orange, href:'Кабинет бизнеса.dc.html' },
-      { id:'medical', label:'Медперсонал', desc:'Ахметов С.К. · врач-терапевт', icon:'ri-stethoscope-line', c:C.teal, href:'Кабинет врача.dc.html' },
-      { id:'gov', label:'Госорган', desc:'Межведомственное взаимодействие', icon:'ri-government-line', c:C.purple, href:'Вход.dc.html' },
-    ];
     const q = this.query();
-    // пришли за услугой для бизнеса — профиль «Бизнес» первым и подсвечен
-    const ordered = q.forBusiness ? [ ...profData.filter(p => p.id === 'business'), ...profData.filter(p => p.id !== 'business') ] : profData;
-    const profiles = ordered.map(p => {
-      const rec = q.forBusiness && p.id === 'business';
-      return { ...p, href: p.id === 'business' && q.ret ? q.ret : p.href, color:p.c[1], bg:p.c[0], recommended:rec,
-        onClick:()=>{ try{ localStorage.setItem('mp-profile', p.id); }catch(e){} },
-        style:`display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#fff;text-decoration:none;color:inherit;cursor:pointer;transition:.15s;${rec ? 'border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'border:1px solid var(--stroke);box-shadow:0 1px 2px rgba(10,13,20,.03);'}` };
+    const c = s.cert || {};
+
+    // степпер
+    const cur = s.phase === 'profile' ? 1 : s.phase === 'password' ? 2 : 0;
+    const steps = ['ЭЦП', 'Профиль', 'Пароль'].map((t, i) => {
+      const done = i < cur, on = i === cur;
+      return { text:t, icon: done ? 'ri-check-line' : '',
+        bar:`height:4px;border-radius:2px;background:${done || on ? '#4D42E9' : '#E2E4E9'};transition:background .2s;`,
+        label:`display:flex;align-items:center;gap:4px;margin-top:8px;font-size:12px;line-height:16px;font-weight:${on ? '600' : '500'};color:${on ? '#0A0D14' : done ? '#4D42E9' : '#868C98'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;` };
     });
+
+    // проверка
+    const rows = s.rows.map(r => {
+      const icon = { ok:'ri-checkbox-circle-fill', fail:'ri-close-circle-fill', warn:'ri-error-warning-fill', wait:'ri-checkbox-blank-circle-line' }[r.st] || '';
+      const col = { ok:'#38C793', fail:'#DF1C41', warn:'#F17B2C', wait:'#CDD0D5' }[r.st] || '#CDD0D5';
+      return { ...r, run: r.st === 'run', hasIcon: r.st !== 'run', icon, hasSub: !!r.sub,
+        iconStyle:`font-size:22px;color:${col};`,
+        labelStyle:`display:block;font-size:14px;line-height:20px;font-weight:500;color:${r.st === 'wait' ? '#868C98' : '#0A0D14'};`,
+        style:'display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #F6F8FA;' };
+    });
+    if(rows.length) rows[rows.length - 1].style = 'display:flex;align-items:flex-start;gap:12px;padding:12px 0;';
+    const err = s.err;
+    const TONE = { red:['#FDEDF0','#F8C9D2','#DF1C41','ri-error-warning-fill'], orange:['#FEF3EB','#FFDAC2','#F17B2C','ri-user-search-line'] };
+    const tn = TONE[err && err.tone] || TONE.red;
+    const P = 'width:100%;height:48px;border:none;border-radius:12px;background:#4D42E9;color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 4px rgba(77,66,233,.25);';
+    const S = 'width:100%;height:44px;border:1px solid #E2E4E9;border-radius:12px;background:#fff;color:#31353F;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;';
+    const act = (label, icon, fn, primary) => ({ label, icon, onClick:fn, cls: primary ? 'btn-p' : 'btn-s', style: primary ? P : S });
+    let errActions = [];
+    if(err){
+      if(err.notFound) errActions = [ act('Зарегистрироваться', 'ri-user-add-line', () => this.toRegistration(c), true), act('Войти с другим ключом', 'ri-key-2-line', () => this.openEcp()) ];
+      else if(err.ncalayer) errActions = [ act('Повторить', 'ri-refresh-line', () => this.openEcp(), true), act('Скачать NCALayer', 'ri-download-2-line', () => { try { window.open('https://pki.gov.kz/ncalayer/', '_blank', 'noopener'); } catch(e){} }) ];
+      else errActions = [ act('Выбрать другой ключ', 'ri-key-2-line', () => this.openEcp(), true) ];
+    }
+
+    // профили
+    const recommend = q.forBusiness && s.list.filter(p => p.kind === 'business').length > 0;
+    const ordered = recommend ? [ ...s.list.filter(p => p.kind === 'business'), ...s.list.filter(p => p.kind !== 'business') ] : s.list;
+    const profiles = ordered.map(p => {
+      const v = this.profileView(p);
+      const rec = recommend && p.kind === 'business';
+      const locked = !!(p.status && p.status !== 'ACTIVE');
+      return { ...v, recommended:rec, locked, onClick:() => this.pickProfile(p),
+        style:`width:100%;display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#fff;font-family:inherit;text-align:left;cursor:pointer;${rec ? 'border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'border:1px solid #E2E4E9;box-shadow:0 1px 2px rgba(10,13,20,.03);'}` };
+    });
+    const initials = (c.fio || '').split(' ').slice(0, 2).map(w => w[0] || '').join('');
+    const sel = s.sel ? this.profileView(s.sel) : { label:'', icon:'', desc:'', iconWrap:'' };
     const backToService = q.ret ? q.ret.replace(/\?[^#]*/, '') : '';
+    const hasPassErr = !!s.passErr;
 
     return {
-      perks, methods, profiles,
-      forBusiness: q.forBusiness,
-      hasBackToService: !!backToService, backToService,
-      roleHint: q.forBusiness ? 'Выберите профиль организации, от имени которой подаёте заявку.' : 'К вашему ИИН привязано несколько профилей. Войдите как:',
-      stepForm: s.step==='form', stepRole: s.step==='role',
-      isIin: s.method==='iin', isEcp: s.method==='ecp',
-      iin:s.iin, iinRef:this.iinRef, onIin:(e)=>this.setState({ iin:(e.target.value||'').replace(/\D/g,'').slice(0,12) }),
-      pass:s.pass, onPass:(e)=>this.setState({ pass:e.target.value }),
-      loading:s.loading, submitLabel: s.loading ? 'Проверка…' : 'Войти',
-      submit:()=>this.submit(), back:()=>this.setState({ step:'form' }),
+      steps, stepAria:`Шаг ${cur + 1} из 3: ${['ЭЦП', 'Профиль', 'Пароль'][cur]}`,
+      isStart: s.phase === 'start', isCheck: s.phase === 'check', isProfile: s.phase === 'profile', isPassword: s.phase === 'password',
+      // старт
+      forBusiness: q.forBusiness, hasBackToService: !!backToService, backToService,
+      waiting: s.waiting, notWaiting: !s.waiting, ecpLabel: s.waiting ? 'Ожидаем выбор ключа…' : 'Войти с ЭЦП',
+      openEcp: () => this.openEcp(), regHref: 'Регистрация.dc.html' + (typeof location !== 'undefined' ? location.search : ''),
+      // проверка
+      checkTitle: err ? (err.notFound ? 'Учётная запись не найдена' : 'Не удалось войти') : 'Проверяем ЭЦП',
+      checkLead: err ? (c.fio && !err.ncalayer ? `${c.fio} · ${c.type === 'ul' ? 'ЭЦП ЮЛ' : 'личная ЭЦП ФЛ'}` : 'Подпись не получена') : 'Это займёт несколько секунд.',
+      rows, hasRows: rows.length > 0, hasErr: !!err, errTitle: err ? err.title : '', errText: err ? err.text : '', errIcon: tn[3], errActions,
+      errBox:`margin-top:16px;padding:16px;border-radius:16px;background:${tn[0]};border:1px solid ${tn[1]};animation:mp-slidein .2s ease;`,
+      errIconStyle:`font-size:24px;color:${tn[2]};flex:0 0 auto;`,
+      // профиль
+      who:{ initials, fio:c.fio || '', meta: c.type === 'ul' ? `ЭЦП ЮЛ · БИН ${c.bin}` : `Личная ЭЦП ФЛ · ИИН ${c.iin}` },
+      changeKey: () => this.openEcp(),
+      roleHint: q.forBusiness ? 'Выберите профиль организации, от имени которой подаёте заявку.' : `К ключу привязано несколько профилей (${s.list.length}). Войдите как:`,
+      profiles,
+      addProfileHref: 'Регистрация.dc.html' + (typeof location !== 'undefined' ? location.search : ''),
+      toRegister: (e) => { if(e && e.preventDefault) e.preventDefault(); this.toRegistration(c); },
+      // пароль
+      sel, canChangeProfile: s.list.length > 1, changeProfile: () => this.setState({ phase:'profile', pass:'', passErr:'' }),
+      passLead: `Здравствуйте, ${(c.fio || '').split(' ')[1] || ''}! Подтвердите вход паролем от учётной записи.`,
+      login: c.iin || '',
+      passRef: this.passRef, pass: s.pass, onPass: (e) => this.setState({ pass:e.target.value, passErr:'' }),
+      onCaps: (e) => { try { const on = e.getModifierState && e.getModifierState('CapsLock'); if(on !== s.caps) this.setState({ caps:!!on }); } catch(er){} },
+      capsOnly: s.caps && !hasPassErr,
+      passType: s.showPass ? 'text' : 'password', eyeIcon: s.showPass ? 'ri-eye-off-line' : 'ri-eye-line', eyeLabel: s.showPass ? 'Скрыть пароль' : 'Показать пароль',
+      toggleEye: () => this.setState({ showPass:!s.showPass }),
+      passErr: s.passErr, hasPassErr, passClass: hasPassErr ? 'inp inp-err' : 'inp',
+      forgotOpen: s.forgotOpen, toggleForgot: () => this.setState({ forgotOpen:!s.forgotOpen }),
+      loading: s.loading, submitDisabled: s.loading || !s.pass, submitLabel: s.loading ? 'Входим…' : 'Войти',
+      submit: (e) => this.submit(e),
     };
   }
 }

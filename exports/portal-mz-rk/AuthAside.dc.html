@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Бренд-панель страниц «Вход» и «Регистрация» (левая половина экрана).
+  Пропсы:
+    variant — login | register (заголовок и список преимуществ)
+  На экранах уже 1024px страница прячет панель целиком (класс .auth-aside в странице).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;}
+</style>
+</helmet>
+<div style="position:relative;height:100%;min-height:100%;background:linear-gradient(165deg,var(--primary) 0%,var(--primary-darker) 100%);padding:56px;display:flex;flex-direction:column;color:#fff;overflow:hidden;font-family:'Inter',sans-serif;">
+  <div style="position:absolute;inset:0;opacity:.5;background-image:radial-gradient(1.5px 1.5px at 20% 30%,#fff 50%,transparent),radial-gradient(2px 2px at 70% 20%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 40% 65%,#fff 50%,transparent),radial-gradient(2px 2px at 85% 75%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 60% 90%,#fff 50%,transparent);pointer-events:none;"></div>
+  <a href="Портал Минздрава - Главная.dc.html" style="position:relative;display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff;align-self:flex-start;">
+    <img src="uploads/images.jpg" alt="Герб РК" style="width:46px;height:46px;object-fit:contain;background:#fff;border-radius:10px;padding:3px;" />
+    <div style="line-height:1.2;"><div style="font-size:14px;font-weight:600;">Министерство здравоохранения</div><div style="font-size:12px;color:rgba(255,255,255,.7);">Республики Казахстан</div></div>
+  </a>
+  <div style="position:relative;margin-top:auto;">
+    <h1 style="font-size:36px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0 0 18px;max-width:440px;">{{ title }}</h1>
+    <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.82);max-width:420px;margin:0 0 36px;">{{ lead }}</p>
+    <div style="display:flex;flex-direction:column;gap:16px;max-width:420px;">
+      <sc-for list="{{ perks }}" as="p" hint-placeholder-count="3">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:22px;"></i></div>
+          <span style="font-size:15px;line-height:1.45;color:rgba(255,255,255,.92);">{{ p.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div style="position:relative;margin-top:48px;display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.6);"><i class="ri-lock-2-line" style="font-size:16px;"></i>Защищённое соединение · Государственный стандарт безопасности данных</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals(){
+    const reg = this.props.variant === 'register';
+    return reg ? {
+      title: 'Регистрация на портале Минздрава',
+      lead: 'Пара минут и ключ ЭЦП — анкету заполнять не нужно: сведения подтянутся из государственных баз данных.',
+      perks: [
+        { icon:'ri-key-2-line', text:'Личность и организация подтверждаются ЭЦП' },
+        { icon:'ri-database-2-line', text:'Данные заполняются из ГБД ФЛ и ГБД ЮЛ автоматически' },
+        { icon:'ri-user-settings-line', text:'Один ИИН — несколько профилей: гражданин, бизнес, медперсонал' },
+      ],
+    } : {
+      title: 'Единый вход в цифровые сервисы здравоохранения',
+      lead: 'Войдите, чтобы получить доступ к электронному паспорту здоровья, услугам, записям на приём и персональным рекомендациям.',
+      perks: [
+        { icon:'ri-profile-line', text:'Электронный паспорт здоровья (ЭПЗ)' },
+        { icon:'ri-calendar-check-line', text:'Запись на приём и направления' },
+        { icon:'ri-magic-line', text:'Персональные рекомендации и напоминания' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
