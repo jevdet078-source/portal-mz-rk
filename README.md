@@ -26,6 +26,8 @@ node tools/serve.mjs
 npm run record -- auth                  # 1. Авторизация
 npm run record -- registration          # 2. Регистрация — основные сценарии
 npm run record -- registration-errors   # 3. Регистрация — ошибки и исключения
+npm run record -- admin-users           # 4. Администрирование — пользователи
+npm run record -- admin-orgs            # 5. Администрирование — организации
 ```
 
 → `exports/video/*.mp4` (в git не идут). Сценарии — `tools/record/<имя>.mjs`,
