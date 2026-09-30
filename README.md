@@ -17,6 +17,20 @@ node tools/serve.mjs
 Посмотреть дизайн-систему вживую: `design-system/preview/Clinic Portal (standalone).html`
 (открывается двойным кликом), эталоны — `design-system/guidelines/*.card.html`.
 
+## Видео по сценариям
+
+Записи прохода по прототипу с субтитрами — для аналитиков и разработчиков вместо созвона.
+Нужны Chrome и `npm install` (один раз); сервер прототипов должен быть запущен.
+
+```bash
+npm run record -- auth                  # 1. Авторизация
+npm run record -- registration          # 2. Регистрация — основные сценарии
+npm run record -- registration-errors   # 3. Регистрация — ошибки и исключения
+```
+
+→ `exports/video/*.mp4` (в git не идут). Сценарии — `tools/record/<имя>.mjs`,
+движок — `tools/record.mjs`. После правок прототипа видео переснимаются той же командой.
+
 ## Структура
 
 ```

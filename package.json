@@ -1,0 +1,14 @@
+{
+  "name": "portal-mz-rk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "export": "node tools/export.mjs",
+    "record": "node tools/record.mjs"
+  },
+  "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "puppeteer-core": "^23.11.1"
+  }
+}
