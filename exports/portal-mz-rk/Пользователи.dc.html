@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Администрирование → Пользователи и полномочия.
+  Источник: постановка аналитика «Разработка дизайна административной панели:
+  пользователи, профили, уровни, организации, роли» (User Story «Пользователи / Полномочия»).
+
+  Модель: USER (ИИН) 1:N USER_PROFILE → PROFILE_TYPE, ORGANIZATION/БИН → LEVEL → ROLE → PERMISSION.
+  Строка реестра — профиль доступа (у одного ИИН их может быть несколько: «Гражданин»,
+  «Бизнес» как ИП, «Бизнес» от организации). Уникальность — ИИН + БИН + тип + профиль + уровень.
+
+  Вкладки:
+    Действующие       status = ACTIVE,   is_deleted = false  → Редактировать, Удалить
+    Деактивированные  status = INACTIVE, is_deleted = false  → Просмотр, Восстановить
+    Удалённые         is_deleted = true                       → Просмотр, Восстановить
+  В «Деактивированные» пользователи попадают, когда их организацию удаляют из реестра
+  (страница «Организации»). Восстановить такого пользователя нельзя, пока организация удалена —
+  кнопка остаётся видимой и объясняет причину.
+
+  Решения по UX, которых нет в скриншотах тестовой среды:
+    • 10 столбцов постановки собраны в 5 смысловых: «Пользователь» (фамилия, имя, ИИН),
+      «Организация» (наименование, БИН), «Почта», «Тип и профиль», «Уровень и роль» —
+      все поля на месте, но таблица читается без горизонтальной прокрутки на 1440 px.
+    • Формы — в боковой панели: реестр остаётся виден, контекст не теряется.
+    • Создание идёт от общего к частному: тип → ИИН (автозаполнение ФИО из ГБД ФЛ) →
+      организация (реестр портала, затем ГБД ЮЛ / ИС КГД) → контакты → профиль, уровень, роль
+      (каскадно: список уровней зависит от профиля, ролей — от уровня) → пароль.
+    • Под ролью показываются её полномочия — раздел называется «Полномочия», и админ видит,
+      что именно выдаёт.
+    • Поиск мгновенный, «/» ставит курсор в поиск, Esc закрывает поповер → диалог → панель.
+    • Удаление можно отменить из тоста; страница, поиск и фильтры переживают операции
+      и перезагрузку (sessionStorage).
+
+  Данные прототипа: localStorage['mp-admin-db'] — общий с «Организациями»
+  (удаление организации деактивирует её пользователей). Сценарии ГБД и сохранения,
+  тестовые ИИН/БИН и сброс демо-данных — в панели «Прототип» слева внизу.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-l:#CBF5E5;--green-ll:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FFDAC2;--orange-ll:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-dk:#AF1D38;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --purple:#6E3FF3;--purple-l:#CAC2FF;--purple-ll:#EEEBFF;--purple-d:#2B1664;
+    --teal:#35B9E9;--teal-ll:#EBFAFF;--teal-d:#164564;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes am-fade{from{opacity:0}to{opacity:1}}
+  @keyframes am-drawer{from{opacity:.4;transform:translateX(32px)}to{opacity:1;transform:none}}
+  @keyframes am-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes am-toast{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes am-spin{to{transform:rotate(360deg)}}
+  @keyframes am-shimmer{0%{background-position:-240px 0}100%{background-position:calc(240px + 100%) 0}}
+
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-sm{height:32px;padding:0 10px;border-radius:8px;font-size:13px;gap:6px;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn-d{border:none;background:var(--red);color:#fff;}
+  .btn-d:hover{background:var(--red-dk);}
+  .btn-ds{border:1px solid var(--stroke);background:#fff;color:var(--red);box-shadow:var(--sh-xs);}
+  .btn-ds:hover{background:var(--red-ll);border-color:var(--red-l);}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .btn-g:disabled{background:transparent;}
+  .btn[aria-busy="true"]{cursor:progress;}
+
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .ib-d:hover{background:var(--red-ll);color:var(--red);}
+  .ib[aria-disabled="true"],.ib[aria-disabled="true"]:hover{background:transparent;color:var(--n300);cursor:not-allowed;}
+  .ib:disabled{color:var(--n300);cursor:not-allowed;background:transparent;}
+
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s,background .15s;}
+  .inp::placeholder{color:var(--n400);}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .inp-err:focus{border-color:var(--red);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-l);}
+  .inp-ro,.inp-ro:hover{background:var(--n50);border-color:var(--n200);color:var(--n600);box-shadow:none;}
+  .inp-ro:focus{background:var(--n50);border-color:var(--n300);box-shadow:none;}
+  .inp:disabled{background:var(--n100);border-color:var(--n100);color:var(--n400);box-shadow:none;cursor:not-allowed;}
+  .sel{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;}
+
+  .fbtn{height:40px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);white-space:nowrap;max-width:260px;transition:background .15s,border-color .15s;}
+  .fbtn:hover{background:var(--n50);border-color:var(--n300);}
+  .fbtn-on{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+  .fbtn-on:hover{background:var(--primary-lighter);border-color:var(--primary);}
+
+  .tab{transition:color .15s,border-color .15s;}
+  .tab:hover{color:var(--n900);}
+  .row{transition:background .12s;cursor:pointer;}
+  .row:hover{background:var(--n50);}
+  .name-btn{border:none;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;}
+  .name-btn:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px;}
+  .lnk{border:none;background:none;padding:0;font:inherit;font-weight:500;color:var(--primary);cursor:pointer;text-decoration:none;}
+  .lnk:hover{text-decoration:underline;text-underline-offset:3px;}
+  .pg{min-width:32px;height:32px;padding:0 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--n500);font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .pg:hover{background:var(--n100);color:var(--n900);}
+  .pg:disabled{color:var(--n300);background:transparent;cursor:not-allowed;}
+  .opt{transition:border-color .15s,background .15s,box-shadow .15s;}
+  .opt:hover{border-color:var(--primary-light);}
+  .chip-copy{transition:background .15s,border-color .15s;}
+  .chip-copy:hover{background:var(--primary-lighter);border-color:var(--primary-light);}
+
+  .btn:focus-visible,.ib:focus-visible,.fbtn:focus-visible,.tab:focus-visible,.name-btn:focus-visible,.lnk:focus-visible,.pg:focus-visible,.opt:focus-visible,.chip-copy:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .dr-body{scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
+  .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="users" hint-size="272px,827px"></dc-import>
+    </div>
+
+    <main style="flex:1;min-width:0;padding:8px 0 96px;">
+
+      <!-- ── Роль не та: раздел ведут только администраторы ─────────────────────── -->
+      <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:64px 32px;display:flex;justify-content:center;animation:mp-slidein .2s ease;">
+          <div style="max-width:520px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:32px;display:flex;flex-direction:column;align-items:flex-start;gap:16px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--purple-ll);display:flex;align-items:center;justify-content:center;"><i class="ri-shield-keyhole-line" style="font-size:24px;color:var(--purple);"></i></div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Раздел доступен в роли «Администратор»</div>
+              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">Учётные записи, профили, уровни и роли пользователей ведут сотрудники с ролью администратора. Сейчас вы работаете как заявитель — подача заявок, договоры и платежи.</div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-p" onClick="{{ becomeAdmin }}"><i class="ri-shield-user-line" style="font-size:18px;"></i>Переключиться на роль администратора</button>
+              <a href="Кабинет бизнеса.dc.html" class="btn btn-s" style="text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться в кабинет</a>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;animation:mp-slidein .2s ease;">
+
+        <!-- Section Header -->
+        <div style="padding:16px 32px;border-bottom:1px solid var(--stroke);display:flex;align-items:flex-start;gap:24px;">
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">
+            <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">Пользователи и полномочия</h1>
+            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:760px;">Учётные записи портала МЗ: профили, организации, уровни и роли. Роль определяет, какие разделы и действия доступны пользователю.</div>
+          </div>
+          <button id="am-new" class="btn btn-p" onClick="{{ onNew }}" style="flex:0 0 auto;margin-top:2px;"><i class="ri-user-add-line" style="font-size:18px;"></i>Новый пользователь</button>
+        </div>
+
+        <div style="padding:16px 32px 0;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Вкладки статусов -->
+          <div role="tablist" aria-label="Статус пользователей" style="display:flex;gap:24px;border-bottom:1px solid var(--stroke);">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+              <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.sel }}" aria-controls="am-panel" tabIndex="{{ t.ti }}" onClick="{{ t.onClick }}" onKeyDown="{{ t.onKey }}" class="tab" style="{{ t.style }}">
+                <i class="{{ t.icon }}" style="font-size:18px;"></i>{{ t.label }}<span style="{{ t.countStyle }}">{{ t.count }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <!-- Реестр -->
+          <section id="am-panel" role="tabpanel" aria-labelledby="{{ panelLabel }}" style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);">
+
+            <!-- Поиск и фильтры -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:16px;border-bottom:1px solid var(--stroke);">
+              <div style="position:relative;flex:1 1 320px;max-width:440px;min-width:260px;">
+                <i class="ri-search-2-line" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--n400);pointer-events:none;"></i>
+                <input id="am-search" class="inp" type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="ИИН, имя, фамилия, почта или организация" aria-label="Поиск пользователей по ИИН, имени, фамилии, почте или организации" autoComplete="off" spellCheck="false" style="padding-left:38px;padding-right:40px;" />
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                  <button class="ib" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить поиск" style="position:absolute;right:4px;top:4px;"><i class="ri-close-circle-fill" style="font-size:18px;color:var(--n400);"></i></button>
+                </sc-if>
+                <sc-if value="{{ noQ }}" hint-placeholder-val="{{ true }}">
+                  <span aria-hidden="true" title="Нажмите «/», чтобы перейти к поиску" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);min-width:20px;height:20px;padding:0 5px;border:1px solid var(--n200);border-bottom-width:2px;border-radius:6px;background:var(--n50);font-size:11px;line-height:16px;font-weight:500;color:var(--n400);display:flex;align-items:center;justify-content:center;">/</span>
+                </sc-if>
+              </div>
+
+              <sc-for list="{{ filters }}" as="fl" hint-placeholder-count="4">
+                <div data-pop="{{ fl.key }}" style="position:relative;">
+                  <button type="button" id="{{ fl.key }}" class="{{ fl.cls }}" onClick="{{ fl.onToggle }}" onKeyDown="{{ fl.onKey }}" aria-haspopup="listbox" aria-expanded="{{ fl.expanded }}" aria-controls="{{ fl.listId }}" aria-activedescendant="{{ fl.activeId }}" aria-label="{{ fl.aria }}">
+                    <span style="overflow:hidden;text-overflow:ellipsis;">{{ fl.text }}</span>
+                    <i class="ri-arrow-down-s-line" style="{{ fl.chevStyle }}"></i>
+                  </button>
+                  <sc-if value="{{ fl.open }}" hint-placeholder-val="{{ false }}">
+                    <div role="listbox" id="{{ fl.listId }}" aria-label="{{ fl.aria }}" style="{{ fl.popStyle }}">
+                      <sc-for list="{{ fl.options }}" as="o" hint-placeholder-count="4">
+                        <div role="option" id="{{ o.oid }}" aria-selected="{{ o.selA }}" onMouseDown="{{ o.onPick }}" onMouseEnter="{{ o.onHover }}" style="{{ o.style }}">
+                          <sc-if value="{{ o.hasIcon }}" hint-placeholder-val="{{ false }}"><i class="{{ o.icon }}" style="font-size:18px;color:var(--n500);flex:0 0 auto;"></i></sc-if>
+                          <span style="{{ o.lblStyle }}">{{ o.label }}</span>
+                          <sc-if value="{{ o.sel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i></sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+
+              <div style="flex:1;"></div>
+              <button class="btn btn-g" onClick="{{ onReset }}" disabled="{{ resetDisabled }}" title="Очистить поиск и фильтры"><i class="ri-refresh-line" style="font-size:18px;"></i>Сбросить</button>
+            </div>
+
+            <!-- Таблица -->
+            <div style="overflow-x:auto;">
+              <div role="table" aria-label="{{ tableAria }}" aria-rowcount="{{ rowCount }}" style="{{ tableStyle }}">
+                <div role="rowgroup">
+                  <div role="row" style="{{ headStyle }}">
+                    <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+                      <div role="columnheader" aria-sort="{{ c.ariaSort }}" style="{{ c.style }}">
+                        <sc-if value="{{ c.sortable }}" hint-placeholder-val="{{ true }}">
+                          <button class="name-btn" onClick="{{ c.onSort }}" title="{{ c.sortTitle }}" style="display:inline-flex;align-items:center;gap:2px;font-size:14px;line-height:20px;color:inherit;border-radius:4px;">{{ c.label }}<i class="{{ c.sortIcon }}" style="{{ c.sortStyle }}"></i></button>
+                        </sc-if>
+                        <sc-if value="{{ c.plain }}" hint-placeholder-val="{{ false }}"><span>{{ c.label }}</span></sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div role="rowgroup">
+                  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                    <sc-for list="{{ skeleton }}" as="sk" hint-placeholder-count="6">
+                      <div aria-hidden="true" style="{{ sk.row }}">
+                        <sc-for list="{{ sk.cells }}" as="sc" hint-placeholder-count="6">
+                          <div style="padding:14px 12px;display:flex;flex-direction:column;gap:8px;justify-content:center;"><span style="{{ sc.a }}"></span><span style="{{ sc.b }}"></span></div>
+                        </sc-for>
+                      </div>
+                    </sc-for>
+                  </sc-if>
+
+                  <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                    <div role="row" class="row" onClick="{{ r.onOpen }}" style="{{ r.style }}">
+
+                      <!-- Пользователь -->
+                      <div role="cell" style="padding:12px;display:flex;align-items:center;gap:10px;min-width:0;">
+                        <span aria-hidden="true" style="{{ r.avatar }}">{{ r.initials }}</span>
+                        <div style="min-width:0;display:flex;flex-direction:column;gap:2px;">
+                          <button class="name-btn" onClick="{{ r.onOpenBtn }}" title="{{ r.nameFull }} — {{ r.openTitle }}" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;">{{ r.name }}</button>
+                          <span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">ИИН {{ r.iin }}</span>
+                        </div>
+                      </div>
+
+                      <!-- Организация -->
+                      <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
+                        <span class="clamp2" title="{{ r.orgFull }}" style="{{ r.orgStyle }}">{{ r.org }}</span>
+                        <sc-if value="{{ r.hasBin }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.binLabel }}</span></sc-if>
+                      </div>
+
+                      <!-- Почта -->
+                      <div role="cell" style="padding:12px;display:flex;align-items:center;min-width:0;">
+                        <span title="{{ r.email }}" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.email }}</span>
+                      </div>
+
+                      <!-- Тип и профиль -->
+                      <div role="cell" style="padding:12px;display:flex;align-items:center;gap:8px;min-width:0;">
+                        <span title="{{ r.typeFull }}" style="{{ r.typeStyle }}">{{ r.type }}</span>
+                        <span style="min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.profile }}</span>
+                      </div>
+
+                      <!-- Уровень и роль -->
+                      <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
+                        <span class="clamp2" title="{{ r.role }}" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);">{{ r.role }}</span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.level }}</span>
+                      </div>
+
+                      <!-- Статус (вкладки «Деактивированные» и «Удалённые») -->
+                      <sc-if value="{{ showStatusCol }}" hint-placeholder-val="{{ false }}">
+                        <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
+                          <span style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);font-variant-numeric:tabular-nums;">{{ r.stDate }}</span>
+                          <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.stSub }}</span>
+                        </div>
+                      </sc-if>
+
+                      <!-- Действия -->
+                      <div role="cell" style="padding:12px 12px 12px 0;display:flex;align-items:center;justify-content:flex-end;gap:2px;">
+                        <sc-for list="{{ r.actions }}" as="a" hint-placeholder-count="2">
+                          <button class="{{ a.cls }}" onClick="{{ a.onClick }}" aria-label="{{ a.aria }}" title="{{ a.title }}" aria-disabled="{{ a.dis }}"><i class="{{ a.icon }}" style="font-size:18px;"></i></button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+
+            <!-- Пусто -->
+            <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:56px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;animation:am-fade .2s ease;">
+                <div style="width:56px;height:56px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="{{ emptyIcon }}" style="font-size:28px;color:var(--n400);"></i></div>
+                <div style="display:flex;flex-direction:column;gap:6px;max-width:440px;">
+                  <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ emptyTitle }}</div>
+                  <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                  <sc-for list="{{ emptyActions }}" as="ea" hint-placeholder-count="1">
+                    <button class="{{ ea.cls }}" onClick="{{ ea.onClick }}"><i class="{{ ea.icon }}" style="font-size:18px;"></i>{{ ea.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- Пагинация -->
+            <sc-if value="{{ hasFooter }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--stroke);">
+                <span aria-live="polite" style="font-size:13px;line-height:20px;color:var(--n500);font-variant-numeric:tabular-nums;">{{ rangeLabel }}</span>
+                <div style="flex:1;"></div>
+                <sc-if value="{{ hasPages }}" hint-placeholder-val="{{ true }}">
+                  <nav aria-label="Страницы реестра" style="display:flex;align-items:center;gap:4px;">
+                    <button class="pg" onClick="{{ prevPage }}" disabled="{{ prevDisabled }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                    <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+                      <button class="pg" onClick="{{ p.onClick }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}" style="{{ p.style }}">{{ p.n }}</button>
+                    </sc-for>
+                    <button class="pg" onClick="{{ nextPage }}" disabled="{{ nextDisabled }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+                  </nav>
+                </sc-if>
+              </div>
+            </sc-if>
+          </section>
+        </div>
+      </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <!-- ═══ Боковая панель: создание / редактирование / просмотр ═══ -->
+  <sc-if value="{{ dOpen }}" hint-placeholder-val="{{ false }}">
+    <div onMouseDown="{{ dOverlay }}" style="position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.32);animation:am-fade .15s ease;"></div>
+    <aside id="am-drawer" role="dialog" aria-modal="true" aria-labelledby="am-dr-title" aria-describedby="am-dr-sub" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100vw;z-index:81;background:var(--n0);box-shadow:-16px 0 40px -12px rgba(10,13,20,.18);display:flex;flex-direction:column;animation:am-drawer .22s cubic-bezier(.2,.8,.2,1);">
+
+      <!-- шапка -->
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 20px 24px;border-bottom:1px solid var(--stroke);">
+        <sc-if value="{{ dHasAvatar }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ dAvatar }}">{{ dInitials }}</span></sc-if>
+        <sc-if value="{{ dHasIcon }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="width:40px;height:40px;flex:0 0 auto;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;"><i class="ri-user-add-line" style="font-size:20px;"></i></span></sc-if>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <h2 id="am-dr-title" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ dTitle }}</h2>
+            <sc-if value="{{ dHasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ dStStyle }}"><span style="{{ dStDot }}"></span>{{ dStLabel }}</span></sc-if>
+          </div>
+          <div id="am-dr-sub" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ dSub }}</div>
+        </div>
+        <button id="am-dr-close" class="ib" onClick="{{ dClose }}" aria-label="Закрыть панель" title="Закрыть (Esc)"><i class="ri-close-line" style="font-size:20px;"></i></button>
+      </div>
+
+      <!-- тело -->
+      <div id="am-dr-body" class="dr-body" style="flex:1;min-height:0;overflow-y:auto;padding:20px 24px 32px;display:flex;flex-direction:column;gap:24px;">
+
+        <sc-if value="{{ dHasBanner }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="{{ dBannerStyle }}">
+            <i class="{{ dBannerIcon }}" style="{{ dBannerIconStyle }}"></i>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
+              <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ dBannerTitle }}</div>
+              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);">{{ dBannerText }}</div>
+              <sc-if value="{{ dBannerHasAct }}" hint-placeholder-val="{{ false }}">
+                <button class="lnk" onClick="{{ dBannerAct }}" style="margin-top:4px;font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ dBannerActLabel }}</button>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{ dSections }}" as="sec" hint-placeholder-count="3">
+          <section aria-labelledby="{{ sec.hid }}" style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <sc-if value="{{ sec.hasNum }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="{{ sec.numStyle }}">{{ sec.num }}</span></sc-if>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                <h3 id="{{ sec.hid }}" style="margin:0;font-size:14px;line-height:20px;font-weight:600;letter-spacing:-.006em;color:var(--n900);">{{ sec.title }}</h3>
+                <sc-if value="{{ sec.hasDesc }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:18px;color:var(--n500);">{{ sec.desc }}</div></sc-if>
+              </div>
+              <sc-if value="{{ sec.hasAction }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ sec.onAction }}"><i class="{{ sec.actionIcon }}" style="font-size:16px;"></i>{{ sec.actionLabel }}</button></sc-if>
+            </div>
+
+            <!-- поля формы -->
+            <sc-if value="{{ sec.isForm }}" hint-placeholder-val="{{ true }}">
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 16px;">
+                <sc-for list="{{ sec.fields }}" as="f" hint-placeholder-count="4">
+                  <div style="{{ f.wrap }}">
+                    <sc-if value="{{ f.hasLabel }}" hint-placeholder-val="{{ true }}">
+                      <label for="{{ f.forId }}" id="{{ f.lblId }}" style="display:flex;align-items:center;gap:4px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);margin-bottom:6px;">{{ f.label }}<sc-if value="{{ f.req }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="color:var(--primary);">*</span></sc-if><sc-if value="{{ f.opt }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--n400);">(необязательно)</span></sc-if><sc-if value="{{ f.hasTag }}" hint-placeholder-val="{{ false }}"><span style="{{ f.tagStyle }}"><i class="{{ f.tagIcon }}" style="font-size:12px;"></i>{{ f.tag }}</span></sc-if></label>
+                    </sc-if>
+
+                    <!-- текст -->
+                    <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                      <div style="position:relative;">
+                        <input id="{{ f.id }}" class="{{ f.cls }}" type="{{ f.type }}" value="{{ f.value }}" onChange="{{ f.onChange }}" onBlur="{{ f.onBlur }}" onFocus="{{ f.onFocus }}" placeholder="{{ f.ph }}" inputMode="{{ f.im }}" maxLength="{{ f.max }}" readOnly="{{ f.ro }}" autoComplete="{{ f.ac }}" spellCheck="false" aria-invalid="{{ f.invalid }}" aria-required="{{ f.ariaReq }}" aria-describedby="{{ f.descId }}" style="{{ f.inputStyle }}" />
+                        <sc-if value="{{ f.hasAdorn }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" title="{{ f.adornTitle }}" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;pointer-events:none;"><i class="{{ f.adornIcon }}" style="{{ f.adornStyle }}"></i></span></sc-if>
+                        <sc-if value="{{ f.hasEye }}" hint-placeholder-val="{{ false }}"><button type="button" class="ib" onClick="{{ f.onEye }}" aria-label="{{ f.eyeLabel }}" title="{{ f.eyeLabel }}" style="position:absolute;right:4px;top:4px;"><i class="{{ f.eyeIcon }}" style="font-size:18px;"></i></button></sc-if>
+                      </div>
+                    </sc-if>
+
+                    <!-- выпадающий список -->
+                    <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}">
+                      <div data-pop="{{ f.key }}" style="position:relative;">
+                        <button type="button" id="{{ f.id }}" class="{{ f.cls }}" onClick="{{ f.onToggle }}" onKeyDown="{{ f.onKey }}" disabled="{{ f.disabled }}" aria-haspopup="listbox" aria-expanded="{{ f.expanded }}" aria-controls="{{ f.listId }}" aria-activedescendant="{{ f.activeId }}" aria-labelledby="{{ f.lblId }} {{ f.id }}" aria-invalid="{{ f.invalid }}" aria-required="{{ f.ariaReq }}" aria-describedby="{{ f.descId }}" style="padding-right:36px;">
+                          <sc-if value="{{ f.hasValIcon }}" hint-placeholder-val="{{ false }}"><i class="{{ f.valIcon }}" style="font-size:18px;color:var(--n500);flex:0 0 auto;"></i></sc-if>
+                          <span style="{{ f.valStyle }}">{{ f.display }}</span>
+                          <i class="ri-arrow-down-s-line" style="{{ f.chevStyle }}"></i>
+                        </button>
+                        <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+                          <div role="listbox" id="{{ f.listId }}" aria-labelledby="{{ f.lblId }}" style="{{ f.popStyle }}">
+                            <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3">
+                              <div role="option" id="{{ o.oid }}" aria-selected="{{ o.selA }}" aria-disabled="{{ o.dis }}" onMouseDown="{{ o.onPick }}" onMouseEnter="{{ o.onHover }}" style="{{ o.style }}">
+                                <sc-if value="{{ o.hasIcon }}" hint-placeholder-val="{{ false }}"><i class="{{ o.icon }}" style="font-size:18px;color:var(--n500);flex:0 0 auto;margin-top:1px;"></i></sc-if>
+                                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                  <span style="{{ o.lblStyle }}">{{ o.label }}</span>
+                                  <sc-if value="{{ o.hasDesc }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.desc }}</span></sc-if>
+                                </span>
+                                <sc-if value="{{ o.sel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i></sc-if>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-if>
+
+                    <!-- выбор типа (радио-карточки) -->
+                    <sc-if value="{{ f.isSeg }}" hint-placeholder-val="{{ false }}">
+                      <div role="radiogroup" id="{{ f.id }}" aria-labelledby="{{ f.lblId }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.descId }}" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                        <sc-for list="{{ f.segs }}" as="g" hint-placeholder-count="3">
+                          <button type="button" role="radio" id="{{ g.gid }}" aria-checked="{{ g.on }}" tabIndex="{{ g.ti }}" onClick="{{ g.onClick }}" onKeyDown="{{ g.onKey }}" class="opt" style="{{ g.style }}">
+                            <span aria-hidden="true" style="{{ g.radio }}"><span style="{{ g.dot }}"></span></span>
+                            <span style="display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left;">
+                              <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ g.label }}</span>
+                              <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ g.sub }}</span>
+                            </span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+
+                    <!-- сообщения -->
+                    <div id="{{ f.descId }}" aria-live="polite" style="{{ f.msgWrap }}">
+                      <sc-if value="{{ f.hasError }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i><span>{{ f.error }}</span></span></sc-if>
+                      <sc-if value="{{ f.hasNote }}" hint-placeholder-val="{{ false }}"><span style="{{ f.noteStyle }}"><i class="{{ f.noteIcon }}" style="{{ f.noteIconStyle }}"></i><span>{{ f.note }}</span></span></sc-if>
+                      <sc-if value="{{ f.hasHint }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ f.hint }}</span></sc-if>
+                    </div>
+
+                    <!-- правила пароля -->
+                    <sc-if value="{{ f.hasRules }}" hint-placeholder-val="{{ false }}">
+                      <ul aria-label="Требования к паролю" style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;">
+                        <sc-for list="{{ f.rules }}" as="ru" hint-placeholder-count="5">
+                          <li style="{{ ru.style }}"><i class="{{ ru.icon }}" style="font-size:14px;"></i>{{ ru.text }}</li>
+                        </sc-for>
+                      </ul>
+                    </sc-if>
+
+                    <!-- полномочия роли -->
+                    <sc-if value="{{ f.hasPerms }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin-top:10px;padding:12px;border-radius:10px;background:var(--n50);border:1px solid var(--n200);display:flex;flex-direction:column;gap:8px;">
+                        <div style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;font-weight:500;color:var(--n500);"><i class="ri-shield-check-line" style="font-size:16px;color:var(--primary);"></i>{{ f.permsTitle }}</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                          <sc-for list="{{ f.perms }}" as="pm" hint-placeholder-count="3">
+                            <span style="height:24px;padding:0 8px;border-radius:6px;background:#fff;border:1px solid var(--stroke);font-size:12px;line-height:16px;font-weight:500;color:var(--n600);display:inline-flex;align-items:center;">{{ pm }}</span>
+                          </sc-for>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- только чтение -->
+            <sc-if value="{{ sec.isKv }}" hint-placeholder-val="{{ false }}">
+              <dl style="margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 24px;padding:16px;border:1px solid var(--n200);border-radius:12px;background:var(--n50);">
+                <sc-for list="{{ sec.kv }}" as="k" hint-placeholder-count="4">
+                  <div style="{{ k.wrap }}">
+                    <dt style="font-size:12px;line-height:16px;color:var(--n500);margin:0 0 4px;">{{ k.label }}</dt>
+                    <dd style="{{ k.valStyle }}">{{ k.value }}<sc-if value="{{ k.hasSub }}" hint-placeholder-val="{{ false }}"><span style="display:block;margin-top:2px;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ k.sub }}</span></sc-if></dd>
+                  </div>
+                </sc-for>
+              </dl>
+            </sc-if>
+
+            <!-- свёрнутый блок (смена пароля) -->
+            <sc-if value="{{ sec.isCollapsed }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 12px 12px 16px;border:1px dashed var(--n300);border-radius:12px;">
+                <i class="ri-lock-password-line" style="font-size:20px;color:var(--n400);"></i>
+                <span style="flex:1;min-width:0;font-size:14px;line-height:20px;color:var(--n500);">{{ sec.collapsedText }}</span>
+                <button class="btn btn-s btn-sm" onClick="{{ sec.onExpand }}"><i class="ri-key-2-line" style="font-size:16px;"></i>{{ sec.expandLabel }}</button>
+              </div>
+            </sc-if>
+
+            <!-- другие профили этого ИИН -->
+            <sc-if value="{{ sec.isProfiles }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <sc-for list="{{ sec.profiles }}" as="pr" hint-placeholder-count="2">
+                  <button class="opt" onClick="{{ pr.onClick }}" style="{{ pr.style }}">
+                    <span style="width:32px;height:32px;flex:0 0 auto;border-radius:8px;background:var(--n100);color:var(--n500);display:flex;align-items:center;justify-content:center;"><i class="{{ pr.icon }}" style="font-size:18px;"></i></span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
+                      <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ pr.title }}</span>
+                      <span style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ pr.sub }}</span>
+                    </span>
+                    <span style="{{ pr.stStyle }}">{{ pr.stLabel }}</span>
+                    <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n400);flex:0 0 auto;"></i>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- пояснение -->
+            <sc-if value="{{ sec.hasNote }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:flex-start;gap:6px;font-size:12px;line-height:16px;color:var(--n500);"><i class="{{ sec.noteIcon }}" style="font-size:14px;flex:0 0 auto;margin-top:1px;"></i>{{ sec.note }}</div>
+            </sc-if>
+          </section>
+        </sc-for>
+
+        <sc-if value="{{ dHasMeta }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;line-height:16px;color:var(--n400);">{{ dMeta }}</div>
+        </sc-if>
+      </div>
+
+      <!-- подвал -->
+      <div style="display:flex;align-items:center;gap:10px;padding:16px 24px;border-top:1px solid var(--stroke);background:var(--n0);">
+        <sc-if value="{{ dHasDanger }}" hint-placeholder-val="{{ false }}">
+          <button class="btn btn-ds" onClick="{{ dDanger }}"><i class="ri-delete-bin-line" style="font-size:18px;"></i>Удалить</button>
+        </sc-if>
+        <sc-if value="{{ dHasReqNote }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:12px;line-height:16px;color:var(--n500);"><span style="color:var(--primary);">*</span> — обязательные поля</span>
+        </sc-if>
+        <div style="flex:1;"></div>
+        <button class="btn btn-s" onClick="{{ dClose }}">{{ dCancelLabel }}</button>
+        <sc-if value="{{ dHasPrimary }}" hint-placeholder-val="{{ true }}">
+          <button class="btn btn-p" onClick="{{ dPrimary }}" aria-busy="{{ dBusy }}" aria-disabled="{{ dPrimaryDis }}" style="{{ dPrimaryStyle }}">
+            <i class="{{ dPrimaryIcon }}" style="{{ dPrimaryIconStyle }}"></i>{{ dPrimaryLabel }}
+          </button>
+        </sc-if>
+      </div>
+    </aside>
+  </sc-if>
+
+  <!-- ═══ Подтверждение ═══ -->
+  <sc-if value="{{ cOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.4);display:flex;align-items:center;justify-content:center;padding:24px;animation:am-fade .15s ease;">
+      <div id="am-confirm" role="alertdialog" aria-modal="true" aria-labelledby="am-c-title" aria-describedby="am-c-text" style="width:480px;max-width:100%;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);padding:24px;display:flex;flex-direction:column;gap:20px;animation:mp-slidein .18s ease;">
+        <div style="display:flex;align-items:flex-start;gap:14px;">
+          <div style="{{ cIconWrap }}"><i class="{{ cIcon }}" style="{{ cIconStyle }}"></i></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+            <div id="am-c-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ cTitle }}</div>
+            <div id="am-c-text" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ cText }}</div>
+          </div>
+        </div>
+        <sc-if value="{{ cHasCard }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:var(--n50);">
+            <span aria-hidden="true" style="{{ cAvatar }}">{{ cInitials }}</span>
+            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cCardTitle }}</span>
+              <span style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cCardSub }}</span>
+            </span>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
+          <button id="am-c-cancel" class="btn btn-s" onClick="{{ cCancel }}">{{ cCancelLabel }}</button>
+          <button class="{{ cOkCls }}" onClick="{{ cOk }}" aria-busy="{{ cBusy }}"><i class="{{ cOkIcon }}" style="{{ cOkIconStyle }}"></i>{{ cOkLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═══ Тост ═══ -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" aria-live="polite" style="{{ toastStyle }}">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ toastTitle }}</div>
+          <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ toastText }}</div>
+        </div>
+        <sc-if value="{{ toastHasAction }}" hint-placeholder-val="{{ false }}">
+          <button class="lnk" onClick="{{ toastAction }}" style="font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ toastActionLabel }}</button>
+        </sc-if>
+      </div>
+      <button class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;"><i class="ri-close-line" style="font-size:18px;"></i></button>
+    </div>
+  </sc-if>
+
+  <!-- ═══ Панель прототипа ═══ -->
+  <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+    <!-- над затемнением панели (z 80–81): сценарий ГБД переключают прямо во время заполнения формы -->
+    <div style="position:fixed;left:16px;bottom:76px;z-index:85;display:flex;flex-direction:column;align-items:flex-start;gap:8px;">
+      <sc-if value="{{ demoOpen }}" hint-placeholder-val="{{ false }}">
+        <div role="region" aria-label="Настройки прототипа" style="width:320px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:14px;display:flex;flex-direction:column;gap:14px;animation:am-pop .15s ease;">
+          <sc-for list="{{ demoGroups }}" as="dg" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">{{ dg.title }}</span>
+              <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+                <sc-for list="{{ dg.opts }}" as="o" hint-placeholder-count="2">
+                  <button onClick="{{ o.onClick }}" aria-pressed="{{ o.on }}" style="{{ o.style }}">{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Тестовые данные · клик копирует</span>
+            <sc-for list="{{ demoData }}" as="dd" hint-placeholder-count="4">
+              <button class="chip-copy" onClick="{{ dd.onClick }}" title="Скопировать {{ dd.value }}" style="display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:1px solid var(--n200);border-radius:8px;background:#fff;cursor:pointer;text-align:left;">
+                <span style="font-size:12px;line-height:16px;font-weight:500;color:var(--n900);font-variant-numeric:tabular-nums;flex:0 0 auto;">{{ dd.value }}</span>
+                <span style="flex:1;min-width:0;font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ dd.label }}</span>
+                <i class="{{ dd.icon }}" style="{{ dd.iconStyle }}"></i>
+              </button>
+            </sc-for>
+          </div>
+          <button class="lnk" onClick="{{ resetDemo }}" style="align-self:flex-start;font-size:13px;line-height:18px;display:inline-flex;align-items:center;gap:6px;"><i class="ri-restart-line" style="font-size:16px;"></i>Сбросить демо-данные</button>
+        </div>
+      </sc-if>
+      <button onClick="{{ toggleDemo }}" aria-expanded="{{ demoOpenA }}" style="height:32px;padding:0 12px;border:1px solid var(--stroke);border-radius:999px;background:var(--n0);box-shadow:var(--sh-md);font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><i class="ri-flask-line" style="font-size:16px;color:var(--primary);"></i>Прототип<i class="{{ demoChev }}" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:980}}">
+class Component extends DCLogic {
+
+  static PAGE = 15;
+  static DB_KEY = 'mp-admin-db';
+  static DB_VER = 1;
+  static UI_KEY = 'mp-admin-users-ui';
+  static ORDER = ['type','iin','last','first','middle','bin','org','position','email','phone','profile','level','role','pass','pass2'];
+
+  // ——— справочники (nsi) ———
+  static TYPES = [
+    { id:'FL', short:'ФЛ', label:'Физическое лицо',                seg:'Физлицо',         segSub:'ФЛ · без организации' },
+    { id:'IP', short:'ИП', label:'Индивидуальный предприниматель', seg:'Предприниматель', segSub:'ИП · по ИИН' },
+    { id:'UL', short:'ЮЛ', label:'Юридическое лицо',               seg:'Юрлицо',          segSub:'ЮЛ · по БИН' },
+  ];
+  /** nsi.user_profiles — какие типы пользователя допускает профиль */
+  static PROFILES = [
+    { id:'citizen',  label:'Гражданин',   icon:'ri-user-3-line',      types:['FL'],      desc:'Личный кабинет физического лица' },
+    { id:'business', label:'Бизнес',      icon:'ri-briefcase-4-line', types:['IP','UL'], desc:'Кабинет бизнеса: заявки на ЛС и МИ' },
+    { id:'medical',  label:'Медперсонал', icon:'ri-stethoscope-line', types:['UL'],      desc:'Кабинет медицинского работника' },
+    { id:'gov',      label:'Госорган',    icon:'ri-government-line',  types:['UL'],      desc:'АРМ эксперта: КМФК, ННЦРЗ, НЦЭЛС' },
+  ];
+  /** nsi.user_levels — у госорганов уровень привязан к конкретной организации */
+  static LEVELS = [
+    { id:'APPLICANT', label:'Заявитель',            profiles:['citizen','business'], desc:'Подаёт заявки на услуги портала' },
+    { id:'MEDICAL',   label:'Медицинский работник', profiles:['medical'],            desc:'Сотрудник медицинской организации' },
+    { id:'KMFK',      label:'Госорган · КМФК',      profiles:['gov'], bin:'201040018899', desc:'Комитет медицинского и фармацевтического контроля' },
+    { id:'NNCRZ',     label:'Госорган · ННЦРЗ',     profiles:['gov'], bin:'110340017483', desc:'Национальный научный центр развития здравоохранения' },
+    { id:'NCELS',     label:'Госорган · НЦЭЛС',     profiles:['gov'], bin:'980240003251', desc:'Национальный центр экспертизы ЛС и МИ' },
+  ];
+  /** nsi.user_levels_role — роли уровня и их полномочия */
+  static ROLES = [
+    { id:'SPECIALIST_WITH_SIGN', level:'APPLICANT', label:'Специалист с правом подписи',   perms:['Подача заявок','Подписание ЭЦП','Договоры и платежи','Мои процессы'] },
+    { id:'SPECIALIST',           level:'APPLICANT', label:'Специалист без права подписи',  perms:['Подготовка заявок','Просмотр договоров','Мои процессы'] },
+    { id:'ORG_HEAD',             level:'APPLICANT', label:'Руководитель организации',      perms:['Подача заявок','Подписание ЭЦП','Договоры и платежи','Сотрудники организации'] },
+    { id:'DOCTOR',               level:'MEDICAL',   label:'Врач',                          perms:['ЭПЗ пациентов','Направления','Рецепты'] },
+    { id:'NURSE',                level:'MEDICAL',   label:'Средний медперсонал',           perms:['ЭПЗ пациентов — просмотр','Процедуры'] },
+    { id:'MO_HEAD',              level:'MEDICAL',   label:'Руководитель медорганизации',   perms:['ЭПЗ пациентов','Сотрудники МО','Отчёты МО'] },
+    { id:'KMFK_SPEC',            level:'KMFK',      label:'Специалист КМФК',               perms:['Реестр заявлений','Отчёты КМФК'] },
+    { id:'KMFK_HEAD',            level:'KMFK',      label:'Руководитель управления КМФК',  perms:['Реестр заявлений','Отчёты КМФК','Подписание решений'] },
+    { id:'EXPERT',               level:'NNCRZ',     label:'Специалист по профессиональной экспертизе', perms:['Экспертиза заявок','Заключения'] },
+    { id:'FC_SECRETARY',         level:'NNCRZ',     label:'Секретарь формулярной комиссии', perms:['Повестка комиссии','Протоколы'] },
+    { id:'FC_DEPUTY',            level:'NNCRZ',     label:'Заместитель председателя формулярной комиссии', perms:['Решения комиссии','Протоколы','Подписание ЭЦП'] },
+    { id:'FC_CHAIR',             level:'NNCRZ',     label:'Председатель формулярной комиссии', perms:['Решения комиссии','Протоколы','Подписание ЭЦП'] },
+    { id:'NCELS_EXPERT',         level:'NCELS',     label:'Эксперт НЦЭЛС',                 perms:['Экспертиза ЛС и МИ','Заключения'] },
+    { id:'NCELS_HEAD',           level:'NCELS',     label:'Руководитель экспертного подразделения', perms:['Экспертиза ЛС и МИ','Распределение заявок','Подписание ЭЦП'] },
+  ];
+
+  /** Заглушка ГБД ФЛ (GBDFLUniversal_token): ИИН → [фамилия, имя, отчество] */
+  static GBD_FL = {
+    '940815400345':['Сарсенова','Алия','Муратовна'],
+    '870306300218':['Абенов','Данияр','Касымович'],
+    '900312300456':['Абдиев','Нурлан','Кайратович'],
+  };
+  /** Заглушка ГБД ЮЛ (GbdulInfoByBin_v2) и ИС КГД (SDFIefourActual) — организаций ещё нет в реестре портала */
+  static GBD_UL = {
+    '210340012345': { src:'ГБД ЮЛ', ru:'ТОО «Нур-Фарм Дистрибьюшн»', kz:'«Нұр-Фарм Дистрибьюшн» ЖШС',
+      addrLegal:'010000, г. Астана, район Алматы, ул. Сарайшык, 34', addrFact:'010000, г. Астана, район Байконур, ул. Жанибек тархана, 9',
+      okedRu:'46.46.0 — Оптовая торговля фармацевтическими и медицинскими товарами', okedKz:'46.46.0 — Фармацевтикалық және медициналық тауарлармен көтерме сауда',
+      oked2Ru:'52.10.9 — Складирование и хранение прочих грузов', oked2Kz:'52.10.9 — Басқа да жүктерді қоймаға жинау және сақтау' },
+    '200740009911': { src:'ГБД ЮЛ', ru:'ТОО «Медикал Системс Астана»', kz:'«Медикал Системс Астана» ЖШС',
+      addrLegal:'010000, г. Астана, район Есиль, ул. Сыганак, 18', addrFact:'010000, г. Астана, район Есиль, ул. Сыганак, 18',
+      okedRu:'32.50.0 — Производство медицинских и стоматологических инструментов и принадлежностей', okedKz:'32.50.0 — Медициналық және стоматологиялық құралдар мен керек-жарақтар өндірісі',
+      oked2Ru:'33.13.0 — Ремонт электронного и оптического оборудования', oked2Kz:'33.13.0 — Электрондық және оптикалық жабдықтарды жөндеу' },
+    '900312300456': { src:'ИС КГД', ru:'ИП «Абдиев Н. К.»', kz:'«Абдиев Н. К.» ЖК',
+      addrLegal:'110000, г. Костанай, ул. Байтурсынова, 52, кв. 17', addrFact:'110000, г. Костанай, пр. Аль-Фараби, 119, пом. 4',
+      okedRu:'47.73.0 — Розничная торговля фармацевтическими товарами в специализированных магазинах', okedKz:'47.73.0 — Мамандандырылған дүкендерде фармацевтикалық тауарлармен бөлшек сауда',
+      oked2Ru:'', oked2Kz:'' },
+  };
+
+  /** Демо-данные: те же, что в «Организациях» — страницы делят localStorage['mp-admin-db'] */
+  static seed(){
+    const O = (bin, ru, kz, addrLegal, addrFact, okedRu, okedKz, oked2Ru, oked2Kz, createdAt, updatedAt, closedAt) =>
+      ({ bin, ru, kz, addrLegal, addrFact: addrFact || addrLegal, okedRu, okedKz, oked2Ru: oked2Ru || '', oked2Kz: oked2Kz || '',
+         createdAt, updatedAt, closedAt: closedAt || null, status: closedAt ? 'INACTIVE' : 'ACTIVE', deleted: !!closedAt });
+    const K = {
+      reg:  ['84.12.0 — Регулирование деятельности учреждений здравоохранения, образования, культуры и других социальных услуг', '84.12.0 — Денсаулық сақтау, білім беру, мәдениет және басқа да әлеуметтік қызметтер мекемелерінің қызметін реттеу'],
+      it:   ['62.02.0 — Консультационные услуги в области информационных технологий', '62.02.0 — Ақпараттық технологиялар саласындағы консультациялық қызметтер'],
+      data: ['63.11.0 — Обработка данных, размещение приложений (хостинг) и связанная с этим деятельность', '63.11.0 — Деректерді өңдеу, қосымшаларды орналастыру (хостинг) және осыған байланысты қызмет'],
+      test: ['71.20.0 — Технические испытания и анализ', '71.20.0 — Техникалық сынақтар мен талдау'],
+      sci:  ['72.19.0 — Прочие исследования и разработки в области естественных и технических наук', '72.19.0 — Жаратылыстану және техникалық ғылымдар саласындағы басқа да зерттеулер мен әзірлемелер'],
+      mkt:  ['73.20.0 — Исследование конъюнктуры рынка и изучение общественного мнения', '73.20.0 — Нарық конъюнктурасын зерттеу және қоғамдық пікірді анықтау'],
+      hlth: ['86.90.9 — Прочая деятельность по охране здоровья', '86.90.9 — Денсаулық сақтау саласындағы басқа да қызмет'],
+      whs:  ['46.46.0 — Оптовая торговля фармацевтическими и медицинскими товарами', '46.46.0 — Фармацевтикалық және медициналық тауарлармен көтерме сауда'],
+      ret:  ['47.73.0 — Розничная торговля фармацевтическими товарами в специализированных магазинах', '47.73.0 — Мамандандырылған дүкендерде фармацевтикалық тауарлармен бөлшек сауда'],
+      prod: ['21.20.0 — Производство фармацевтических препаратов', '21.20.0 — Фармацевтикалық препараттар өндірісі'],
+      dev:  ['32.50.0 — Производство медицинских и стоматологических инструментов и принадлежностей', '32.50.0 — Медициналық және стоматологиялық құралдар мен керек-жарақтар өндірісі'],
+      gp:   ['86.21.0 — Общая врачебная практика', '86.21.0 — Жалпы дәрігерлік практика'],
+      hosp: ['86.10.1 — Деятельность больничных организаций', '86.10.1 — Аурухана ұйымдарының қызметі'],
+    };
+    const ok = (a, b) => [K[a][0], K[a][1], b ? K[b][0] : '', b ? K[b][1] : ''];
+    const orgs = [
+      O('201040018899', 'РГУ «Комитет медицинского и фармацевтического контроля Министерства здравоохранения Республики Казахстан»', '«Қазақстан Республикасы Денсаулық сақтау министрлігінің Медициналық және фармацевтикалық бақылау комитеті» РММ',
+        '010000, г. Астана, район Есиль, пр. Мәңгілік Ел, 8, административное здание «Дом министерств», подъезд 5', '', ...ok('reg'), '2025-09-15T10:12', '2026-03-02T16:40'),
+      O('131240004404', 'РГП на ПХВ «Республиканский центр электронного здравоохранения» Министерства здравоохранения Республики Казахстан', 'Қазақстан Республикасы Денсаулық сақтау министрлігінің шаруашылық жүргізу құқығындағы «Республикалық электрондық денсаулық сақтау орталығы» РМК',
+        '010000, г. Астана, район Сарыарка, ул. Бейбітшілік, 23', '010000, г. Астана, район Есиль, ул. Сыганак, 10', ...ok('it', 'data'), '2025-09-15T10:20', '2026-01-19T11:05'),
+      O('030440004933', 'НАО «Информационно-аналитический центр»', '«Ақпараттық-талдау орталығы» КеАҚ',
+        '010000, г. Астана, район Есиль, ул. Мәңгілік Ел, 8', '', ...ok('mkt', 'data'), '2025-09-18T09:02', '2025-09-18T09:02'),
+      O('980240003251', 'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» Комитета медицинского и фармацевтического контроля МЗ РК', 'ҚР ДСМ Медициналық және фармацевтикалық бақылау комитетінің шаруашылық жүргізу құқығындағы «Дәрілік заттар мен медициналық бұйымдарды сараптаудың ұлттық орталығы» РМК',
+        '010000, г. Астана, район Байконур, ул. А. Иманова, 13', '050004, г. Алматы, Алмалинский район, ул. Желтоксан, 104', ...ok('test', 'sci'), '2025-09-20T14:31', '2026-05-27T10:14'),
+      O('110340017483', 'РГП на ПХВ «Национальный научный центр развития здравоохранения имени Салидат Каирбековой» Министерства здравоохранения Республики Казахстан', 'Қазақстан Республикасы Денсаулық сақтау министрлігінің шаруашылық жүргізу құқығындағы «Салидат Қайырбекова атындағы Денсаулық сақтауды дамытудың ұлттық ғылыми орталығы» РМК',
+        '010000, г. Астана, район Есиль, ул. Мәңгілік Ел, 20, н. п. 3', '', ...ok('sci', 'hlth'), '2025-10-02T12:00', '2026-07-14T09:48'),
+      O('180540024521', 'ТОО «Астана Групп»', '«Астана Групп» ЖШС',
+        '010000, г. Астана, район Есиль, пр. Кабанбай батыра, 11, офис 402', '', ...ok('whs', 'ret'), '2025-11-03T15:22', '2026-09-22T17:03'),
+      O('050940012345', 'ТОО «Фарм Групп»', '«Фарм Групп» ЖШС',
+        '050000, г. Алматы, Алмалинский район, ул. Толе би, 101', '050063, г. Алматы, мкр. Алатау, ул. Ибрагимова, 9', ...ok('whs'), '2025-11-10T10:40', '2026-09-03T12:11'),
+      O('150340009876', 'ТОО «МедТех KZ»', '«МедТех KZ» ЖШС',
+        '100000, г. Караганда, ул. Ерубаева, 50', '', ...ok('dev', 'whs'), '2025-12-01T11:15', '2026-03-19T14:00'),
+      O('991140001122', 'АО «Каспий Фарм»', '«Каспий Фарм» АҚ',
+        '130000, г. Актау, 9-й микрорайон, здание 21', '', ...ok('prod', 'whs'), '2026-01-12T09:30', '2026-04-02T10:25'),
+      O('071040005566', 'ТОО «Алатау Фарм»', '«Алатау Фарм» ЖШС',
+        '040700, Алматинская обл., г. Қонаев, ул. Индустриальная, 4', '', ...ok('prod'), '2026-02-04T16:05', '2026-05-12T13:37'),
+      O('061240007788', 'ГКП на ПХВ «Городская поликлиника № 5» акимата города Астаны', 'Астана қаласы әкімдігінің шаруашылық жүргізу құқығындағы «№ 5 қалалық емхана» МКК',
+        '010000, г. Астана, район Сарыарка, ул. Кенесары, 70', '', ...ok('gp'), '2026-03-18T10:10', '2026-04-21T08:52'),
+      O('040540003344', 'ГКП на ПХВ «Многопрофильная городская больница № 1» акимата города Астаны', 'Астана қаласы әкімдігінің шаруашылық жүргізу құқығындағы «№ 1 көпбейінді қалалық аурухана» МКК',
+        '010000, г. Астана, район Алматы, ул. Р. Кошкарбаева, 66', '', ...ok('hosp', 'gp'), '2026-03-20T12:44', '2026-09-11T15:20'),
+      O('120640011223', 'ТОО «Дәрі-Дәрмек Сервис»', '«Дәрі-Дәрмек Сервис» ЖШС',
+        '160000, г. Шымкент, Аль-Фарабийский район, пр. Тауке хана, 35', '', ...ok('ret', 'whs'), '2026-04-15T09:18', '2026-06-09T11:00'),
+      O('160740004455', 'ТОО «Шифа Медикал»', '«Шифа Медикал» ЖШС',
+        '050000, г. Алматы, Бостандыкский район, пр. Аль-Фараби, 77/7', '', ...ok('whs'), '2026-05-06T14:27', '2026-08-03T10:45'),
+      O('170840006677', 'ТОО «Биомед Ассистанс»', '«Биомед Ассистанс» ЖШС',
+        '140000, г. Павлодар, ул. Академика Сатпаева, 241', '', ...ok('dev'), '2026-06-22T11:50', '2026-08-19T09:14'),
+      O('850612300145', 'ИП «Сейткали А. Б.»', '«Сейткали А. Б.» ЖК',
+        '110000, г. Костанай, ул. Гоголя, 118, кв. 25', '110000, г. Костанай, ул. Баймагамбетова, 170, пом. 2', ...ok('ret'), '2026-03-04T10:02', '2026-03-04T10:02'),
+      O('190940008899', 'ТОО «КазМедИмпорт»', '«ҚазМедИмпорт» ЖШС',
+        '010000, г. Астана, район Нура, пр. Туран, 55а', '', ...ok('whs', 'dev'), '2026-08-27T13:12', '2026-09-02T16:30'),
+      O('101140002233', 'ТОО «ФармЛайн Восток»', '«ФармЛайн Шығыс» ЖШС',
+        '070000, г. Усть-Каменогорск, ул. Казахстан, 62', '', ...ok('whs'), '2025-11-28T10:00', '2026-08-14T15:06', '2026-08-14T15:06'),
+      O('130240005511', 'ТОО «Эко Мед Трейд»', '«Эко Мед Трейд» ЖШС',
+        '060000, г. Атырау, пр. Азаттык, 48', '', ...ok('whs'), '2025-12-09T12:30', '2026-06-02T11:41', '2026-06-02T11:41'),
+    ];
+
+    const U = (id, iin, last, first, middle, type, profile, level, role, bin, position, email, phone, createdAt, st) => {
+      const u = { id, iin, last, first, middle, type, profile, level, role, bin: bin || '', position: position || '', email, phone,
+        createdAt, updatedAt: createdAt, status:'ACTIVE', deleted:false, changedAt:null, reason:null };
+      if(st === 'org'){ u.status = 'INACTIVE'; u.reason = 'org'; u.changedAt = '2026-08-14T15:06'; }
+      else if(st){ u.status = 'INACTIVE'; u.deleted = true; u.reason = 'admin'; u.changedAt = st; }
+      return u;
+    };
+    const users = [
+      U('u01','010509550711','Конспаев','Мансур','Акылбаевич','FL','citizen','APPLICANT','SPECIALIST_WITH_SIGN','','','m.konspaev@mail.kz','+7 701 555 12 34','2026-02-11T09:40'),
+      U('u02','010509550711','Конспаев','Мансур','Акылбаевич','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','180540024521','Менеджер по регистрации','konspaev@astanagroup.kz','+7 701 555 12 34','2026-02-11T09:52'),
+      U('u03','780312300456','Искаков','Ерлан','Маратович','UL','gov','NNCRZ','FC_DEPUTY','110340017483','Заместитель председателя формулярной комиссии','e.iskakov@nncrz.kz','+7 717 270 95 11','2025-11-20T10:05'),
+      U('u04','830715301234','Муратов','Данияр','Серикович','UL','gov','NNCRZ','EXPERT','110340017483','Главный специалист','d.muratov@nncrz.kz','+7 717 270 95 24','2025-11-20T10:18'),
+      U('u05','900405400321','Нурушева','Айгерим','Болатовна','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','050940012345','Специалист по регистрации ЛС','a.nurusheva@farmgroup.kz','+7 727 344 10 20','2026-01-15T11:30'),
+      U('u06','870923400789','Ахметова','Динара','Сериковна','UL','gov','KMFK','KMFK_SPEC','201040018899','Главный эксперт','d.akhmetova@kmfk.gov.kz','+7 717 274 36 50','2025-10-02T09:00'),
+      U('u07','850214300987','Жаксылыков','Арман','Нурланович','UL','gov','KMFK','KMFK_HEAD','201040018899','Руководитель управления','a.zhaksylykov@kmfk.gov.kz','+7 717 274 36 01','2025-10-02T09:12'),
+      U('u08','810630400112','Ким','Ольга','Викторовна','UL','gov','NCELS','NCELS_EXPERT','980240003251','Эксперт','o.kim@ndda.kz','+7 717 278 43 15','2025-12-08T14:20'),
+      U('u09','850612300145','Сейткали','Айбек','Болатович','IP','business','APPLICANT','SPECIALIST_WITH_SIGN','850612300145','Индивидуальный предприниматель','seitkali.ab@gmail.com','+7 705 118 44 90','2026-03-04T10:05'),
+      U('u10','920101400556','Омарова','Жанар','Кайратовна','UL','business','APPLICANT','SPECIALIST','150340009876','Специалист отдела продаж','zh.omarova@medtech.kz','+7 721 250 17 33','2026-03-19T14:02'),
+      U('u11','880817300334','Байжанов','Тимур','Асланович','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','991140001122','Директор по регуляторным вопросам','t.baizhanov@caspiypharm.kz','+7 729 230 55 60','2026-04-02T10:27'),
+      U('u12','950228400667','Смагулова','Асель','Ермековна','UL','medical','MEDICAL','DOCTOR','061240007788','Врач общей практики','a.smagulova@gp5.kz','+7 747 301 22 18','2026-04-21T08:55'),
+      U('u13','790505300778','Тулегенов','Руслан','Маратович','UL','medical','MEDICAL','MO_HEAD','061240007788','Главный врач','r.tulegenov@gp5.kz','+7 717 239 10 01','2026-04-21T09:03'),
+      U('u14','840311400889','Абдрахманова','Гульнара','Талгатовна','UL','medical','MEDICAL','DOCTOR','040540003344','Врач-кардиолог','g.abdrakhmanova@mgb1.kz','+7 777 402 61 45','2026-05-06T12:40'),
+      U('u15','760919300990','Петров','Сергей','Николаевич','UL','business','APPLICANT','ORG_HEAD','071040005566','Генеральный директор','s.petrov@alataupharm.kz','+7 727 295 70 00','2026-05-12T13:40'),
+      U('u16','930707400123','Есенова','Мадина','Руслановна','FL','citizen','APPLICANT','SPECIALIST_WITH_SIGN','','','m.yessenova@mail.kz','+7 708 640 25 17','2026-05-27T19:12'),
+      U('u17','860101300245','Калиев','Бауыржан','Ерланович','UL','business','APPLICANT','SPECIALIST','120640011223','Провизор','b.kaliev@dari-darmek.kz','+7 725 256 31 08','2026-06-09T11:04'),
+      U('u18','910512400356','Садыкова','Лаура','Айдаровна','UL','gov','NNCRZ','FC_SECRETARY','110340017483','Секретарь формулярной комиссии','l.sadykova@nncrz.kz','+7 717 270 95 36','2026-06-18T10:30'),
+      U('u19','820808300467','Исмаилов','Тимур','Рашидович','UL','gov','NCELS','NCELS_HEAD','980240003251','Руководитель управления экспертизы','t.ismailov@ndda.kz','+7 717 278 43 02','2026-07-01T09:15'),
+      U('u20','750303400578','Мухамедиева','Сауле','Кенжебековна','UL','gov','NNCRZ','FC_CHAIR','110340017483','Председатель формулярной комиссии','s.mukhamedieva@nncrz.kz','+7 717 270 95 02','2026-07-14T09:50'),
+      U('u21','890620300689','Ли','Александр','Игоревич','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','160740004455','Менеджер по тендерам','a.li@shifamedical.kz','+7 701 733 48 29','2026-08-03T10:47'),
+      U('u22','960914400790','Каримова','Айжан','Нурлановна','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','170840006677','Специалист по регистрации МИ','a.karimova@biomed.kz','+7 718 261 14 77','2026-08-19T09:16'),
+      U('u23','800130300801','Джумабаев','Нурлан','Сабитович','UL','business','APPLICANT','ORG_HEAD','190940008899','Директор','n.dzhumabaev@kazmedimport.kz','+7 717 255 80 90','2026-09-02T16:33'),
+      U('u24','970402400912','Бекова','Дана','Алмасовна','UL','business','APPLICANT','SPECIALIST','180540024521','Помощник менеджера','d.bekova@astanagroup.kz','+7 776 910 03 56','2026-09-22T17:05'),
+      U('u25','830404300123','Галиев','Марат','Рустемович','UL','business','APPLICANT','SPECIALIST_WITH_SIGN','101140002233','Коммерческий директор','m.galiev@pharmline.kz','+7 723 222 60 14','2025-12-01T10:20','org'),
+      U('u26','900909400234','Федорова','Анна','Павловна','UL','business','APPLICANT','SPECIALIST','101140002233','Менеджер','a.fedorova@pharmline.kz','+7 723 222 60 18','2026-01-22T12:00','org'),
+      U('u27','770707300345','Нуртазин','Ерболат','Касымович','UL','business','APPLICANT','SPECIALIST','050940012345','Менеджер','e.nurtazin@farmgroup.kz','+7 727 344 10 31','2025-12-18T15:10','2026-09-03T12:11'),
+      U('u28','980101400456','Серикбаева','Томирис','Даулетовна','FL','citizen','APPLICANT','SPECIALIST_WITH_SIGN','','','t.serikbayeva@mail.kz','+7 702 118 90 43','2026-02-27T20:31','2026-07-21T10:05'),
+      U('u29','810218300567','Оспанов','Кайрат','Жумабекович','UL','medical','MEDICAL','NURSE','040540003344','Медицинский брат','k.ospanov@mgb1.kz','+7 775 206 38 12','2026-03-30T08:44','2026-09-11T15:20'),
+    ];
+    return { v: Component.DB_VER, orgs, users };
+  }
+
+  constructor(props){
+    super(props);
+    let ui = {};
+    try { ui = JSON.parse(sessionStorage.getItem(Component.UI_KEY) || '{}') || {}; } catch(e){}
+    // переход из карточки организации: ?q=<БИН>&tab=inactive
+    try {
+      const qs = new URLSearchParams(location.search);
+      // ссылка задаёт выборку целиком: вкладка из прошлой сессии здесь не должна мешать
+      if(qs.get('q') !== null) ui = Object.assign({}, ui, { q: qs.get('q'), page: 1, f: {}, tab: 'active' });
+      if(['active','inactive','deleted'].indexOf(qs.get('tab')) >= 0) ui.tab = qs.get('tab');
+      if(location.search) history.replaceState(null, '', location.pathname + location.hash);
+    } catch(e){}
+    this.state = {
+      role:'admin', db: this.loadDb(), loading:true,
+      tab: ui.tab || 'active', q: ui.q || '',
+      f: Object.assign({ type:'', profile:'', level:'', role:'' }, ui.f || {}),
+      sort: ui.sort || { col:'name', dir:'asc' }, page: ui.page || 1,
+      openSel:null, selIdx:-1, selUp:false,
+      drawer:null, confirm:null, toast:null, flash:null,
+      gbd:'ok', saveMode:'ok', demoOpen:false, copied:null,
+    };
+  }
+
+  // ——— жизненный цикл ———
+  componentDidMount(){
+    try {
+      const r = localStorage.getItem('mp-biz-role');
+      if(r === 'applicant') this.setState({ role:'applicant' });
+      else if(r !== 'admin'){ localStorage.setItem('mp-biz-role', 'admin'); window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:'admin' })); }
+    } catch(e){}
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role: e.detail === 'applicant' ? 'applicant' : 'admin' }); };
+    window.addEventListener('mp-biz-role-change', this._onRole);
+
+    this._onDb = () => this.setState({ db: this.loadDb() });
+    this._onStorage = (e) => { if(e.key === Component.DB_KEY) this._onDb(); };
+    window.addEventListener('mp-admin-db-change', this._onDb);
+    window.addEventListener('storage', this._onStorage);
+
+    this._onKey = (e) => this.onWinKey(e);
+    window.addEventListener('keydown', this._onKey);
+    this._onDown = (e) => {
+      const k = this.state.openSel;
+      if(!k) return;
+      const t = e.target;
+      if(t && t.closest && t.closest('[data-pop="' + k + '"]')) return;
+      this.setState({ openSel:null });
+    };
+    window.addEventListener('mousedown', this._onDown);
+
+    this.snapUi();
+    this._lt = setTimeout(() => this.setState({ loading:false }), 450);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-biz-role-change', this._onRole);
+    window.removeEventListener('mp-admin-db-change', this._onDb);
+    window.removeEventListener('storage', this._onStorage);
+    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('mousedown', this._onDown);
+    [this._lt, this._tt, this._sv, this._ft, this._lkI, this._lkB, this._ct, this._cp].forEach(clearTimeout);
+  }
+  // рантайм DC передаёт в componentDidUpdate только prevProps — прошлое состояние храним сами
+  snapUi(){ const s = this.state; this._ps = { tab:s.tab, q:s.q, f:s.f, sort:s.sort, page:s.page, confirm:s.confirm }; }
+  componentDidUpdate(){
+    const s = this.state, ps = this._ps || {};
+    this.snapUi();
+    if(ps.tab !== s.tab || ps.q !== s.q || ps.f !== s.f || ps.sort !== s.sort || ps.page !== s.page){
+      try { sessionStorage.setItem(Component.UI_KEY, JSON.stringify({ tab:s.tab, q:s.q, f:s.f, sort:s.sort, page:s.page })); } catch(e){}
+    }
+    // диалог подтверждения: фокус на безопасной кнопке, после закрытия — обратно на источник
+    if(!ps.confirm && s.confirm){
+      this._cret = document.activeElement;
+      setTimeout(() => { const el = document.getElementById('am-c-cancel'); if(el) el.focus(); }, 30);
+    }
+    if(ps.confirm && !s.confirm){
+      const r = this._cret;
+      this._cret = null;
+      setTimeout(() => { if(r && r.focus && document.body.contains(r)) r.focus({ preventScroll:true }); }, 30);
+    }
+  }
+
+  // ——— данные ———
+  loadDb(){
+    try {
+      const raw = localStorage.getItem(Component.DB_KEY);
+      if(raw){ const db = JSON.parse(raw); if(db && db.v === Component.DB_VER && Array.isArray(db.users) && Array.isArray(db.orgs)) return db; }
+    } catch(e){}
+    const db = Component.seed();
+    try { localStorage.setItem(Component.DB_KEY, JSON.stringify(db)); } catch(e){}
+    return db;
+  }
+  commit(db, cb){
+    this.setState({ db }, cb);
+    try { localStorage.setItem(Component.DB_KEY, JSON.stringify(db)); } catch(e){}
+  }
+  users(){ return this.state.db.users; }
+  org(bin){ return bin ? this.state.db.orgs.filter(o => o.bin === bin)[0] || null : null; }
+
+  // ——— помощники ———
+  pl(n, f){ const a = Math.abs(n) % 100, b = a % 10; if(a > 10 && a < 20) return f[2]; if(b > 1 && b < 5) return f[1]; if(b === 1) return f[0]; return f[2]; }
+  pad(n){ return (n < 10 ? '0' : '') + n; }
+  fmtDate(iso){ if(!iso) return '—'; const d = new Date(iso); return this.pad(d.getDate()) + '.' + this.pad(d.getMonth() + 1) + '.' + d.getFullYear(); }
+  fmtDateTime(iso){ if(!iso) return '—'; const d = new Date(iso); return this.fmtDate(iso) + ', ' + this.pad(d.getHours()) + ':' + this.pad(d.getMinutes()); }
+  nowIso(){ const d = new Date(); return d.getFullYear() + '-' + this.pad(d.getMonth() + 1) + '-' + this.pad(d.getDate()) + 'T' + this.pad(d.getHours()) + ':' + this.pad(d.getMinutes()); }
+  digits(s){ return String(s || '').replace(/\D/g, ''); }
+  fmtPhone(raw){
+    let d = this.digits(raw);
+    if(!d) return '';
+    if(d[0] === '8') d = '7' + d.slice(1);
+    if(d[0] !== '7') d = '7' + d;
+    d = d.slice(0, 11);
+    const p = [d.slice(1, 4), d.slice(4, 7), d.slice(7, 9), d.slice(9, 11)].filter(Boolean);
+    return '+7' + (p.length ? ' ' + p.join(' ') : '');
+  }
+  fullName(u){ return [u.last, u.first, u.middle].filter(Boolean).join(' '); }
+  shortName(u){ return u.last + ' ' + (u.first ? u.first[0] + '.' : '') + (u.middle ? ' ' + u.middle[0] + '.' : ''); }
+  initials(u){ return ((u.last || '')[0] || '') + ((u.first || '')[0] || ''); }
+  avatarStyle(seed, size){
+    const pal = [['#EEF2FF','#312D86'], ['#EFFAF6','#176448'], ['#FEF3EB','#6E330C'], ['#EEEBFF','#2B1664'], ['#EBFAFF','#164564']];
+    let h = 0; String(seed).split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) >>> 0; });
+    const p = pal[h % pal.length], sz = size || 36;
+    return 'width:' + sz + 'px;height:' + sz + 'px;flex:0 0 auto;border-radius:50%;background:' + p[0] + ';color:' + p[1]
+      + ';display:flex;align-items:center;justify-content:center;font-size:' + (sz > 36 ? 15 : 13) + 'px;line-height:1;font-weight:600;letter-spacing:-.01em;';
+  }
+  byId(list, id){ return list.filter(x => x.id === id)[0] || null; }
+  type(id){ return this.byId(Component.TYPES, id); }
+  profile(id){ return this.byId(Component.PROFILES, id); }
+  level(id){ return this.byId(Component.LEVELS, id); }
+  role(id){ return this.byId(Component.ROLES, id); }
+  tabOf(u){ return u.deleted ? 'deleted' : u.status === 'INACTIVE' ? 'inactive' : 'active'; }
+  tabName(t){ return { active:'Действующие', inactive:'Деактивированные', deleted:'Удалённые' }[t]; }
+  orgBlocked(u){ const o = this.org(u.bin); return !!(o && o.deleted); }
+  rulesOf(p){
+    return [
+      { text:'8+ символов',        ok: p.length >= 8 },
+      { text:'Заглавная буква',    ok: /[A-ZА-ЯЁ]/.test(p) },
+      { text:'Строчная буква',     ok: /[a-zа-яё]/.test(p) },
+      { text:'Цифра',              ok: /\d/.test(p) },
+      { text:'Спецсимвол',         ok: /[^A-Za-zА-Яа-яЁё0-9\s]/.test(p) },
+    ];
+  }
+  genPassword(){
+    const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!#$%&*?@'];
+    const all = sets.join(''), pick = (s) => s[Math.floor(Math.random() * s.length)];
+    const out = sets.map(pick);
+    while(out.length < 12) out.push(pick(all));
+    for(let i = out.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = out[i]; out[i] = out[j]; out[j] = t; }
+    return out.join('');
+  }
+  toast(tone, title, text, actionLabel, onAction){
+    clearTimeout(this._tt);
+    this.setState({ toast:{ tone, title, text, actionLabel, onAction } });
+    this._tt = setTimeout(() => this.setState({ toast:null }), 7000);
+  }
+
+  // ——— список ———
+  /** Аббревиатура наименования в кавычках: «Национальный научный центр развития здравоохранения…» → ННЦРЗ… */
+  acr(name){
+    const m = String(name || '').match(/«([^»]+)/);
+    return (m ? m[1] : '').split(/[\s-]+/).filter(w => w.length > 2).map(w => w[0]).join('');
+  }
+  matches(u, q){
+    if(!q) return true;
+    const o = this.org(u.bin);
+    const hay = [u.iin, u.last, u.first, u.middle, u.email, u.bin, o ? o.ru : '', o ? o.kz : '', o ? this.acr(o.ru) : ''].join(' ').toLowerCase();
+    return q.toLowerCase().split(/\s+/).filter(Boolean).every(t => hay.indexOf(t) >= 0);
+  }
+  filtered(tab){
+    const s = this.state, q = s.q.trim(), f = s.f;
+    return this.users().filter(u => this.tabOf(u) === tab
+      && (!f.type || u.type === f.type) && (!f.profile || u.profile === f.profile)
+      && (!f.level || u.level === f.level) && (!f.role || u.role === f.role)
+      && this.matches(u, q));
+  }
+  sorted(list){
+    const s = this.state, dir = s.sort.dir === 'asc' ? 1 : -1;
+    const key = {
+      name:  (u) => u.last + ' ' + u.first + ' ' + u.middle,
+      org:   (u) => { const o = this.org(u.bin); return o ? o.ru.replace(/^[^«"]*[«"]/, '') : '￿'; },
+      email: (u) => u.email,
+      role:  (u) => { const r = this.role(u.role); return r ? r.label : ''; },
+    }[s.sort.col] || ((u) => u.last);
+    return list.slice().sort((a, b) => key(a).localeCompare(key(b), 'ru') * dir);
+  }
+  setQ(q){ this.setState({ q, page:1 }); }
+  resetAll(){ this.setState({ q:'', f:{ type:'', profile:'', level:'', role:'' }, page:1, openSel:null }); }
+  setFilter(k, v){
+    const f = Object.assign({}, this.state.f, { [k]: v });
+    // каскад: уровень должен подходить профилю, роль — уровню
+    if(k === 'profile' && f.level){ const l = this.level(f.level); if(v && l && l.profiles.indexOf(v) < 0){ f.level = ''; f.role = ''; } }
+    if((k === 'level' || k === 'profile') && f.role){ const r = this.role(f.role); if(f.level && r && r.level !== f.level) f.role = ''; }
+    this.setState({ f, page:1 });
+  }
+  /** Показать запись в реестре: вкладка, страница, подсветка строки */
+  reveal(id, clear){
+    const u = this.byId(this.users(), id);
+    if(!u) return;
+    const tab = this.tabOf(u);
+    const apply = () => {
+      const list = this.sorted(this.filtered(tab)), i = list.map(x => x.id).indexOf(id);
+      if(i < 0) return false;
+      clearTimeout(this._ft);
+      this.setState({ page: Math.floor(i / Component.PAGE) + 1, flash:id });
+      this._ft = setTimeout(() => this.setState({ flash:null }), 2600);
+      return true;
+    };
+    const patch = clear ? { tab, q:'', f:{ type:'', profile:'', level:'', role:'' } } : { tab };
+    this.setState(patch, () => { if(!apply() && !clear) this.setState({ q:'', f:{ type:'', profile:'', level:'', role:'' } }, apply); });
+  }
+
+  // ——— выпадающие списки (форма и фильтры) ———
+  openSelect(key, opts, el, cur){
+    let up = false;
+    if(el && el.getBoundingClientRect && this.state.drawer){
+      const r = el.getBoundingClientRect(), limit = window.innerHeight - 84;
+      const need = Math.min(296, opts.length * 52 + 16);
+      up = limit - r.bottom < need && r.top - 80 > limit - r.bottom;
+    }
+    let idx = opts.map(o => o.id).indexOf(cur);
+    if(idx < 0 || (opts[idx] && opts[idx].disabled)) idx = opts.map(o => !o.disabled).indexOf(true);
+    this.setState({ openSel:key, selIdx:idx, selUp:up });
+  }
+  selKey(key, opts, cur, onPick, e){
+    const open = this.state.openSel === key, k = e.key;
+    if(!open){
+      if(k === 'ArrowDown' || k === 'ArrowUp' || k === 'Enter' || k === ' '){ e.preventDefault(); this.openSelect(key, opts, e.currentTarget, cur); }
+      return;
+    }
+    if(k === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.setState({ openSel:null }); return; }
+    if(k === 'Tab'){ this.setState({ openSel:null }); return; }
+    const enabled = opts.map((o, i) => o.disabled ? -1 : i).filter(i => i >= 0);
+    if(k === 'ArrowDown' || k === 'ArrowUp' || k === 'Home' || k === 'End'){
+      e.preventDefault();
+      let p = enabled.indexOf(this.state.selIdx);
+      if(k === 'ArrowDown') p = Math.min(enabled.length - 1, p + 1);
+      if(k === 'ArrowUp') p = Math.max(0, p - 1);
+      if(k === 'Home') p = 0;
+      if(k === 'End') p = enabled.length - 1;
+      const idx = enabled[p];
+      this.setState({ selIdx:idx });
+      setTimeout(() => { const el = document.getElementById(key + '-o' + idx); if(el) el.scrollIntoView({ block:'nearest' }); }, 0);
+      return;
+    }
+    if(k === 'Enter' || k === ' '){
+      e.preventDefault();
+      const o = opts[this.state.selIdx];
+      if(o && !o.disabled){ onPick(o.id); this.setState({ openSel:null }); }
+    }
+  }
+  selectVals(key, opts, cur, onPick, drop){
+    const s = this.state, open = s.openSel === key, up = open && s.selUp && !drop;
+    return {
+      key, open, expanded: open ? 'true' : 'false',
+      listId: key + '-list',
+      activeId: open && s.selIdx >= 0 ? key + '-o' + s.selIdx : undefined,
+      onToggle: (e) => { if(open) this.setState({ openSel:null }); else this.openSelect(key, opts, e.currentTarget, cur); },
+      onKey: (e) => this.selKey(key, opts, cur, onPick, e),
+      chevStyle: 'font-size:18px;color:var(--n400);flex:0 0 auto;transition:transform .15s;' + (open ? 'transform:rotate(180deg);' : '')
+        + (drop ? '' : 'position:absolute;right:10px;top:50%;margin-top:-9px;'),
+      popStyle: 'position:absolute;left:0;' + (drop ? 'min-width:240px;max-width:360px;width:max-content;' : 'right:0;') + (up ? 'bottom:calc(100% + 4px);' : 'top:calc(100% + 4px);')
+        + 'z-index:6;max-height:296px;overflow-y:auto;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-md),0 1px 2px rgba(10,13,20,.04);padding:6px;display:flex;flex-direction:column;gap:2px;animation:am-pop .12s ease;',
+      options: opts.map((o, i) => {
+        const sel = o.id === cur, act = open && s.selIdx === i;
+        return {
+          oid: key + '-o' + i, label:o.label, desc:o.desc || '', hasDesc:!!o.desc, icon:o.icon || '', hasIcon:!!o.icon,
+          sel, selA: sel ? 'true' : 'false', dis: o.disabled ? 'true' : 'false',
+          onPick: (e) => { e.preventDefault(); if(o.disabled) return; onPick(o.id); this.setState({ openSel:null }); },
+          onHover: () => { if(!o.disabled && this.state.selIdx !== i) this.setState({ selIdx:i }); },
+          style: 'display:flex;align-items:' + (o.desc ? 'flex-start' : 'center') + ';gap:10px;padding:8px 10px;border-radius:8px;'
+            + (o.disabled ? 'cursor:not-allowed;opacity:.5;' : 'cursor:pointer;') + (act ? 'background:var(--n100);' : 'background:transparent;'),
+          lblStyle: 'flex:1;min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);' + (sel ? 'font-weight:500;' : ''),
+        };
+      }),
+    };
+  }
+
+  // ——— клавиатура ———
+  onWinKey(e){
+    const s = this.state;
+    if(e.key === 'Escape'){
+      if(s.openSel){ this.setState({ openSel:null }); return; }
+      if(s.confirm){ if(!s.confirm.busy) this.setState({ confirm:null }); return; }
+      if(s.drawer){ this.closeDrawer(); return; }
+      if(s.demoOpen){ this.setState({ demoOpen:false }); return; }
+    }
+    if(e.key === 'Tab'){
+      const box = s.confirm ? document.getElementById('am-confirm') : s.drawer ? document.getElementById('am-drawer') : null;
+      if(box){
+        const els = [].slice.call(box.querySelectorAll('button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(el => el.offsetParent !== null);
+        if(!els.length) return;
+        const first = els[0], last = els[els.length - 1], a = document.activeElement;
+        if(!box.contains(a)){ e.preventDefault(); first.focus(); }
+        else if(e.shiftKey && a === first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && a === last){ e.preventDefault(); first.focus(); }
+      }
+    }
+    if(e.key === '/' && !s.drawer && !s.confirm && s.role === 'admin'){
+      const t = e.target;
+      if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      e.preventDefault();
+      const el = document.getElementById('am-search');
+      if(el) el.focus();
+    }
+  }
+
+  // ——— боковая панель ———
+  emptyForm(){ return { type:'', iin:'', last:'', first:'', middle:'', bin:'', org:'', position:'', email:'', phone:'', profile:'', level:'', role:'', pass:'', pass2:'' }; }
+  openCreate(){
+    this._ret = document.activeElement;
+    this.setState({ openSel:null, drawer:{ mode:'create', id:null, form:this.emptyForm(), touched:{}, submitted:false,
+      iinLk:{ st:'idle' }, binLk:{ st:'idle' }, banner:null, saving:false, showPass:false, pwOpen:true } });
+    this.focusLater('uf-type-FL');
+  }
+  openRecord(id){
+    const u = this.byId(this.users(), id);
+    if(!u) return;
+    if(!this.state.drawer) this._ret = document.activeElement;
+    const mode = this.tabOf(u) === 'active' ? 'edit' : 'view';
+    const form = Object.assign(this.emptyForm(), { type:u.type, iin:u.iin, last:u.last, first:u.first, middle:u.middle, bin:u.bin, position:u.position,
+      org: (this.org(u.bin) || {}).ru || '', email:u.email, phone:u.phone, profile:u.profile, level:u.level, role:u.role });
+    this.setState({ openSel:null, confirm:null, drawer:{ mode, id, form, orig:Object.assign({}, form), touched:{}, submitted:false,
+      iinLk:{ st:'ok' }, binLk:{ st:'registry' }, banner:null, saving:false, showPass:false, pwOpen:false } });
+    const body = document.getElementById('am-dr-body');
+    if(body) body.scrollTop = 0;
+    this.focusLater(mode === 'edit' ? 'uf-email' : 'am-dr-close');
+  }
+  focusLater(id){
+    clearTimeout(this._ct);
+    this._ct = setTimeout(() => {
+      const el = document.getElementById(id) || document.querySelector('#am-drawer .ib');
+      if(el) el.focus({ preventScroll:true });
+    }, 60);
+  }
+  focusField(key){
+    let el = document.getElementById('uf-' + key);
+    if(!el) return;
+    el.scrollIntoView({ block:'center', behavior:'smooth' });
+    if(el.getAttribute('role') === 'radiogroup') el = el.querySelector('[role="radio"]');
+    setTimeout(() => { if(el) el.focus({ preventScroll:true }); }, 180);
+  }
+  patchD(p){ this.setState(s => s.drawer ? { drawer: Object.assign({}, s.drawer, typeof p === 'function' ? p(s.drawer) : p) } : null); }
+  isDirty(d){
+    if(!d || d.mode === 'view') return false;
+    const f = d.form;
+    if(d.mode === 'create') return Object.keys(f).some(k => k === 'phone' ? this.digits(f[k]).length > 1 : !!String(f[k]).trim());
+    return ['email','phone','level','role'].some(k => f[k] !== d.orig[k]) || !!(d.pwOpen && (f.pass || f.pass2));
+  }
+  closeDrawer(force){
+    const d = this.state.drawer;
+    if(!d) return;
+    if(d.saving) return;
+    if(!force && this.isDirty(d)){ this.setState({ openSel:null, confirm:{ kind:'discard', next:null } }); return; }
+    clearTimeout(this._lkI); clearTimeout(this._lkB);
+    this.setState({ drawer:null, openSel:null, confirm:null });
+    const r = this._ret;
+    setTimeout(() => { if(r && r.focus && document.body.contains(r)) r.focus({ preventScroll:true }); }, 30);
+  }
+  /** Уйти с формы с несохранёнными данными — только через подтверждение */
+  guard(next){
+    if(this.isDirty(this.state.drawer)){ this.setState({ openSel:null, confirm:{ kind:'discard', next } }); return; }
+    next();
+  }
+
+  // ——— поля формы ———
+  touch(k){ this.patchD(d => ({ touched: Object.assign({}, d.touched, { [k]:true }) })); }
+  setField(k, v){
+    const d = this.state.drawer;
+    if(!d) return;
+    const f = Object.assign({}, d.form, { [k]: v });
+    const patch = { form:f };
+    const P = Component.PROFILES, L = Component.LEVELS, R = Component.ROLES;
+
+    if(k === 'type'){
+      const ps = P.filter(p => p.types.indexOf(v) >= 0);
+      if(ps.map(p => p.id).indexOf(f.profile) < 0) f.profile = ps.length === 1 ? ps[0].id : '';
+      if(v === 'FL'){ f.bin = ''; f.org = ''; f.position = ''; patch.binLk = { st:'idle' }; clearTimeout(this._lkB); }
+      else if(v === 'IP' && !f.bin && /^\d{12}$/.test(f.iin)){ f.bin = f.iin; }
+      else if(d.form.type === 'IP' && v === 'UL' && f.bin === f.iin){ f.bin = ''; f.org = ''; patch.binLk = { st:'idle' }; }
+    }
+    if(k === 'type' || k === 'profile' || k === 'bin'){
+      const ls = L.filter(l => l.profiles.indexOf(f.profile) >= 0);
+      const byBin = ls.filter(l => l.bin && l.bin === f.bin)[0];
+      if(ls.map(l => l.id).indexOf(f.level) < 0) f.level = ls.length === 1 ? ls[0].id : byBin ? byBin.id : '';
+      else if(byBin && f.level !== byBin.id && k === 'bin') f.level = byBin.id;
+    }
+    if(k === 'type' || k === 'profile' || k === 'level' || k === 'bin'){
+      const rs = R.filter(r => r.level === f.level);
+      if(rs.map(r => r.id).indexOf(f.role) < 0) f.role = rs.length === 1 ? rs[0].id : '';
+    }
+
+    if(k === 'iin'){
+      clearTimeout(this._lkI);
+      if(d.iinLk.st === 'ok' || d.iinLk.st === 'notfound'){ f.last = ''; f.first = ''; f.middle = ''; }
+      patch.iinLk = { st:'idle' };
+      if(d.form.type === 'IP' && d.form.bin === d.form.iin){ f.bin = /^\d{12}$/.test(v) ? v : ''; f.org = ''; patch.binLk = { st:'idle' }; }
+    }
+    if(k === 'bin'){
+      clearTimeout(this._lkB);
+      if(d.binLk.st !== 'down') f.org = '';
+      patch.binLk = { st:'idle' };
+    }
+    if(d.banner && d.banner.kind !== 'error') patch.banner = null;
+    this.patchD(patch);
+
+    if(k === 'iin' && /^\d{12}$/.test(v)) this.lookupIin(v);
+    if((k === 'bin' && /^\d{12}$/.test(v)) || (k === 'iin' && f.type === 'IP' && f.bin === v && /^\d{12}$/.test(v)) || (k === 'type' && f.bin && /^\d{12}$/.test(f.bin) && f.bin !== d.form.bin)) this.lookupBin(f.bin);
+  }
+  lookupIin(iin){
+    clearTimeout(this._lkI);
+    this.patchD({ iinLk:{ st:'loading' } });
+    this._lkI = setTimeout(() => {
+      const d = this.state.drawer;
+      if(!d || d.form.iin !== iin) return;
+      if(this.state.gbd === 'down'){ this.patchD({ iinLk:{ st:'down' } }); return; }
+      const known = this.users().filter(u => u.iin === iin)[0];
+      const rec = known ? [known.last, known.first, known.middle] : Component.GBD_FL[iin];
+      if(!rec){ this.patchD(dd => ({ iinLk:{ st:'notfound' }, touched: Object.assign({}, dd.touched, { iin:true }) })); return; }
+      this.patchD(dd => ({ iinLk:{ st:'ok' }, form: Object.assign({}, dd.form, { last:rec[0], first:rec[1], middle:rec[2] || '' }) }));
+    }, 700);
+  }
+  lookupBin(bin){
+    clearTimeout(this._lkB);
+    this.patchD({ binLk:{ st:'loading' } });
+    this._lkB = setTimeout(() => {
+      const d = this.state.drawer;
+      if(!d || d.form.bin !== bin) return;
+      const o = this.org(bin);
+      if(o && o.deleted){ this.patchD(dd => ({ binLk:{ st:'deleted' }, form: Object.assign({}, dd.form, { org:o.ru }), touched: Object.assign({}, dd.touched, { bin:true }) })); return; }
+      if(o){ this.patchD(dd => ({ binLk:{ st:'registry' }, form: Object.assign({}, dd.form, { org:o.ru }) })); return; }
+      if(this.state.gbd === 'down'){ this.patchD({ binLk:{ st:'down' } }); return; }
+      const g = Component.GBD_UL[bin];
+      if(!g){ this.patchD(dd => ({ binLk:{ st:'notfound' }, form: Object.assign({}, dd.form, { org:'' }), touched: Object.assign({}, dd.touched, { bin:true }) })); return; }
+      this.patchD(dd => ({ binLk:{ st:'gbd', src:g.src }, form: Object.assign({}, dd.form, { org:g.ru }) }));
+    }, 700);
+  }
+
+  validate(d){
+    const f = d.form, e = {}, create = d.mode === 'create';
+    const needOrg = f.type === 'IP' || f.type === 'UL';
+    if(create){
+      if(!f.type) e.type = 'Выберите тип пользователя';
+      if(!f.iin) e.iin = 'Введите ИИН';
+      else if(!/^\d{12}$/.test(f.iin)) e.iin = 'ИИН состоит из 12 цифр — введено ' + f.iin.length;
+      else if(d.iinLk.st === 'loading') e.iin = 'Дождитесь ответа ГБД ФЛ';
+      else if(d.iinLk.st === 'notfound') e.iin = 'ИИН не найден в ГБД ФЛ. Проверьте номер';
+      if(!f.last.trim()) e.last = 'Укажите фамилию';
+      if(!f.first.trim()) e.first = 'Укажите имя';
+      if(needOrg){
+        const what = f.type === 'IP' ? 'ИИН предпринимателя' : 'БИН организации';
+        if(!f.bin) e.bin = 'Введите ' + what;
+        else if(!/^\d{12}$/.test(f.bin)) e.bin = what[0].toUpperCase() + what.slice(1) + ' состоит из 12 цифр — введено ' + f.bin.length;
+        else if(f.type === 'UL' && '456'.indexOf(f.bin[4]) < 0) e.bin = 'Это ИИН, а не БИН. Для предпринимателя выберите тип «Предприниматель»';
+        else if(f.type === 'IP' && '456'.indexOf(f.bin[4]) >= 0) e.bin = 'Это БИН юрлица. Для организации выберите тип «Юрлицо»';
+        else if(d.binLk.st === 'loading') e.bin = 'Дождитесь ответа ' + (f.type === 'IP' ? 'ИС КГД' : 'ГБД ЮЛ');
+        else if(d.binLk.st === 'deleted') e.bin = 'Организация удалена из реестра — привязать к ней пользователя нельзя';
+        else if(d.binLk.st === 'notfound') e.bin = (f.type === 'IP' ? 'ИП не найден в ИС КГД' : 'Организация не найдена в ГБД ЮЛ') + '. Проверьте номер';
+        if(!e.bin && !f.org.trim()) e.org = 'Укажите наименование организации';
+        if(!f.position.trim()) e.position = 'Укажите должность';
+      }
+      if(!f.profile) e.profile = 'Выберите профиль';
+    }
+    if(!f.email.trim()) e.email = 'Введите почту';
+    else if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) e.email = 'Проверьте формат почты: name@example.kz';
+    const pd = this.digits(f.phone);
+    if(pd.length <= 1) e.phone = 'Введите телефон';
+    else if(pd.length !== 11) e.phone = 'Номер неполный — нужен формат +7 XXX XXX XX XX';
+    if(!f.level) e.level = f.profile ? 'Выберите уровень' : 'Сначала выберите профиль';
+    else { const l = this.level(f.level); if(l && l.bin && f.bin && l.bin !== f.bin){ const o = this.org(l.bin); e.level = 'Уровень «' + l.label + '» — только для сотрудников ' + (o ? 'организации с БИН ' + l.bin : 'БИН ' + l.bin); } }
+    if(!f.role) e.role = f.level ? 'Выберите роль' : 'Сначала выберите уровень';
+    if(create || d.pwOpen){
+      if(!f.pass) e.pass = 'Введите пароль';
+      else if(!this.rulesOf(f.pass).every(r => r.ok)) e.pass = 'Пароль должен содержать не менее 8 символов, одну заглавную букву, одну строчную букву, одну цифру и один специальный символ.';
+      if(!f.pass2) e.pass2 = 'Повторите пароль';
+      else if(f.pass !== f.pass2) e.pass2 = 'Пароли не совпадают.';
+    }
+    return e;
+  }
+
+  // ——— сохранение ———
+  save(){
+    const s = this.state, d = s.drawer;
+    if(!d || d.saving || d.mode === 'view') return;
+    if(d.mode === 'edit' && !this.isDirty(d)) return;
+    const errs = this.validate(d), keys = Component.ORDER.filter(k => errs[k]);
+    const body = document.getElementById('am-dr-body');
+    if(keys.length){
+      this.patchD({ submitted:true, banner:{ kind:'error', title:'Проверьте ' + keys.length + ' ' + this.pl(keys.length, ['поле','поля','полей']),
+        text:'Поля с ошибками подсвечены красным. Исправьте их и нажмите «Сохранить» ещё раз.' } });
+      setTimeout(() => this.focusField(keys[0]), 40);
+      return;
+    }
+    const f = d.form, rec = d.mode === 'edit' ? this.byId(this.users(), d.id) : null;
+    const needOrg = f.type === 'IP' || f.type === 'UL';
+    const k = rec ? { iin:rec.iin, bin:rec.bin, type:rec.type, profile:rec.profile, level:f.level }
+                  : { iin:f.iin, bin: needOrg ? f.bin : '', type:f.type, profile:f.profile, level:f.level };
+    const dup = this.users().filter(u => u.id !== (rec && rec.id) && u.iin === k.iin && (u.bin || '') === (k.bin || '')
+      && u.type === k.type && u.profile === k.profile && u.level === k.level)[0];
+    if(dup){
+      const t = this.tabOf(dup);
+      this.patchD({ submitted:true, banner:{ kind:'dup', title:'Пользователь с указанными данными уже зарегистрирован.',
+        text:'Совпадают ИИН, БИН, тип пользователя, профиль и уровень. Запись находится во вкладке «' + this.tabName(t) + '»'
+          + (t === 'active' ? '.' : ' — её можно восстановить вместо создания новой.'),
+        actLabel:'Открыть запись', act: () => this.guard(() => this.openRecord(dup.id)) } });
+      if(body) body.scrollTo({ top:0, behavior:'smooth' });
+      return;
+    }
+    this.patchD({ saving:true, banner:null });
+    clearTimeout(this._sv);
+    this._sv = setTimeout(() => {
+      if(this.state.saveMode === 'error'){
+        this.patchD({ saving:false, banner:{ kind:'error', title:'Не удалось сохранить', text:'Сервер не ответил. Данные формы на месте — попробуйте ещё раз.', actLabel:'Повторить', act: () => this.save() } });
+        const b = document.getElementById('am-dr-body'); if(b) b.scrollTo({ top:0, behavior:'smooth' });
+        return;
+      }
+      const now = this.nowIso(), db = Object.assign({}, this.state.db, { users: this.users().slice(), orgs: this.state.db.orgs.slice() });
+      if(rec){
+        const changed = [];
+        if(f.email !== rec.email) changed.push('почта');
+        if(f.phone !== rec.phone) changed.push('телефон');
+        if(f.level !== rec.level) changed.push('уровень');
+        if(f.role !== rec.role) changed.push('роль');
+        if(d.pwOpen && f.pass) changed.push('пароль');
+        db.users = db.users.map(u => u.id === rec.id ? Object.assign({}, u, { email:f.email.trim(), phone:f.phone, level:f.level, role:f.role, updatedAt:now }) : u);
+        this.setState({ drawer:null });
+        this.commit(db, () => this.reveal(rec.id));
+        this.toast('success', 'Изменения сохранены', this.shortName(rec) + ' · обновлено: ' + changed.join(', ') + '.');
+        return;
+      }
+      let orgAdded = null;
+      if(needOrg && !this.org(f.bin)){
+        const g = Component.GBD_UL[f.bin] || {};
+        orgAdded = { bin:f.bin, ru:f.org.trim(), kz:g.kz || '', addrLegal:g.addrLegal || '', addrFact:g.addrFact || '', okedRu:g.okedRu || '', okedKz:g.okedKz || '',
+          oked2Ru:g.oked2Ru || '', oked2Kz:g.oked2Kz || '', createdAt:now, updatedAt:now, closedAt:null, status:'ACTIVE', deleted:false };
+        db.orgs.push(orgAdded);
+      }
+      const u = { id:'u' + Date.now().toString(36), iin:f.iin, last:f.last.trim(), first:f.first.trim(), middle:f.middle.trim(), type:f.type,
+        profile:f.profile, level:f.level, role:f.role, bin: needOrg ? f.bin : '', position: needOrg ? f.position.trim() : '',
+        email:f.email.trim(), phone:f.phone, createdAt:now, updatedAt:now, status:'ACTIVE', deleted:false, changedAt:null, reason:null };
+      db.users.push(u);
+      this.setState({ drawer:null });
+      this.commit(db, () => this.reveal(u.id));
+      this.toast('success', 'Пользователь создан', this.shortName(u) + ' · ' + this.profile(u.profile).label + ' — во вкладке «Действующие»'
+        + (orgAdded ? '. Организация добавлена в реестр.' : '.'));
+    }, 800);
+  }
+
+  // ——— удаление и восстановление ———
+  askDelete(id){ this.setState({ openSel:null, confirm:{ kind:'delete', id } }); }
+  askRestore(id){
+    const u = this.byId(this.users(), id);
+    if(!u) return;
+    if(this.orgBlocked(u)){
+      const o = this.org(u.bin);
+      this.toast('warn', 'Сначала восстановите организацию', 'Организация ' + o.ru + ' удалена из реестра — пока она в удалённых, её сотрудники не могут войти в систему.',
+        'Открыть «Организации»', () => { location.href = 'Организации.dc.html?bin=' + u.bin; });
+      return;
+    }
+    this.setState({ openSel:null, confirm:{ kind:'restore', id } });
+  }
+  doDelete(id){
+    const prev = this.byId(this.users(), id);
+    if(!prev) return;
+    const db = Object.assign({}, this.state.db, { users: this.users().map(u => u.id === id ? Object.assign({}, u, { status:'INACTIVE', deleted:true, reason:'admin', changedAt:this.nowIso() }) : u) });
+    this.commit(db, () => this.clampPage());
+    this.setState({ confirm:null, drawer:null });
+    this.toast('success', 'Пользователь удалён', 'Запись «' + this.shortName(prev) + '» перенесена во вкладку «Удалённые», вход в систему закрыт.', 'Отменить', () => {
+      const back = Object.assign({}, this.state.db, { users: this.users().map(u => u.id === id ? prev : u) });
+      clearTimeout(this._tt); this.setState({ toast:null });
+      this.commit(back, () => this.reveal(id));
+    });
+  }
+  doRestore(id){
+    const u = this.byId(this.users(), id);
+    if(!u) return;
+    const clash = this.users().filter(x => x.id !== id && this.tabOf(x) === 'active' && x.iin === u.iin && x.bin === u.bin && x.type === u.type && x.profile === u.profile && x.level === u.level)[0];
+    if(clash){
+      this.setState({ confirm:null });
+      this.toast('error', 'Восстановить нельзя', 'Уже есть действующая запись с теми же ИИН, БИН, типом, профилем и уровнем.', 'Открыть её', () => this.openRecord(clash.id));
+      return;
+    }
+    const db = Object.assign({}, this.state.db, { users: this.users().map(x => x.id === id ? Object.assign({}, x, { status:'ACTIVE', deleted:false, reason:null, changedAt:this.nowIso() }) : x) });
+    this.commit(db, () => this.clampPage());
+    this.setState({ confirm:null, drawer:null });
+    this.toast('success', 'Пользователь восстановлен', 'Запись «' + this.shortName(u) + '» снова во вкладке «Действующие», вход в систему открыт.', 'Показать', () => { clearTimeout(this._tt); this.setState({ toast:null }); this.reveal(id); });
+  }
+  clampPage(){
+    const n = this.filtered(this.state.tab).length, max = Math.max(1, Math.ceil(n / Component.PAGE));
+    if(this.state.page > max) this.setState({ page:max });
+  }
+
+  // ——— сборка: реестр ———
+  buildList(){
+    const s = this.state, P = Component.PAGE;
+    const inactiveCols = s.tab !== 'active';
+    const counts = { active:this.filtered('active').length, inactive:this.filtered('inactive').length, deleted:this.filtered('deleted').length };
+    const tabDefs = [
+      { id:'active',   label:'Действующие',      icon:'ri-user-follow-line' },
+      { id:'inactive', label:'Деактивированные', icon:'ri-user-unfollow-line' },
+      { id:'deleted',  label:'Удалённые',        icon:'ri-delete-bin-line' },
+    ];
+    const tabs = tabDefs.map((t, i) => {
+      const on = s.tab === t.id;
+      return {
+        tid:'am-tab-' + t.id, sel: on ? 'true' : 'false', ti: on ? 0 : -1, label:t.label, icon:t.icon, count:counts[t.id],
+        onClick: () => { if(!on) this.setState({ tab:t.id, page:1, openSel:null }); },
+        onKey: (e) => {
+          const d = { ArrowRight:1, ArrowLeft:-1 }[e.key];
+          if(!d) return;
+          e.preventDefault();
+          const n = tabDefs[(i + d + tabDefs.length) % tabDefs.length];
+          this.setState({ tab:n.id, page:1 });
+          setTimeout(() => { const el = document.getElementById('am-tab-' + n.id); if(el) el.focus(); }, 0);
+        },
+        style: 'height:44px;padding:0 2px;margin-bottom:-1px;border:none;border-bottom:2px solid ' + (on ? 'var(--primary)' : 'transparent')
+          + ';background:none;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:'
+          + (on ? 'var(--n900)' : 'var(--n500)') + ';',
+        countStyle: 'min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;'
+          + (on ? 'background:var(--primary-lighter);color:var(--primary-darker);' : 'background:var(--n100);color:var(--n500);'),
+      };
+    });
+
+    // фильтры
+    const f = s.f, T = Component.TYPES, PR = Component.PROFILES, L = Component.LEVELS, R = Component.ROLES;
+    const levelOpts = L.filter(l => !f.profile || l.profiles.indexOf(f.profile) >= 0);
+    const roleOpts = R.filter(r => (!f.level || r.level === f.level) && (!f.profile || levelOpts.map(l => l.id).indexOf(r.level) >= 0));
+    const fDefs = [
+      { k:'type',    name:'Тип',     opts: T.map(t => ({ id:t.id, label:t.label })), show: (id) => this.type(id).short },
+      { k:'profile', name:'Профиль', opts: PR.map(p => ({ id:p.id, label:p.label, icon:p.icon })), show: (id) => this.profile(id).label },
+      { k:'level',   name:'Уровень', opts: levelOpts.map(l => ({ id:l.id, label:l.label })), show: (id) => this.level(id).label },
+      { k:'role',    name:'Роль',    opts: roleOpts.map(r => ({ id:r.id, label:r.label })), show: (id) => this.role(id).label },
+    ];
+    const filters = fDefs.map(fd => {
+      const key = 'flt-' + fd.k, cur = f[fd.k], opts = [{ id:'', label:'Все' }].concat(fd.opts);
+      const sv = this.selectVals(key, opts, cur, (v) => this.setFilter(fd.k, v), true);
+      return Object.assign(sv, {
+        cls: 'fbtn' + (cur ? ' fbtn-on' : ''),
+        text: cur ? fd.name + ': ' + fd.show(cur) : fd.name,
+        aria: 'Фильтр «' + fd.name + '»' + (cur ? ': ' + fd.show(cur) : ''),
+      });
+    });
+    const hasFilters = !!(s.q.trim() || f.type || f.profile || f.level || f.role);
+
+    // строки
+    const list = this.sorted(this.filtered(s.tab));
+    const total = list.length, pages = Math.max(1, Math.ceil(total / P)), page = Math.min(s.page, pages);
+    const slice = list.slice((page - 1) * P, page * P);
+    const typeStyle = {
+      FL: 'background:var(--n100);color:var(--n600);',
+      IP: 'background:var(--teal-ll);color:var(--teal-d);',
+      UL: 'background:var(--purple-ll);color:var(--purple-d);',
+    };
+    // сумма минимумов ≤ 1085: на 1440 px (скроллбар, меню 272, поля 2×32) таблица помещается без прокрутки
+    const grid = inactiveCols
+      ? 'minmax(212px,1.25fr) minmax(172px,1.1fr) minmax(160px,1fr) 168px minmax(164px,1fr) 128px 80px'
+      : 'minmax(236px,1.3fr) minmax(200px,1.15fr) minmax(184px,1.1fr) 168px minmax(196px,1.1fr) 80px';
+    const minW = inactiveCols ? 1084 : 1064;
+
+    const rows = slice.map(u => {
+      const o = this.org(u.bin), ty = this.type(u.type), pr = this.profile(u.profile), lv = this.level(u.level), rl = this.role(u.role);
+      const blocked = this.orgBlocked(u), active = s.tab === 'active';
+      const open = () => this.openRecord(u.id);
+      const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+      const actions = active
+        ? [ { icon:'ri-pencil-line', cls:'ib', aria:'Редактировать: ' + this.fullName(u), title:'Редактировать', dis:'false', onClick: stop(open) },
+            { icon:'ri-delete-bin-line', cls:'ib ib-d', aria:'Удалить: ' + this.fullName(u), title:'Удалить', dis:'false', onClick: stop(() => this.askDelete(u.id)) } ]
+        : [ { icon:'ri-eye-line', cls:'ib', aria:'Просмотр: ' + this.fullName(u), title:'Просмотр', dis:'false', onClick: stop(open) },
+            { icon:'ri-arrow-go-back-line', cls:'ib', aria:'Восстановить: ' + this.fullName(u), dis: blocked ? 'true' : 'false',
+              title: blocked ? 'Недоступно: организация удалена. Сначала восстановите её' : 'Восстановить', onClick: stop(() => this.askRestore(u.id)) } ];
+      return {
+        id:u.id, name: u.last + ' ' + u.first, nameFull: this.fullName(u), iin:u.iin, initials:this.initials(u), avatar:this.avatarStyle(u.iin, 32),
+        openTitle: active ? 'Открыть для редактирования' : 'Открыть карточку',
+        org: o ? o.ru : 'Без организации', orgFull: o ? o.ru : '', hasBin: !!u.bin,
+        binLabel: (u.type === 'IP' ? 'ИИН ИП ' : 'БИН ') + u.bin,
+        orgStyle: 'font-size:14px;line-height:20px;letter-spacing:-.006em;' + (o ? 'color:var(--n900);' : 'color:var(--n400);'),
+        email:u.email,
+        type:ty.short, typeFull:ty.label, typeStyle: 'height:22px;min-width:30px;padding:0 6px;border-radius:6px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.01em;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;' + typeStyle[u.type],
+        profile:pr.label, profileIcon:pr.icon,
+        role: rl ? rl.label : u.role, level: lv ? lv.label : u.level,
+        stDate: this.fmtDate(u.changedAt), stSub: u.deleted ? 'Администратором' : 'Организация удалена',
+        actions,
+        onOpen: open, onOpenBtn: stop(open),
+        style: 'display:grid;grid-template-columns:' + grid + ';align-items:stretch;border-top:1px solid var(--n200);'
+          + (s.flash === u.id ? 'background:var(--primary-lighter);transition:background .6s;' : ''),
+      };
+    });
+
+    const colDefs = [
+      { label:'Пользователь', sort:'name' }, { label:'Организация', sort:'org' }, { label:'Почта', sort:'email' },
+      { label:'Тип и профиль' }, { label:'Уровень и роль', sort:'role' },
+    ].concat(inactiveCols ? [{ label: s.tab === 'deleted' ? 'Удаление' : 'Деактивация' }] : []).concat([{ label:'', sr:'Действия' }]);
+    const cols = colDefs.map(c => {
+      const on = c.sort && s.sort.col === c.sort, asc = s.sort.dir === 'asc';
+      return {
+        label: c.label, sortable: !!c.sort, plain: !c.sort,
+        ariaSort: on ? (asc ? 'ascending' : 'descending') : c.sort ? 'none' : undefined,
+        sortTitle: c.sort ? 'Сортировать по столбцу «' + c.label + '»' : '',
+        onSort: () => this.setState({ sort: { col:c.sort, dir: on && asc ? 'desc' : 'asc' }, page:1 }),
+        sortIcon: on ? (asc ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-expand-up-down-line',
+        sortStyle: 'font-size:16px;' + (on ? 'color:var(--primary);' : 'color:var(--n300);'),
+        style: 'padding:8px 12px;display:flex;align-items:center;min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;',
+      };
+    });
+
+    const skeleton = s.loading ? [0, 1, 2, 3, 4, 5].map(i => ({
+      row: 'display:grid;grid-template-columns:' + grid + ';border-top:1px solid var(--n200);',
+      cells: colDefs.map((c, j) => {
+        const sh = 'display:block;border-radius:6px;background:linear-gradient(90deg,#F6F8FA 25%,#EDEFF3 37%,#F6F8FA 63%);background-size:480px 100%;animation:am-shimmer 1.3s ease infinite;';
+        const w1 = [70, 80, 64, 56, 74, 60, 40][j] - (i % 3) * 6;
+        return { a: sh + 'height:12px;width:' + (j === colDefs.length - 1 ? 40 : w1) + '%;', b: sh + 'height:10px;width:' + (j >= colDefs.length - 1 || j === 2 ? 0 : 42) + '%;' };
+      }),
+    })) : [];
+
+    // пустые состояния
+    let empty = null;
+    if(!s.loading && total === 0){
+      const others = ['active','inactive','deleted'].filter(t => t !== s.tab && counts[t] > 0);
+      if(hasFilters){
+        empty = { icon:'ri-search-eye-line', title:'Никого не нашли',
+          text: (s.q.trim() ? 'По запросу «' + s.q.trim() + '»' : 'По выбранным фильтрам') + ' во вкладке «' + this.tabName(s.tab) + '» записей нет.'
+            + (others.length ? ' Совпадения есть во вкладке «' + this.tabName(others[0]) + '» — ' + counts[others[0]] + '.' : ' Проверьте написание или сбросьте фильтры.'),
+          actions: [{ cls:'btn btn-s', icon:'ri-refresh-line', label:'Сбросить поиск и фильтры', onClick: () => this.resetAll() }]
+            .concat(others.length ? [{ cls:'btn btn-s', icon:'ri-arrow-right-line', label:'Открыть «' + this.tabName(others[0]) + '»', onClick: () => this.setState({ tab:others[0], page:1 }) }] : []) };
+      } else {
+        empty = {
+          active:   { icon:'ri-team-line', title:'Действующих пользователей нет', text:'Создайте первую учётную запись — пользователь сразу сможет войти на портал.',
+                      actions:[{ cls:'btn btn-p', icon:'ri-user-add-line', label:'Новый пользователь', onClick: () => this.openCreate() }] },
+          inactive: { icon:'ri-user-unfollow-line', title:'Деактивированных нет', text:'Сюда автоматически попадают пользователи организаций, удалённых из реестра. Их можно просмотреть и восстановить.', actions:[] },
+          deleted:  { icon:'ri-delete-bin-line', title:'Удалённых нет', text:'Удалённого пользователя можно будет просмотреть и восстановить на этой вкладке.', actions:[] },
+        }[s.tab];
+      }
+    }
+
+    const from = total ? (page - 1) * P + 1 : 0, to = Math.min(page * P, total);
+    const pageBtns = [];
+    for(let i = 1; i <= pages; i++) pageBtns.push({ n:i, cur: i === page ? 'page' : undefined, aria:'Страница ' + i,
+      onClick: () => this.setState({ page:i }),
+      style: i === page ? 'background:var(--primary-lighter);color:var(--primary-darker);border-color:var(--primary-light);' : '' });
+
+    return {
+      tabs, panelLabel:'am-tab-' + s.tab, filters,
+      q:s.q, hasQ:!!s.q, noQ:!s.q,
+      onQ: (e) => this.setQ(e.target.value), clearQ: () => { this.setQ(''); const el = document.getElementById('am-search'); if(el) el.focus(); },
+      onReset: () => this.resetAll(), resetDisabled: !hasFilters,
+      loading: s.loading, skeleton,
+      cols, rows: s.loading ? [] : rows, showStatusCol: inactiveCols,
+      tableAria: 'Пользователи — ' + this.tabName(s.tab), rowCount: total + 1,
+      tableStyle: 'min-width:' + minW + 'px;',
+      headStyle: 'display:grid;grid-template-columns:' + grid + ';background:var(--n100);',
+      isEmpty: !!empty, emptyIcon: empty ? empty.icon : '', emptyTitle: empty ? empty.title : '', emptyText: empty ? empty.text : '', emptyActions: empty ? empty.actions : [],
+      hasFooter: !s.loading && total > 0,
+      rangeLabel: 'Показаны ' + from + '–' + to + ' из ' + total,
+      hasPages: pages > 1, pages: pageBtns,
+      prevPage: () => this.setState({ page: Math.max(1, page - 1) }), prevDisabled: page <= 1,
+      nextPage: () => this.setState({ page: Math.min(pages, page + 1) }), nextDisabled: page >= pages,
+    };
+  }
+
+  // ——— сборка: боковая панель ———
+  field(d, errs, key, o){
+    const id = 'uf-' + key;
+    const show = d.submitted || d.touched[key] || o.forceShow;
+    const err = show ? errs[key] || '' : '';
+    const base = {
+      key: id, id, forId: id, lblId: id + '-l', descId: id + '-m', listId: id + '-list',
+      label: o.label || '', hasLabel: !!o.label, req: !!o.req, opt: !!o.opt, ariaReq: o.req ? 'true' : 'false',
+      wrap: 'grid-column:span ' + (o.span || 1) + ';min-width:0;',
+      isText:false, isSelect:false, isSeg:false,
+      hasError: !!err, error: err, invalid: err ? 'true' : 'false',
+      hasHint: !err && !o.note && !!o.hint, hint: o.hint || '',
+      hasNote: !err && !!o.note, note: o.note ? o.note.text : '',
+      noteIcon: o.note ? { ok:'ri-checkbox-circle-fill', warn:'ri-alert-fill', info:'ri-information-fill', load:'ri-loader-4-line' }[o.note.kind] : '',
+      noteIconStyle: 'font-size:16px;flex:0 0 auto;' + (o.note ? { ok:'color:var(--green);', warn:'color:var(--orange);', info:'color:var(--primary);', load:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' }[o.note.kind] : ''),
+      noteStyle: 'display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:16px;' + (o.note ? { ok:'color:var(--green-d);', warn:'color:var(--orange-d);', info:'color:var(--n600);', load:'color:var(--n500);' }[o.note.kind] : ''),
+      hasRules:false, rules:[], hasPerms:false, perms:[], permsTitle:'',
+      hasTag: !!o.tag, tag: o.tag || '', tagIcon: o.tagIcon || 'ri-lock-line',
+      tagStyle: 'margin-left:auto;display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 6px;border-radius:6px;background:var(--n100);font-size:11px;line-height:12px;font-weight:500;color:var(--n500);',
+    };
+    base.msgWrap = (base.hasError || base.hasNote || base.hasHint) ? 'margin-top:6px;display:flex;flex-direction:column;gap:4px;' : 'display:none;';
+    return base;
+  }
+  textField(d, errs, key, o){
+    const b = this.field(d, errs, key, o);
+    const f = d.form, ro = !!o.ro;
+    const pad = (o.adorn ? 38 : 12) + (o.eye ? 30 : 0);
+    return Object.assign(b, {
+      isText:true, value: f[key], type: o.type || 'text', ph: o.ph || '', im: o.im, max: o.max, ro, ac: o.ac || 'off',
+      cls: 'inp' + (ro ? ' inp-ro' : '') + (b.hasError ? ' inp-err' : ''),
+      inputStyle: 'padding-right:' + pad + 'px;' + (o.mono ? 'font-variant-numeric:tabular-nums;letter-spacing:.02em;' : ''),
+      onChange: (e) => this.setField(key, o.clean ? o.clean(e.target.value) : e.target.value),
+      onBlur: () => this.touch(key),
+      onFocus: o.onFocus || null,
+      hasAdorn: !!o.adorn, adornIcon: o.adorn ? o.adorn.icon : '', adornTitle: o.adorn ? o.adorn.title || '' : '',
+      adornStyle: 'font-size:18px;' + (o.adorn ? o.adorn.style || 'color:var(--n400);' : ''),
+      hasEye: !!o.eye, eyeIcon: d.showPass ? 'ri-eye-off-line' : 'ri-eye-line', eyeLabel: d.showPass ? 'Скрыть пароль' : 'Показать пароль',
+      onEye: () => this.patchD(dd => ({ showPass: !dd.showPass })),
+    });
+  }
+  selectField(d, errs, key, o){
+    const b = this.field(d, errs, key, o);
+    const cur = d.form[key], sel = o.opts.filter(x => x.id === cur)[0];
+    const sv = this.selectVals(b.id, o.opts, cur, (v) => { this.setField(key, v); this.touch(key); });
+    return Object.assign(b, sv, {
+      key: b.id, isSelect:true, disabled: !!o.disabled,
+      cls: 'inp sel' + (b.hasError ? ' inp-err' : ''),
+      display: sel ? sel.label : o.ph, hasValIcon: !!(sel && sel.icon), valIcon: sel ? sel.icon || '' : '',
+      valStyle: 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (sel ? 'color:var(--n900);' : 'color:var(--n400);'),
+    });
+  }
+
+  buildDrawer(){
+    const s = this.state, d = s.drawer;
+    const none = { dOpen:false, dSections:[] };
+    if(!d) return none;
+    const errs = this.validate(d), f = d.form;
+    const T = Component.TYPES, P = Component.PROFILES, L = Component.LEVELS, R = Component.ROLES;
+    const create = d.mode === 'create', edit = d.mode === 'edit', view = d.mode === 'view';
+    const rec = create ? null : this.byId(this.users(), d.id);
+    if(!create && !rec) return none;
+    const needOrg = f.type === 'IP' || f.type === 'UL';
+    const sections = [];
+    let n = 0;
+    const sec = (o) => { if(o.num !== false) n++; if(o.num === undefined) delete o.num; sections.push(Object.assign({
+      hid: 'am-sec-' + sections.length, hasNum: create && o.num !== false, num: n,
+      numStyle: 'width:20px;height:20px;margin-top:0;flex:0 0 auto;border-radius:50%;background:var(--primary-lighter);color:var(--primary-darker);font-size:11px;line-height:1;font-weight:600;display:flex;align-items:center;justify-content:center;',
+      hasDesc: !!o.desc, desc: o.desc || '', hasAction:false, actionIcon:'', actionLabel:'', onAction:null,
+      isForm:false, fields:[], isKv:false, kv:[], isCollapsed:false, collapsedText:'', expandLabel:'', onExpand:null,
+      isProfiles:false, profiles:[], hasNote:false, note:'', noteIcon:'ri-information-line',
+    }, o)); };
+    const kv = (label, value, o) => Object.assign({ label, value: value || '—', hasSub:false, sub:'',
+      wrap: 'min-width:0;grid-column:span ' + ((o && o.span) || 1) + ';',
+      valStyle: 'margin:0;font-size:14px;line-height:20px;letter-spacing:-.006em;font-weight:500;color:' + (value ? 'var(--n900)' : 'var(--n400)') + ';overflow-wrap:anywhere;' + (o && o.mono ? 'font-variant-numeric:tabular-nums;' : '') }, o || {});
+
+    // ——— создание ———
+    if(create){
+      const types = T.map((t, i) => {
+        const on = f.type === t.id;
+        return {
+          gid: 'uf-type-' + t.id, on: on ? 'true' : 'false', ti: on || (!f.type && i === 0) ? 0 : -1, label:t.seg, sub:t.segSub,
+          onClick: () => { this.setField('type', t.id); this.touch('type'); },
+          onKey: (e) => {
+            const dd = { ArrowRight:1, ArrowDown:1, ArrowLeft:-1, ArrowUp:-1 }[e.key];
+            if(!dd) return;
+            e.preventDefault();
+            const nx = T[(i + dd + T.length) % T.length];
+            this.setField('type', nx.id);
+            setTimeout(() => { const el = document.getElementById('uf-type-' + nx.id); if(el) el.focus(); }, 0);
+          },
+          style: 'display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:12px;cursor:pointer;min-width:0;background:' + (on ? 'var(--primary-lighter)' : '#fff')
+            + ';border:1px solid ' + (on ? 'var(--primary)' : (d.submitted || d.touched.type) && errs.type ? 'var(--red)' : 'var(--stroke)') + ';box-shadow:' + (on ? 'none' : 'var(--sh-xs)') + ';',
+          radio: 'width:16px;height:16px;margin-top:2px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid ' + (on ? 'var(--primary)' : 'var(--n300)') + ';background:' + (on ? 'var(--primary)' : '#fff') + ';',
+          dot: 'width:6px;height:6px;border-radius:50%;background:' + (on ? '#fff' : 'transparent') + ';',
+        };
+      });
+      const typeF = Object.assign(this.field(d, errs, 'type', { label:'Тип пользователя', req:true, span:2 }), { isSeg:true, segs:types });
+      typeF.forId = undefined;   // подпись группы, а не одного радио: клик по ней не должен выбирать «Физлицо»
+
+      const iinNote = { loading:{ kind:'load', text:'Ищем в ГБД ФЛ…' }, ok:{ kind:'ok', text:'ФИО получены из ГБД ФЛ' },
+        down:{ kind:'warn', text:'ГБД ФЛ не отвечает — введите ФИО вручную' } }[d.iinLk.st];
+      const fromGbd = d.iinLk.st === 'ok', manual = d.iinLk.st === 'down';
+      const lockHint = null;   // источник показан меткой «ГБД ФЛ» у подписи — второй замок в поле не нужен
+      const nameRo = !manual;
+      const nameHint = !fromGbd && !manual ? 'Заполнится автоматически по ИИН' : '';
+      sec({ title:'Тип и личные данные', desc:'ФИО подтягиваются из ГБД ФЛ по ИИН.', isForm:true, fields:[
+        typeF,
+        this.textField(d, errs, 'iin', { label:'ИИН', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true, clean:(v) => this.digits(v).slice(0, 12),
+          note: iinNote, hint:'После 12 цифр ищем в ГБД ФЛ',
+          adorn: d.iinLk.st === 'loading' ? { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' } : fromGbd ? { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' } : null }),
+        this.textField(d, errs, 'last', { label:'Фамилия', req:true, ro:nameRo, ph: manual ? 'Иванов' : '', hint:nameHint, adorn:lockHint, tag: fromGbd ? 'ГБД ФЛ' : '' }),
+        this.textField(d, errs, 'first', { label:'Имя', req:true, ro:nameRo, ph: manual ? 'Иван' : '', adorn:lockHint, tag: fromGbd ? 'ГБД ФЛ' : '' }),
+        this.textField(d, errs, 'middle', { label:'Отчество', opt:true, ro:nameRo, ph: manual ? 'Иванович' : '', adorn:lockHint, hint: fromGbd && !f.middle ? 'В ГБД ФЛ отчество не указано' : '' }),
+      ]});
+
+      if(needOrg){
+        const ip = f.type === 'IP', src = ip ? 'ИС КГД' : 'ГБД ЮЛ';
+        const binNote = {
+          loading:  { kind:'load', text:'Ищем в реестре портала и ' + src + '…' },
+          registry: { kind:'ok',   text:'Организация есть в реестре портала' },
+          gbd:      { kind:'info', text:'Из ' + (d.binLk.src || src) + ' · добавим в реестр при сохранении' },
+          down:     { kind:'warn', text: src + ' не отвечает — введите наименование' },
+        }[d.binLk.st];
+        const orgRo = d.binLk.st !== 'down';
+        sec({ title:'Организация', desc: ip ? 'ИП регистрируется по ИИН предпринимателя — сведения из ИС КГД.' : 'Сведения об организации — из реестра портала или ГБД ЮЛ.', isForm:true, fields:[
+          this.textField(d, errs, 'bin', { label: ip ? 'ИИН предпринимателя' : 'БИН организации', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true,
+            clean:(v) => this.digits(v).slice(0, 12), note: binNote, hint: ip ? 'Обычно совпадает с ИИН пользователя' : '',
+            adorn: d.binLk.st === 'loading' ? { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' } : (d.binLk.st === 'registry' || d.binLk.st === 'gbd') ? { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' } : null }),
+          this.textField(d, errs, 'position', { label:'Должность', req:true, ph: ip ? 'Индивидуальный предприниматель' : 'Например, менеджер по регистрации', ac:'organization-title' }),
+          this.textField(d, errs, 'org', { label:'Наименование организации', req:true, span:2, ro:orgRo, ph: orgRo ? '' : 'ТОО «Название»',
+            hint: orgRo && !f.org ? 'Заполнится автоматически по ' + (ip ? 'ИИН' : 'БИН') : '',
+            tag: orgRo && f.org ? (d.binLk.st === 'registry' ? 'Реестр портала' : d.binLk.src || src) : '' }),
+        ]});
+      }
+
+      sec({ title:'Контакты', isForm:true, fields:[
+        this.textField(d, errs, 'email', { label:'Почта', req:true, type:'email', ph:'name@example.kz', ac:'email', clean:(v) => v.replace(/\s/g, '') }),
+        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 777 080 80 08', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v),
+          onFocus: () => { if(!this.state.drawer.form.phone) this.setField('phone', '+7'); } }),
+      ]});
+    }
+
+    // ——— редактирование и просмотр: неизменяемая часть ———
+    if(!create){
+      const o = this.org(rec.bin), ty = this.type(rec.type), pr = this.profile(rec.profile);
+      const items = [
+        kv('Тип пользователя', ty.label), kv('Профиль', pr.label),
+        kv('ИИН', rec.iin, { mono:true }), kv('Фамилия', rec.last), kv('Имя', rec.first), kv('Отчество', rec.middle),
+      ];
+      if(rec.bin){
+        items.push(kv(rec.type === 'IP' ? 'ИИН ИП' : 'БИН', rec.bin, { mono:true }), kv('Должность', rec.position));
+        items.push(kv('Организация', o ? o.ru : '—', { span:2, hasSub: !!(o && o.deleted), sub: o && o.deleted ? 'Удалена из реестра ' + this.fmtDate(o.closedAt) : '' }));
+      } else {
+        items.push(kv('Организация', 'Без организации — физическое лицо', { span:2 }));
+      }
+      sec({ title:'Учётная запись', desc: edit ? 'Сведения из ГБД ФЛ и ГБД ЮЛ — не редактируются.' : '', isKv:true, kv:items, num:false });
+    }
+
+    if(edit){
+      sec({ title:'Контакты', isForm:true, num:false, fields:[
+        this.textField(d, errs, 'email', { label:'Почта', req:true, type:'email', ph:'name@example.kz', ac:'email', clean:(v) => v.replace(/\s/g, '') }),
+        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 777 080 80 08', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v) }),
+      ]});
+    }
+
+    // ——— доступ ———
+    if(!view){
+      const profOpts = P.filter(p => !f.type || p.types.indexOf(f.type) >= 0).map(p => ({ id:p.id, label:p.label, desc:p.desc, icon:p.icon }));
+      const lvls = L.filter(l => l.profiles.indexOf(f.profile) >= 0).map(l => {
+        const bad = l.bin && f.bin && l.bin !== f.bin;
+        return { id:l.id, label:l.label, desc: bad ? 'Только для организации с БИН ' + l.bin : l.desc, disabled: !!bad };
+      });
+      const rls = R.filter(r => r.level === f.level).map(r => ({ id:r.id, label:r.label }));
+      const rl = this.role(f.role);
+      const fields = [];
+      if(create) fields.push(this.selectField(d, errs, 'profile', { label:'Профиль', req:true, span:2, opts:profOpts, disabled: !f.type,
+        ph: f.type ? 'Выберите профиль' : 'Сначала выберите тип пользователя', hint: profOpts.length === 1 && f.profile ? 'Для типа «' + this.type(f.type).label + '» доступен один профиль' : '' }));
+      // уровень и роль — во всю ширину: названия ролей длинные, а блок полномочий не должен сдвигать соседнее поле
+      fields.push(this.selectField(d, errs, 'level', { label:'Уровень', req:true, span:2, opts:lvls, disabled: !f.profile,
+        ph: f.profile ? 'Выберите уровень' : 'Сначала выберите профиль', hint: create && lvls.length === 1 && f.level ? 'Единственный уровень для этого профиля — выбран автоматически' : '' }));
+      const roleF = this.selectField(d, errs, 'role', { label:'Роль', req:true, span:2, opts:rls, disabled: !f.level, ph: f.level ? 'Выберите роль' : 'Сначала выберите уровень' });
+      if(rl){ roleF.hasPerms = true; roleF.perms = rl.perms; roleF.permsTitle = 'Полномочия роли'; }
+      fields.push(roleF);
+      sec({ title: create ? 'Профиль и доступ' : 'Доступ', desc: create ? 'Список уровней зависит от профиля, ролей — от уровня.' : 'Уровень и роль определяют разделы и действия, доступные пользователю.', isForm:true, fields, num: create ? undefined : false });
+    } else {
+      const lv = this.level(rec.level), rl = this.role(rec.role);
+      sec({ title:'Контакты и доступ', isKv:true, num:false, kv:[
+        kv('Почта', rec.email), kv('Телефон', rec.phone, { mono:true }),
+        kv('Уровень', lv ? lv.label : rec.level), kv('Роль', rl ? rl.label : rec.role, { hasSub: !!rl, sub: rl ? rl.perms.join(' · ') : '' }),
+        kv('Пароль', '••••••••••', { hasSub:true, sub:'Хранится в зашифрованном виде и не отображается' }),
+      ]});
+    }
+
+    // ——— пароль ———
+    if(create || (edit && d.pwOpen)){
+      const rules = this.rulesOf(f.pass).map(r => ({ text:r.text,
+        icon: r.ok ? 'ri-check-line' : f.pass ? 'ri-close-line' : 'ri-circle-line',
+        style: 'display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;'
+          + (r.ok ? 'background:var(--green-ll);color:var(--green-d);' : f.pass && (d.submitted || d.touched.pass) ? 'background:var(--red-ll);color:var(--red-d);' : 'background:var(--n100);color:var(--n500);') }));
+      const passF = this.textField(d, errs, 'pass', { label: create ? 'Пароль' : 'Новый пароль', req:true, type: d.showPass ? 'text' : 'password', ac:'new-password', eye:true, ph:'Не менее 8 символов' });
+      const match = f.pass2 && f.pass === f.pass2;
+      const pass2F = this.textField(d, errs, 'pass2', { label:'Подтверждение пароля', req:true, type: d.showPass ? 'text' : 'password', ac:'new-password', ph:'Повторите пароль',
+        forceShow: !!(f.pass2 && f.pass2.length >= f.pass.length && f.pass !== f.pass2), note: match ? { kind:'ok', text:'Пароли совпадают' } : null });
+      // требования — отдельной строкой под обоими полями, чтобы чипы не сжимались в половину ширины
+      const rulesF = Object.assign(this.field(d, errs, 'pass-rules', { span:2 }), { hasRules:true, rules, wrap:'grid-column:span 2;min-width:0;margin-top:-6px;' });
+      sec({ title: create ? 'Пароль' : 'Смена пароля', desc:'Логин для входа — ИИН. Передайте пароль пользователю по защищённому каналу.', isForm:true, fields:[passF, pass2F, rulesF],
+        num: create ? undefined : false, hasAction:true, actionIcon:'ri-magic-line', actionLabel:'Сгенерировать',
+        onAction: () => { const p = this.genPassword(); this.patchD(dd => ({ showPass:true, form: Object.assign({}, dd.form, { pass:p, pass2:p }), touched: Object.assign({}, dd.touched, { pass:true, pass2:true }) })); } });
+      if(edit){ const last = sections[sections.length - 1]; last.hasNote = true; last.note = 'Оставьте поля пустыми или нажмите «Не менять пароль», если пароль менять не нужно.'; }
+    } else if(edit){
+      sec({ title:'Пароль', isCollapsed:true, num:false, collapsedText:'Пароль не меняется. Пользователь входит со своим текущим паролем.', expandLabel:'Задать новый пароль',
+        onExpand: () => { this.patchD({ pwOpen:true }); setTimeout(() => this.focusField('pass'), 60); } });
+    }
+    if(edit && d.pwOpen){
+      const last = sections[sections.length - 1];
+      last.hasAction = true; last.actionIcon = 'ri-close-line'; last.actionLabel = 'Не менять пароль';
+      last.onAction = () => this.patchD(dd => ({ pwOpen:false, form: Object.assign({}, dd.form, { pass:'', pass2:'' }), touched: Object.assign({}, dd.touched, { pass:false, pass2:false }) }));
+    }
+
+    // ——— другие профили этого ИИН ———
+    if(!create){
+      const others = this.users().filter(u => u.iin === rec.iin && u.id !== rec.id);
+      if(others.length){
+        sec({ title:'Другие профили пользователя', desc:'У одного ИИН может быть несколько профилей доступа.', isProfiles:true, num:false,
+          profiles: others.map(u => {
+            const o = this.org(u.bin), t = this.tabOf(u), rl = this.role(u.role);
+            const st = { active:['Действует','var(--green-ll)','var(--green-d)'], inactive:['Деактивирован','var(--orange-ll)','var(--orange-d)'], deleted:['Удалён','var(--red-ll)','var(--red-d)'] }[t];
+            return { icon: this.profile(u.profile).icon, title: this.profile(u.profile).label + ' · ' + (o ? o.ru : 'физическое лицо'), sub: (rl ? rl.label : u.role) + ' · ' + this.level(u.level).label,
+              stLabel: st[0], stStyle: 'flex:0 0 auto;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;display:inline-flex;align-items:center;background:' + st[1] + ';color:' + st[2] + ';',
+              onClick: () => this.guard(() => this.openRecord(u.id)),
+              style: 'display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;cursor:pointer;box-shadow:var(--sh-xs);' };
+          }) });
+      }
+    }
+
+    // ——— шапка, баннер, подвал ———
+    let head;
+    if(create) head = { title:'Новый пользователь', sub:'Учётная запись и профиль доступа к порталу МЗ' };
+    else head = { title: this.fullName(rec), sub: 'ИИН ' + rec.iin + ' · ' + this.profile(rec.profile).label + (rec.bin ? ' · ' + ((this.org(rec.bin) || {}).ru || '') : '') };
+    const tab = rec ? this.tabOf(rec) : 'active';
+    // подписи без рода: пользователь может быть и мужчиной, и женщиной
+    const stMap = { active:['Действует','var(--green-ll)','var(--green-d)','var(--green)'], inactive:['В деактивированных','var(--orange-ll)','var(--orange-d)','var(--orange)'], deleted:['В удалённых','var(--red-ll)','var(--red-d)','var(--red)'] }[tab];
+
+    let banner = d.banner;
+    if(!banner && view){
+      const o = this.org(rec.bin);
+      banner = rec.deleted
+        ? { kind:'deleted', title:'Учётная запись удалена ' + this.fmtDate(rec.changedAt), text:'Вход в систему закрыт. Восстановите запись, чтобы вернуть доступ с прежними профилем, уровнем и ролью.' }
+        : { kind:'inactive', title:'Учётная запись деактивирована ' + this.fmtDate(rec.changedAt) + ': организация удалена', text:'Организация' + (o ? ' ' + o.ru : '') + ' удалена из реестра, поэтому вход её сотрудников запрещён.'
+            + (this.orgBlocked(rec) ? ' Восстановить пользователя можно после восстановления организации.' : ''),
+            actLabel: this.orgBlocked(rec) ? 'Открыть организацию' : '', act: () => { location.href = 'Организации.dc.html?bin=' + rec.bin; } };
+    }
+    const bTone = banner ? { error:['ri-error-warning-fill','var(--red)','var(--red-ll)'], dup:['ri-user-shared-fill','var(--orange)','var(--orange-ll)'],
+      deleted:['ri-delete-bin-fill','var(--red)','var(--red-ll)'], inactive:['ri-forbid-fill','var(--orange)','var(--orange-ll)'] }[banner.kind] : null;
+
+    const blocked = view && this.orgBlocked(rec);
+    const dirty = this.isDirty(d);
+    const primary = view
+      ? { label:'Восстановить', icon:'ri-arrow-go-back-line', on: () => this.askRestore(rec.id), dis: blocked }
+      : { label: d.saving ? 'Сохранение…' : 'Сохранить', icon: d.saving ? 'ri-loader-4-line' : 'ri-save-line', on: () => this.save(), dis: edit && !dirty };
+
+    return {
+      dOpen:true,
+      dTitle: head.title, dSub: head.sub,
+      dHasAvatar: !create, dHasIcon: create, dAvatar: rec ? this.avatarStyle(rec.iin, 40) : '', dInitials: rec ? this.initials(rec) : '',
+      dHasStatus: !create, dStLabel: stMap[0],
+      dStStyle: 'display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:' + stMap[1] + ';color:' + stMap[2] + ';',
+      dStDot: 'width:6px;height:6px;border-radius:50%;background:' + stMap[3] + ';',
+      dClose: () => this.closeDrawer(), dOverlay: () => this.closeDrawer(),
+      dHasBanner: !!banner, dBannerTitle: banner ? banner.title : '', dBannerText: banner ? banner.text : '',
+      dBannerHasAct: !!(banner && banner.actLabel), dBannerActLabel: banner ? banner.actLabel || '' : '', dBannerAct: () => { if(banner && banner.act) banner.act(); },
+      dBannerIcon: bTone ? bTone[0] : '', dBannerIconStyle: 'font-size:20px;flex:0 0 auto;color:' + (bTone ? bTone[1] : '') + ';',
+      dBannerStyle: 'display:flex;align-items:flex-start;gap:12px;padding:14px 14px 16px;border-radius:12px;background:' + (bTone ? bTone[2] : '') + ';animation:mp-slidein .2s ease;',
+      dSections: sections,
+      dHasMeta: !create, dMeta: rec ? 'Запись создана ' + this.fmtDateTime(rec.createdAt) + ' · изменена ' + this.fmtDateTime(rec.changedAt && rec.changedAt > rec.updatedAt ? rec.changedAt : rec.updatedAt) : '',
+      dHasDanger: edit, dDanger: () => this.askDelete(rec.id),
+      dHasReqNote: !view, dCancelLabel: view ? 'Закрыть' : 'Отмена',
+      dHasPrimary: true, dPrimary: () => { if(!primary.dis) primary.on(); else if(blocked) this.askRestore(rec.id); },
+      dPrimaryLabel: primary.label, dPrimaryIcon: primary.icon, dBusy: d.saving ? 'true' : 'false', dPrimaryDis: primary.dis ? 'true' : 'false',
+      dPrimaryIconStyle: 'font-size:18px;' + (d.saving ? 'display:inline-block;animation:am-spin .9s linear infinite;' : ''),
+      dPrimaryStyle: primary.dis ? 'background:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;' : d.saving ? 'cursor:progress;' : '',
+    };
+  }
+
+  buildConfirm(){
+    const c = this.state.confirm;
+    if(!c) return { cOpen:false };
+    const base = { cOpen:true, cHasCard:false, cAvatar:'', cInitials:'', cCardTitle:'', cCardSub:'', cBusy:'false',
+      cCancel: () => this.setState({ confirm:null }), cCancelLabel:'Отмена', cOkIconStyle:'font-size:18px;' };
+    const tone = (bg, fg) => ({ cIconWrap:'width:40px;height:40px;flex:0 0 auto;border-radius:10px;background:' + bg + ';display:flex;align-items:center;justify-content:center;', cIconStyle:'font-size:20px;color:' + fg + ';' });
+    if(c.kind === 'discard'){
+      return Object.assign(base, tone('var(--orange-ll)', 'var(--orange)'), { cIcon:'ri-alert-fill', cTitle:'Закрыть без сохранения?',
+        cText:'Введённые данные не сохранятся. Чтобы продолжить заполнение, нажмите «Вернуться к форме».',
+        cCancelLabel:'Вернуться к форме', cOkLabel:'Закрыть без сохранения', cOkCls:'btn btn-d', cOkIcon:'ri-close-line',
+        cOk: () => { const next = c.next; this.setState({ confirm:null }); this.closeDrawer(true); if(next) setTimeout(next, 0); } });
+    }
+    const u = this.byId(this.users(), c.id);
+    if(!u) return { cOpen:false };
+    const o = this.org(u.bin);
+    const card = { cHasCard:true, cAvatar:this.avatarStyle(u.iin, 36), cInitials:this.initials(u), cCardTitle:this.fullName(u),
+      cCardSub:'ИИН ' + u.iin + ' · ' + this.profile(u.profile).label + (o ? ' · ' + o.ru : '') };
+    if(c.kind === 'delete'){
+      return Object.assign(base, card, tone('var(--red-ll)', 'var(--red)'), { cIcon:'ri-delete-bin-line', cTitle:'Вы уверены, что хотите удалить пользователя?',
+        cText:'Пользователь потеряет доступ к порталу. Запись перейдёт во вкладку «Удалённые» — её можно будет восстановить.',
+        cOkLabel:'Удалить', cOkCls:'btn btn-d', cOkIcon:'ri-delete-bin-line', cOk: () => this.doDelete(u.id) });
+    }
+    return Object.assign(base, card, tone('var(--primary-lighter)', 'var(--primary)'), { cIcon:'ri-arrow-go-back-line', cTitle:'Вы действительно хотите восстановить пользователя?',
+      cText:'Пользователь вернётся во вкладку «Действующие» с прежними профилем, уровнем и ролью и снова сможет входить в систему.',
+      cOkLabel:'Восстановить', cOkCls:'btn btn-p', cOkIcon:'ri-arrow-go-back-line', cOk: () => this.doRestore(u.id) });
+  }
+
+  buildDemo(){
+    const s = this.state;
+    const seg = (cur, id) => 'flex:1;height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;'
+      + (cur === id ? 'background:#fff;color:var(--primary);box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:var(--n500);');
+    const demoGroups = [
+      { title:'Ответ ГБД ФЛ / ЮЛ', opts:[['ok','Доступна'],['down','Недоступна']].map(([id, label]) => ({ label, on: s.gbd === id ? 'true' : 'false', style: seg(s.gbd, id), onClick: () => this.setState({ gbd:id }) })) },
+      { title:'Сохранение', opts:[['ok','Успех'],['error','Ошибка сети']].map(([id, label]) => ({ label, on: s.saveMode === id ? 'true' : 'false', style: seg(s.saveMode, id), onClick: () => this.setState({ saveMode:id }) })) },
+    ];
+    const data = [
+      ['940815400345', 'ИИН · есть в ГБД ФЛ'],
+      ['010509550711', 'ИИН · Гражданин уже есть → дубль'],
+      ['000000000000', 'ИИН · нет в ГБД ФЛ'],
+      ['900312300456', 'ИИН · тип ИП, есть в ИС КГД'],
+      ['210340012345', 'БИН · есть в ГБД ЮЛ, нет в реестре'],
+      ['101140002233', 'БИН · организация удалена'],
+      ['110340017483', 'БИН · ННЦРЗ, уровень госоргана'],
+    ];
+    const demoData = data.map(([value, label]) => {
+      const done = s.copied === value;
+      return { value, label, icon: done ? 'ri-check-line' : 'ri-file-copy-line', iconStyle:'font-size:14px;flex:0 0 auto;color:' + (done ? 'var(--green)' : 'var(--n400)') + ';',
+        onClick: () => {
+          try { navigator.clipboard.writeText(value); } catch(e){}
+          clearTimeout(this._cp);
+          this.setState({ copied:value });
+          this._cp = setTimeout(() => this.setState({ copied:null }), 1400);
+        } };
+    });
+    return {
+      demoOpen: s.demoOpen, demoOpenA: s.demoOpen ? 'true' : 'false', demoChev: s.demoOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      toggleDemo: () => this.setState({ demoOpen: !s.demoOpen }),
+      demoGroups, demoData,
+      resetDemo: () => {
+        const db = Component.seed();
+        this.commit(db);
+        try { sessionStorage.removeItem(Component.UI_KEY); } catch(e){}
+        this.setState({ tab:'active', q:'', f:{ type:'', profile:'', level:'', role:'' }, page:1, drawer:null, confirm:null, demoOpen:false });
+        this.toast('info', 'Демо-данные сброшены', 'Пользователи и организации вернулись к исходному набору.');
+      },
+    };
+  }
+
+  renderVals(){
+    const s = this.state;
+    if(s.role !== 'admin'){
+      return {
+        denied:true, allowed:false, dOpen:false, cOpen:false, hasToast:false,
+        becomeAdmin: () => {
+          try { localStorage.setItem('mp-biz-role', 'admin'); window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:'admin' })); } catch(e){}
+          this.setState({ role:'admin' });
+        },
+      };
+    }
+    const t = s.toast || {};
+    const tp = { success:['ri-checkbox-circle-fill','var(--green)'], error:['ri-error-warning-fill','var(--red)'], warn:['ri-alert-fill','var(--orange)'], info:['ri-information-fill','var(--primary)'] }[t.tone || 'info'];
+    return Object.assign({ denied:false, allowed:true, onNew: () => this.openCreate() },
+      this.buildList(), this.buildDrawer(), this.buildConfirm(), this.buildDemo(), {
+        hasToast: !!s.toast, toastIcon: tp[0], toastIconStyle: 'font-size:20px;flex:0 0 auto;color:' + tp[1] + ';',
+        // при открытой панели тост центрируется по свободной части экрана и не перекрывает её кнопки
+        toastStyle: 'position:fixed;left:' + (s.drawer ? 'calc((100vw - 640px) / 2)' : '50%') + ';bottom:24px;transform:translateX(-50%);z-index:95;width:440px;max-width:calc(100vw - 48px);'
+          + 'display:flex;gap:12px;align-items:flex-start;padding:14px 14px 16px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:am-toast .2s ease;',
+        toastTitle: t.title || '', toastText: t.text || '',
+        toastHasAction: !!t.actionLabel, toastActionLabel: t.actionLabel || '',
+        toastAction: () => { if(t.onAction) t.onAction(); },
+        closeToast: () => { clearTimeout(this._tt); this.setState({ toast:null }); },
+      });
+  }
+}
+</script>
+</body>
+</html>

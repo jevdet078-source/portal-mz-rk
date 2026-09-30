@@ -183,7 +183,7 @@ class Component extends DCLogic {
     try { localStorage.setItem('mp-biz-role', id); } catch(e){}
     try { window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:id })); } catch(e){}
     // у ролей разный состав разделов — уводим на стартовую страницу новой роли
-    setTimeout(() => { location.href = id === 'admin' ? 'Рабочий календарь.dc.html' : 'Кабинет бизнеса.dc.html'; }, 120);
+    setTimeout(() => { location.href = id === 'admin' ? 'Пользователи.dc.html' : 'Кабинет бизнеса.dc.html'; }, 120);
   }
   setRole(id){
     this.setState({ role:id });
@@ -234,7 +234,7 @@ class Component extends DCLogic {
     const isAdmin = s.bizRole === 'admin';
     const bizRoleData = [
       { id:'applicant', label:'Заявитель',     desc:'Договоры, платежи, подача заявок на ЛС и МИ', icon:'ri-briefcase-4-line' },
-      { id:'admin',     label:'Администратор', desc:'То же плюс «Администрирование»: рабочий календарь', icon:'ri-shield-user-line' },
+      { id:'admin',     label:'Администратор', desc:'То же плюс «Администрирование»: пользователи, организации, календарь', icon:'ri-shield-user-line' },
     ];
     const bizRoles = bizRoleData.map(r => { const on = s.bizRole === r.id; return { ...r, on,
       onClick: () => { if(on){ this.setState({ orgOpen:false }); return; } this.setBizRole(r.id); },
