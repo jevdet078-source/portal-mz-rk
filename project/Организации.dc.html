@@ -14,14 +14,12 @@
   Вкладки:
     Действующие  status = ACTIVE,   is_deleted = false  → Просмотр, Удалить
     Удалённые    status = INACTIVE, is_deleted = true   → Просмотр
-  Столбцы: БИН · Наименование · Дата открытия (+ Дата закрытия во «Удалённых»).
-  Дополнительно — число закреплённых пользователей: без него администратор не видит,
-  к чему приведёт удаление, пока не откроет диалог.
+  Столбцы: БИН · Наименование (на одном языке — второй даст локализация) · Дата открытия
+  (+ Дата закрытия во «Удалённых»).
 
   Удаление — одна транзакция: организация уходит в «Удалённые» с датой закрытия,
   все её действующие пользователи — в «Деактивированные» раздела «Пользователи»
-  (вход запрещён). Если пользователи есть, диалог показывает текст Alt 4 и список,
-  кнопка называет последствие: «Удалить и деактивировать 3 пользователей».
+  (вход запрещён). Если пользователи есть, диалог показывает сообщение Alt 4 из постановки.
   Ошибка транзакции (панель «Прототип») ничего не меняет — ни организацию, ни пользователей.
 
   Восстановление: в постановке оно есть в Processing («очищать дату закрытия при
@@ -30,9 +28,13 @@
   деактивированных вместе с организацией (по умолчанию включено).
 
   Создание: БИН → проверка уникальности сразу при вводе 12 цифр (Alt 2) → автозаполнение
-  из ГБД ЮЛ (GbdulInfoByBin_v2) или ИС КГД для ИП (SDFIefourActual). Тип определяется по
-  5-й цифре: 4/5/6 — БИН юрлица, иначе — ИИН предпринимателя. Поля остаются редактируемыми
-  («Ввод» в постановке), источник подписан меткой. Дата создания — автоматически.
+  из ГБД ЮЛ (GbdulInfoByBin_v2) или ИС КГД для ИП (SDFIefourActual): по 5-й цифре
+  4/5/6 — БИН юрлица, иначе — ИИН предпринимателя. Поля остаются редактируемыми
+  («Ввод» в постановке). Дата создания — автоматически.
+
+  Минимум текста (замечания аналитика после тестирования, 01.10.2026): без пояснений,
+  подсказок и меток источника; карточка без дублирующей шапки с наименованием и без
+  блока пользователей; подтверждения — только заголовок; уведомления — только итог.
 
   Страница, поиск и вкладка переживают операции и перезагрузку (sessionStorage).
   ?bin=<БИН> открывает карточку (переход из «Пользователей»).
@@ -153,7 +155,7 @@
         <div style="padding:16px 32px;border-bottom:1px solid var(--stroke);display:flex;align-items:flex-start;gap:24px;">
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">
             <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">Организации</h1>
-            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:760px;">Реестр организаций портала МЗ. К организации привязываются учётные записи сотрудников: при её удалении их доступ закрывается.</div>
+            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:760px;">Управление реестром организаций</div>
           </div>
           <button id="am-new" class="btn btn-p" onClick="{{ onNew }}" style="flex:0 0 auto;margin-top:2px;"><i class="ri-add-line" style="font-size:18px;"></i>Новая организация</button>
         </div>
@@ -178,9 +180,6 @@
                 <input id="am-search" class="inp" type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="БИН или наименование организации" aria-label="Поиск организаций по БИН или наименованию" autoComplete="off" spellCheck="false" style="padding-left:38px;padding-right:40px;" />
                 <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
                   <button class="ib" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить поиск" style="position:absolute;right:4px;top:4px;"><i class="ri-close-circle-fill" style="font-size:18px;color:var(--n400);"></i></button>
-                </sc-if>
-                <sc-if value="{{ noQ }}" hint-placeholder-val="{{ true }}">
-                  <span aria-hidden="true" title="Нажмите «/», чтобы перейти к поиску" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);min-width:20px;height:20px;padding:0 5px;border:1px solid var(--n200);border-bottom-width:2px;border-radius:6px;background:var(--n50);font-size:11px;line-height:16px;font-weight:500;color:var(--n400);display:flex;align-items:center;justify-content:center;">/</span>
                 </sc-if>
               </div>
               <div style="flex:1;"></div>
@@ -218,17 +217,10 @@
                       <!-- БИН -->
                       <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
                         <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:.01em;color:var(--n900);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.bin }}</span>
-                        <span style="font-size:12px;line-height:16px;color:var(--n500);white-space:nowrap;">{{ r.kind }}</span>
                       </div>
                       <!-- Наименование -->
                       <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
                         <button class="name-btn clamp2" onClick="{{ r.onOpenBtn }}" title="{{ r.ru }}" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);">{{ r.ru }}</button>
-                        <span title="{{ r.kz }}" style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.kz }}</span>
-                      </div>
-                      <!-- Пользователи -->
-                      <div role="cell" style="padding:12px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0;">
-                        <span style="{{ r.usersStyle }}">{{ r.users }}</span>
-                        <sc-if value="{{ r.hasUsersSub }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.usersSub }}</span></sc-if>
                       </div>
                       <!-- Дата открытия -->
                       <div role="cell" style="padding:12px;display:flex;align-items:center;min-width:0;">
@@ -257,7 +249,7 @@
                 <div style="width:56px;height:56px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="{{ emptyIcon }}" style="font-size:28px;color:var(--n400);"></i></div>
                 <div style="display:flex;flex-direction:column;gap:6px;max-width:440px;">
                   <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ emptyTitle }}</div>
-                  <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div>
+                  <sc-if value="{{ emptyText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div></sc-if>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
                   <sc-for list="{{ emptyActions }}" as="ea" hint-placeholder-count="1">
@@ -292,18 +284,13 @@
   <!-- ═══ Боковая панель: создание / карточка ═══ -->
   <sc-if value="{{ dOpen }}" hint-placeholder-val="{{ false }}">
     <div onMouseDown="{{ dOverlay }}" style="position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.32);animation:am-fade .15s ease;"></div>
-    <aside id="am-drawer" role="dialog" aria-modal="true" aria-labelledby="am-dr-title" aria-describedby="am-dr-sub" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100vw;z-index:81;background:var(--n0);box-shadow:-16px 0 40px -12px rgba(10,13,20,.18);display:flex;flex-direction:column;animation:am-drawer .22s cubic-bezier(.2,.8,.2,1);">
+    <aside id="am-drawer" role="dialog" aria-modal="true" aria-labelledby="am-dr-title" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100vw;z-index:81;background:var(--n0);box-shadow:-16px 0 40px -12px rgba(10,13,20,.18);display:flex;flex-direction:column;animation:am-drawer .22s cubic-bezier(.2,.8,.2,1);">
 
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 20px 24px;border-bottom:1px solid var(--stroke);">
+      <div style="display:flex;align-items:center;gap:14px;padding:20px 20px 20px 24px;border-bottom:1px solid var(--stroke);">
         <span aria-hidden="true" style="{{ dIconWrap }}"><i class="{{ dIcon }}" style="font-size:20px;"></i></span>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
-          <div style="display:flex;align-items:flex-start;gap:8px;">
-            <h2 id="am-dr-title" class="clamp2" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ dTitle }}</h2>
-          </div>
-          <div id="am-dr-sub" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">
-            <span>{{ dSub }}</span>
-            <sc-if value="{{ dHasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ dStStyle }}"><span style="{{ dStDot }}"></span>{{ dStLabel }}</span></sc-if>
-          </div>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <h2 id="am-dr-title" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ dTitle }}</h2>
+          <sc-if value="{{ dHasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ dStStyle }}"><span style="{{ dStDot }}"></span>{{ dStLabel }}</span></sc-if>
         </div>
         <button id="am-dr-close" class="ib" onClick="{{ dClose }}" aria-label="Закрыть панель" title="Закрыть (Esc)"><i class="ri-close-line" style="font-size:20px;"></i></button>
       </div>
@@ -315,7 +302,7 @@
             <i class="{{ dBannerIcon }}" style="{{ dBannerIconStyle }}"></i>
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
               <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ dBannerTitle }}</div>
-              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);">{{ dBannerText }}</div>
+              <sc-if value="{{ dBannerText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);">{{ dBannerText }}</div></sc-if>
               <sc-if value="{{ dBannerHasAct }}" hint-placeholder-val="{{ false }}">
                 <button class="lnk" onClick="{{ dBannerAct }}" style="margin-top:4px;font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ dBannerActLabel }}</button>
               </sc-if>
@@ -429,50 +416,16 @@
   <!-- ═══ Подтверждение ═══ -->
   <sc-if value="{{ cOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.4);display:flex;align-items:center;justify-content:center;padding:24px;animation:am-fade .15s ease;">
-      <div id="am-confirm" role="alertdialog" aria-modal="true" aria-labelledby="am-c-title" aria-describedby="am-c-text" style="width:520px;max-width:100%;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);padding:24px;display:flex;flex-direction:column;gap:20px;animation:mp-slidein .18s ease;">
-        <div style="display:flex;align-items:flex-start;gap:14px;">
+      <!-- только заголовок и кнопки: пояснения в подтверждениях не нужны (замечание аналитика) -->
+      <div id="am-confirm" role="alertdialog" aria-modal="true" aria-labelledby="am-c-title" style="width:460px;max-width:100%;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);padding:24px;display:flex;flex-direction:column;gap:24px;animation:mp-slidein .18s ease;">
+        <div style="display:flex;align-items:center;gap:14px;">
           <div style="{{ cIconWrap }}"><i class="{{ cIcon }}" style="{{ cIconStyle }}"></i></div>
-          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
-            <div id="am-c-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ cTitle }}</div>
-            <div id="am-c-text" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ cText }}</div>
-          </div>
+          <div id="am-c-title" style="flex:1;min-width:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ cTitle }}</div>
         </div>
-
-        <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:var(--n50);">
-          <span aria-hidden="true" style="width:36px;height:36px;flex:0 0 auto;border-radius:10px;background:#fff;border:1px solid var(--stroke);color:var(--n500);display:flex;align-items:center;justify-content:center;"><i class="{{ cOrgIcon }}" style="font-size:18px;"></i></span>
-          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-            <span class="clamp2" style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ cOrgName }}</span>
-            <span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;">{{ cOrgSub }}</span>
-          </span>
-        </div>
-
-        <sc-if value="{{ cHasUsers }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <div style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">{{ cUsersTitle }}</div>
-            <div style="display:flex;flex-direction:column;border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
-              <sc-for list="{{ cUsers }}" as="u" hint-placeholder-count="3">
-                <div style="{{ u.style }}">
-                  <span aria-hidden="true" style="{{ u.avatar }}">{{ u.initials }}</span>
-                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
-                    <span style="font-size:13.5px;line-height:18px;font-weight:500;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ u.name }}</span>
-                    <span style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ u.sub }}</span>
-                  </span>
-                </div>
-              </sc-for>
-              <sc-if value="{{ cHasMore }}" hint-placeholder-val="{{ false }}">
-                <div style="padding:8px 12px;border-top:1px solid var(--stroke);background:var(--n50);font-size:12.5px;line-height:18px;color:var(--n500);">{{ cMore }}</div>
-              </sc-if>
-            </div>
-          </div>
-        </sc-if>
 
         <sc-if value="{{ cHasCheck }}" hint-placeholder-val="{{ false }}">
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--stroke);border-radius:12px;cursor:pointer;">
-            <input type="checkbox" class="chk" checked="{{ cChecked }}" onChange="{{ cToggle }}" style="margin-top:2px;" />
-            <span style="display:flex;flex-direction:column;gap:2px;">
-              <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ cCheckLabel }}</span>
-              <span style="font-size:12.5px;line-height:18px;color:var(--n500);">{{ cCheckSub }}</span>
-            </span>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);cursor:pointer;">
+            <input type="checkbox" class="chk" checked="{{ cChecked }}" onChange="{{ cToggle }}" />{{ cCheckLabel }}
           </label>
         </sc-if>
 
@@ -491,7 +444,7 @@
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ toastTitle }}</div>
-          <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ toastText }}</div>
+          <sc-if value="{{ toastText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ toastText }}</div></sc-if>
         </div>
         <sc-if value="{{ toastHasAction }}" hint-placeholder-val="{{ false }}">
           <button class="lnk" onClick="{{ toastAction }}" style="font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ toastActionLabel }}</button>
@@ -961,7 +914,7 @@ class Component extends DCLogic {
       const db = Object.assign({}, this.state.db, { orgs: this.orgs().concat([o]) });
       this.setState({ drawer:null });
       this.commit(db, () => this.reveal(o.bin));
-      this.toast('success', 'Организация создана', o.ru + ' — во вкладке «Действующие». Теперь к ней можно привязывать пользователей.');
+      this.toast('success', 'Организация создана');
     }, 800);
   }
 
@@ -977,7 +930,7 @@ class Component extends DCLogic {
       // одна транзакция: при ошибке не меняется ни организация, ни пользователи
       if(this.state.saveMode === 'error'){
         this.setState({ confirm:null });
-        this.toast('error', 'Организация не удалена', 'Произошла ошибка, изменения отменены: организация и её пользователи остались без изменений.', 'Повторить', () => this.askDelete(bin));
+        this.toast('error', 'Организация не удалена', '', 'Повторить', () => this.askDelete(bin));
         return;
       }
       const before = this.state.db, now = this.nowIso();
@@ -989,8 +942,7 @@ class Component extends DCLogic {
       const o = this.org(bin);
       this.setState({ confirm:null, drawer:null });
       this.commit(db, () => this.clampPage());
-      this.toast('success', 'Организация удалена', o.ru + ' — во вкладке «Удалённые», дата закрытия ' + this.fmtDate(now) + '.'
-        + (hit.length ? ' Деактивировано: ' + this.usersWord(hit.length) + ', вход для них закрыт.' : ''),
+      this.toast('success', 'Организация удалена', '',
         'Отменить', () => { clearTimeout(this._tt); this.setState({ toast:null }); this.commit(before, () => this.reveal(bin)); });
     }, 700);
   }
@@ -1007,9 +959,7 @@ class Component extends DCLogic {
     this.setState({ confirm:null, drawer:null });
     this.commit(db, () => this.reveal(bin));
     const left = withUsers ? 0 : back.length;
-    this.toast('success', 'Организация восстановлена', o.ru + ' — снова во вкладке «Действующие», дата закрытия очищена.'
-      + (withUsers && back.length ? ' Восстановлено: ' + this.usersWord(back.length) + '.' : '')
-      + (left ? ' ' + this.usersWord(left) + ' остались в «Деактивированных».' : ''),
+    this.toast('success', 'Организация восстановлена', '',
       left ? 'Открыть пользователей' : '', () => { location.href = 'Пользователи.dc.html?q=' + bin + '&tab=inactive'; });
   }
 
@@ -1044,8 +994,8 @@ class Component extends DCLogic {
 
     const list = this.sorted(this.filtered(s.tab));
     const total = list.length, pages = Math.max(1, Math.ceil(total / P)), page = Math.min(s.page, pages);
-    const grid = del ? '150px minmax(360px,1fr) 150px 132px 132px 52px' : '150px minmax(420px,1fr) 170px 140px 80px';
-    const minW = del ? 976 : 960;
+    const grid = del ? '160px minmax(420px,1fr) 140px 140px 64px' : '160px minmax(480px,1fr) 140px 80px';
+    const minW = del ? 924 : 860;
 
     const rows = list.slice((page - 1) * P, page * P).map(o => {
       const act = this.activeUsersOf(o.bin).length, deact = this.usersOf(o.bin).filter(u => !u.deleted && u.status === 'INACTIVE').length;
@@ -1067,7 +1017,7 @@ class Component extends DCLogic {
     });
 
     const colDefs = [
-      { label:'БИН', sort:'bin' }, { label:'Наименование организации', sort:'ru' }, { label:'Пользователи' }, { label:'Дата открытия', sort:'opened' },
+      { label:'БИН', sort:'bin' }, { label:'Наименование организации', sort:'ru' }, { label:'Дата открытия', sort:'opened' },
     ].concat(del ? [{ label:'Дата закрытия', sort:'closed' }] : []).concat([{ label:'' }]);
     const cols = colDefs.map(c => {
       const on = c.sort && s.sort.col === c.sort, asc = s.sort.dir === 'asc';
@@ -1085,7 +1035,7 @@ class Component extends DCLogic {
     const sh = 'display:block;border-radius:6px;background:linear-gradient(90deg,#F6F8FA 25%,#EDEFF3 37%,#F6F8FA 63%);background-size:480px 100%;animation:am-shimmer 1.3s ease infinite;';
     const skeleton = s.loading ? [0, 1, 2, 3, 4, 5, 6].map(i => ({
       row:'display:grid;grid-template-columns:' + grid + ';border-top:1px solid var(--n200);',
-      cells: colDefs.map((c, j) => ({ a: sh + 'height:12px;width:' + ([70, 80 - (i % 3) * 12, 50, 60, 60, 30][j] || 30) + '%;', b: sh + 'height:10px;width:' + (j < 2 ? 40 : 0) + '%;' })),
+      cells: colDefs.map((c, j) => ({ a: sh + 'height:12px;width:' + ([70, 80 - (i % 3) * 12, 60, 60, 30][j] || 30) + '%;', b: sh + 'height:10px;width:0;' })),
     })) : [];
 
     let empty = null;
@@ -1093,14 +1043,13 @@ class Component extends DCLogic {
       const other = del ? 'active' : 'deleted';
       if(s.q.trim()){
         empty = { icon:'ri-search-eye-line', title:'Ничего не нашли',
-          text:'По запросу «' + s.q.trim() + '» во вкладке «' + (del ? 'Удалённые' : 'Действующие') + '» организаций нет.'
-            + (counts[other] ? ' Совпадения есть во вкладке «' + (del ? 'Действующие' : 'Удалённые') + '» — ' + counts[other] + '.' : ' Проверьте БИН или написание наименования.'),
+          text:'',
           actions: [{ cls:'btn btn-s', icon:'ri-refresh-line', label:'Сбросить поиск', onClick: () => this.setQ('') }]
             .concat(counts[other] ? [{ cls:'btn btn-s', icon:'ri-arrow-right-line', label:'Открыть «' + (del ? 'Действующие' : 'Удалённые') + '»', onClick: () => this.setState({ tab:other, page:1 }) }] : []) };
       } else if(del){
-        empty = { icon:'ri-delete-bin-line', title:'Удалённых организаций нет', text:'Удалённые организации будут здесь с датой закрытия — их карточки остаются доступны для просмотра.', actions:[] };
+        empty = { icon:'ri-delete-bin-line', title:'Удалённых организаций нет', text:'', actions:[] };
       } else {
-        empty = { icon:'ri-building-2-line', title:'Организаций пока нет', text:'Добавьте первую организацию — данные подтянутся из ГБД ЮЛ по БИН.',
+        empty = { icon:'ri-building-2-line', title:'Организаций пока нет', text:'',
           actions:[{ cls:'btn btn-p', icon:'ri-add-line', label:'Новая организация', onClick: () => this.openCreate() }] };
       }
     }
@@ -1173,21 +1122,19 @@ class Component extends DCLogic {
     // ——— создание ———
     if(d.mode === 'create'){
       const errs = this.validate(d), f = d.form, ip = this.isIp(f.bin), src = d.lk.src || (ip ? 'ИС КГД' : 'ГБД ЮЛ');
-      const tag = d.lk.st === 'gbd' ? src : '';
+      const tag = '';   // без меток источника (замечание аналитика)
       const note = {
-        loading: { kind:'load', text:'Ищем в ' + (ip ? 'ИС КГД' : 'ГБД ЮЛ') + '…' },
-        gbd:     { kind:'ok', text:(ip ? 'ИП найден' : 'Найдена') + ' в ' + src + ', поля заполнены' },
-        down:    { kind:'warn', text:(ip ? 'ИС КГД' : 'ГБД ЮЛ') + ' не отвечает — заполните поля вручную' },
+        down:    { kind:'warn', text:(ip ? 'ИС КГД' : 'ГБД ЮЛ') + ' недоступна — заполните поля вручную' },
       }[d.lk.st];
       const binAdorn = d.lk.st === 'loading' ? { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' }
         : d.lk.st === 'gbd' ? { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' } : null;
       const ex = this.org(f.bin);
       const sections = [
-        { title:'Идентификация', desc:'По БИН проверим уникальность и подтянем сведения из ГБД ЮЛ, для ИП — из ИС КГД.', isForm:true, fields:[
+        { title:'Реквизиты', isForm:true, fields:[
           this.textField(d, errs, 'bin', { label:'БИН', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true, clean:(v) => this.digits(v).slice(0, 12),
-            hint:'Для ИП — ИИН предпринимателя', note, adorn: binAdorn,
+            note, adorn: binAdorn,
             errAct: d.lk.st === 'exists' && ex ? { label:'Открыть карточку', fn: () => this.guard(() => this.openCard(ex.bin)) } : null }),
-          this.textField(d, errs, 'created', { label:'Дата создания', stat:true, value: this.fmtDate(this.nowIso()), hint:'Присваивается автоматически' }),
+          this.textField(d, errs, 'created', { label:'Дата создания', stat:true, value: this.fmtDate(this.nowIso()) }),
         ]},
         { title:'Наименование', isForm:true, fields:[
           this.textField(d, errs, 'kz', { label:'На казахском языке', req:true, area:true, span:2, ph:'«Атауы» ЖШС', tag }),
@@ -1197,17 +1144,17 @@ class Component extends DCLogic {
           this.textField(d, errs, 'addrLegal', { label:'Юридический адрес', req:true, area:true, span:2, ph:'Индекс, город, район, улица, дом, офис', tag }),
           this.textField(d, errs, 'sameAddr', { check:true, span:2, checkLabel:'Фактический адрес совпадает с юридическим' }),
         ].concat(f.sameAddr ? [] : [ this.textField(d, errs, 'addrFact', { label:'Фактический адрес', req:true, area:true, span:2, ph:'Индекс, город, район, улица, дом, офис', tag }) ]) },
-        { title:'Виды экономической деятельности', desc:'Коды и наименования ОКЭД. Необязательные поля.', isForm:true, fields:[
-          this.textField(d, errs, 'okedKz', { label:'Основной, на казахском', opt:true, area:true, span:2, ph:'46.46.0 — …', tag }),
-          this.textField(d, errs, 'okedRu', { label:'Основной, на русском', opt:true, area:true, span:2, ph:'46.46.0 — …', tag }),
-          this.textField(d, errs, 'oked2Kz', { label:'Вторичный, на казахском', opt:true, area:true, span:2, ph:'Если есть', tag: f.oked2Kz ? tag : '' }),
-          this.textField(d, errs, 'oked2Ru', { label:'Вторичный, на русском', opt:true, area:true, span:2, ph:'Если есть', tag: f.oked2Ru ? tag : '' }),
+        { title:'Виды экономической деятельности', isForm:true, fields:[
+          this.textField(d, errs, 'okedKz', { label:'Основной, на казахском', area:true, span:2, ph:'46.46.0 — …', tag }),
+          this.textField(d, errs, 'okedRu', { label:'Основной, на русском', area:true, span:2, ph:'46.46.0 — …', tag }),
+          this.textField(d, errs, 'oked2Kz', { label:'Вторичный, на казахском', area:true, span:2, ph:'Если есть', tag: f.oked2Kz ? tag : '' }),
+          this.textField(d, errs, 'oked2Ru', { label:'Вторичный, на русском', area:true, span:2, ph:'Если есть', tag: f.oked2Ru ? tag : '' }),
         ]},
-      ].map((o, i) => this.section(Object.assign({ hasNum:true, num:i + 1, numStyle }, o), i));
+      ].map((o, i) => this.section(o, i));
       const b = d.banner, bt = b ? { error:['ri-error-warning-fill','var(--red)','var(--red-ll)'], dup:['ri-building-2-fill','var(--orange)','var(--orange-ll)'] }[b.kind] : null;
       return this.drawerVals({
-        icon:'ri-building-2-line', iconTone:'primary', title:'Новая организация', sub:'Сведения для реестра организаций портала', status:null,
-        banner:b, bt, sections, danger:false, reqNote:true, cancel:'Отмена',
+        icon:'ri-building-2-line', iconTone:'primary', title:'Новая организация', sub:'', status:null,
+        banner:b, bt, sections, danger:false, reqNote:false, cancel:'Отмена',
         primary:{ label: d.saving ? 'Сохранение…' : 'Сохранить', icon: d.saving ? 'ri-loader-4-line' : 'ri-save-line', on: () => this.save(), spin: d.saving },
       });
     }
@@ -1215,10 +1162,10 @@ class Component extends DCLogic {
     // ——— карточка ———
     const o = this.org(d.bin);
     if(!o) return { dOpen:false, dSections:[] };
-    const del = o.deleted, us = this.usersOf(o.bin).filter(u => !u.deleted);
+    const del = o.deleted;
     const kv = (a, b, c) => this.kvItem(a, b, c);
     const sections = [
-      { title:'Реквизиты', isKv:true, kv:[ kv(this.isIp(o.bin) ? 'БИН (ИИН предпринимателя)' : 'БИН', o.bin, { mono:true }), kv('Тип', this.kind(o.bin)) ] },
+      { title:'Реквизиты', isKv:true, kv:[ kv('БИН', o.bin, { mono:true }) ] },
       { title:'Наименование', isKv:true, kv:[ kv('На казахском языке', o.kz, { span:2 }), kv('На русском языке', o.ru, { span:2 }) ] },
       { title:'Адреса', isKv:true, kv:[ kv('Юридический адрес', o.addrLegal, { span:2 }), kv('Фактический адрес', o.addrFact, { span:2 }) ] },
       { title:'Виды экономической деятельности', isKv:true, kv:[
@@ -1227,26 +1174,10 @@ class Component extends DCLogic {
       { title:'Даты', isKv:true, kv:[ kv('Дата создания', this.fmtDateTime(o.createdAt), { mono:true }), kv('Дата изменения', this.fmtDateTime(o.updatedAt), { mono:true }) ]
           .concat(del ? [kv('Дата закрытия', this.fmtDateTime(o.closedAt), { mono:true })] : []) },
     ];
-    const shown = us.slice(0, 5);
-    // подписи без рода — сотрудник может быть и мужчиной, и женщиной
-    const stOf = (u) => u.status === 'ACTIVE' ? ['Действует','var(--green-ll)','var(--green-d)'] : ['Вход закрыт','var(--orange-ll)','var(--orange-d)'];
-    const roleLine = (u) => { const r = Component.ROLE_LABEL[u.role] || u.role; return r + (u.position && u.position.toLowerCase() !== r.toLowerCase() ? ' · ' + u.position : ''); };
-    sections.push(us.length ? {
-      title:'Пользователи организации · ' + us.length, desc: del ? 'Деактивированы вместе с организацией — вход в систему закрыт.' : 'При удалении организации их доступ будет закрыт.', isUsers:true,
-      users: shown.map((u, i) => { const st = stOf(u); return {
-        name: [u.last, u.first, u.middle].filter(Boolean).join(' '), sub: roleLine(u),
-        initials: this.initials(u), avatar: this.avatarStyle(u.iin, 32), stLabel: st[0],
-        stStyle:'flex:0 0 auto;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;display:inline-flex;align-items:center;background:' + st[1] + ';color:' + st[2] + ';',
-        style:'display:flex;align-items:center;gap:10px;padding:10px 12px;' + (i ? 'border-top:1px solid var(--n200);' : ''),
-      }; }),
-      hasUsersLink:true, usersHref:'Пользователи.dc.html?q=' + o.bin + (del ? '&tab=inactive' : ''),
-      usersLinkLabel: us.length > shown.length ? 'Все ' + us.length + ' в разделе «Пользователи»' : 'Открыть в разделе «Пользователи»',
-    } : { title:'Пользователи организации', isEmptyUsers:true, emptyText:'За организацией не закреплено ни одного пользователя.' });
     const secs = sections.map((x, i) => this.section(x, i));
-    const banner = del ? { kind:'deleted', title:'Организация удалена ' + this.fmtDate(o.closedAt),
-      text: us.length ? 'Её пользователи (' + us.length + ') деактивированы и не могут войти в систему.' : 'Пользователей за организацией не было.' } : null;
+    const banner = del ? { kind:'deleted', title:'Организация удалена ' + this.fmtDate(o.closedAt) } : null;
     return this.drawerVals({
-      icon:'ri-building-2-line', iconTone: del ? 'muted' : 'primary', title:o.ru, sub:'БИН ' + o.bin + ' · ' + this.kind(o.bin),
+      icon:'ri-building-2-line', iconTone: del ? 'muted' : 'primary', title:'Карточка организации', sub:'',
       status: del ? ['В удалённых','var(--red-ll)','var(--red-d)','var(--red)'] : ['Действует','var(--green-ll)','var(--green-d)','var(--green)'],
       banner, bt: banner ? ['ri-delete-bin-fill','var(--red)','var(--red-ll)'] : null,
       sections: secs, danger: !del, reqNote:false, cancel:'Закрыть',
@@ -1286,33 +1217,25 @@ class Component extends DCLogic {
     if(c.kind === 'discard'){
       const f = this.state.drawer ? this.state.drawer.form : {};
       return Object.assign(base, tone('var(--orange-ll)', 'var(--orange)'), { cIcon:'ri-alert-fill', cTitle:'Закрыть без сохранения?',
-        cText:'Введённые данные не сохранятся. Чтобы продолжить заполнение, нажмите «Отмена».',
-        cOrgName: f.ru || 'Новая организация', cOrgSub: f.bin ? 'БИН ' + f.bin : 'БИН не указан', cOrgIcon:'ri-draft-line',
-        cOkLabel:'Закрыть без сохранения', cOkCls:'btn btn-d', cOkIcon:'ri-close-line',
+        cOkLabel:'Закрыть', cOkCls:'btn btn-d', cOkIcon:'ri-close-line',
         cOk: () => { const next = c.next; this.setState({ confirm:null }); this.closeDrawer(true); if(next) setTimeout(next, 0); } });
     }
     const o = this.org(c.bin);
     if(!o) return { cOpen:false };
-    const card = { cOrgName:o.ru, cOrgSub:'БИН ' + o.bin + ' · открыта ' + this.fmtDate(o.createdAt) + (o.closedAt ? ' · закрыта ' + this.fmtDate(o.closedAt) : '') };
-    const list = (us) => us.slice(0, 3).map((u, i) => ({ name:[u.last, u.first, u.middle].filter(Boolean).join(' '), sub:'ИИН ' + u.iin + ' · ' + (Component.ROLE_LABEL[u.role] || u.role),
-      initials:this.initials(u), avatar:this.avatarStyle(u.iin, 28), style:'display:flex;align-items:center;gap:10px;padding:8px 12px;' + (i ? 'border-top:1px solid var(--n200);' : '') }));
     if(c.kind === 'delete'){
-      const us = this.activeUsersOf(o.bin), n = us.length;
-      return Object.assign(base, card, tone('var(--red-ll)', 'var(--red)'), {
+      const n = this.activeUsersOf(o.bin).length;
+      return Object.assign(base, tone('var(--red-ll)', 'var(--red)'), {
         cIcon: n ? 'ri-alert-fill' : 'ri-delete-bin-line',
-        cTitle: 'Вы уверены, что хотите удалить организацию?',
-        cText: n ? 'За данной организацией закреплены пользователи. При удалении организации все пользователи будут автоматически деактивированы. Продолжить?'
-                 : 'Организация перейдёт во вкладку «Удалённые», дата закрытия — сегодня. Пользователей за ней нет.',
-        cHasUsers: !!n, cUsersTitle:'Будут деактивированы · ' + n, cUsers: list(us), cHasMore: n > 3, cMore: n > 3 ? 'и ещё ' + this.usersWord(n - 3) : '',
-        cOkLabel: c.busy ? 'Удаляем…' : n ? 'Удалить и деактивировать ' + this.usersWord(n) : 'Удалить', cOkCls:'btn btn-d', cOkIcon: c.busy ? 'ri-loader-4-line' : 'ri-delete-bin-line',
+        // Alt 4: при закреплённых пользователях — сообщение из постановки вместо общего вопроса
+        cTitle: n ? 'За данной организацией закреплены пользователи. При удалении организации все пользователи будут автоматически деактивированы. Продолжить?'
+                  : 'Вы уверены, что хотите удалить организацию?',
+        cOkLabel: c.busy ? 'Удаление…' : 'Удалить', cOkCls:'btn btn-d', cOkIcon: c.busy ? 'ri-loader-4-line' : 'ri-delete-bin-line',
         cOk: () => this.doDelete(o.bin) });
     }
     const back = this.usersOf(o.bin).filter(u => !u.deleted && u.status === 'INACTIVE' && u.reason === 'org');
-    return Object.assign(base, card, tone('var(--primary-lighter)', 'var(--primary)'), { cIcon:'ri-arrow-go-back-line', cTitle:'Восстановить организацию?',
-      cText:'Организация вернётся во вкладку «Действующие», дата закрытия будет очищена.',
+    return Object.assign(base, tone('var(--primary-lighter)', 'var(--primary)'), { cIcon:'ri-arrow-go-back-line', cTitle:'Восстановить организацию?',
       cHasCheck: back.length > 0, cChecked: !!c.withUsers, cToggle: () => this.setState({ confirm: Object.assign({}, c, { withUsers: !c.withUsers }) }),
-      cCheckLabel:'Восстановить и пользователей организации · ' + back.length,
-      cCheckSub:'Вернутся в «Действующие» с прежними профилями и ролями. Без отметки останутся в «Деактивированных».',
+      cCheckLabel:'Восстановить пользователей организации',
       cOkLabel:'Восстановить', cOkCls:'btn btn-p', cOkIcon:'ri-arrow-go-back-line', cOk: () => this.doRestore(o.bin) });
   }
 
@@ -1343,7 +1266,7 @@ class Component extends DCLogic {
         this.commit(Component.seed());
         try { sessionStorage.removeItem(Component.UI_KEY); sessionStorage.removeItem('mp-admin-users-ui'); } catch(e){}
         this.setState({ tab:'active', q:'', page:1, drawer:null, confirm:null, demoOpen:false });
-        this.toast('info', 'Демо-данные сброшены', 'Организации и пользователи вернулись к исходному набору.');
+        this.toast('info', 'Демо-данные сброшены');
       },
     };
   }
