@@ -28,19 +28,20 @@
   (страница «Организации»). Восстановить такого пользователя нельзя, пока организация удалена —
   кнопка остаётся видимой и объясняет причину.
 
-  Решения по UX, которых нет в скриншотах тестовой среды:
-    • 10 столбцов постановки собраны в 5 смысловых: «Пользователь» (фамилия, имя, ИИН),
-      «Организация» (наименование, БИН), «Почта», «Тип и профиль», «Уровень и роль» —
-      все поля на месте, но таблица читается без горизонтальной прокрутки на 1440 px.
+  Решения по UX:
+    • 10 столбцов постановки собраны в 5 смысловых: «Тип и профиль» (первым — по замечанию
+      аналитика), «Пользователь» (фамилия, имя, ИИН), «Организация» (наименование, БИН),
+      «Почта», «Уровень и роль». Все поля на месте, без горизонтальной прокрутки на 1440 px.
     • Формы — в боковой панели: реестр остаётся виден, контекст не теряется.
-    • Создание идёт от общего к частному: тип → ИИН (автозаполнение ФИО из ГБД ФЛ) →
-      организация (реестр портала, затем ГБД ЮЛ / ИС КГД) → контакты → профиль, уровень, роль
-      (каскадно: список уровней зависит от профиля, ролей — от уровня) → пароль.
-    • Под ролью показываются её полномочия — раздел называется «Полномочия», и админ видит,
-      что именно выдаёт.
-    • Поиск мгновенный, «/» ставит курсор в поиск, Esc закрывает поповер → диалог → панель.
-    • Удаление можно отменить из тоста; страница, поиск и фильтры переживают операции
-      и перезагрузку (sessionStorage).
+    • Создание: тип → ИИН (автозаполнение ФИО из ГБД ФЛ) → организация (реестр портала,
+      затем ГБД ЮЛ / ИС КГД) → контакты → профиль, уровень, роль (каскадом) → пароль.
+    • Минимум текста (замечания аналитика после тестирования, 01.10.2026): без пояснений под
+      разделами, подсказок под полями, меток источника и замков, без полномочий роли и
+      генератора пароля; подтверждения — только заголовок; уведомления — только итог.
+      Поля, заполненные из ГБД, остаются редактируемыми. В редактировании пароль —
+      два необязательных поля: пустые — пароль не меняется.
+    • Удаление можно отменить из уведомления; страница, поиск и фильтры переживают
+      операции и перезагрузку (sessionStorage).
 
   Данные прототипа: localStorage['mp-admin-db'] — общий с «Организациями»
   (удаление организации деактивирует её пользователей). Сценарии ГБД и сохранения,
@@ -125,6 +126,8 @@
   .chip-copy{transition:background .15s,border-color .15s;}
   .chip-copy:hover{background:var(--primary-lighter);border-color:var(--primary-light);}
 
+  .rad:hover>span:first-child{border-color:var(--primary) !important;}
+  .rad:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .btn:focus-visible,.ib:focus-visible,.fbtn:focus-visible,.tab:focus-visible,.name-btn:focus-visible,.lnk:focus-visible,.pg:focus-visible,.opt:focus-visible,.chip-copy:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .dr-body{scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
   .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
@@ -165,7 +168,7 @@
         <div style="padding:16px 32px;border-bottom:1px solid var(--stroke);display:flex;align-items:flex-start;gap:24px;">
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;">
             <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">Пользователи и полномочия</h1>
-            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:760px;">Учётные записи портала МЗ: профили, организации, уровни и роли. Роль определяет, какие разделы и действия доступны пользователю.</div>
+            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:760px;">Управление учётными записями пользователей</div>
           </div>
           <button id="am-new" class="btn btn-p" onClick="{{ onNew }}" style="flex:0 0 auto;margin-top:2px;"><i class="ri-user-add-line" style="font-size:18px;"></i>Новый пользователь</button>
         </div>
@@ -188,12 +191,9 @@
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:16px;border-bottom:1px solid var(--stroke);">
               <div style="position:relative;flex:1 1 320px;max-width:440px;min-width:260px;">
                 <i class="ri-search-2-line" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--n400);pointer-events:none;"></i>
-                <input id="am-search" class="inp" type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="ИИН, имя, фамилия, почта или организация" aria-label="Поиск пользователей по ИИН, имени, фамилии, почте или организации" autoComplete="off" spellCheck="false" style="padding-left:38px;padding-right:40px;" />
+                <input id="am-search" class="inp" type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="Поиск по ИИН, ФИО, почте, организации" aria-label="Поиск по ИИН, имени, фамилии, почте, организации" autoComplete="off" spellCheck="false" style="padding-left:38px;padding-right:40px;" />
                 <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
                   <button class="ib" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить поиск" style="position:absolute;right:4px;top:4px;"><i class="ri-close-circle-fill" style="font-size:18px;color:var(--n400);"></i></button>
-                </sc-if>
-                <sc-if value="{{ noQ }}" hint-placeholder-val="{{ true }}">
-                  <span aria-hidden="true" title="Нажмите «/», чтобы перейти к поиску" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);min-width:20px;height:20px;padding:0 5px;border:1px solid var(--n200);border-bottom-width:2px;border-radius:6px;background:var(--n50);font-size:11px;line-height:16px;font-weight:500;color:var(--n400);display:flex;align-items:center;justify-content:center;">/</span>
                 </sc-if>
               </div>
 
@@ -251,6 +251,12 @@
                   <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
                     <div role="row" class="row" onClick="{{ r.onOpen }}" style="{{ r.style }}">
 
+                      <!-- Тип и профиль — первым столбцом (замечание аналитика) -->
+                      <div role="cell" style="padding:12px 12px 12px 16px;display:flex;align-items:center;gap:8px;min-width:0;">
+                        <span title="{{ r.typeFull }}" style="{{ r.typeStyle }}">{{ r.type }}</span>
+                        <span style="min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.profile }}</span>
+                      </div>
+
                       <!-- Пользователь -->
                       <div role="cell" style="padding:12px;display:flex;align-items:center;gap:10px;min-width:0;">
                         <span aria-hidden="true" style="{{ r.avatar }}">{{ r.initials }}</span>
@@ -269,12 +275,6 @@
                       <!-- Почта -->
                       <div role="cell" style="padding:12px;display:flex;align-items:center;min-width:0;">
                         <span title="{{ r.email }}" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.email }}</span>
-                      </div>
-
-                      <!-- Тип и профиль -->
-                      <div role="cell" style="padding:12px;display:flex;align-items:center;gap:8px;min-width:0;">
-                        <span title="{{ r.typeFull }}" style="{{ r.typeStyle }}">{{ r.type }}</span>
-                        <span style="min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.profile }}</span>
                       </div>
 
                       <!-- Уровень и роль -->
@@ -309,7 +309,7 @@
                 <div style="width:56px;height:56px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="{{ emptyIcon }}" style="font-size:28px;color:var(--n400);"></i></div>
                 <div style="display:flex;flex-direction:column;gap:6px;max-width:440px;">
                   <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ emptyTitle }}</div>
-                  <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div>
+                  <sc-if value="{{ emptyText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div></sc-if>
                 </div>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
                   <sc-for list="{{ emptyActions }}" as="ea" hint-placeholder-count="1">
@@ -345,18 +345,15 @@
   <!-- ═══ Боковая панель: создание / редактирование / просмотр ═══ -->
   <sc-if value="{{ dOpen }}" hint-placeholder-val="{{ false }}">
     <div onMouseDown="{{ dOverlay }}" style="position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.32);animation:am-fade .15s ease;"></div>
-    <aside id="am-drawer" role="dialog" aria-modal="true" aria-labelledby="am-dr-title" aria-describedby="am-dr-sub" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100vw;z-index:81;background:var(--n0);box-shadow:-16px 0 40px -12px rgba(10,13,20,.18);display:flex;flex-direction:column;animation:am-drawer .22s cubic-bezier(.2,.8,.2,1);">
+    <aside id="am-drawer" role="dialog" aria-modal="true" aria-labelledby="am-dr-title" style="position:fixed;top:0;right:0;bottom:0;width:640px;max-width:100vw;z-index:81;background:var(--n0);box-shadow:-16px 0 40px -12px rgba(10,13,20,.18);display:flex;flex-direction:column;animation:am-drawer .22s cubic-bezier(.2,.8,.2,1);">
 
       <!-- шапка -->
-      <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 20px 24px;border-bottom:1px solid var(--stroke);">
+      <div style="display:flex;align-items:center;gap:14px;padding:20px 20px 20px 24px;border-bottom:1px solid var(--stroke);">
         <sc-if value="{{ dHasAvatar }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ dAvatar }}">{{ dInitials }}</span></sc-if>
         <sc-if value="{{ dHasIcon }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="width:40px;height:40px;flex:0 0 auto;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;"><i class="ri-user-add-line" style="font-size:20px;"></i></span></sc-if>
-        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <h2 id="am-dr-title" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ dTitle }}</h2>
-            <sc-if value="{{ dHasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ dStStyle }}"><span style="{{ dStDot }}"></span>{{ dStLabel }}</span></sc-if>
-          </div>
-          <div id="am-dr-sub" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ dSub }}</div>
+        <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <h2 id="am-dr-title" style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">{{ dTitle }}</h2>
+          <sc-if value="{{ dHasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ dStStyle }}"><span style="{{ dStDot }}"></span>{{ dStLabel }}</span></sc-if>
         </div>
         <button id="am-dr-close" class="ib" onClick="{{ dClose }}" aria-label="Закрыть панель" title="Закрыть (Esc)"><i class="ri-close-line" style="font-size:20px;"></i></button>
       </div>
@@ -369,7 +366,7 @@
             <i class="{{ dBannerIcon }}" style="{{ dBannerIconStyle }}"></i>
             <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;align-items:flex-start;">
               <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ dBannerTitle }}</div>
-              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);">{{ dBannerText }}</div>
+              <sc-if value="{{ dBannerText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n600);">{{ dBannerText }}</div></sc-if>
               <sc-if value="{{ dBannerHasAct }}" hint-placeholder-val="{{ false }}">
                 <button class="lnk" onClick="{{ dBannerAct }}" style="margin-top:4px;font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ dBannerActLabel }}</button>
               </sc-if>
@@ -431,16 +428,12 @@
                       </div>
                     </sc-if>
 
-                    <!-- выбор типа (радио-карточки) -->
+                    <!-- выбор типа: три варианта без пояснений, списком — в строку длинные подписи не помещаются -->
                     <sc-if value="{{ f.isSeg }}" hint-placeholder-val="{{ false }}">
-                      <div role="radiogroup" id="{{ f.id }}" aria-labelledby="{{ f.lblId }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.descId }}" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                      <div role="radiogroup" id="{{ f.id }}" aria-labelledby="{{ f.lblId }}" aria-invalid="{{ f.invalid }}" aria-describedby="{{ f.descId }}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
                         <sc-for list="{{ f.segs }}" as="g" hint-placeholder-count="3">
-                          <button type="button" role="radio" id="{{ g.gid }}" aria-checked="{{ g.on }}" tabIndex="{{ g.ti }}" onClick="{{ g.onClick }}" onKeyDown="{{ g.onKey }}" class="opt" style="{{ g.style }}">
-                            <span aria-hidden="true" style="{{ g.radio }}"><span style="{{ g.dot }}"></span></span>
-                            <span style="display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left;">
-                              <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ g.label }}</span>
-                              <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ g.sub }}</span>
-                            </span>
+                          <button type="button" role="radio" id="{{ g.gid }}" aria-checked="{{ g.on }}" tabIndex="{{ g.ti }}" onClick="{{ g.onClick }}" onKeyDown="{{ g.onKey }}" class="rad" style="display:inline-flex;align-items:center;gap:8px;padding:6px 2px;border:none;border-radius:6px;background:none;cursor:pointer;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);">
+                            <span aria-hidden="true" style="{{ g.radio }}"><span style="{{ g.dot }}"></span></span>{{ g.label }}
                           </button>
                         </sc-for>
                       </div>
@@ -550,23 +543,12 @@
   <!-- ═══ Подтверждение ═══ -->
   <sc-if value="{{ cOpen }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.4);display:flex;align-items:center;justify-content:center;padding:24px;animation:am-fade .15s ease;">
-      <div id="am-confirm" role="alertdialog" aria-modal="true" aria-labelledby="am-c-title" aria-describedby="am-c-text" style="width:480px;max-width:100%;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);padding:24px;display:flex;flex-direction:column;gap:20px;animation:mp-slidein .18s ease;">
-        <div style="display:flex;align-items:flex-start;gap:14px;">
+      <!-- только заголовок и кнопки: пояснения в подтверждениях не нужны (замечание аналитика) -->
+      <div id="am-confirm" role="alertdialog" aria-modal="true" aria-labelledby="am-c-title" style="width:440px;max-width:100%;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);padding:24px;display:flex;flex-direction:column;gap:24px;animation:mp-slidein .18s ease;">
+        <div style="display:flex;align-items:center;gap:14px;">
           <div style="{{ cIconWrap }}"><i class="{{ cIcon }}" style="{{ cIconStyle }}"></i></div>
-          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
-            <div id="am-c-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ cTitle }}</div>
-            <div id="am-c-text" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ cText }}</div>
-          </div>
+          <div id="am-c-title" style="flex:1;min-width:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ cTitle }}</div>
         </div>
-        <sc-if value="{{ cHasCard }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:var(--n50);">
-            <span aria-hidden="true" style="{{ cAvatar }}">{{ cInitials }}</span>
-            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-              <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cCardTitle }}</span>
-              <span style="font-size:12px;line-height:16px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ cCardSub }}</span>
-            </span>
-          </div>
-        </sc-if>
         <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">
           <button id="am-c-cancel" class="btn btn-s" onClick="{{ cCancel }}">{{ cCancelLabel }}</button>
           <button class="{{ cOkCls }}" onClick="{{ cOk }}" aria-busy="{{ cBusy }}"><i class="{{ cOkIcon }}" style="{{ cOkIconStyle }}"></i>{{ cOkLabel }}</button>
@@ -582,7 +564,7 @@
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
         <div style="display:flex;flex-direction:column;gap:4px;">
           <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ toastTitle }}</div>
-          <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ toastText }}</div>
+          <sc-if value="{{ toastText }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ toastText }}</div></sc-if>
         </div>
         <sc-if value="{{ toastHasAction }}" hint-placeholder-val="{{ false }}">
           <button class="lnk" onClick="{{ toastAction }}" style="font-size:14px;line-height:20px;color:var(--n900);text-decoration:underline;text-underline-offset:3px;">{{ toastActionLabel }}</button>
@@ -637,9 +619,9 @@ class Component extends DCLogic {
 
   // ——— справочники (nsi) ———
   static TYPES = [
-    { id:'FL', short:'ФЛ', label:'Физическое лицо',                seg:'Физлицо',         segSub:'ФЛ · без организации' },
-    { id:'IP', short:'ИП', label:'Индивидуальный предприниматель', seg:'Предприниматель', segSub:'ИП · по ИИН' },
-    { id:'UL', short:'ЮЛ', label:'Юридическое лицо',               seg:'Юрлицо',          segSub:'ЮЛ · по БИН' },
+    { id:'FL', short:'ФЛ', label:'Физическое лицо' },
+    { id:'UL', short:'ЮЛ', label:'Юридическое лицо' },
+    { id:'IP', short:'ИП', label:'Индивидуальный предприниматель' },
   ];
   /** nsi.user_profiles — какие типы пользователя допускает профиль */
   static PROFILES = [
@@ -939,14 +921,6 @@ class Component extends DCLogic {
       { text:'Спецсимвол',         ok: /[^A-Za-zА-Яа-яЁё0-9\s]/.test(p) },
     ];
   }
-  genPassword(){
-    const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!#$%&*?@'];
-    const all = sets.join(''), pick = (s) => s[Math.floor(Math.random() * s.length)];
-    const out = sets.map(pick);
-    while(out.length < 12) out.push(pick(all));
-    for(let i = out.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); const t = out[i]; out[i] = out[j]; out[j] = t; }
-    return out.join('');
-  }
   toast(tone, title, text, actionLabel, onAction){
     clearTimeout(this._tt);
     this.setState({ toast:{ tone, title, text, actionLabel, onAction } });
@@ -975,6 +949,7 @@ class Component extends DCLogic {
   sorted(list){
     const s = this.state, dir = s.sort.dir === 'asc' ? 1 : -1;
     const key = {
+      type:  (u) => this.type(u.type).short + ' ' + this.profile(u.profile).label,
       name:  (u) => u.last + ' ' + u.first + ' ' + u.middle,
       org:   (u) => { const o = this.org(u.bin); return o ? o.ru.replace(/^[^«"]*[«"]/, '') : '￿'; },
       email: (u) => u.email,
@@ -1143,7 +1118,7 @@ class Component extends DCLogic {
     if(!d || d.mode === 'view') return false;
     const f = d.form;
     if(d.mode === 'create') return Object.keys(f).some(k => k === 'phone' ? this.digits(f[k]).length > 1 : !!String(f[k]).trim());
-    return ['email','phone','level','role'].some(k => f[k] !== d.orig[k]) || !!(d.pwOpen && (f.pass || f.pass2));
+    return ['email','phone','level','role'].some(k => f[k] !== d.orig[k]) || !!(f.pass || f.pass2);
   }
   closeDrawer(force){
     const d = this.state.drawer;
@@ -1249,8 +1224,8 @@ class Component extends DCLogic {
         const what = f.type === 'IP' ? 'ИИН предпринимателя' : 'БИН организации';
         if(!f.bin) e.bin = 'Введите ' + what;
         else if(!/^\d{12}$/.test(f.bin)) e.bin = what[0].toUpperCase() + what.slice(1) + ' состоит из 12 цифр — введено ' + f.bin.length;
-        else if(f.type === 'UL' && '456'.indexOf(f.bin[4]) < 0) e.bin = 'Это ИИН, а не БИН. Для предпринимателя выберите тип «Предприниматель»';
-        else if(f.type === 'IP' && '456'.indexOf(f.bin[4]) >= 0) e.bin = 'Это БИН юрлица. Для организации выберите тип «Юрлицо»';
+        else if(f.type === 'UL' && '456'.indexOf(f.bin[4]) < 0) e.bin = 'Это ИИН, а не БИН. Для ИП выберите тип «Индивидуальный предприниматель»';
+        else if(f.type === 'IP' && '456'.indexOf(f.bin[4]) >= 0) e.bin = 'Это БИН. Для организации выберите тип «Юридическое лицо»';
         else if(d.binLk.st === 'loading') e.bin = 'Дождитесь ответа ' + (f.type === 'IP' ? 'ИС КГД' : 'ГБД ЮЛ');
         else if(d.binLk.st === 'deleted') e.bin = 'Организация удалена из реестра — привязать к ней пользователя нельзя';
         else if(d.binLk.st === 'notfound') e.bin = (f.type === 'IP' ? 'ИП не найден в ИС КГД' : 'Организация не найдена в ГБД ЮЛ') + '. Проверьте номер';
@@ -1267,7 +1242,8 @@ class Component extends DCLogic {
     if(!f.level) e.level = f.profile ? 'Выберите уровень' : 'Сначала выберите профиль';
     else { const l = this.level(f.level); if(l && l.bin && f.bin && l.bin !== f.bin){ const o = this.org(l.bin); e.level = 'Уровень «' + l.label + '» — только для сотрудников ' + (o ? 'организации с БИН ' + l.bin : 'БИН ' + l.bin); } }
     if(!f.role) e.role = f.level ? 'Выберите роль' : 'Сначала выберите уровень';
-    if(create || d.pwOpen){
+    // в редактировании пароль необязателен: пустые поля — пароль не меняется
+    if(create || f.pass || f.pass2){
       if(!f.pass) e.pass = 'Введите пароль';
       else if(!this.rulesOf(f.pass).every(r => r.ok)) e.pass = 'Пароль должен содержать не менее 8 символов, одну заглавную букву, одну строчную букву, одну цифру и один специальный символ.';
       if(!f.pass2) e.pass2 = 'Повторите пароль';
@@ -1284,8 +1260,7 @@ class Component extends DCLogic {
     const errs = this.validate(d), keys = Component.ORDER.filter(k => errs[k]);
     const body = document.getElementById('am-dr-body');
     if(keys.length){
-      this.patchD({ submitted:true, banner:{ kind:'error', title:'Проверьте ' + keys.length + ' ' + this.pl(keys.length, ['поле','поля','полей']),
-        text:'Поля с ошибками подсвечены красным. Исправьте их и нажмите «Сохранить» ещё раз.' } });
+      this.patchD({ submitted:true, banner:{ kind:'error', title:'Проверьте ' + keys.length + ' ' + this.pl(keys.length, ['поле','поля','полей']), } });
       setTimeout(() => this.focusField(keys[0]), 40);
       return;
     }
@@ -1298,8 +1273,6 @@ class Component extends DCLogic {
     if(dup){
       const t = this.tabOf(dup);
       this.patchD({ submitted:true, banner:{ kind:'dup', title:'Пользователь с указанными данными уже зарегистрирован.',
-        text:'Совпадают ИИН, БИН, тип пользователя, профиль и уровень. Запись находится во вкладке «' + this.tabName(t) + '»'
-          + (t === 'active' ? '.' : ' — её можно восстановить вместо создания новой.'),
         actLabel:'Открыть запись', act: () => this.guard(() => this.openRecord(dup.id)) } });
       if(body) body.scrollTo({ top:0, behavior:'smooth' });
       return;
@@ -1308,7 +1281,7 @@ class Component extends DCLogic {
     clearTimeout(this._sv);
     this._sv = setTimeout(() => {
       if(this.state.saveMode === 'error'){
-        this.patchD({ saving:false, banner:{ kind:'error', title:'Не удалось сохранить', text:'Сервер не ответил. Данные формы на месте — попробуйте ещё раз.', actLabel:'Повторить', act: () => this.save() } });
+        this.patchD({ saving:false, banner:{ kind:'error', title:'Не удалось сохранить', actLabel:'Повторить', act: () => this.save() } });
         const b = document.getElementById('am-dr-body'); if(b) b.scrollTo({ top:0, behavior:'smooth' });
         return;
       }
@@ -1319,11 +1292,11 @@ class Component extends DCLogic {
         if(f.phone !== rec.phone) changed.push('телефон');
         if(f.level !== rec.level) changed.push('уровень');
         if(f.role !== rec.role) changed.push('роль');
-        if(d.pwOpen && f.pass) changed.push('пароль');
+        if(f.pass) changed.push('пароль');
         db.users = db.users.map(u => u.id === rec.id ? Object.assign({}, u, { email:f.email.trim(), phone:f.phone, level:f.level, role:f.role, updatedAt:now }) : u);
         this.setState({ drawer:null });
         this.commit(db, () => this.reveal(rec.id));
-        this.toast('success', 'Изменения сохранены', this.shortName(rec) + ' · обновлено: ' + changed.join(', ') + '.');
+        this.toast('success', 'Изменения сохранены');
         return;
       }
       let orgAdded = null;
@@ -1339,8 +1312,7 @@ class Component extends DCLogic {
       db.users.push(u);
       this.setState({ drawer:null });
       this.commit(db, () => this.reveal(u.id));
-      this.toast('success', 'Пользователь создан', this.shortName(u) + ' · ' + this.profile(u.profile).label + ' — во вкладке «Действующие»'
-        + (orgAdded ? '. Организация добавлена в реестр.' : '.'));
+      this.toast('success', 'Пользователь создан');
     }, 800);
   }
 
@@ -1351,8 +1323,7 @@ class Component extends DCLogic {
     if(!u) return;
     if(this.orgBlocked(u)){
       const o = this.org(u.bin);
-      this.toast('warn', 'Сначала восстановите организацию', 'Организация ' + o.ru + ' удалена из реестра — пока она в удалённых, её сотрудники не могут войти в систему.',
-        'Открыть «Организации»', () => { location.href = 'Организации.dc.html?bin=' + u.bin; });
+      this.toast('warn', 'Сначала восстановите организацию', '', 'Перейти к организации', () => { location.href = 'Организации.dc.html?bin=' + u.bin; });
       return;
     }
     this.setState({ openSel:null, confirm:{ kind:'restore', id } });
@@ -1363,7 +1334,7 @@ class Component extends DCLogic {
     const db = Object.assign({}, this.state.db, { users: this.users().map(u => u.id === id ? Object.assign({}, u, { status:'INACTIVE', deleted:true, reason:'admin', changedAt:this.nowIso() }) : u) });
     this.commit(db, () => this.clampPage());
     this.setState({ confirm:null, drawer:null });
-    this.toast('success', 'Пользователь удалён', 'Запись «' + this.shortName(prev) + '» перенесена во вкладку «Удалённые», вход в систему закрыт.', 'Отменить', () => {
+    this.toast('success', 'Пользователь удалён', '', 'Отменить', () => {
       const back = Object.assign({}, this.state.db, { users: this.users().map(u => u.id === id ? prev : u) });
       clearTimeout(this._tt); this.setState({ toast:null });
       this.commit(back, () => this.reveal(id));
@@ -1375,13 +1346,13 @@ class Component extends DCLogic {
     const clash = this.users().filter(x => x.id !== id && this.tabOf(x) === 'active' && x.iin === u.iin && x.bin === u.bin && x.type === u.type && x.profile === u.profile && x.level === u.level)[0];
     if(clash){
       this.setState({ confirm:null });
-      this.toast('error', 'Восстановить нельзя', 'Уже есть действующая запись с теми же ИИН, БИН, типом, профилем и уровнем.', 'Открыть её', () => this.openRecord(clash.id));
+      this.toast('error', 'Пользователь с указанными данными уже зарегистрирован.', '', 'Открыть запись', () => this.openRecord(clash.id));
       return;
     }
     const db = Object.assign({}, this.state.db, { users: this.users().map(x => x.id === id ? Object.assign({}, x, { status:'ACTIVE', deleted:false, reason:null, changedAt:this.nowIso() }) : x) });
     this.commit(db, () => this.clampPage());
     this.setState({ confirm:null, drawer:null });
-    this.toast('success', 'Пользователь восстановлен', 'Запись «' + this.shortName(u) + '» снова во вкладке «Действующие», вход в систему открыт.', 'Показать', () => { clearTimeout(this._tt); this.setState({ toast:null }); this.reveal(id); });
+    this.toast('success', 'Пользователь восстановлен', '', 'Показать', () => { clearTimeout(this._tt); this.setState({ toast:null }); this.reveal(id); });
   }
   clampPage(){
     const n = this.filtered(this.state.tab).length, max = Math.max(1, Math.ceil(n / Component.PAGE));
@@ -1451,8 +1422,8 @@ class Component extends DCLogic {
     };
     // сумма минимумов ≤ 1085: на 1440 px (скроллбар, меню 272, поля 2×32) таблица помещается без прокрутки
     const grid = inactiveCols
-      ? 'minmax(212px,1.25fr) minmax(172px,1.1fr) minmax(160px,1fr) 168px minmax(164px,1fr) 128px 80px'
-      : 'minmax(236px,1.3fr) minmax(200px,1.15fr) minmax(184px,1.1fr) 168px minmax(196px,1.1fr) 80px';
+      ? '168px minmax(212px,1.25fr) minmax(172px,1.1fr) minmax(160px,1fr) minmax(164px,1fr) 128px 80px'
+      : '168px minmax(236px,1.3fr) minmax(200px,1.15fr) minmax(184px,1.1fr) minmax(196px,1.1fr) 80px';
     const minW = inactiveCols ? 1084 : 1064;
 
     const rows = slice.map(u => {
@@ -1485,8 +1456,8 @@ class Component extends DCLogic {
     });
 
     const colDefs = [
-      { label:'Пользователь', sort:'name' }, { label:'Организация', sort:'org' }, { label:'Почта', sort:'email' },
-      { label:'Тип и профиль' }, { label:'Уровень и роль', sort:'role' },
+      { label:'Тип и профиль', sort:'type' }, { label:'Пользователь', sort:'name' }, { label:'Организация', sort:'org' }, { label:'Почта', sort:'email' },
+      { label:'Уровень и роль', sort:'role' },
     ].concat(inactiveCols ? [{ label: s.tab === 'deleted' ? 'Удаление' : 'Деактивация' }] : []).concat([{ label:'', sr:'Действия' }]);
     const cols = colDefs.map(c => {
       const on = c.sort && s.sort.col === c.sort, asc = s.sort.dir === 'asc';
@@ -1505,8 +1476,8 @@ class Component extends DCLogic {
       row: 'display:grid;grid-template-columns:' + grid + ';border-top:1px solid var(--n200);',
       cells: colDefs.map((c, j) => {
         const sh = 'display:block;border-radius:6px;background:linear-gradient(90deg,#F6F8FA 25%,#EDEFF3 37%,#F6F8FA 63%);background-size:480px 100%;animation:am-shimmer 1.3s ease infinite;';
-        const w1 = [70, 80, 64, 56, 74, 60, 40][j] - (i % 3) * 6;
-        return { a: sh + 'height:12px;width:' + (j === colDefs.length - 1 ? 40 : w1) + '%;', b: sh + 'height:10px;width:' + (j >= colDefs.length - 1 || j === 2 ? 0 : 42) + '%;' };
+        const w1 = [56, 70, 80, 64, 74, 60, 40][j] - (i % 3) * 6;
+        return { a: sh + 'height:12px;width:' + (j === colDefs.length - 1 ? 40 : w1) + '%;', b: sh + 'height:10px;width:' + (j >= colDefs.length - 1 || j === 0 || j === 3 ? 0 : 42) + '%;' };
       }),
     })) : [];
 
@@ -1516,16 +1487,15 @@ class Component extends DCLogic {
       const others = ['active','inactive','deleted'].filter(t => t !== s.tab && counts[t] > 0);
       if(hasFilters){
         empty = { icon:'ri-search-eye-line', title:'Никого не нашли',
-          text: (s.q.trim() ? 'По запросу «' + s.q.trim() + '»' : 'По выбранным фильтрам') + ' во вкладке «' + this.tabName(s.tab) + '» записей нет.'
-            + (others.length ? ' Совпадения есть во вкладке «' + this.tabName(others[0]) + '» — ' + counts[others[0]] + '.' : ' Проверьте написание или сбросьте фильтры.'),
+          text: '',
           actions: [{ cls:'btn btn-s', icon:'ri-refresh-line', label:'Сбросить поиск и фильтры', onClick: () => this.resetAll() }]
             .concat(others.length ? [{ cls:'btn btn-s', icon:'ri-arrow-right-line', label:'Открыть «' + this.tabName(others[0]) + '»', onClick: () => this.setState({ tab:others[0], page:1 }) }] : []) };
       } else {
         empty = {
-          active:   { icon:'ri-team-line', title:'Действующих пользователей нет', text:'Создайте первую учётную запись — пользователь сразу сможет войти на портал.',
+          active:   { icon:'ri-team-line', title:'Действующих пользователей нет', text:'',
                       actions:[{ cls:'btn btn-p', icon:'ri-user-add-line', label:'Новый пользователь', onClick: () => this.openCreate() }] },
-          inactive: { icon:'ri-user-unfollow-line', title:'Деактивированных нет', text:'Сюда автоматически попадают пользователи организаций, удалённых из реестра. Их можно просмотреть и восстановить.', actions:[] },
-          deleted:  { icon:'ri-delete-bin-line', title:'Удалённых нет', text:'Удалённого пользователя можно будет просмотреть и восстановить на этой вкладке.', actions:[] },
+          inactive: { icon:'ri-user-unfollow-line', title:'Деактивированных нет', text:'', actions:[] },
+          deleted:  { icon:'ri-delete-bin-line', title:'Удалённых нет', text:'', actions:[] },
         }[s.tab];
       }
     }
@@ -1620,7 +1590,7 @@ class Component extends DCLogic {
     const sections = [];
     let n = 0;
     const sec = (o) => { if(o.num !== false) n++; if(o.num === undefined) delete o.num; sections.push(Object.assign({
-      hid: 'am-sec-' + sections.length, hasNum: create && o.num !== false, num: n,
+      hid: 'am-sec-' + sections.length, hasNum: false, num: n,
       numStyle: 'width:20px;height:20px;margin-top:0;flex:0 0 auto;border-radius:50%;background:var(--primary-lighter);color:var(--primary-darker);font-size:11px;line-height:1;font-weight:600;display:flex;align-items:center;justify-content:center;',
       hasDesc: !!o.desc, desc: o.desc || '', hasAction:false, actionIcon:'', actionLabel:'', onAction:null,
       isForm:false, fields:[], isKv:false, kv:[], isCollapsed:false, collapsedText:'', expandLabel:'', onExpand:null,
@@ -1630,12 +1600,19 @@ class Component extends DCLogic {
       wrap: 'min-width:0;grid-column:span ' + ((o && o.span) || 1) + ';',
       valStyle: 'margin:0;font-size:14px;line-height:20px;letter-spacing:-.006em;font-weight:500;color:' + (value ? 'var(--n900)' : 'var(--n400)') + ';overflow-wrap:anywhere;' + (o && o.mono ? 'font-variant-numeric:tabular-nums;' : '') }, o || {});
 
+    // Замечания аналитика: без пояснений под разделами, без меток источника и замков,
+    // без подсказок под полями, без полномочий роли и генератора пароля.
+    // Остаются подписи полей, ошибки проверки и единственное предупреждение — недоступность ГБД.
+    const spin = { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' };
+    const okMark = { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' };
+
     // ——— создание ———
     if(create){
       const types = T.map((t, i) => {
         const on = f.type === t.id;
+        const bad = (d.submitted || d.touched.type) && errs.type;
         return {
-          gid: 'uf-type-' + t.id, on: on ? 'true' : 'false', ti: on || (!f.type && i === 0) ? 0 : -1, label:t.seg, sub:t.segSub,
+          gid: 'uf-type-' + t.id, on: on ? 'true' : 'false', ti: on || (!f.type && i === 0) ? 0 : -1, label:t.label,
           onClick: () => { this.setField('type', t.id); this.touch('type'); },
           onKey: (e) => {
             const dd = { ArrowRight:1, ArrowDown:1, ArrowLeft:-1, ArrowUp:-1 }[e.key];
@@ -1645,54 +1622,39 @@ class Component extends DCLogic {
             this.setField('type', nx.id);
             setTimeout(() => { const el = document.getElementById('uf-type-' + nx.id); if(el) el.focus(); }, 0);
           },
-          style: 'display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:12px;cursor:pointer;min-width:0;background:' + (on ? 'var(--primary-lighter)' : '#fff')
-            + ';border:1px solid ' + (on ? 'var(--primary)' : (d.submitted || d.touched.type) && errs.type ? 'var(--red)' : 'var(--stroke)') + ';box-shadow:' + (on ? 'none' : 'var(--sh-xs)') + ';',
-          radio: 'width:16px;height:16px;margin-top:2px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid ' + (on ? 'var(--primary)' : 'var(--n300)') + ';background:' + (on ? 'var(--primary)' : '#fff') + ';',
+          radio: 'width:16px;height:16px;flex:0 0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:border-color .15s;border:1px solid '
+            + (on ? 'var(--primary)' : bad ? 'var(--red)' : 'var(--n300)') + ';background:' + (on ? 'var(--primary)' : '#fff') + ';',
           dot: 'width:6px;height:6px;border-radius:50%;background:' + (on ? '#fff' : 'transparent') + ';',
         };
       });
       const typeF = Object.assign(this.field(d, errs, 'type', { label:'Тип пользователя', req:true, span:2 }), { isSeg:true, segs:types });
-      typeF.forId = undefined;   // подпись группы, а не одного радио: клик по ней не должен выбирать «Физлицо»
+      typeF.forId = undefined;   // подпись группы, а не одного радио: клик по ней не должен выбирать вариант
 
-      const iinNote = { loading:{ kind:'load', text:'Ищем в ГБД ФЛ…' }, ok:{ kind:'ok', text:'ФИО получены из ГБД ФЛ' },
-        down:{ kind:'warn', text:'ГБД ФЛ не отвечает — введите ФИО вручную' } }[d.iinLk.st];
-      const fromGbd = d.iinLk.st === 'ok', manual = d.iinLk.st === 'down';
-      const lockHint = null;   // источник показан меткой «ГБД ФЛ» у подписи — второй замок в поле не нужен
-      const nameRo = !manual;
-      const nameHint = !fromGbd && !manual ? 'Заполнится автоматически по ИИН' : '';
-      sec({ title:'Тип и личные данные', desc:'ФИО подтягиваются из ГБД ФЛ по ИИН.', isForm:true, fields:[
+      const iinWarn = d.iinLk.st === 'down' ? { kind:'warn', text:'ГБД ФЛ недоступна — введите ФИО вручную' } : null;
+      sec({ title:'Личные данные', isForm:true, fields:[
         typeF,
         this.textField(d, errs, 'iin', { label:'ИИН', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true, clean:(v) => this.digits(v).slice(0, 12),
-          note: iinNote, hint:'После 12 цифр ищем в ГБД ФЛ',
-          adorn: d.iinLk.st === 'loading' ? { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' } : fromGbd ? { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' } : null }),
-        this.textField(d, errs, 'last', { label:'Фамилия', req:true, ro:nameRo, ph: manual ? 'Иванов' : '', hint:nameHint, adorn:lockHint, tag: fromGbd ? 'ГБД ФЛ' : '' }),
-        this.textField(d, errs, 'first', { label:'Имя', req:true, ro:nameRo, ph: manual ? 'Иван' : '', adorn:lockHint, tag: fromGbd ? 'ГБД ФЛ' : '' }),
-        this.textField(d, errs, 'middle', { label:'Отчество', opt:true, ro:nameRo, ph: manual ? 'Иванович' : '', adorn:lockHint, hint: fromGbd && !f.middle ? 'В ГБД ФЛ отчество не указано' : '' }),
+          note: iinWarn, adorn: d.iinLk.st === 'loading' ? spin : d.iinLk.st === 'ok' ? okMark : null }),
+        this.textField(d, errs, 'last', { label:'Фамилия', req:true }),
+        this.textField(d, errs, 'first', { label:'Имя', req:true }),
+        this.textField(d, errs, 'middle', { label:'Отчество' }),
       ]});
 
       if(needOrg){
-        const ip = f.type === 'IP', src = ip ? 'ИС КГД' : 'ГБД ЮЛ';
-        const binNote = {
-          loading:  { kind:'load', text:'Ищем в реестре портала и ' + src + '…' },
-          registry: { kind:'ok',   text:'Организация есть в реестре портала' },
-          gbd:      { kind:'info', text:'Из ' + (d.binLk.src || src) + ' · добавим в реестр при сохранении' },
-          down:     { kind:'warn', text: src + ' не отвечает — введите наименование' },
-        }[d.binLk.st];
-        const orgRo = d.binLk.st !== 'down';
-        sec({ title:'Организация', desc: ip ? 'ИП регистрируется по ИИН предпринимателя — сведения из ИС КГД.' : 'Сведения об организации — из реестра портала или ГБД ЮЛ.', isForm:true, fields:[
-          this.textField(d, errs, 'bin', { label: ip ? 'ИИН предпринимателя' : 'БИН организации', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true,
-            clean:(v) => this.digits(v).slice(0, 12), note: binNote, hint: ip ? 'Обычно совпадает с ИИН пользователя' : '',
-            adorn: d.binLk.st === 'loading' ? { icon:'ri-loader-4-line', style:'color:var(--n400);display:inline-block;animation:am-spin .9s linear infinite;' } : (d.binLk.st === 'registry' || d.binLk.st === 'gbd') ? { icon:'ri-checkbox-circle-fill', style:'color:var(--green);' } : null }),
-          this.textField(d, errs, 'position', { label:'Должность', req:true, ph: ip ? 'Индивидуальный предприниматель' : 'Например, менеджер по регистрации', ac:'organization-title' }),
-          this.textField(d, errs, 'org', { label:'Наименование организации', req:true, span:2, ro:orgRo, ph: orgRo ? '' : 'ТОО «Название»',
-            hint: orgRo && !f.org ? 'Заполнится автоматически по ' + (ip ? 'ИИН' : 'БИН') : '',
-            tag: orgRo && f.org ? (d.binLk.st === 'registry' ? 'Реестр портала' : d.binLk.src || src) : '' }),
+        const ip = f.type === 'IP';
+        const binWarn = d.binLk.st === 'down' ? { kind:'warn', text:(ip ? 'ИС КГД' : 'ГБД ЮЛ') + ' недоступна — введите наименование вручную' } : null;
+        sec({ title:'Организация', isForm:true, fields:[
+          this.textField(d, errs, 'bin', { label: ip ? 'ИИН ИП' : 'БИН организации', req:true, ph:'12 цифр', im:'numeric', max:12, mono:true,
+            clean:(v) => this.digits(v).slice(0, 12), note: binWarn,
+            adorn: d.binLk.st === 'loading' ? spin : (d.binLk.st === 'registry' || d.binLk.st === 'gbd') ? okMark : null }),
+          this.textField(d, errs, 'position', { label:'Должность', req:true, ac:'organization-title' }),
+          this.textField(d, errs, 'org', { label:'Наименование организации', req:true, span:2 }),
         ]});
       }
 
       sec({ title:'Контакты', isForm:true, fields:[
         this.textField(d, errs, 'email', { label:'Почта', req:true, type:'email', ph:'name@example.kz', ac:'email', clean:(v) => v.replace(/\s/g, '') }),
-        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 777 080 80 08', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v),
+        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 XXX XXX XX XX', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v),
           onFocus: () => { if(!this.state.drawer.form.phone) this.setField('phone', '+7'); } }),
       ]});
     }
@@ -1704,110 +1666,59 @@ class Component extends DCLogic {
         kv('Тип пользователя', ty.label), kv('Профиль', pr.label),
         kv('ИИН', rec.iin, { mono:true }), kv('Фамилия', rec.last), kv('Имя', rec.first), kv('Отчество', rec.middle),
       ];
-      if(rec.bin){
-        items.push(kv(rec.type === 'IP' ? 'ИИН ИП' : 'БИН', rec.bin, { mono:true }), kv('Должность', rec.position));
-        items.push(kv('Организация', o ? o.ru : '—', { span:2, hasSub: !!(o && o.deleted), sub: o && o.deleted ? 'Удалена из реестра ' + this.fmtDate(o.closedAt) : '' }));
-      } else {
-        items.push(kv('Организация', 'Без организации — физическое лицо', { span:2 }));
-      }
-      sec({ title:'Учётная запись', desc: edit ? 'Сведения из ГБД ФЛ и ГБД ЮЛ — не редактируются.' : '', isKv:true, kv:items, num:false });
+      if(rec.bin) items.push(kv(rec.type === 'IP' ? 'ИИН ИП' : 'БИН', rec.bin, { mono:true }), kv('Должность', rec.position), kv('Организация', o ? o.ru : '—', { span:2 }));
+      sec({ title:'Учётная запись', isKv:true, kv:items, num:false });
     }
 
     if(edit){
       sec({ title:'Контакты', isForm:true, num:false, fields:[
         this.textField(d, errs, 'email', { label:'Почта', req:true, type:'email', ph:'name@example.kz', ac:'email', clean:(v) => v.replace(/\s/g, '') }),
-        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 777 080 80 08', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v) }),
+        this.textField(d, errs, 'phone', { label:'Телефон', req:true, type:'tel', ph:'+7 XXX XXX XX XX', im:'tel', ac:'tel', mono:true, clean:(v) => this.fmtPhone(v) }),
       ]});
     }
 
-    // ——— доступ ———
+    // ——— профиль и доступ ———
     if(!view){
-      const profOpts = P.filter(p => !f.type || p.types.indexOf(f.type) >= 0).map(p => ({ id:p.id, label:p.label, desc:p.desc, icon:p.icon }));
-      const lvls = L.filter(l => l.profiles.indexOf(f.profile) >= 0).map(l => {
-        const bad = l.bin && f.bin && l.bin !== f.bin;
-        return { id:l.id, label:l.label, desc: bad ? 'Только для организации с БИН ' + l.bin : l.desc, disabled: !!bad };
-      });
+      const profOpts = P.filter(p => !f.type || p.types.indexOf(f.type) >= 0).map(p => ({ id:p.id, label:p.label }));
+      // уровни госорганов, не подходящие к БИН, не показываем вовсе — без пояснений «только для БИН …»
+      const lvls = L.filter(l => l.profiles.indexOf(f.profile) >= 0 && !(l.bin && f.bin && l.bin !== f.bin)).map(l => ({ id:l.id, label:l.label }));
       const rls = R.filter(r => r.level === f.level).map(r => ({ id:r.id, label:r.label }));
-      const rl = this.role(f.role);
       const fields = [];
-      if(create) fields.push(this.selectField(d, errs, 'profile', { label:'Профиль', req:true, span:2, opts:profOpts, disabled: !f.type,
-        ph: f.type ? 'Выберите профиль' : 'Сначала выберите тип пользователя', hint: profOpts.length === 1 && f.profile ? 'Для типа «' + this.type(f.type).label + '» доступен один профиль' : '' }));
-      // уровень и роль — во всю ширину: названия ролей длинные, а блок полномочий не должен сдвигать соседнее поле
-      fields.push(this.selectField(d, errs, 'level', { label:'Уровень', req:true, span:2, opts:lvls, disabled: !f.profile,
-        ph: f.profile ? 'Выберите уровень' : 'Сначала выберите профиль', hint: create && lvls.length === 1 && f.level ? 'Единственный уровень для этого профиля — выбран автоматически' : '' }));
-      const roleF = this.selectField(d, errs, 'role', { label:'Роль', req:true, span:2, opts:rls, disabled: !f.level, ph: f.level ? 'Выберите роль' : 'Сначала выберите уровень' });
-      if(rl){ roleF.hasPerms = true; roleF.perms = rl.perms; roleF.permsTitle = 'Полномочия роли'; }
-      fields.push(roleF);
-      sec({ title: create ? 'Профиль и доступ' : 'Доступ', desc: create ? 'Список уровней зависит от профиля, ролей — от уровня.' : 'Уровень и роль определяют разделы и действия, доступные пользователю.', isForm:true, fields, num: create ? undefined : false });
+      if(create) fields.push(this.selectField(d, errs, 'profile', { label:'Профиль', req:true, span:2, opts:profOpts, disabled: !f.type, ph:'Выберите профиль' }));
+      fields.push(this.selectField(d, errs, 'level', { label:'Уровень', req:true, span:2, opts:lvls, disabled: !f.profile, ph:'Выберите уровень' }));
+      fields.push(this.selectField(d, errs, 'role', { label:'Роль', req:true, span:2, opts:rls, disabled: !f.level, ph:'Выберите роль' }));
+      sec({ title:'Доступ', isForm:true, fields, num:false });
     } else {
       const lv = this.level(rec.level), rl = this.role(rec.role);
       sec({ title:'Контакты и доступ', isKv:true, num:false, kv:[
         kv('Почта', rec.email), kv('Телефон', rec.phone, { mono:true }),
-        kv('Уровень', lv ? lv.label : rec.level), kv('Роль', rl ? rl.label : rec.role, { hasSub: !!rl, sub: rl ? rl.perms.join(' · ') : '' }),
-        kv('Пароль', '••••••••••', { hasSub:true, sub:'Хранится в зашифрованном виде и не отображается' }),
+        kv('Уровень', lv ? lv.label : rec.level), kv('Роль', rl ? rl.label : rec.role),
+        kv('Пароль', '••••••••'),
       ]});
     }
 
-    // ——— пароль ———
-    if(create || (edit && d.pwOpen)){
-      const rules = this.rulesOf(f.pass).map(r => ({ text:r.text,
-        icon: r.ok ? 'ri-check-line' : f.pass ? 'ri-close-line' : 'ri-circle-line',
-        style: 'display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;'
-          + (r.ok ? 'background:var(--green-ll);color:var(--green-d);' : f.pass && (d.submitted || d.touched.pass) ? 'background:var(--red-ll);color:var(--red-d);' : 'background:var(--n100);color:var(--n500);') }));
-      const passF = this.textField(d, errs, 'pass', { label: create ? 'Пароль' : 'Новый пароль', req:true, type: d.showPass ? 'text' : 'password', ac:'new-password', eye:true, ph:'Не менее 8 символов' });
-      const match = f.pass2 && f.pass === f.pass2;
-      const pass2F = this.textField(d, errs, 'pass2', { label:'Подтверждение пароля', req:true, type: d.showPass ? 'text' : 'password', ac:'new-password', ph:'Повторите пароль',
-        forceShow: !!(f.pass2 && f.pass2.length >= f.pass.length && f.pass !== f.pass2), note: match ? { kind:'ok', text:'Пароли совпадают' } : null });
-      // требования — отдельной строкой под обоими полями, чтобы чипы не сжимались в половину ширины
-      const rulesF = Object.assign(this.field(d, errs, 'pass-rules', { span:2 }), { hasRules:true, rules, wrap:'grid-column:span 2;min-width:0;margin-top:-6px;' });
-      sec({ title: create ? 'Пароль' : 'Смена пароля', desc:'Логин для входа — ИИН. Передайте пароль пользователю по защищённому каналу.', isForm:true, fields:[passF, pass2F, rulesF],
-        num: create ? undefined : false, hasAction:true, actionIcon:'ri-magic-line', actionLabel:'Сгенерировать',
-        onAction: () => { const p = this.genPassword(); this.patchD(dd => ({ showPass:true, form: Object.assign({}, dd.form, { pass:p, pass2:p }), touched: Object.assign({}, dd.touched, { pass:true, pass2:true }) })); } });
-      if(edit){ const last = sections[sections.length - 1]; last.hasNote = true; last.note = 'Оставьте поля пустыми или нажмите «Не менять пароль», если пароль менять не нужно.'; }
-    } else if(edit){
-      sec({ title:'Пароль', isCollapsed:true, num:false, collapsedText:'Пароль не меняется. Пользователь входит со своим текущим паролем.', expandLabel:'Задать новый пароль',
-        onExpand: () => { this.patchD({ pwOpen:true }); setTimeout(() => this.focusField('pass'), 60); } });
-    }
-    if(edit && d.pwOpen){
-      const last = sections[sections.length - 1];
-      last.hasAction = true; last.actionIcon = 'ri-close-line'; last.actionLabel = 'Не менять пароль';
-      last.onAction = () => this.patchD(dd => ({ pwOpen:false, form: Object.assign({}, dd.form, { pass:'', pass2:'' }), touched: Object.assign({}, dd.touched, { pass:false, pass2:false }) }));
-    }
-
-    // ——— другие профили этого ИИН ———
-    if(!create){
-      const others = this.users().filter(u => u.iin === rec.iin && u.id !== rec.id);
-      if(others.length){
-        sec({ title:'Другие профили пользователя', desc:'У одного ИИН может быть несколько профилей доступа.', isProfiles:true, num:false,
-          profiles: others.map(u => {
-            const o = this.org(u.bin), t = this.tabOf(u), rl = this.role(u.role);
-            const st = { active:['Действует','var(--green-ll)','var(--green-d)'], inactive:['Деактивирован','var(--orange-ll)','var(--orange-d)'], deleted:['Удалён','var(--red-ll)','var(--red-d)'] }[t];
-            return { icon: this.profile(u.profile).icon, title: this.profile(u.profile).label + ' · ' + (o ? o.ru : 'физическое лицо'), sub: (rl ? rl.label : u.role) + ' · ' + this.level(u.level).label,
-              stLabel: st[0], stStyle: 'flex:0 0 auto;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;display:inline-flex;align-items:center;background:' + st[1] + ';color:' + st[2] + ';',
-              onClick: () => this.guard(() => this.openRecord(u.id)),
-              style: 'display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;cursor:pointer;box-shadow:var(--sh-xs);' };
-          }) });
-      }
+    // ——— пароль: при создании обязателен, при редактировании — необязателен (пусто = без изменений) ———
+    if(!view){
+      const type = d.showPass ? 'text' : 'password';
+      sec({ title:'Пароль', isForm:true, num:false, fields:[
+        this.textField(d, errs, 'pass', { label:'Пароль', req:create, type, ac:'new-password', eye:true, ph: create ? 'Не менее 8 символов' : 'Без изменений' }),
+        this.textField(d, errs, 'pass2', { label:'Подтверждение пароля', req:create, type, ac:'new-password', ph: create ? '' : 'Без изменений',
+          forceShow: !!(f.pass2 && f.pass2.length >= f.pass.length && f.pass !== f.pass2) }),
+      ]});
     }
 
     // ——— шапка, баннер, подвал ———
-    let head;
-    if(create) head = { title:'Новый пользователь', sub:'Учётная запись и профиль доступа к порталу МЗ' };
-    else head = { title: this.fullName(rec), sub: 'ИИН ' + rec.iin + ' · ' + this.profile(rec.profile).label + (rec.bin ? ' · ' + ((this.org(rec.bin) || {}).ru || '') : '') };
     const tab = rec ? this.tabOf(rec) : 'active';
     // подписи без рода: пользователь может быть и мужчиной, и женщиной
     const stMap = { active:['Действует','var(--green-ll)','var(--green-d)','var(--green)'], inactive:['В деактивированных','var(--orange-ll)','var(--orange-d)','var(--orange)'], deleted:['В удалённых','var(--red-ll)','var(--red-d)','var(--red)'] }[tab];
 
     let banner = d.banner;
     if(!banner && view){
-      const o = this.org(rec.bin);
       banner = rec.deleted
-        ? { kind:'deleted', title:'Учётная запись удалена ' + this.fmtDate(rec.changedAt), text:'Вход в систему закрыт. Восстановите запись, чтобы вернуть доступ с прежними профилем, уровнем и ролью.' }
-        : { kind:'inactive', title:'Учётная запись деактивирована ' + this.fmtDate(rec.changedAt) + ': организация удалена', text:'Организация' + (o ? ' ' + o.ru : '') + ' удалена из реестра, поэтому вход её сотрудников запрещён.'
-            + (this.orgBlocked(rec) ? ' Восстановить пользователя можно после восстановления организации.' : ''),
-            actLabel: this.orgBlocked(rec) ? 'Открыть организацию' : '', act: () => { location.href = 'Организации.dc.html?bin=' + rec.bin; } };
+        ? { kind:'deleted', title:'Учётная запись удалена ' + this.fmtDate(rec.changedAt) }
+        : { kind:'inactive', title:'Учётная запись деактивирована ' + this.fmtDate(rec.changedAt) + ' — организация удалена' };
     }
-    const bTone = banner ? { error:['ri-error-warning-fill','var(--red)','var(--red-ll)'], dup:['ri-user-shared-fill','var(--orange)','var(--orange-ll)'],
+    const bTone = banner ? { error:['ri-error-warning-fill','var(--red)','var(--red-ll)'], dup:['ri-error-warning-fill','var(--orange)','var(--orange-ll)'],
       deleted:['ri-delete-bin-fill','var(--red)','var(--red-ll)'], inactive:['ri-forbid-fill','var(--orange)','var(--orange-ll)'] }[banner.kind] : null;
 
     const blocked = view && this.orgBlocked(rec);
@@ -1818,20 +1729,20 @@ class Component extends DCLogic {
 
     return {
       dOpen:true,
-      dTitle: head.title, dSub: head.sub,
+      dTitle: create ? 'Новый пользователь' : this.fullName(rec),
       dHasAvatar: !create, dHasIcon: create, dAvatar: rec ? this.avatarStyle(rec.iin, 40) : '', dInitials: rec ? this.initials(rec) : '',
       dHasStatus: !create, dStLabel: stMap[0],
       dStStyle: 'display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:' + stMap[1] + ';color:' + stMap[2] + ';',
       dStDot: 'width:6px;height:6px;border-radius:50%;background:' + stMap[3] + ';',
       dClose: () => this.closeDrawer(), dOverlay: () => this.closeDrawer(),
-      dHasBanner: !!banner, dBannerTitle: banner ? banner.title : '', dBannerText: banner ? banner.text : '',
+      dHasBanner: !!banner, dBannerTitle: banner ? banner.title : '', dBannerText: banner ? banner.text || '' : '',
       dBannerHasAct: !!(banner && banner.actLabel), dBannerActLabel: banner ? banner.actLabel || '' : '', dBannerAct: () => { if(banner && banner.act) banner.act(); },
       dBannerIcon: bTone ? bTone[0] : '', dBannerIconStyle: 'font-size:20px;flex:0 0 auto;color:' + (bTone ? bTone[1] : '') + ';',
-      dBannerStyle: 'display:flex;align-items:flex-start;gap:12px;padding:14px 14px 16px;border-radius:12px;background:' + (bTone ? bTone[2] : '') + ';animation:mp-slidein .2s ease;',
+      dBannerStyle: 'display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;background:' + (bTone ? bTone[2] : '') + ';animation:mp-slidein .2s ease;',
       dSections: sections,
-      dHasMeta: !create, dMeta: rec ? 'Запись создана ' + this.fmtDateTime(rec.createdAt) + ' · изменена ' + this.fmtDateTime(rec.changedAt && rec.changedAt > rec.updatedAt ? rec.changedAt : rec.updatedAt) : '',
+      dHasMeta: false, dMeta: '',
       dHasDanger: edit, dDanger: () => this.askDelete(rec.id),
-      dHasReqNote: !view, dCancelLabel: view ? 'Закрыть' : 'Отмена',
+      dHasReqNote: false, dCancelLabel: view ? 'Закрыть' : 'Отмена',
       dHasPrimary: true, dPrimary: () => { if(!primary.dis) primary.on(); else if(blocked) this.askRestore(rec.id); },
       dPrimaryLabel: primary.label, dPrimaryIcon: primary.icon, dBusy: d.saving ? 'true' : 'false', dPrimaryDis: primary.dis ? 'true' : 'false',
       dPrimaryIconStyle: 'font-size:18px;' + (d.saving ? 'display:inline-block;animation:am-spin .9s linear infinite;' : ''),
@@ -1839,30 +1750,24 @@ class Component extends DCLogic {
     };
   }
 
+  // Подтверждения — только заголовок и кнопки (замечание аналитика)
   buildConfirm(){
     const c = this.state.confirm;
     if(!c) return { cOpen:false };
-    const base = { cOpen:true, cHasCard:false, cAvatar:'', cInitials:'', cCardTitle:'', cCardSub:'', cBusy:'false',
-      cCancel: () => this.setState({ confirm:null }), cCancelLabel:'Отмена', cOkIconStyle:'font-size:18px;' };
+    const base = { cOpen:true, cBusy:'false', cCancel: () => this.setState({ confirm:null }), cCancelLabel:'Отмена', cOkIconStyle:'font-size:18px;' };
     const tone = (bg, fg) => ({ cIconWrap:'width:40px;height:40px;flex:0 0 auto;border-radius:10px;background:' + bg + ';display:flex;align-items:center;justify-content:center;', cIconStyle:'font-size:20px;color:' + fg + ';' });
     if(c.kind === 'discard'){
       return Object.assign(base, tone('var(--orange-ll)', 'var(--orange)'), { cIcon:'ri-alert-fill', cTitle:'Закрыть без сохранения?',
-        cText:'Введённые данные не сохранятся. Чтобы продолжить заполнение, нажмите «Вернуться к форме».',
-        cCancelLabel:'Вернуться к форме', cOkLabel:'Закрыть без сохранения', cOkCls:'btn btn-d', cOkIcon:'ri-close-line',
+        cOkLabel:'Закрыть', cOkCls:'btn btn-d', cOkIcon:'ri-close-line',
         cOk: () => { const next = c.next; this.setState({ confirm:null }); this.closeDrawer(true); if(next) setTimeout(next, 0); } });
     }
     const u = this.byId(this.users(), c.id);
     if(!u) return { cOpen:false };
-    const o = this.org(u.bin);
-    const card = { cHasCard:true, cAvatar:this.avatarStyle(u.iin, 36), cInitials:this.initials(u), cCardTitle:this.fullName(u),
-      cCardSub:'ИИН ' + u.iin + ' · ' + this.profile(u.profile).label + (o ? ' · ' + o.ru : '') };
     if(c.kind === 'delete'){
-      return Object.assign(base, card, tone('var(--red-ll)', 'var(--red)'), { cIcon:'ri-delete-bin-line', cTitle:'Вы уверены, что хотите удалить пользователя?',
-        cText:'Пользователь потеряет доступ к порталу. Запись перейдёт во вкладку «Удалённые» — её можно будет восстановить.',
+      return Object.assign(base, tone('var(--red-ll)', 'var(--red)'), { cIcon:'ri-delete-bin-line', cTitle:'Вы уверены, что хотите удалить пользователя?',
         cOkLabel:'Удалить', cOkCls:'btn btn-d', cOkIcon:'ri-delete-bin-line', cOk: () => this.doDelete(u.id) });
     }
-    return Object.assign(base, card, tone('var(--primary-lighter)', 'var(--primary)'), { cIcon:'ri-arrow-go-back-line', cTitle:'Вы действительно хотите восстановить пользователя?',
-      cText:'Пользователь вернётся во вкладку «Действующие» с прежними профилем, уровнем и ролью и снова сможет входить в систему.',
+    return Object.assign(base, tone('var(--primary-lighter)', 'var(--primary)'), { cIcon:'ri-arrow-go-back-line', cTitle:'Вы действительно хотите восстановить пользователя?',
       cOkLabel:'Восстановить', cOkCls:'btn btn-p', cOkIcon:'ri-arrow-go-back-line', cOk: () => this.doRestore(u.id) });
   }
 
@@ -1902,7 +1807,7 @@ class Component extends DCLogic {
         this.commit(db);
         try { sessionStorage.removeItem(Component.UI_KEY); } catch(e){}
         this.setState({ tab:'active', q:'', f:{ type:'', profile:'', level:'', role:'' }, page:1, drawer:null, confirm:null, demoOpen:false });
-        this.toast('info', 'Демо-данные сброшены', 'Пользователи и организации вернулись к исходному набору.');
+        this.toast('info', 'Демо-данные сброшены');
       },
     };
   }
