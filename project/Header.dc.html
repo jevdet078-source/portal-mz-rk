@@ -61,7 +61,7 @@
                     <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
                       <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
                       <span style="{{ n.titleStyle }}">{{ n.title }}</span>
-                      <span style="font-size:12px;line-height:16px;color:var(--n500);">Эксперт: {{ n.expert }}</span>
+                      <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ n.expertLabel }}: {{ n.expert }}</span>
                       <span style="{{ n.statusStyle }}">{{ n.status }}</span>
                     </span>
                   </a>
@@ -157,12 +157,18 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:70}}">
 class Component extends DCLogic {
-  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, read:['97','96','95','94'] };
+  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, read:['97','96','95','94'], ed:[] };
   componentDidMount(){
     // прочитанные уведомления — общий ключ со страницей «Уведомления»
     try { const v = localStorage.getItem('mp-notif-read'); if(v){ const r = JSON.parse(v); if(Array.isArray(r)) this.setState({ read:r }); } } catch(e){}
     this._onNotif = (e) => { if(e && Array.isArray(e.detail)) this.setState({ read:e.detail }); };
     window.addEventListener('mp-notif-change', this._onNotif);
+    // push-уведомления услуги ЕД (UC01.13.2.2) — localStorage['mp-ed-notifs'], пишет EdData
+    this._readEd = () => { try { const v = JSON.parse(localStorage.getItem('mp-ed-notifs') || '[]'); this.setState({ ed: Array.isArray(v) ? v : [] }); } catch(e){} };
+    this._readEd();
+    window.addEventListener('mp-ed-notif-change', this._readEd);
+    this._onStorage = (e) => { if(e.key === 'mp-ed-notifs') this._readEd(); };
+    window.addEventListener('storage', this._onStorage);
     try { const r = localStorage.getItem('mp-role'); if(r) this.setState({ role:r }); } catch(e){}
     try { const l = localStorage.getItem('mp-lang'); if(l) this.setState({ lang:l }); } catch(e){}
     // вошедшей организации вместо «Войти» — вход в кабинет (у бизнеса есть «Выйти», сбрасывающий профиль)
@@ -174,7 +180,7 @@ class Component extends DCLogic {
     this._onBizRole = (e) => { if(e && e.detail) this.setState({ bizRole:e.detail }); };
     window.addEventListener('mp-biz-role-change', this._onBizRole);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); }
+  componentWillUnmount(){ window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-ed-notif-change', this._readEd); window.removeEventListener('storage', this._onStorage); }
   setBizRole(id){
     this.setState({ bizRole:id, orgOpen:false });
     try { localStorage.setItem('mp-biz-role', id); } catch(e){}
@@ -220,10 +226,18 @@ class Component extends DCLogic {
       { n:'98', meta:'ID 123456 · 01.01.2025, 10:00', title:PRICE, ok:false },
       { n:'97', meta:'ID 123456 · 01.01.2025, 10:00', title:CHANGE, ok:true },
     ];
-    const unread = noteData.filter(n => s.read.indexOf(n.n) === -1).length;
-    const notes = noteData.map(n => { const isNew = s.read.indexOf(n.n) === -1; return {
-      meta:n.meta, title:n.title, expert:'Иванов. И.И.', status:'Завершена', href:'Уведомления.dc.html',
+    const pad = (x) => String(x).padStart(2, '0');
+    const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    const edNotes = (s.ed || []).map(x => ({ n:x.n, ed:true, read:!!x.read, num:x.num, meta:'ID ' + x.num + ' · ' + fdt(x.at),
+      title: x.ok ? 'Положительное решение о включении в ЕД по заявке № ' + x.num : 'Решение об отказе по заявке № ' + x.num, ok:x.ok }));
+    const isNewNote = (n) => n.ed ? !n.read : s.read.indexOf(n.n) === -1;
+    const allNotes = edNotes.concat(noteData);
+    const unread = allNotes.filter(isNewNote).length;
+    const notes = allNotes.slice(0, 4).map(n => { const isNew = isNewNote(n); return {
+      meta:n.meta, title:n.title, expert: n.ed ? 'АРМ ННЦРЗ' : 'Иванов. И.И.', status: n.ed ? (n.ok ? 'Положительное решение' : 'Мотивированный отказ') : 'Завершена',
+      href: n.ed ? 'Карточка заявки ЕД.dc.html?n=' + n.num : 'Уведомления.dc.html',
       dotStyle:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
+      expertLabel: n.ed ? 'Система' : 'Эксперт',
       titleStyle:`font-size:14px;line-height:20px;font-weight:${isNew ? '600' : '500'};color:#0A0D14;`,
       statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${n.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` }; });
 

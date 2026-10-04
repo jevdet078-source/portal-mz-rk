@@ -82,7 +82,7 @@
                         <span style="{{ r.numTextStyle }}">{{ r.n }}</span>
                       </div>
                       <div style="width:110px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);">{{ r.appId }}</div>
-                      <div style="{{ r.nameStyle }}">{{ r.name }}</div>
+                      <div title="{{ r.name }}" style="{{ r.nameStyle }}">{{ r.name }}</div>
                       <div style="width:190px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.date }}</div>
                       <div style="width:150px;flex:0 0 auto;padding:12px 10px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
                       <div style="width:160px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.expert }}</div>
@@ -144,15 +144,24 @@
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.state = { tab:'all', read:['97','96','95','94'], fail:false, toast:'' };
+    this.state = { tab:'all', read:['97','96','95','94'], fail:false, toast:'', ed:[] };
   }
   componentDidMount(){
     let read = null;
     try { const v = localStorage.getItem('mp-notif-read'); if(v) read = JSON.parse(v); } catch(e){}
     if(Array.isArray(read)) this.setState({ read });
+    // уведомления услуги ЕД (UC01.13.2.2): localStorage['mp-ed-notifs'], флаг read — в самих записях
+    this._readEd = () => { try { const v = JSON.parse(localStorage.getItem('mp-ed-notifs') || '[]'); this.setState({ ed: Array.isArray(v) ? v : [] }); } catch(e){} };
+    this._readEd();
+    window.addEventListener('mp-ed-notif-change', this._readEd);
     window.scrollTo(0, 0);
   }
-  componentWillUnmount(){ clearTimeout(this._t); }
+  componentWillUnmount(){ clearTimeout(this._t); window.removeEventListener('mp-ed-notif-change', this._readEd); }
+  saveEd(ed){
+    this.setState({ ed });
+    try { localStorage.setItem('mp-ed-notifs', JSON.stringify(ed)); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-ed-notif-change')); } catch(e){}
+  }
 
   save(read){
     this.setState({ read });
@@ -181,8 +190,12 @@ class Component extends DCLogic {
 
   renderVals(){
     const s = this.state;
-    const all = this.data();
-    const isRead = (n) => s.read.indexOf(n) !== -1;
+    const pad = (x) => String(x).padStart(2, '0');
+    const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    const ED_NAME = 'Проведение профессиональной экспертизы для включения лекарственного средства или медицинского изделия в перечень закупа лекарственных средств и медицинских изделий в рамках гарантированного объема бесплатной медицинской помощи и (или) в системе обязательного социального медицинского страхования';
+    const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read }));
+    const all = edRows.concat(this.data());
+    const isRead = (n) => { const e = edRows.find(r => r.n === n); return e ? e.edRead : s.read.indexOf(n) !== -1; };
     const unreadCount = all.filter(r => !isRead(r.n)).length;
 
     const tabData = [ ['all','Все', all.length], ['read','Прочитанные', all.length - unreadCount], ['unread','Непрочитанные', unreadCount] ];
@@ -199,23 +212,27 @@ class Component extends DCLogic {
       { label:'Наименование услуги', sort:true, style: hc + 'flex:1;min-width:0;' },
       { label:'Дата вынесения решения, и время', sort:true, style: hc + 'width:190px;flex:0 0 auto;' },
       { label:'Статус', sort:true, style: hc + 'width:150px;flex:0 0 auto;' },
-      { label:'ФИО Эксперта', sort:true, style: hc + 'width:160px;flex:0 0 auto;' },
+      { label:'Эксперт / система', sort:true, style: hc + 'width:160px;flex:0 0 auto;' },
     ].map(c => ({ ...c, icon: c.sort ? 'ri-expand-up-down-line' : '', iconStyle:'font-size:14px;color:#868C98;flex:0 0 auto;' }));
 
     const list = all.filter(r => s.tab === 'all' || (s.tab === 'read' ? isRead(r.n) : !isRead(r.n)));
     // открытие уведомления отмечает его прочитанным и ведёт к заявке
-    const open = (n) => () => { if(!isRead(n)) this.save(s.read.concat([n])); };
+    const open = (n) => () => {
+      if(isRead(n)) return;
+      const e = edRows.find(r => r.n === n);
+      if(e) this.saveEd(s.ed.map(x => x.n === n ? { ...x, read:true } : x)); else this.save(s.read.concat([n]));
+    };
     const rows = list.map((r, i) => {
       const unread = !isRead(r.n);
       return { ...r,
         unread,
-        status:'Завершена',
-        href:'Услуги.dc.html#ls',
+        status: r.ed ? (r.ok ? 'Положительное решение' : 'Мотивированный отказ') : 'Завершена',
+        href: r.ed ? 'Карточка заявки ЕД.dc.html?n=' + r.appId : 'Услуги.dc.html#ls',
         onOpen: open(r.n),
         rowStyle:`display:flex;align-items:center;min-height:56px;border-bottom:1px solid #E2E4E9;text-decoration:none;color:inherit;background:${unread ? '#FBFCFD' : i % 2 ? '#fff' : '#FBFCFD'};`,
         numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:12px 10px;',
         numTextStyle:`font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '600' : '400'};`,
-        nameStyle:`flex:1;min-width:0;padding:12px 10px;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};`,
+        nameStyle:`flex:1;min-width:0;padding:12px 10px;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;`,
         statusStyle:`display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${r.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}`,
       };
     });
@@ -234,7 +251,7 @@ class Component extends DCLogic {
       emptyText: s.fail ? 'Система недоступна, обратитесь в службу поддержки.'
                         : (s.tab === 'unread' ? 'Все уведомления прочитаны.' : 'Прочитанных уведомлений пока нет.'),
       hasUnread: unreadCount > 0 && !s.fail,
-      readAll: () => { this.save(all.map(r => r.n)); this.toast('Все уведомления отмечены прочитанными'); },
+      readAll: () => { this.save(this.data().map(r => r.n)); this.saveEd(s.ed.map(x => ({ ...x, read:true }))); this.toast('Все уведомления отмечены прочитанными'); },
       hasToast: !!s.toast, toast: s.toast,
       demo: [ ['data','Уведомления'], ['fail','Технический сбой'] ].map(([id, label]) => ({ label,
         style: seg(s.fail === (id === 'fail')), onClick: () => this.setState({ fail: id === 'fail' }) })),

@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Прочие услуги → Заявка ЕД: мастер подачи (АРМ Заявителя).
+  Постановки: UC01.13.1.2 «Данные услуги», UC01.13.1.4 «Сведения о заявителе», UC01.13.1.5 «Заявление»,
+  UC01.13.1.6 «Досье», UC01.13.1.7 «Публичная оферта», UC01.13.1.8 «Подписание ЭЦП»,
+  UC01.13.1.9 «Уникальный номер»; BPMN 1.1–1.5 от 02.10.2026.
+
+  Адрес: ?new=<метка> — новая заявка (номер присваивается сразу, UC01.13.1.9), ?n=<№> — черновик.
+  Кнопки на каждом шаге по постановке: «Сохранить черновик» (→ реестр со статусом «Черновик»),
+  «Отмена» (сброс несохранённого ввода → реестр), «Назад», «Далее» / «Подписать и отправить».
+  «Далее» проверяет шаг: при ошибках — баннер со списком и подсветка полей, перехода нет.
+  После «Досье» → оферта (модалка, ҚАЗ / РУС, согласие обязательно) → ЭЦП (EdSign) →
+  статус «В работе», в ННЦРЗ — «Нулевая экспертиза» / «Новая» → реестр (UC01.13.1.8, п. 5).
+
+  Решения по UX:
+    • данные ЛС и МИ хранятся раздельно — смена категории ничего не стирает, отправляется ветка
+      выбранной категории;
+    • ошибки показываются после первой попытки перейти дальше и снимаются по мере исправления;
+    • «Отмена» с несохранёнными изменениями спрашивает подтверждение; уход со страницы — тоже;
+    • ввод переживает перезагрузку (сессия мастера, sessionStorage).
+  Расхождение постановки: в табл. 2 UC01.13.1.5 п. 2.7 «Эксплуатационные характеристики ИМН» повторяет
+  п. 1.3 без обязательности и не входит в повторяемый блок (2.1–2.6) — поле взято один раз, из п. 1.3.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-dark:#2D9F75;--green-l:#CBF5E5;--green-ll:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FFDAC2;--orange-ll:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-dk:#AF1D38;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes mp-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes mp-shimmer{0%{background-position:-240px 0}100%{background-position:calc(240px + 100%) 0}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn-d{border:none;background:var(--red);color:#fff;}
+  .btn-d:hover{background:var(--red-dk);}
+  .btn-dash{border:1px dashed var(--primary-light);background:#fff;color:var(--primary);}
+  .btn-dash:hover{background:var(--primary-lighter);border-color:var(--primary);}
+  .btn-sm{height:32px;padding:0 10px;border-radius:8px;font-size:13px;}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .ib-d:hover{background:var(--red-ll);color:var(--red);}
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s,background .15s;}
+  textarea.inp{height:auto;min-height:88px;padding:10px 12px;resize:vertical;display:block;}
+  .inp::placeholder{color:var(--n400);}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .inp-err:focus{border-color:var(--red);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-l);}
+  .inp-ro,.inp-ro:hover,.inp-ro:focus{background:var(--n50);border-color:var(--n200);color:var(--n600);box-shadow:none;}
+  .inp:disabled{background:var(--n100);border-color:var(--n100);color:var(--n400);box-shadow:none;cursor:not-allowed;}
+  .nav-it{transition:background .15s,border-color .15s;}
+  .nav-it:not(:disabled):hover{background:var(--n100);}
+  .opt{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .card-opt{transition:border-color .15s,background .15s,box-shadow .15s;}
+  .card-opt:hover{border-color:var(--primary-light) !important;}
+  .drop{transition:border-color .15s,background .15s;cursor:pointer;}
+  .drop:hover{border-color:var(--primary-light) !important;background:var(--n50) !important;}
+  .chk:hover>span:first-child{border-color:var(--primary) !important;}
+  .acc-h{transition:background .15s;}
+  .acc-h:hover{background:var(--n50);}
+  .lnk{border:none;background:none;padding:0;font:inherit;font-weight:500;color:var(--primary);cursor:pointer;text-decoration:none;border-radius:4px;}
+  .lnk:hover{text-decoration:underline;text-underline-offset:3px;}
+  .crumb{color:var(--n500);text-decoration:none;border-radius:4px;}
+  .crumb:hover{color:var(--n900);}
+  .err-it{border:none;background:none;padding:0;font:inherit;color:var(--red-d);text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--red-l);text-underline-offset:3px;}
+  .err-it:hover{text-decoration-color:var(--red);}
+  .btn:focus-visible,.ib:focus-visible,.nav-it:focus-visible,.card-opt:focus-visible,.drop:focus-visible,.chk:focus-visible,.acc-h:focus-visible,.lnk:focus-visible,.crumb:focus-visible,.err-it:focus-visible,.tab:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .offer-body{scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdSign" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="other" collapsed="1" hint-size="80px,827px"></dc-import>
+    </div>
+
+    <main style="flex:1;min-width:0;padding:24px 32px 0;min-height:calc(100vh - 73px);display:flex;flex-direction:column;">
+      <div style="flex:1;width:100%;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Шапка страницы -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+            <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+              <i class="ri-apps-2-line" style="font-size:18px;"></i>
+              <a class="crumb" href="Прочие услуги.dc.html" onClick="{{ onCrumb }}">Прочие услуги</a>
+              <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+              <span aria-current="page" style="color:var(--n900);">{{ crumb }}</span>
+            </nav>
+            <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">{{ title }}</h1>
+            <div class="clamp1" title="{{ serviceFull }}" style="max-width:760px;font-size:13px;line-height:18px;color:var(--n500);">{{ serviceShort }}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            <button class="btn btn-s" onClick="{{ saveDraft }}" disabled="{{ notReady }}"><i class="ri-save-3-line" style="font-size:18px;"></i>Сохранить черновик</button>
+            <div style="{{ saveNoteStyle }}"><i class="{{ saveNoteIcon }}" style="font-size:14px;"></i>{{ saveNote }}</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:24px;align-items:flex-start;">
+          <!-- Шаги мастера -->
+          <nav aria-label="Шаги заявки" style="width:248px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:12px;">
+            <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 10px;">Данные заявки</div>
+            <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;">
+              <sc-for list="{{ nav }}" as="it" hint-placeholder-count="4">
+                <li>
+                  <button class="nav-it" onClick="{{ it.onClick }}" disabled="{{ it.locked }}" aria-current="{{ it.cur }}" style="{{ it.style }}">
+                    <span style="{{ it.dot }}"><i class="{{ it.icon }}" style="{{ it.iconStyle }}"></i>{{ it.n }}</span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;">
+                      <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;">{{ it.label }}</span>
+                      <span style="{{ it.subStyle }}">{{ it.sub }}</span>
+                    </span>
+                  </button>
+                </li>
+              </sc-for>
+            </ol>
+            <div style="margin:4px 10px 0;padding-top:12px;border-top:1px solid var(--stroke);display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-quill-pen-line" style="font-size:16px;flex:0 0 auto;"></i><span>После досье — ознакомление с публичной офертой и подписание ЭЦП</span></div>
+          </nav>
+
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:24px;">
+            <!-- скелет -->
+            <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;">
+                <span class="sk" style="width:40%;height:16px;"></span><span class="sk" style="width:100%;height:40px;"></span><span class="sk" style="width:100%;height:40px;"></span><span class="sk" style="width:60%;height:40px;"></span>
+              </div>
+            </sc-if>
+
+            <!-- Баннер ошибок -->
+            <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+              <div id="err-banner" role="alert" tabIndex="-1" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--red-l);border-radius:12px;background:var(--red-ll);outline:none;animation:mp-fade .15s ease;">
+                <i class="ri-error-warning-fill" style="font-size:20px;color:var(--red);flex:0 0 auto;"></i>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
+                  <div style="font-size:14px;line-height:20px;font-weight:600;color:var(--red-d);">{{ bannerTitle }}</div>
+                  <ul style="margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:18px;color:var(--red-d);">
+                    <sc-for list="{{ bannerItems }}" as="b" hint-placeholder-count="3">
+                      <li><button class="err-it" onClick="{{ b.go }}">{{ b.label }}</button> — {{ b.msg }}</li>
+                    </sc-for>
+                  </ul>
+                  <sc-if value="{{ bannerMore }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:18px;color:var(--red-d);">{{ bannerMoreText }}</div></sc-if>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- Карточки шага -->
+            <sc-for list="{{ cards }}" as="c" hint-placeholder-count="2">
+              <section aria-labelledby="{{ c.hid }}" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px 24px 24px;display:flex;flex-direction:column;gap:18px;min-width:0;animation:mp-slidein .2s ease;">
+                <div style="display:flex;align-items:flex-start;gap:12px;">
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                    <h2 id="{{ c.hid }}" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ c.title }}<sc-if value="{{ c.req }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="color:var(--primary);"> *</span></sc-if></h2>
+                    <sc-if value="{{ c.hasDesc }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:18px;color:var(--n500);">{{ c.desc }}</div></sc-if>
+                  </div>
+                  <sc-if value="{{ c.hasAside }}" hint-placeholder-val="{{ false }}"><div style="{{ c.asideStyle }}"><i class="{{ c.asideIcon }}" style="font-size:14px;"></i>{{ c.aside }}</div></sc-if>
+                </div>
+
+                <!-- Категория -->
+                <sc-if value="{{ c.isCat }}" hint-placeholder-val="{{ false }}">
+                  <div role="radiogroup" aria-labelledby="{{ c.hid }}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                    <sc-for list="{{ c.opts }}" as="o" hint-placeholder-count="2">
+                      <button class="card-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
+                        <span style="{{ o.radio }}"></span>
+                        <span style="{{ o.iconWrap }}"><i class="{{ o.icon }}" style="font-size:20px;"></i></span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
+                          <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ o.label }}</span>
+                          <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.desc }}</span>
+                        </span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+
+                <!-- Тип услуги -->
+                <sc-if value="{{ c.isType }}" hint-placeholder-val="{{ false }}">
+                  <div role="checkbox" aria-checked="true" aria-disabled="true" aria-labelledby="{{ c.hid }}" style="display:flex;gap:12px;align-items:flex-start;padding:16px;border:1px solid var(--stroke);border-radius:12px;background:var(--n50);">
+                    <span style="width:18px;height:18px;margin-top:1px;border-radius:5px;background:var(--n300);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-check-line" style="font-size:14px;color:#fff;"></i></span>
+                    <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n600);">{{ c.typeLabel }}</span>
+                  </div>
+                </sc-if>
+
+                <!-- Сетки полей (в т.ч. блоки «Рег. номер») -->
+                <sc-for list="{{ c.grids }}" as="g" hint-placeholder-count="1">
+                  <div style="{{ g.wrap }}">
+                    <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 8px 8px 14px;background:var(--n50);border-bottom:1px solid var(--stroke);">
+                        <span style="padding:2px 8px;border-radius:6px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:600;">{{ g.head }}</span>
+                        <sc-if value="{{ g.canRemove }}" hint-placeholder-val="{{ false }}"><button class="btn btn-g btn-sm" onClick="{{ g.onRemove }}" aria-label="{{ g.removeLabel }}" style="color:var(--red);"><i class="ri-delete-bin-6-line" style="font-size:16px;"></i>Удалить</button></sc-if>
+                      </div>
+                    </sc-if>
+                    <div style="{{ g.gridStyle }}">
+                      <sc-for list="{{ g.fields }}" as="f" hint-placeholder-count="2">
+                        <div style="{{ f.wrap }}">
+                          <!-- подзаголовок внутри блока (дозировка / концентрация) -->
+                          <sc-if value="{{ f.isSub }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:4px;">
+                              <span style="font-size:13px;line-height:18px;font-weight:600;color:var(--n600);">{{ f.label }}</span>
+                              <button class="ib ib-d" onClick="{{ f.onRemove }}" aria-label="{{ f.removeLabel }}" title="Убрать"><i class="ri-close-line" style="font-size:18px;"></i></button>
+                            </div>
+                          </sc-if>
+                          <!-- кнопки добавления -->
+                          <sc-if value="{{ f.isActions }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                              <sc-for list="{{ f.btns }}" as="bt" hint-placeholder-count="2">
+                                <button class="btn btn-s btn-sm" onClick="{{ bt.onClick }}"><i class="ri-add-line" style="font-size:16px;"></i>{{ bt.label }}</button>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                          <!-- поле ввода -->
+                          <sc-if value="{{ f.isField }}" hint-placeholder-val="{{ true }}">
+                            <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><label for="{{ f.id }}" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ f.label }}<sc-if value="{{ f.req }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="color:var(--primary);"> *</span></sc-if><sc-if value="{{ f.opt }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--n400);"> (необязательно)</span></sc-if></label><sc-if value="{{ f.hasRemove }}" hint-placeholder-val="{{ false }}"><button type="button" class="lnk" onClick="{{ f.onRemove }}" aria-label="{{ f.removeLabel }}" style="display:inline-flex;align-items:center;gap:2px;font-size:13px;line-height:18px;color:var(--n500);"><i class="ri-close-line" style="font-size:16px;"></i>Убрать</button></sc-if></div>
+
+                              <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ true }}">
+                                <input id="{{ f.id }}" class="{{ f.cls }}" value="{{ f.value }}" onChange="{{ f.onChange }}" onBlur="{{ f.onBlur }}" placeholder="{{ f.ph }}" maxLength="{{ f.max }}" readOnly="{{ f.ro }}" inputMode="{{ f.im }}" autoComplete="off" aria-invalid="{{ f.invalid }}" aria-required="{{ f.req }}" aria-describedby="{{ f.msgId }}" />
+                              </sc-if>
+
+                              <sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}">
+                                <textarea id="{{ f.id }}" class="{{ f.cls }}" rows="{{ f.rows }}" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.ph }}" maxLength="{{ f.max }}" aria-invalid="{{ f.invalid }}" aria-required="{{ f.req }}" aria-describedby="{{ f.msgId }}"></textarea>
+                              </sc-if>
+
+                              <sc-if value="{{ f.isDate }}" hint-placeholder-val="{{ false }}">
+                                <div style="position:relative;max-width:220px;">
+                                  <input id="{{ f.id }}" class="{{ f.cls }}" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="дд.мм.гггг" inputMode="numeric" maxLength="10" autoComplete="off" disabled="{{ f.disabled }}" aria-invalid="{{ f.invalid }}" aria-required="{{ f.req }}" aria-describedby="{{ f.msgId }}" style="padding-right:40px;font-variant-numeric:tabular-nums;" />
+                                  <button type="button" class="ib" onClick="{{ f.pick }}" disabled="{{ f.disabled }}" aria-label="{{ f.pickLabel }}" title="Выбрать в календаре" style="position:absolute;right:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
+                                  <input id="{{ f.nid }}" type="date" tabIndex="-1" aria-hidden="true" onChange="{{ f.onNative }}" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;" />
+                                </div>
+                              </sc-if>
+
+                              <sc-if value="{{ f.isCombo }}" hint-placeholder-val="{{ false }}">
+                                <div style="position:relative;">
+                                  <input id="{{ f.id }}" class="{{ f.cls }}" value="{{ f.value }}" onChange="{{ f.onChange }}" onFocus="{{ f.onFocus }}" onBlur="{{ f.onBlur }}" onKeyDown="{{ f.onKey }}" placeholder="{{ f.ph }}" autoComplete="off" role="combobox" aria-autocomplete="list" aria-expanded="{{ f.open }}" aria-controls="{{ f.listId }}" aria-invalid="{{ f.invalid }}" aria-required="{{ f.req }}" aria-describedby="{{ f.msgId }}" style="padding-right:36px;" />
+                                  <i class="ri-arrow-down-s-line" style="{{ f.chev }}"></i>
+                                  <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+                                    <div id="{{ f.listId }}" role="listbox" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;max-height:264px;overflow-y:auto;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
+                                      <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="3">
+                                        <div role="option" aria-selected="{{ o.on }}" onMouseDown="{{ o.pick }}" onMouseEnter="{{ o.hover }}" class="opt" style="{{ o.style }}">
+                                          <span style="flex:1;min-width:0;">{{ o.label }}</span>
+                                          <sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i></sc-if>
+                                        </div>
+                                      </sc-for>
+                                      <sc-if value="{{ f.noOpts }}" hint-placeholder-val="{{ false }}"><div style="padding:8px 10px;font-size:13px;line-height:18px;color:var(--n500);">{{ f.noOptsText }}</div></sc-if>
+                                    </div>
+                                  </sc-if>
+                                </div>
+                              </sc-if>
+
+                              <!-- признак «Бессрочно» рядом с датой -->
+                              <sc-if value="{{ f.hasCheck }}" hint-placeholder-val="{{ false }}">
+                                <button type="button" class="chk" role="checkbox" aria-checked="{{ f.checkOn }}" onClick="{{ f.onCheck }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:2px 0;border:none;background:none;cursor:pointer;font-size:14px;line-height:20px;color:var(--n900);border-radius:4px;">
+                                  <span style="{{ f.checkBox }}"><sc-if value="{{ f.checkOn }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:13px;color:#fff;"></i></sc-if></span>{{ f.checkLabel }}
+                                </button>
+                              </sc-if>
+
+                              <div id="{{ f.msgId }}" aria-live="polite" style="{{ f.msgWrap }}">
+                                <sc-if value="{{ f.hasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;align-items:flex-start;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i><span>{{ f.err }}</span></span></sc-if>
+                                <sc-if value="{{ f.hasHint }}" hint-placeholder-val="{{ false }}"><span style="flex:1;font-size:12px;line-height:16px;color:var(--n400);">{{ f.hint }}</span></sc-if>
+                                <sc-if value="{{ f.hasCounter }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;font-size:12px;line-height:16px;color:var(--n400);font-variant-numeric:tabular-nums;">{{ f.counter }}</span></sc-if>
+                              </div>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ c.hasAddReg }}" hint-placeholder-val="{{ false }}">
+                  <button class="btn btn-dash" onClick="{{ c.addReg }}" style="width:100%;"><i class="ri-add-line" style="font-size:18px;"></i>Добавить регистрационный номер</button>
+                </sc-if>
+
+                <!-- Доверенность: текст и файлы -->
+                <sc-if value="{{ c.isPoa }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                      <label for="f-a-poaText" style="font-size:14px;line-height:20px;font-weight:500;">Доверенность<sc-if value="{{ c.poaReq }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="color:var(--primary);"> *</span></sc-if></label>
+                      <textarea id="f-a-poaText" class="{{ c.poaCls }}" rows="3" value="{{ c.poaText }}" onChange="{{ c.onPoaText }}" placeholder="Текст доверенности" aria-invalid="{{ c.poaInvalid }}" aria-describedby="m-a-poaDoc"></textarea>
+                    </div>
+                    <div onClick="{{ c.pickPoa }}" onKeyDown="{{ c.poaKey }}" onDragOver="{{ c.onDragOver }}" onDragLeave="{{ c.onDragLeave }}" onDrop="{{ c.onDropPoa }}" role="button" tabIndex="0" class="drop" aria-label="Загрузить файлы доверенности" style="{{ c.poaZone }}">
+                      <i class="ri-upload-cloud-2-line" style="font-size:24px;color:var(--n400);flex:0 0 auto;"></i>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-size:14px;line-height:20px;font-weight:500;">Выберите файлы или перетащите их сюда</span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n400);">ZIP, RAR, 7Z, DOCX, XLSX, PDF, JPG, PNG · до 2 ГБ каждый · можно несколько</span>
+                      </span>
+                      <span class="btn btn-s btn-sm" style="pointer-events:none;">Загрузить</span>
+                    </div>
+                    <input id="fi-poa" type="file" multiple="{{ true }}" onChange="{{ c.onPoaFiles }}" style="display:none;" />
+                    <sc-for list="{{ c.poaFiles }}" as="fl" hint-placeholder-count="1">
+                      <div style="display:flex;align-items:center;gap:12px;padding:10px 8px 10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;">
+                        <span style="{{ fl.badge }}">{{ fl.ext }}</span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                          <span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;">{{ fl.name }}</span>
+                          <span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n500);">{{ fl.size }}<span>·</span><i class="ri-checkbox-circle-fill" style="font-size:14px;color:var(--green);"></i>Загружен</span>
+                        </span>
+                        <button class="ib" onClick="{{ fl.onReplace }}" aria-label="{{ fl.replaceLabel }}" title="Заменить"><i class="ri-refresh-line" style="font-size:18px;"></i></button>
+                        <button class="ib ib-d" onClick="{{ fl.onRemove }}" aria-label="{{ fl.removeLabel }}" title="Удалить"><i class="ri-delete-bin-line" style="font-size:18px;"></i></button>
+                      </div>
+                    </sc-for>
+                    <div id="m-a-poaDoc" aria-live="polite">
+                      <sc-if value="{{ c.poaHasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ c.poaErr }}</span></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <!-- Досье -->
+                <sc-if value="{{ c.isDossier }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-direction:column;gap:12px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                      <div aria-hidden="true" style="flex:1;height:6px;border-radius:999px;background:var(--n100);overflow:hidden;"><div style="{{ c.progBar }}"></div></div>
+                      <span style="font-size:13px;line-height:18px;font-weight:500;color:var(--n600);white-space:nowrap;">{{ c.progText }}</span>
+                    </div>
+                    <sc-for list="{{ c.items }}" as="it" hint-placeholder-count="3">
+                      <div id="{{ it.boxId }}" style="{{ it.box }}">
+                        <button class="acc-h" onClick="{{ it.toggle }}" aria-expanded="{{ it.open }}" aria-controls="{{ it.panelId }}" style="width:100%;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:none;background:none;font-family:inherit;text-align:left;cursor:pointer;">
+                          <span style="{{ it.num }}"><i class="{{ it.numIcon }}" style="font-size:14px;"></i>{{ it.n }}</span>
+                          <span style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ it.title }}</span>
+                          <span style="{{ it.chip }}">{{ it.chipLabel }}</span>
+                          <i class="{{ it.chev }}" style="font-size:20px;color:var(--n500);flex:0 0 auto;"></i>
+                        </button>
+                        <sc-if value="{{ it.open }}" hint-placeholder-val="{{ false }}">
+                          <div id="{{ it.panelId }}" style="padding:0 16px 16px 52px;display:flex;flex-direction:column;gap:12px;">
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                              <label for="{{ it.taId }}" style="font-size:13px;line-height:18px;font-weight:500;color:var(--n600);">Сведения</label>
+                              <textarea id="{{ it.taId }}" class="{{ it.taCls }}" rows="3" value="{{ it.text }}" onChange="{{ it.onText }}" placeholder="Введите сведения или приложите файл" aria-invalid="{{ it.invalid }}" aria-describedby="{{ it.msgId }}"></textarea>
+                            </div>
+                            <sc-if value="{{ it.noFile }}" hint-placeholder-val="{{ true }}">
+                              <div onClick="{{ it.pick }}" onKeyDown="{{ it.pickKey }}" onDragOver="{{ it.onDragOver }}" onDragLeave="{{ it.onDragLeave }}" onDrop="{{ it.onDrop }}" role="button" tabIndex="0" class="drop" aria-label="{{ it.zoneLabel }}" style="{{ it.zone }}">
+                                <i class="ri-upload-cloud-2-line" style="font-size:24px;color:var(--n400);flex:0 0 auto;"></i>
+                                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                  <span style="font-size:14px;line-height:20px;font-weight:500;">Выберите файл или перетащите его сюда</span>
+                                  <span style="font-size:12px;line-height:16px;color:var(--n400);">Один файл до 500 МБ · ZIP, RAR, 7Z, DOCX, XLSX, PDF, JPG, PNG · несколько документов упакуйте в архив</span>
+                                </span>
+                                <span class="btn btn-s btn-sm" style="pointer-events:none;">Загрузить</span>
+                              </div>
+                            </sc-if>
+                            <sc-if value="{{ it.hasFile }}" hint-placeholder-val="{{ false }}">
+                              <div style="display:flex;align-items:center;gap:12px;padding:10px 8px 10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;">
+                                <span style="{{ it.fileBadge }}">{{ it.fileExt }}</span>
+                                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                  <span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;">{{ it.fileName }}</span>
+                                  <span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n500);">{{ it.fileSize }}<span>·</span><i class="ri-checkbox-circle-fill" style="font-size:14px;color:var(--green);"></i>Загружен</span>
+                                </span>
+                                <button class="ib" onClick="{{ it.pick }}" aria-label="{{ it.replaceLabel }}" title="Заменить"><i class="ri-refresh-line" style="font-size:18px;"></i></button>
+                                <button class="ib ib-d" onClick="{{ it.removeFile }}" aria-label="{{ it.removeLabel }}" title="Удалить"><i class="ri-delete-bin-line" style="font-size:18px;"></i></button>
+                              </div>
+                            </sc-if>
+                            <input id="{{ it.fileId }}" type="file" onChange="{{ it.onFile }}" style="display:none;" />
+                            <div id="{{ it.msgId }}" aria-live="polite">
+                              <sc-if value="{{ it.hasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ it.err }}</span></sc-if>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- Панель действий шага -->
+        <div style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
+          <div style="max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;">
+            <button class="btn btn-g" onClick="{{ cancel }}" disabled="{{ notReady }}">Отмена</button>
+            <div style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
+            <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ back }}"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i>Назад</button></sc-if>
+            <button class="btn btn-p" onClick="{{ next }}" disabled="{{ notReady }}"><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i></sc-if>{{ nextLabel }}<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></sc-if></button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Публичная оферта (UC01.13.1.7) -->
+  <sc-if value="{{ offer }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ offerKey }}" style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div onClick="{{ closeOffer }}" style="position:absolute;inset:0;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:mp-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="of-title" style="position:relative;width:760px;max-width:100%;height:min(820px,calc(100vh - 32px));display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 16px 40px -8px rgba(10,13,20,.16);overflow:hidden;animation:mp-pop .18s ease;">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:16px 16px 16px 20px;border-bottom:1px solid var(--stroke);">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-file-shield-2-line" style="font-size:20px;color:var(--primary);"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div id="of-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Публичная оферта</div>
+            <div style="font-size:13px;line-height:18px;color:var(--n500);">Договор на оказание платных услуг ННЦРЗ</div>
+          </div>
+          <div role="tablist" aria-label="Язык документа" style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+            <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2"><button class="tab" role="tab" aria-selected="{{ l.on }}" onClick="{{ l.onClick }}" style="{{ l.style }}">{{ l.label }}</button></sc-for>
+          </div>
+          <button class="ib" onClick="{{ closeOffer }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+        <div class="offer-body" tabIndex="0" aria-label="Текст оферты" style="flex:1;overflow-y:auto;padding:24px 32px;display:flex;flex-direction:column;gap:14px;background:var(--n50);">
+          <div style="background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:28px 32px;display:flex;flex-direction:column;gap:14px;">
+            <div style="text-align:center;font-size:14px;line-height:22px;font-weight:600;letter-spacing:.01em;">{{ of.title }}</div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;line-height:18px;color:var(--n600);"><span>{{ of.city }}</span><span>{{ of.date }}</span></div>
+            <p style="margin:0;font-size:13px;line-height:20px;color:var(--n600);text-indent:24px;">{{ of.intro }}</p>
+            <sc-for list="{{ of.sections }}" as="sct" hint-placeholder-count="5">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <div style="font-size:13px;line-height:20px;font-weight:600;">{{ sct.title }}</div>
+                <p style="margin:0;font-size:13px;line-height:20px;color:var(--n600);">{{ sct.text }}</p>
+              </div>
+            </sc-for>
+            <div style="font-size:12px;line-height:16px;font-style:italic;color:var(--n400);">{{ of.note }}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding:16px 20px;border-top:1px solid var(--stroke);">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <button type="button" class="chk" role="checkbox" aria-checked="{{ agree }}" onClick="{{ toggleAgree }}" style="display:inline-flex;align-items:center;gap:10px;padding:2px 0;border:none;background:none;cursor:pointer;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);text-align:left;border-radius:4px;">
+              <span style="{{ agreeBox }}"><sc-if value="{{ agree }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:13px;color:#fff;"></i></sc-if></span>Я согласен с условиями публичной оферты
+            </button>
+            <button class="lnk" onClick="{{ dlAppendix }}" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;line-height:20px;"><i class="ri-download-2-line" style="font-size:18px;"></i>Скачать приложение к договору-оферте</button>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;">
+            <button class="btn btn-s" onClick="{{ closeOffer }}">Отмена</button>
+            <button class="btn btn-p" onClick="{{ signOffer }}" disabled="{{ noAgree }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i>Подписать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Выход без сохранения -->
+  <sc-if value="{{ leave }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ leaveKey }}" style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div onClick="{{ stay }}" style="position:absolute;inset:0;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:mp-fade .15s ease;"></div>
+      <div role="alertdialog" aria-modal="true" aria-labelledby="lv-title" aria-describedby="lv-text" style="position:relative;width:420px;max-width:100%;background:#fff;border-radius:20px;box-shadow:0 16px 40px -8px rgba(10,13,20,.16);padding:20px;display:flex;flex-direction:column;gap:16px;animation:mp-pop .18s ease;">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--orange-ll);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-error-warning-line" style="font-size:20px;color:var(--orange);"></i></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding-top:2px;">
+            <div id="lv-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Выйти без сохранения?</div>
+            <div id="lv-text" style="font-size:14px;line-height:20px;color:var(--n500);">{{ leaveText }}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-p" onClick="{{ saveAndLeave }}"><i class="ri-save-3-line" style="font-size:18px;"></i>Сохранить черновик и выйти</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-s" onClick="{{ stay }}" autoFocus="{{ true }}" style="flex:1;">Продолжить заполнение</button>
+            <button class="btn btn-g" onClick="{{ leaveNow }}" style="flex:1;color:var(--red);">Выйти</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Отправка -->
+  <sc-if value="{{ sending }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;inset:0;z-index:130;background:rgba(10,13,20,.32);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:mp-fade .15s ease;">
+      <span style="width:40px;height:40px;border-radius:50%;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;animation:mp-spin .8s linear infinite;"></span>
+      <span style="font-size:15px;font-weight:500;color:#fff;">Отправляем заявку в ННЦРЗ…</span>
+    </div>
+  </sc-if>
+
+  <!-- Тост -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;top:89px;right:24px;z-index:80;width:380px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;line-height:20px;font-weight:500;">{{ toastTitle }}</div><sc-if value="{{ hasToastText }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:2px;">{{ toastText }}</div></sc-if></div>
+      <button class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;margin:-2px -4px 0 0;"><i class="ri-close-line" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+
+  <!-- Панель прототипа -->
+  <div style="position:fixed;left:112px;bottom:84px;z-index:50;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:6px 6px 6px 12px;display:flex;align-items:center;gap:8px;">
+    <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+    <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
+    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+      <sc-for list="{{ demo }}" as="d" hint-placeholder-count="2"><button onClick="{{ d.onClick }}" aria-pressed="{{ d.on }}" style="{{ d.style }}">{{ d.label }}</button></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const STEPS = ['Данные услуги', 'Сведения о заявителе', 'Заявление', 'Досье'];
+const MONTHS_RU = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_KZ = ['қаңтар','ақпан','наурыз','сәуір','мамыр','маусым','шілде','тамыз','қыркүйек','қазан','қараша','желтоқсан'];
+
+const OFFER = {
+  ru:{
+    title:'ДОГОВОР ПУБЛИЧНОЙ ОФЕРТЫ на оказание платных услуг по проведению профессиональной экспертизы',
+    city:'г. Астана',
+    intro:'Республиканское государственное предприятие на праве хозяйственного ведения «Национальный научный центр развития здравоохранения имени Салидат Каирбековой» Министерства здравоохранения Республики Казахстан (далее — Исполнитель) предлагает юридическим лицам (далее — Заказчик) заключить договор на оказание платных услуг на условиях настоящей оферты.',
+    sections:[
+      ['1. Предмет договора', 'Исполнитель по заявке Заказчика, поданной через портал, проводит профессиональную экспертизу лекарственного средства или медицинского изделия для включения в перечень, закупаемый у Единого дистрибьютора в рамках ГОБМП и (или) в системе ОСМС.'],
+      ['2. Акцепт оферты', 'Акцептом оферты является подписание заявки электронной цифровой подписью Заказчика с отметкой о согласии с условиями оферты. Договор считается заключённым с момента акцепта.'],
+      ['3. Стоимость услуг и порядок расчётов', 'Стоимость услуги — 2 490 400 тенге. Заказчик вносит предоплату 20 % по счёту Исполнителя, оставшиеся 80 % — после положительного результата первичной экспертизы. Срок оплаты каждого счёта — 5 рабочих дней с даты его выставления.'],
+      ['4. Сроки оказания услуги', 'Экспертиза проводится в течение 50 рабочих дней. Срок приостанавливается на время, когда заявка находится у Заказчика: оплата счёта, устранение замечаний, подписание акта.'],
+      ['5. Права и обязанности сторон', 'Заказчик представляет достоверные сведения и документы и своевременно оплачивает услуги. Исполнитель обеспечивает объективность экспертизы и сохранность представленных материалов.'],
+      ['6. Порядок приёмки услуг', 'По завершении экспертизы Исполнитель направляет заключение и акт выполненных работ. В течение 10 рабочих дней Заказчик подписывает акт ЭЦП или направляет мотивированный отказ.'],
+      ['7. Ответственность сторон', 'За неисполнение или ненадлежащее исполнение обязательств стороны несут ответственность в соответствии с законодательством Республики Казахстан.'],
+      ['8. Конфиденциальность', 'Стороны обязуются не раскрывать третьим лицам сведения, полученные при исполнении договора, за исключением случаев, предусмотренных законодательством.'],
+      ['9. Заключительные положения', 'Оферта действует до её отзыва Исполнителем. Приложение к договору-оферте является его неотъемлемой частью.'],
+    ],
+    note:'Текст оферты сокращён для прототипа — показаны структура и ключевые условия.',
+  },
+  kz:{
+    title:'Кәсіби сараптама жүргізу бойынша ақылы қызметтер көрсетуге арналған ЖАРИЯ ОФЕРТА ШАРТЫ',
+    city:'Астана қ.',
+    intro:'Қазақстан Республикасы Денсаулық сақтау министрлігінің «Салидат Қайырбекова атындағы Ұлттық денсаулық сақтауды дамыту ғылыми орталығы» шаруашылық жүргізу құқығындағы республикалық мемлекеттік кәсіпорны (бұдан әрі — Орындаушы) заңды тұлғаларға (бұдан әрі — Тапсырыс беруші) осы оферта шарттарымен ақылы қызметтер көрсету шартын жасасуды ұсынады.',
+    sections:[
+      ['1. Шарттың мәні', 'Орындаушы Тапсырыс берушінің портал арқылы берген өтінімі бойынша ТМККК шеңберінде және (немесе) МӘМС жүйесінде Бірыңғай дистрибьютордан сатып алынатын тізбеге енгізу үшін дәрілік заттың немесе медициналық бұйымның кәсіби сараптамасын жүргізеді.'],
+      ['2. Офертаны акцептеу', 'Тапсырыс берушінің оферта шарттарымен келісу белгісімен өтінімге электрондық цифрлық қолтаңба қоюы акцепт болып табылады. Шарт акцепт сәтінен бастап жасалған болып саналады.'],
+      ['3. Қызметтердің құны және есеп айырысу тәртібі', 'Қызмет құны — 2 490 400 теңге. Тапсырыс беруші Орындаушының шоты бойынша 20 % алдын ала төлем жасайды, қалған 80 % бастапқы сараптаманың оң нәтижесінен кейін төленеді. Әр шотты төлеу мерзімі — ол ұсынылған күннен бастап 5 жұмыс күні.'],
+      ['4. Қызмет көрсету мерзімі', 'Сараптама 50 жұмыс күні ішінде жүргізіледі. Өтінім Тапсырыс берушіде болған уақытта — шотты төлеу, ескертулерді жою, актіге қол қою кезінде — мерзім тоқтатыла тұрады.'],
+      ['5. Тараптардың құқықтары мен міндеттері', 'Тапсырыс беруші анық мәліметтер мен құжаттарды ұсынады және қызметтерге уақытында ақы төлейді. Орындаушы сараптаманың объективтілігін және ұсынылған материалдардың сақталуын қамтамасыз етеді.'],
+      ['6. Қызметтерді қабылдау тәртібі', 'Сараптама аяқталғаннан кейін Орындаушы қорытындыны және орындалған жұмыстар актісін жібереді. Тапсырыс беруші 10 жұмыс күні ішінде актіге ЭЦҚ арқылы қол қояды немесе дәлелді бас тартуды жібереді.'],
+      ['7. Тараптардың жауапкершілігі', 'Міндеттемелерді орындамағаны немесе тиісінше орындамағаны үшін тараптар Қазақстан Республикасының заңнамасына сәйкес жауапты болады.'],
+      ['8. Құпиялылық', 'Тараптар шартты орындау кезінде алынған мәліметтерді заңнамада көзделген жағдайларды қоспағанда, үшінші тұлғаларға жария етпеуге міндеттенеді.'],
+      ['9. Қорытынды ережелер', 'Оферта Орындаушы оны кері қайтарып алғанға дейін қолданылады. Оферта-шартқа қосымша оның ажырамас бөлігі болып табылады.'],
+    ],
+    note:'Прототип үшін оферта мәтіні қысқартылған — құрылымы мен негізгі шарттары көрсетілген.',
+  },
+};
+
+class Component extends DCLogic {
+  state = { ready:false, missing:false, app:null, form:null, base:'', step:0, maxStep:0, tried:{}, open:{}, combo:null, hi:0, drag:null, fileErr:{},
+    offer:false, lang:'ru', agree:false, leave:false, leaveTo:'', toast:null, sending:false };
+
+  componentDidMount(){
+    this._onReady = () => { if(!this.state.ready) this.init(); };
+    window.addEventListener('mp-ed-ready', this._onReady);
+    if(window.mpEd) this.init();
+    this._onSigned = (e) => { const d = e && e.detail || {}; if(d.ctx === 'submit') this.submit(d); };
+    this._onSignCancel = (e) => { const d = e && e.detail || {}; if(d.ctx === 'submit') this.toast('info', 'Подписание отменено', 'Заявка не отправлена — данные сохранены в форме.'); };
+    window.addEventListener('mp-sign-done', this._onSigned);
+    window.addEventListener('mp-sign-cancel', this._onSignCancel);
+    this._unload = (e) => { if(this.isDirty() && !this._leaving){ e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', this._unload);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-ed-ready', this._onReady);
+    window.removeEventListener('mp-sign-done', this._onSigned); window.removeEventListener('mp-sign-cancel', this._onSignCancel);
+    window.removeEventListener('beforeunload', this._unload);
+    clearTimeout(this._tt); clearTimeout(this._tc);
+  }
+
+  // ───────── загрузка / сессия ─────────
+  init(){
+    const ED = window.mpEd;
+    const q = new URLSearchParams(location.search);
+    const num = q.get('n'), token = q.get('new');
+    const ses = ED.session.get();
+    let app = null, form = null, step = 0, maxStep = 0, base = '';
+    if(num){
+      app = ED.get(num);
+      if(!app){ location.replace('Карточка заявки ЕД.dc.html?n=' + encodeURIComponent(num)); return; }
+      if(app.status !== 'Черновик'){ location.replace('Карточка заявки ЕД.dc.html?n=' + num); return; }
+      base = JSON.stringify(app.form);
+      if(ses && ses.num === num){ form = ses.form; step = ses.step || 0; maxStep = ses.maxStep || 0; }
+      else { form = app.form; maxStep = this.firstIncomplete(app.form); step = maxStep; }
+    } else {
+      if(ses && ses.isNew && ses.token === token && ses.app){ app = ses.app; form = ses.form; step = ses.step || 0; maxStep = ses.maxStep || 0; base = ses.base; }
+      else { app = ED.newApp(); form = app.form; base = JSON.stringify(form); }
+    }
+    this.setState({ ready:true, app, form, base, step, maxStep, open:{ [this.firstOpenDossier(form)]:true } });
+    this.persist({ app, form, step, maxStep, base, token, isNew: !num });
+    window.scrollTo(0, 0);
+  }
+  firstIncomplete(form){ const ED = window.mpEd; for(let i = 0; i < 4; i++) if(!ED.stepDone(form, i)) return i; return 3; }
+  firstOpenDossier(form){ const ED = window.mpEd; const d = ED.dossier(form.cat).find(x => { const v = form.d[x.k] || {}; return !(v.text || '').trim() && !v.file; }); return d ? d.k : ED.dossier(form.cat)[0].k; }
+  persist(patch){
+    const ED = window.mpEd, s = this.state;
+    const prev = ED.session.get() || {};
+    const q = new URLSearchParams(location.search);
+    ED.session.set({ ...prev, num: (patch && patch.app || s.app || {}).num, app: patch && patch.app || s.app, form: patch && patch.form || s.form,
+      step: patch && patch.step != null ? patch.step : s.step, maxStep: patch && patch.maxStep != null ? patch.maxStep : s.maxStep,
+      base: patch && patch.base != null ? patch.base : s.base, token: q.get('new'), isNew: !q.get('n') });
+  }
+  isDirty(){ const s = this.state; return !!(s.form && JSON.stringify(s.form) !== s.base); }
+  setForm(fn){
+    const form = JSON.parse(JSON.stringify(this.state.form));
+    fn(form);
+    this.setState({ form });
+    this.persist({ form });
+  }
+  toast(kind, title, text){ clearTimeout(this._tt); this.setState({ toast:{ kind, title, text } }); this._tt = setTimeout(() => this.setState({ toast:null }), 4500); }
+
+  // ───────── навигация по шагам ─────────
+  go(step){
+    this.setState({ step, combo:null });
+    this.persist({ step });
+    window.scrollTo({ top:0, behavior:'smooth' });
+  }
+  next(){
+    const ED = window.mpEd, s = this.state;
+    const errs = ED.validate(s.form, s.step);
+    if(errs.length){
+      this.setState({ tried:{ ...s.tried, [s.step]:true } });
+      if(s.step === 3){ const open = { ...s.open }; errs.forEach(e => { open[e.key.slice(2)] = true; }); this.setState({ open }); }
+      this.focusErr(errs[0].key, true);
+      return;
+    }
+    if(ED.fail()){ this.toast('err', ED.FAIL_MSG, ''); return; }
+    if(s.step === 3){
+      // перед офертой проверяем все шаги: на ранние можно вернуться через меню и изменить их
+      for(let i = 0; i < 3; i++){
+        if(!ED.stepDone(s.form, i)){
+          this.setState({ tried:{ ...s.tried, [i]:true } });
+          this.go(i);
+          this.toast('err', 'Шаг «' + STEPS[i] + '» заполнен не полностью', 'Исправьте ошибки — после этого заявку можно будет подписать.');
+          this.focusErr('', true);
+          return;
+        }
+      }
+      this.setState({ offer:true, agree:false, lang:'ru' });
+      return;
+    }
+    const step = s.step + 1, maxStep = Math.max(s.maxStep, step);
+    this.setState({ maxStep, tried:{ ...s.tried } });
+    this.persist({ maxStep });
+    this.go(step);
+  }
+  fid(key){ return 'f-' + key.replace(/\./g, '-'); }
+  focusErr(key, toBanner){
+    clearTimeout(this._tc);
+    this._tc = setTimeout(() => {
+      const el = toBanner ? document.getElementById('err-banner') : (document.getElementById(this.fid(key)) || document.getElementById('box-' + key.replace(/\./g, '-')));
+      if(el){ el.scrollIntoView({ behavior:'smooth', block:'center' }); try { el.focus({ preventScroll:true }); } catch(e){} }
+    }, 60);
+  }
+
+  // ───────── черновик / выход ─────────
+  saveDraft(thenLeave){
+    const ED = window.mpEd, s = this.state;
+    if(ED.fail()){ this.toast('err', 'Черновик не сохранён', ED.FAIL_MSG); this.setState({ leave:false }); return; }
+    const app = { ...s.app, form:s.form, status:'Черновик', saved:true };
+    ED.put(app);
+    ED.session.clear();
+    this._leaving = true;
+    location.href = 'Прочие услуги.dc.html?draft=' + app.num;
+  }
+  requestLeave(to){
+    if(this.isDirty()){ this.setState({ leave:true, leaveTo:to }); return; }
+    this._leaving = true; window.mpEd.session.clear(); location.href = to;
+  }
+  leaveNow(){ this._leaving = true; window.mpEd.session.clear(); location.href = this.state.leaveTo || 'Прочие услуги.dc.html'; }
+
+  // ───────── отправка ─────────
+  submit(d){
+    const ED = window.mpEd, s = this.state;
+    this.setState({ sending:true });
+    setTimeout(() => {
+      const app = { ...s.app, form:s.form, saved:true };
+      ED.put(app);
+      ED.apply(app.num, 'submit', { signer:d.signer }, d.at || Date.now());
+      ED.session.clear();
+      this._leaving = true;
+      location.href = 'Прочие услуги.dc.html?sent=' + app.num;
+    }, 900);
+  }
+
+  // ───────── файлы ─────────
+  mask(v){ const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '.' + d.slice(2) : d; }
+  extBadge(name){
+    const ED = window.mpEd, e = ED.ext(name);
+    const c = { pdf:['#FDEDF0','#DF1C41'], doc:['#EEF2FF','#4D42E9'], docx:['#EEF2FF','#4D42E9'], xls:['#EFFAF6','#2D9F75'], xlsx:['#EFFAF6','#2D9F75'], jpg:['#EEEBFF','#6E3FF3'], jpeg:['#EEEBFF','#6E3FF3'], png:['#EEEBFF','#6E3FF3'] }[e] || ['#F6F8FA','#525866'];
+    return { ext:(e || 'файл').toUpperCase().slice(0, 4), badge:`width:40px;height:40px;border-radius:8px;background:${c[0]};color:${c[1]};font-size:11px;line-height:12px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;` };
+  }
+  takeFiles(list, kind){
+    const ED = window.mpEd, ok = [], errs = [];
+    Array.from(list || []).forEach(f => { const m = ED.checkFile(f, kind); if(m) errs.push(f.name + ': ' + m); else ok.push({ name:f.name, size:f.size }); });
+    return { ok, err: errs.join('; ') };
+  }
+
+  // ───────── поля ─────────
+  field(o, E){
+    const ED = window.mpEd, s = this.state;
+    const id = this.fid(o.key);
+    const err = E[o.key] || '';
+    const val = o.value == null ? '' : o.value;
+    const type = o.type || 'text';
+    const base = {
+      isField:true, isSub:false, isActions:false,
+      isText: type === 'text' || type === 'ro', isArea: type === 'area', isDate: type === 'date', isCombo: type === 'combo',
+      id, msgId:'m-' + id, label:o.label, req:!!o.req, opt:!!o.opt, value:val, ph:o.ph || '', max:o.max || 524288, ro: type === 'ro', im:o.im || 'text',
+      err, hasErr:!!err, invalid:!!err,
+      cls:'inp' + (type === 'ro' ? ' inp-ro' : '') + (err ? ' inp-err' : ''),
+      wrap:`min-width:0;${o.full ? 'grid-column:1 / -1;' : ''}`,
+      hasHint: !err && !!o.hint, hint:o.hint || '',
+      hasCounter: !!(o.counter && o.max), counter: String(val).length.toLocaleString('ru-RU') + ' / ' + (o.max || 0).toLocaleString('ru-RU'),
+      msgWrap: 'display:flex;gap:8px;min-height:0;',
+      rows: o.rows || 4,
+      onChange: (e) => { if(o.set) o.set(type === 'date' ? this.mask(e.target.value) : e.target.value); },
+      onBlur: o.onBlur || (() => {}),
+      hasCheck:false,
+      hasRemove: !!o.remove, onRemove: o.remove ? o.remove.onClick : (() => {}), removeLabel: o.remove ? o.remove.label : '',
+    };
+    if(type === 'date'){
+      const nid = id + '-n';
+      Object.assign(base, { nid, disabled:!!o.disabled, pickLabel: o.label + ': выбрать в календаре',
+        pick: () => { const el = document.getElementById(nid); if(el){ try { el.showPicker(); } catch(x){ el.click(); } } },
+        onNative: (e) => { const v = e.target.value; if(v){ const [y, m, d] = v.split('-'); o.set(d + '.' + m + '.' + y); } } });
+      if(o.check) Object.assign(base, { hasCheck:true, checkLabel:o.check.label, checkOn:!!o.check.on, onCheck:o.check.toggle,
+        checkBox:`width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-sizing:border-box;${o.check.on ? 'background:#4D42E9;border:none;' : 'background:#fff;border:1.5px solid #CDD0D5;'}` });
+    }
+    if(type === 'combo'){
+      const open = s.combo === o.key;
+      const list = ED.DICT[o.dict];
+      const q = String(val).trim().toLowerCase();
+      const exact = list.indexOf(String(val).trim()) !== -1;
+      const opts = (exact || !q ? list : list.filter(x => x.toLowerCase().indexOf(q) !== -1));
+      const hi = Math.min(s.hi, Math.max(0, opts.length - 1));
+      Object.assign(base, { open, listId:'l-' + id,
+        chev:`position:absolute;right:10px;top:10px;font-size:20px;color:#868C98;pointer-events:none;transition:transform .15s;${open ? 'transform:rotate(180deg);' : ''}`,
+        noOpts: opts.length === 0, noOptsText: o.free ? 'Нет в справочнике — будет сохранено введённое значение' : 'Ничего не найдено',
+        opts: opts.map((x, i) => ({ label:x, on: x === String(val).trim(),
+          style: i === hi ? 'background:#F6F8FA;' : '',
+          hover: () => { if(s.hi !== i) this.setState({ hi:i }); },
+          pick: (e) => { if(e && e.preventDefault) e.preventDefault(); o.set(x); this.setState({ combo:null }); } })),
+        onFocus: () => this.setState({ combo:o.key, hi:0 }),
+        onBlur: () => setTimeout(() => { if(this.state.combo === o.key) this.setState({ combo:null }); }, 120),
+        onChange: (e) => { o.set(e.target.value); this.setState({ combo:o.key, hi:0 }); },
+        onKey: (e) => {
+          if(e.key === 'ArrowDown'){ e.preventDefault(); this.setState({ combo:o.key, hi: Math.min(hi + 1, opts.length - 1) }); }
+          else if(e.key === 'ArrowUp'){ e.preventDefault(); this.setState({ hi: Math.max(hi - 1, 0) }); }
+          else if(e.key === 'Enter'){ if(open && opts[hi]){ e.preventDefault(); o.set(opts[hi]); this.setState({ combo:null }); } }
+          else if(e.key === 'Escape'){ this.setState({ combo:null }); }
+        } });
+    }
+    return base;
+  }
+  sub(key, label, onRemove){ return { isField:false, isSub:true, isActions:false, label, onRemove, removeLabel:'Убрать: ' + label, wrap:'grid-column:1 / -1;min-width:0;' }; }
+  actions(btns){ return { isField:false, isSub:false, isActions:true, btns, wrap:'grid-column:1 / -1;min-width:0;' }; }
+  grid(fields, cols, head){
+    return { fields, hasHead:!!head, head: head && head.title || '', canRemove: !!(head && head.onRemove), onRemove: head && head.onRemove, removeLabel: head ? 'Удалить ' + head.title : '',
+      wrap: head ? 'border:1px solid #E2E4E9;border-radius:12px;overflow:hidden;' : '',
+      gridStyle:`display:grid;grid-template-columns:repeat(${cols || 2},minmax(0,1fr));gap:16px 20px;${head ? 'padding:16px;' : ''}` };
+  }
+
+  // ───────── карточки шагов ─────────
+  cards(E){
+    const ED = window.mpEd, s = this.state, form = s.form, P = ED.PROFILE;
+    const setA = (k) => (v) => this.setForm(f => { f.a[k] = v; });
+    const card = (o) => ({ hid:'h-' + (o.id || Math.random().toString(36).slice(2)), title:o.title, desc:o.desc || '', hasDesc:!!o.desc, req:!!o.req,
+      hasAside:!!o.aside, aside:o.aside || '', asideIcon:o.asideIcon || '', asideStyle:o.asideStyle || '',
+      isCat:false, isType:false, isPoa:false, isDossier:false, grids:o.grids || [], hasAddReg:false, ...o });
+
+    if(s.step === 0){
+      const opt = (id, label, desc, icon) => { const on = form.cat === id; return { label, desc, icon, on,
+        pick: () => this.setForm(f => { f.cat = id; }),
+        radio:`width:18px;height:18px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;background:#fff;${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`,
+        iconWrap:`width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:#F6F8FA;color:#868C98;'}`,
+        style:`display:flex;align-items:center;gap:12px;padding:16px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;box-shadow:0 1px 1px rgba(10,13,20,.03);` }; };
+      return [
+        card({ id:'cat', title:'Категория', req:true, desc:'От категории зависят поля заявления и состав досье.', isCat:true, opts:[
+          opt('ls', 'Лекарственные средства (ЛС)', 'Торговое и международное наименование, дозировка, АТХ', 'ri-capsule-line'),
+          opt('mi', 'Медицинские изделия (МИ)', 'Технические и эксплуатационные характеристики, GMDN', 'ri-stethoscope-line'),
+        ] }),
+        card({ id:'type', title:'Тип услуги', isType:true, typeLabel: ED.SERVICE_TYPE }),
+      ];
+    }
+
+    if(s.step === 1){
+      const a = form.a;
+      const poaStarted = !!(a.poaNum || a.poaIssued || a.poaValid || (a.poaText || '').trim() || a.poaFiles.length);
+      const ro = (key, label, value, full) => this.field({ key, label, value, type:'ro', full }, E);
+      const poaErr = E['a.poaDoc'] || s.fileErr.poa || '';
+      const dragOn = s.drag === 'poa';
+      return [
+        card({ id:'org', title:'Информация об услугополучателе', aside:'Из профиля организации', asideIcon:'ri-building-line',
+          asideStyle:'flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:#F6F8FA;color:#525866;font-size:12px;line-height:16px;font-weight:500;',
+          grids:[ this.grid([ ro('p.org', 'Наименование организации', P.org, true), ro('p.legal', 'Юридический адрес', P.legal), ro('p.actual', 'Фактический адрес', P.actual) ]) ] }),
+        card({ id:'contact', title:'Контактное лицо', grids:[ this.grid([
+          ro('p.last', 'Фамилия', P.last), ro('p.first', 'Имя', P.first), ro('p.middle', 'Отчество', P.middle),
+          this.field({ key:'a.position', label:'Должность', value:a.position, req:true, max:50, set:setA('position'), ph:'Например, директор по регистрации' }, E),
+          this.field({ key:'a.phone', label:'Телефон', value:a.phone, max:24, im:'tel', set:setA('phone'), ph:'+7 701 123 45 67', onBlur: () => this.fmtPhone('phone') }, E),
+          this.field({ key:'a.fax', label:'Факс', value:a.fax, opt:true, max:24, im:'tel', set:setA('fax'), ph:'+7 717 212 34 56', onBlur: () => this.fmtPhone('fax') }, E),
+          ro('p.email', 'Email', P.email, true),
+        ], 3) ] }),
+        card({ id:'bank', title:'Банковские реквизиты', grids:[ this.grid([ ro('p.bin', 'БИН', P.bin), ro('p.bank', 'Название банка', P.bank), ro('p.iik', 'ИИК', P.iik), ro('p.bik', 'БИК', P.bik), ro('p.kbe', 'КБе', P.kbe) ], 3) ] }),
+        card({ id:'poa', title:'Данные о доверенности', desc: poaStarted ? 'Блок начат — заполните все поля доверенности.' : 'Заполняется, если заявление подаётся по доверенности.',
+          grids:[ this.grid([
+            this.field({ key:'a.poaNum', label:'№ доверенности', value:a.poaNum, req:poaStarted, set:setA('poaNum') }, E),
+            this.field({ key:'a.poaIssued', label:'Дата выдачи', value:a.poaIssued, type:'date', req:poaStarted, set:setA('poaIssued') }, E),
+            this.field({ key:'a.poaValid', label:'Срок действия', value:a.poaValid, type:'date', req:poaStarted, set:setA('poaValid') }, E),
+          ], 3) ],
+          isPoa:true, poaReq:poaStarted, poaText:a.poaText, poaInvalid: !!poaErr,
+          poaCls:'inp' + (E['a.poaDoc'] ? ' inp-err' : ''),
+          onPoaText: (e) => setA('poaText')(e.target.value),
+          poaHasErr: !!poaErr, poaErr,
+          pickPoa: () => { this._replace = null; const el = document.getElementById('fi-poa'); if(el){ el.value = ''; el.click(); } },
+          poaKey: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); this._replace = null; const el = document.getElementById('fi-poa'); if(el){ el.value = ''; el.click(); } } },
+          onDragOver: (e) => { e.preventDefault(); if(s.drag !== 'poa') this.setState({ drag:'poa' }); },
+          onDragLeave: () => this.setState({ drag:null }),
+          onDropPoa: (e) => { e.preventDefault(); this.setState({ drag:null }); this.addPoa(e.dataTransfer && e.dataTransfer.files); },
+          onPoaFiles: (e) => this.addPoa(e.target.files),
+          poaZone:`display:flex;align-items:center;gap:14px;padding:16px;border:1px dashed ${dragOn ? '#4D42E9' : '#CDD0D5'};border-radius:12px;background:${dragOn ? '#EEF2FF' : '#fff'};`,
+          poaFiles: a.poaFiles.map((fl, i) => ({ name:fl.name, size:ED.fileSize(fl.size), ...this.extBadge(fl.name),
+            replaceLabel:'Заменить файл ' + fl.name, removeLabel:'Удалить файл ' + fl.name,
+            onReplace: () => { this._replace = i; const el = document.getElementById('fi-poa'); if(el){ el.value = ''; el.click(); } },
+            onRemove: () => this.setForm(f => { f.a.poaFiles.splice(i, 1); }) })),
+        }),
+      ];
+    }
+
+    if(s.step === 2){
+      const cat = form.cat, st = form.s[cat] || {};
+      const setS = (k) => (v) => this.setForm(f => { f.s[cat] = { ...(f.s[cat] || {}), [k]:v }; });
+      const out = [];
+      ED.SCHEMA[cat].forEach(sec => {
+        if(sec.regs){
+          const grids = form.regs.map((r, i) => {
+            const setR = (k) => (v) => this.setForm(f => { const x = f.regs.find(y => y.id === r.id); if(x) x[k] = v; });
+            const K = (k) => 'r.' + r.id + '.' + k;
+            const fields = [
+              this.field({ key:K('num'), label:'Регистрационный номер', value:r.num, req:true, max:20, set:setR('num'), ph: cat === 'ls' ? 'РК-ЛС-5№000000' : 'РК-МИ-5№000000' }, E),
+              this.field({ key:K('country'), label:'Производитель / Страна', value:r.country, req:true, type:'combo', dict:'country', set:setR('country'), ph:'Выберите страну' }, E),
+              this.field({ key:K('regDate'), label:'Дата регистрации', value:r.regDate, req:true, type:'date', set:setR('regDate') }, E),
+              this.field({ key:K('expDate'), label:'Дата истечения', value: r.perpetual ? '' : r.expDate, req:!r.perpetual, type:'date', disabled:r.perpetual, set:setR('expDate'),
+                check:{ label:'Бессрочно', on:r.perpetual, toggle: () => this.setForm(f => { const x = f.regs.find(y => y.id === r.id); x.perpetual = !x.perpetual; if(x.perpetual) x.expDate = ''; }) } }, E),
+            ];
+            if(cat === 'ls'){
+              if(r.dose != null){
+                fields.push(this.field({ key:K('dose'), label:'Дозировка', value:r.dose, req:true, max:50, set:setR('dose'), ph:'Например, 10 мг',
+                  remove:{ label:'Убрать дозировку', onClick: () => this.setForm(f => { f.regs.find(y => y.id === r.id).dose = null; }) } }, E));
+                fields.push({ isField:false, isSub:false, isActions:false, wrap:'' }); // пустая ячейка: концентрация начинается с новой строки
+              }
+              if(r.conc){
+                const setC = (k) => (v) => this.setForm(f => { const x = f.regs.find(y => y.id === r.id); x.conc = { ...x.conc, [k]:v }; });
+                fields.push(this.field({ key:K('conc'), label:'Концентрация', value:r.conc.val, req:true, max:50, set:setC('val'), ph:'Например, 25 мг/мл',
+                  remove:{ label:'Убрать концентрацию', onClick: () => this.setForm(f => { f.regs.find(y => y.id === r.id).conc = null; }) } }, E));
+                fields.push(this.field({ key:K('qty'), label:'Количество во вторичной (потребительской) упаковке', value:r.conc.qty, req:true, max:50, set:setC('qty'), ph:'Например, 1 флакон 4 мл' }, E));
+              }
+              const btns = [];
+              if(r.dose == null) btns.push({ label:'Добавить дозировку', onClick: () => this.setForm(f => { f.regs.find(y => y.id === r.id).dose = ''; }) });
+              if(!r.conc) btns.push({ label:'Добавить концентрацию', onClick: () => this.setForm(f => { f.regs.find(y => y.id === r.id).conc = { val:'', qty:'' }; }) });
+              if(btns.length) fields.push(this.actions(btns));
+            }
+            return this.grid(fields, 2, { title:'Рег. номер ' + (i + 1), onRemove: form.regs.length > 1 ? () => this.setForm(f => { f.regs = f.regs.filter(y => y.id !== r.id); }) : null });
+          });
+          out.push(card({ id:'reg', title:sec.title, grids, hasAddReg:true, addReg: () => this.setForm(f => { f.regs.push(ED.newReg()); }) }));
+          return;
+        }
+        const fields = sec.fields.map(fd => this.field({ key:'s.' + fd.k, label:fd.label, value:st[fd.k], type:fd.type, req:fd.req, max:fd.max, full:fd.full, dict:fd.dict, free:fd.free, ph:fd.ph, counter: fd.type === 'area', rows: fd.max > 3000 ? 5 : 4, set:setS(fd.k) }, E));
+        out.push(card({ id:sec.id, title:sec.title, desc:sec.desc, grids:[ this.grid(fields, 2) ] }));
+      });
+      // категория — видна и меняется прямо отсюда
+      out[0] = { ...out[0], hasAside:true, aside: cat === 'ls' ? 'Лекарственные средства' : 'Медицинские изделия', asideIcon: cat === 'ls' ? 'ri-capsule-line' : 'ri-stethoscope-line',
+        asideStyle:'flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:999px;background:#EEF2FF;color:#312D86;font-size:12px;line-height:16px;font-weight:500;' };
+      return out;
+    }
+
+    // шаг 3 — Досье
+    const list = ED.dossier(form.cat);
+    const reqList = list.filter(d => d.req);
+    const filledN = reqList.filter(d => { const v = form.d[d.k] || {}; return (v.text || '').trim() || v.file; }).length;
+    const items = list.map(d => {
+      const v = form.d[d.k] || { text:'', file:null };
+      const has = !!((v.text || '').trim() || v.file);
+      const open = !!s.open[d.k];
+      const err = E['d.' + d.k] || s.fileErr[d.k] || '';
+      const setD = (patch) => this.setForm(f => { f.d[d.k] = { ...(f.d[d.k] || { text:'', file:null }), ...patch }; });
+      const pickId = 'fd-' + d.k;
+      const pick = () => { const el = document.getElementById(pickId); if(el){ el.value = ''; el.click(); } };
+      const dragOn = s.drag === d.k;
+      const chip = has ? ['Заполнено', '#EFFAF6', '#176448'] : !d.req ? ['Необязательно', '#F6F8FA', '#525866'] : err ? ['Не заполнено', '#FDEDF0', '#710E21'] : ['Не заполнено', '#FEF3EB', '#6E330C'];
+      return {
+        n: has ? '' : String(d.n), numIcon: has ? 'ri-check-line' : '',
+        num:`width:24px;height:24px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:12px;font-weight:600;${has ? 'background:#38C793;color:#fff;' : err ? 'background:#FDEDF0;color:#DF1C41;border:1px solid #F8C9D2;' : 'background:#F6F8FA;color:#525866;border:1px solid #E2E4E9;'}`,
+        title: d.title, open, chev: open ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+        chipLabel: chip[0], chip:`flex:0 0 auto;margin-top:1px;padding:2px 8px;border-radius:999px;background:${chip[1]};color:${chip[2]};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`,
+        toggle: () => this.setState({ open:{ ...s.open, [d.k]:!open } }),
+        boxId:'box-d-' + d.k, panelId:'pn-' + d.k, taId:'f-d-' + d.k, msgId:'m-d-' + d.k, fileId:pickId,
+        box:`border:1px solid ${err ? '#F8C9D2' : '#E2E4E9'};border-radius:12px;background:#fff;overflow:hidden;`,
+        text: v.text || '', onText: (e) => setD({ text:e.target.value }),
+        taCls:'inp' + (E['d.' + d.k] ? ' inp-err' : ''), invalid: !!err,
+        noFile: !v.file, hasFile: !!v.file,
+        fileName: v.file ? v.file.name : '', fileSize: v.file ? ED.fileSize(v.file.size) : '', ...(v.file ? (() => { const b = this.extBadge(v.file.name); return { fileExt:b.ext, fileBadge:b.badge }; })() : { fileExt:'', fileBadge:'' }),
+        pick, pickKey: (e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } },
+        zoneLabel:'Загрузить файл для раздела ' + d.n, replaceLabel:'Заменить файл раздела ' + d.n, removeLabel:'Удалить файл раздела ' + d.n,
+        onDragOver: (e) => { e.preventDefault(); if(s.drag !== d.k) this.setState({ drag:d.k }); },
+        onDragLeave: () => this.setState({ drag:null }),
+        onDrop: (e) => { e.preventDefault(); this.setState({ drag:null }); this.addDossier(d.k, e.dataTransfer && e.dataTransfer.files); },
+        onFile: (e) => this.addDossier(d.k, e.target.files),
+        removeFile: () => setD({ file:null }),
+        zone:`display:flex;align-items:center;gap:14px;padding:16px;border:1px dashed ${dragOn ? '#4D42E9' : '#CDD0D5'};border-radius:12px;background:${dragOn ? '#EEF2FF' : '#fff'};`,
+        hasErr: !!err, err,
+      };
+    });
+    const pct = reqList.length ? Math.round(filledN / reqList.length * 100) : 100;
+    return [ card({ id:'dossier', title:'Досье', desc:'По каждому обязательному разделу укажите сведения текстом и (или) приложите файл.',
+      isDossier:true, items,
+      progText:'Заполнено ' + filledN + ' из ' + reqList.length + ' обязательных',
+      progBar:`width:${pct}%;height:100%;border-radius:999px;background:${pct === 100 ? '#38C793' : '#4D42E9'};transition:width .3s ease;` }) ];
+  }
+  fmtPhone(k){
+    const v = (this.state.form.a[k] || '').trim(), d = v.replace(/\D/g, '');
+    if(/^\+?7/.test(v) && d.length === 11) this.setForm(f => { f.a[k] = '+7 ' + d.slice(1, 4) + ' ' + d.slice(4, 7) + ' ' + d.slice(7, 9) + ' ' + d.slice(9, 11); });
+  }
+  addPoa(files){
+    const r = this.takeFiles(files, 'poa');
+    this.setState({ fileErr:{ ...this.state.fileErr, poa:r.err } });
+    if(!r.ok.length) return;
+    const idx = this._replace;
+    this.setForm(f => { if(idx != null && f.a.poaFiles[idx]) f.a.poaFiles.splice(idx, 1, r.ok[0]); else f.a.poaFiles = f.a.poaFiles.concat(r.ok); });
+    this._replace = null;
+  }
+  addDossier(k, files){
+    const list = Array.from(files || []);
+    if(list.length > 1){ this.setState({ fileErr:{ ...this.state.fileErr, [k]:'Можно загрузить один файл — упакуйте документы в архив' } }); return; }
+    const r = this.takeFiles(list, 'dossier');
+    this.setState({ fileErr:{ ...this.state.fileErr, [k]:r.err } });
+    if(r.ok.length) this.setForm(f => { f.d[k] = { ...(f.d[k] || { text:'' }), file:r.ok[0] }; });
+  }
+
+  renderVals(){
+    const s = this.state, ED = window.mpEd;
+    const ready = s.ready && !!ED && !!s.form;
+    const seg = (on) => `height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const T = s.toast;
+    const common = {
+      hasToast: !!T, toastTitle: T ? T.title : '', toastText: T ? T.text : '', hasToastText: !!(T && T.text),
+      toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : T && T.kind === 'info' ? 'ri-information-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : T && T.kind === 'info' ? '#4D42E9' : '#38C793'};`,
+      closeToast: () => this.setState({ toast:null }),
+      demo: [ { label:'Техсбой', on: !!(ED && ED.fail()), onClick: () => { if(ED){ ED.setFail(!ED.fail()); this.setState({}); } } },
+              { label:'Заполнить шаг', on:false, onClick: () => this.demoFill() } ].map(d => ({ ...d, style:seg(d.on) })),
+    };
+    if(!ready || s.missing){
+      return { ...common, loading: !s.missing, notReady:true, title: s.missing ? 'Заявка не найдена' : 'Загрузка…', crumb:'Заявка', serviceShort:'', serviceFull:'',
+        saveNote:'', saveNoteIcon:'', saveNoteStyle:'display:none;', nav:[], cards:[], hasBanner:false, bannerItems:[], stepNo:1, hasBack:false, isLast:false, notLast:true, nextLabel:'Далее',
+        offer:false, leave:false, sending:false, langs:[], of:{ sections:[] }, onCrumb:() => {} };
+    }
+
+    const step = s.step;
+    const errs = s.tried[step] ? ED.validate(s.form, step) : [];
+    const E = {}; errs.forEach(e => { if(!E[e.key]) E[e.key] = e.msg; });
+    const cards = this.cards(E);
+    const dirty = this.isDirty();
+
+    const nav = STEPS.map((label, i) => {
+      const cur = i === step, locked = i > s.maxStep;
+      const tried = !!s.tried[i];
+      const done = i < step || (i <= s.maxStep && ED.stepDone(s.form, i) && i !== step);
+      const bad = tried && !ED.stepDone(s.form, i) && i !== step ? true : (cur && errs.length > 0);
+      const kind = bad ? 'bad' : cur ? 'cur' : done ? 'done' : 'todo';
+      const sub = kind === 'bad' ? 'Есть ошибки' : kind === 'cur' ? 'Заполняется' : kind === 'done' ? 'Заполнено' : 'Не заполнено';
+      return { label, sub, n: kind === 'done' || kind === 'bad' ? '' : String(i + 1), cur: cur ? 'step' : 'false', locked,
+        icon: kind === 'done' ? 'ri-check-line' : kind === 'bad' ? 'ri-error-warning-line' : '',
+        iconStyle: kind === 'done' || kind === 'bad' ? 'font-size:14px;' : 'display:none;',
+        onClick: () => { if(!locked && !cur) this.go(i); },
+        dot:`width:26px;height:26px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:12px;font-weight:600;${kind === 'cur' ? 'background:#4D42E9;color:#fff;' : kind === 'done' ? 'background:#38C793;color:#fff;' : kind === 'bad' ? 'background:#FDEDF0;color:#DF1C41;' : 'background:#fff;color:#868C98;border:1px solid #CDD0D5;'}`,
+        subStyle:`font-size:12px;line-height:16px;color:${kind === 'bad' ? '#DF1C41' : kind === 'cur' ? '#4D42E9' : '#868C98'};`,
+        style:`width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-family:inherit;cursor:${locked ? 'not-allowed' : cur ? 'default' : 'pointer'};border:1px solid ${cur ? '#C6D0FF' : 'transparent'};background:${cur ? '#EEF2FF' : 'transparent'};color:${locked ? '#868C98' : '#0A0D14'};opacity:${locked ? .7 : 1};` };
+    });
+
+    const shown = errs.slice(0, 6);
+    const app = s.app;
+    const lastSaved = app.saved ? ED.fmtDT(app.updated) : '';
+    const L = OFFER[s.lang];
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, '0');
+    const ofDate = s.lang === 'ru' ? '«' + dd + '» ' + MONTHS_RU[d.getMonth()] + ' ' + d.getFullYear() + ' года' : d.getFullYear() + ' жылғы «' + dd + '» ' + MONTHS_KZ[d.getMonth()];
+
+    return {
+      ...common,
+      loading:false, notReady:false,
+      onCrumb: (e) => { if(this.isDirty()){ if(e && e.preventDefault) e.preventDefault(); this.requestLeave('Прочие услуги.dc.html'); } else { this._leaving = true; ED.session.clear(); } },
+      crumb: 'Заявка № ' + app.num,
+      title: app.saved ? 'Черновик заявки № ' + app.num : 'Новая заявка № ' + app.num,
+      serviceShort: ED.SERVICE, serviceFull: ED.SERVICE,
+      saveNote: dirty ? 'Есть несохранённые изменения' : lastSaved ? 'Сохранено ' + lastSaved : 'Черновик ещё не сохранён',
+      saveNoteIcon: dirty ? 'ri-edit-circle-line' : lastSaved ? 'ri-check-line' : 'ri-information-line',
+      saveNoteStyle:`display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:${dirty ? '#C2540A' : '#868C98'};`,
+      nav, cards,
+      hasBanner: errs.length > 0,
+      bannerTitle: 'Проверьте данные: ' + (errs.length === 1 ? 'одно поле требует внимания' : errs.length + ' ' + (errs.length < 5 ? 'поля требуют' : 'полей требуют') + ' внимания'),
+      bannerItems: shown.map(e => ({ label:e.label, msg:e.msg, go: () => {
+        if(e.key.indexOf('d.') === 0) this.setState({ open:{ ...this.state.open, [e.key.slice(2)]:true } });
+        this.focusErr(e.key, false); } })),
+      bannerMore: errs.length > shown.length, bannerMoreText: 'и ещё ' + (errs.length - shown.length),
+      stepNo: step + 1, hasBack: step > 0, isLast: step === 3, notLast: step !== 3,
+      nextLabel: step === 3 ? 'Подписать и отправить' : 'Далее',
+      next: () => this.next(),
+      back: () => this.go(step - 1),
+      cancel: () => this.requestLeave('Прочие услуги.dc.html'),
+      saveDraft: () => this.saveDraft(),
+
+      // оферта
+      offer: s.offer, agree: s.agree, noAgree: !s.agree,
+      langs: [ ['kz', 'ҚАЗ'], ['ru', 'РУС'] ].map(([id, label]) => ({ label, on: s.lang === id, onClick: () => this.setState({ lang:id }), style: seg(s.lang === id) })),
+      of: { title:L.title, city:L.city, date:ofDate, intro:L.intro, note:L.note, sections: L.sections.map(([title, text]) => ({ title, text })) },
+      agreeBox:`width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-sizing:border-box;${s.agree ? 'background:#4D42E9;border:none;' : 'background:#fff;border:1.5px solid #CDD0D5;'}`,
+      toggleAgree: () => this.setState({ agree:!s.agree }),
+      dlAppendix: () => this.toast('ok', 'Приложение к договору-оферте', 'Файл «Приложение к договору-оферте ННЦРЗ.pdf» скачан.'),
+      closeOffer: () => this.setState({ offer:false }),
+      offerKey: (e) => { if(e.key === 'Escape') this.setState({ offer:false }); },
+      signOffer: () => {
+        if(!s.agree) return;
+        if(ED.fail()){ this.toast('err', ED.FAIL_MSG, ''); return; }
+        this.setState({ offer:false });
+        try { window.dispatchEvent(new CustomEvent('mp-sign-open', { detail:{ ctx:'submit', title:'Подписание заявления', doc:'Заявка № ' + app.num + ' · ' + ED.SERVICE_SHORT } })); } catch(e){}
+      },
+
+      // выход
+      leave: s.leave,
+      leaveText: app.saved ? 'Изменения после последнего сохранения черновика будут потеряны.' : 'Заявка ещё не сохранена — введённые данные будут потеряны.',
+      stay: () => this.setState({ leave:false }),
+      leaveKey: (e) => { if(e.key === 'Escape') this.setState({ leave:false }); },
+      leaveNow: () => this.leaveNow(),
+      saveAndLeave: () => this.saveDraft(),
+      sending: s.sending,
+    };
+  }
+
+  // Прототип: заполнить текущий шаг демо-данными
+  demoFill(){
+    const ED = window.mpEd, s = this.state; if(!ED || !s.form) return;
+    const step = s.step;
+    this.setForm(f => {
+      if(step === 1){ f.a.position = f.a.position || 'Директор по регистрации'; }
+      if(step === 2){
+        if(f.cat === 'ls') f.s.ls = { trade:'Форсига', inn:'Дапаглифлозин', form:'Таблетки, покрытые плёночной оболочкой',
+          comp:'Действующее вещество: дапаглифлозина пропандиола моногидрат 12,3 мг (эквивалентно дапаглифлозину 10 мг). Вспомогательные вещества: целлюлоза микрокристаллическая, лактоза безводная, кросповидон, кремния диоксид, магния стеарат.',
+          action:'Обратимый селективный ингибитор натрий-глюкозного котранспортёра 2 типа. Снижает почечную реабсорбцию глюкозы и способствует её выведению с мочой.',
+          group:'Гипогликемические средства. Ингибиторы натрий-глюкозного котранспортёра 2 типа', atc:'A10BK01 — Дапаглифлозин',
+          indic:'Сахарный диабет 2 типа; хроническая сердечная недостаточность; хроническая болезнь почек.', route:'Внутрь, по 10 мг один раз в сутки независимо от приёма пищи.' };
+        else f.s.mi = { trade:'FreeStyle Libre 2', tech:'Система непрерывного мониторинга глюкозы', oper:'Активное, с источником питания',
+          kit:'Сенсор, аппликатор сенсора, ридер, кабель USB, руководство пользователя.', fn:'Непрерывное измерение концентрации глюкозы в межклеточной жидкости.',
+          gmdn:'Система мониторинга уровня глюкозы непрерывная (GMDN 57711).', indic:'Сахарный диабет у взрослых и детей с 4 лет.', cond:'Амбулаторно и в стационаре, сенсор носится до 14 дней.' };
+        const r = f.regs[0]; r.num = r.num || (f.cat === 'ls' ? 'РК-ЛС-5№021743' : 'РК-МИ-5№020981'); r.country = r.country || (f.cat === 'ls' ? 'Великобритания' : 'США'); r.regDate = r.regDate || '14.06.2023'; if(!r.expDate) r.perpetual = true;
+        if(f.cat === 'ls' && r.dose == null) r.dose = '10 мг';
+      }
+      if(step === 3){ ED.dossier(f.cat).forEach(d => { if(d.req && !(f.d[d.k] && (f.d[d.k].text || f.d[d.k].file))) f.d[d.k] = { text:'', file:{ name:'Досье_раздел_' + d.n + '.pdf', size:(240 + d.n * 31) * 1024 } }; }); }
+    });
+  }
+}
+</script>
+</body>
+</html>

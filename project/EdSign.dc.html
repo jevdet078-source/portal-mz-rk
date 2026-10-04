@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Подписание ЭЦП — окно в стиле DS вместо системного окна NCALayer (UC01.13.1.8).
+  Используется в услуге ЕД: подача заявления, платёжные поручения 20 % и 80 %, акты.
+
+  Сценарий постановки:
+    1. выбор типа и места хранилища, пароль → «Открыть»;
+    2. выбор владельца сертификата → «Подписать»;
+    3. проверка подписи сервисом НУЦ РК.
+  Ошибки: «Неверный пароль. Проверьте введенные данные», «Срок действия сертификата истек.
+  Обновите сертификат», техсбой (sessionStorage['mp-ed-fail'] = '1') — «Система недоступна…».
+  Пароль тестовых сертификатов — 1 (файл «Роли и пароли», столбец «пароль ЭЦП»).
+
+  Протокол (события window):
+    'mp-sign-open'   ← detail { ctx, title, doc } — страница просит подписать документ
+    'mp-sign-done'   → detail { ctx, signer:{ fio, iin, bin, org }, at }
+    'mp-sign-cancel' → detail { ctx }
+-->
+<x-dc>
+<helmet>
+<style>
+  @keyframes sg-fade{from{opacity:0}to{opacity:1}}
+  @keyframes sg-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes sg-spin{to{transform:rotate(360deg)}}
+  .sg-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .sg-p{border:none;background:#4D42E9;color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .sg-p:hover{background:#362DA6;}
+  .sg-s{border:1px solid #E2E4E9;background:#fff;color:#31353F;box-shadow:0 1px 2px rgba(10,13,20,.03);}
+  .sg-s:hover{background:#FBFCFD;border-color:#CDD0D5;color:#0A0D14;}
+  .sg-g{border:none;background:transparent;color:#525866;}
+  .sg-g:hover{background:#F6F8FA;color:#0A0D14;}
+  .sg-btn:disabled{background:#F6F8FA;border-color:#F6F8FA;color:#CDD0D5;box-shadow:none;cursor:not-allowed;}
+  .sg-btn:focus-visible,.sg-opt:focus-visible,.sg-ib:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .sg-inp{width:100%;height:40px;border:1px solid #E2E4E9;border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;color:#0A0D14;background:#fff;box-shadow:0 1px 2px rgba(10,13,20,.03);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .sg-inp::placeholder{color:#868C98;}
+  .sg-inp:hover{border-color:#CDD0D5;}
+  .sg-inp:focus{border-color:#4D42E9;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .sg-err,.sg-err:hover{border-color:#DF1C41;}
+  .sg-err:focus{border-color:#DF1C41;box-shadow:0 0 0 2px #fff,0 0 0 4px #F8C9D2;}
+  .sg-opt{transition:border-color .15s,background .15s;}
+  .sg-opt:hover{border-color:#C6D0FF !important;}
+  .sg-ib{width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:#868C98;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+  .sg-ib:hover{background:#F6F8FA;color:#0A0D14;}
+</style>
+</helmet>
+<div>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+    <div onKeyDown="{{ onKey }}" style="position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Inter',sans-serif;">
+      <div onClick="{{ cancel }}" style="position:absolute;inset:0;background:rgba(10,13,20,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:sg-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="sg-title" style="position:relative;width:100%;max-width:520px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:sg-pop .18s ease;overflow:hidden;">
+
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px;border-bottom:1px solid #E2E4E9;">
+          <div style="width:40px;height:40px;border-radius:10px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-quill-pen-line" style="font-size:20px;color:#4D42E9;"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div id="sg-title" style="font-size:16px;line-height:24px;font-weight:600;color:#0A0D14;">{{ title }}</div>
+            <div style="font-size:13px;line-height:18px;color:#525866;margin-top:2px;">{{ doc }}</div>
+          </div>
+          <button class="sg-ib" onClick="{{ cancel }}" aria-label="Закрыть" disabled="{{ busy }}"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+
+        <!-- шаги окна -->
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 20px;background:#FBFCFD;border-bottom:1px solid #E2E4E9;">
+          <sc-for list="{{ phases }}" as="ph" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="{{ ph.dot }}">{{ ph.n }}</span>
+              <span style="{{ ph.lbl }}">{{ ph.label }}</span>
+              <sc-if value="{{ ph.hasLine }}" hint-placeholder-val="{{ true }}"><span style="width:24px;height:1px;background:#CDD0D5;"></span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- 1. Хранилище -->
+          <sc-if value="{{ isStore }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div role="radiogroup" aria-label="Тип хранилища" style="display:flex;flex-direction:column;gap:6px;">
+                <div style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;">Тип хранилища</div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+                  <sc-for list="{{ stores }}" as="o" hint-placeholder-count="4">
+                    <button class="sg-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}" style="{{ o.style }}">
+                      <i class="{{ o.icon }}" style="{{ o.iconStyle }}"></i>
+                      <span style="flex:1;min-width:0;text-align:left;font-size:13px;line-height:18px;font-weight:500;color:#0A0D14;">{{ o.label }}</span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+
+              <sc-if value="{{ isFile }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <label for="sg-path" style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;">Путь к хранилищу</label>
+                  <div style="display:flex;gap:8px;">
+                    <input id="sg-path" class="sg-inp" value="{{ path }}" readOnly="{{ true }}" style="background:#FBFCFD;color:#31353F;" />
+                    <button class="sg-btn sg-s" onClick="{{ browse }}" style="flex:0 0 auto;"><i class="ri-folder-open-line" style="font-size:18px;"></i>Обзор</button>
+                    <input id="sg-file" type="file" accept=".p12,.pfx" onChange="{{ onFile }}" style="display:none;" />
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isDevice }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:#F6F8FA;font-size:13px;line-height:18px;color:#525866;"><i class="ri-usb-line" style="font-size:18px;color:#868C98;flex:0 0 auto;"></i><span>Подключите {{ deviceName }} к компьютеру.</span></div>
+              </sc-if>
+
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                <label for="sg-pwd" style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;">Пароль от хранилища</label>
+                <div style="position:relative;">
+                  <input id="sg-pwd" class="{{ pwdCls }}" type="{{ pwdType }}" value="{{ pwd }}" onChange="{{ onPwd }}" onKeyDown="{{ onPwdKey }}" autoFocus="{{ true }}" autoComplete="off" aria-invalid="{{ pwdInvalid }}" aria-describedby="sg-pwd-msg" placeholder="Введите пароль" style="padding-right:44px;" />
+                  <button type="button" class="sg-ib" onClick="{{ togglePwd }}" aria-label="{{ eyeLabel }}" title="{{ eyeLabel }}" style="position:absolute;right:4px;top:4px;"><i class="{{ eyeIcon }}" style="font-size:18px;"></i></button>
+                </div>
+                <div id="sg-pwd-msg" aria-live="polite">
+                  <sc-if value="{{ hasPwdErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:#DF1C41;"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ pwdErr }}</span></sc-if>
+                  <sc-if value="{{ noPwdErr }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:#868C98;"><i class="ri-flask-line" style="font-size:14px;flex:0 0 auto;"></i>Прототип: пароль — 1</span></sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- 2. Сертификат -->
+          <sc-if value="{{ isCert }}" hint-placeholder-val="{{ false }}">
+            <div role="radiogroup" aria-label="Владелец сертификата" style="display:flex;flex-direction:column;gap:8px;">
+              <div style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;">Выберите сертификат для подписи</div>
+              <sc-for list="{{ certs }}" as="c" hint-placeholder-count="2">
+                <button class="sg-opt" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.onClick }}" disabled="{{ busy }}" style="{{ c.style }}">
+                  <span style="{{ c.radio }}"><span style="{{ c.radioDot }}"></span></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;">
+                    <span style="font-size:14px;line-height:20px;font-weight:600;color:#0A0D14;">{{ c.fio }}</span>
+                    <span style="font-size:12px;line-height:16px;color:#525866;">ИИН {{ c.iin }} · {{ c.org }}, БИН {{ c.bin }}</span>
+                    <span style="font-size:12px;line-height:16px;color:#868C98;">{{ c.usage }} · действителен с {{ c.from }} по {{ c.to }}</span>
+                  </span>
+                  <sc-if value="{{ c.expired }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;align-self:flex-start;padding:2px 8px;border-radius:999px;background:#FDEDF0;color:#710E21;font-size:11px;line-height:16px;font-weight:500;">Истёк</span></sc-if>
+                </button>
+              </sc-for>
+              <sc-if value="{{ hasCertErr }}" hint-placeholder-val="{{ false }}">
+                <div role="alert" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:#FDEDF0;font-size:13px;line-height:18px;color:#710E21;"><i class="ri-error-warning-fill" style="font-size:18px;color:#DF1C41;flex:0 0 auto;"></i><span>{{ certErr }}</span></div>
+              </sc-if>
+              <sc-if value="{{ busy }}" hint-placeholder-val="{{ false }}">
+                <div role="status" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#EEF2FF;font-size:13px;line-height:18px;color:#312D86;"><span style="width:16px;height:16px;border-radius:50%;border:2px solid #C6D0FF;border-top-color:#4D42E9;animation:sg-spin .8s linear infinite;flex:0 0 auto;"></span>Проверка подписи в НУЦ РК…</div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-top:1px solid #E2E4E9;">
+          <div>
+            <sc-if value="{{ isCert }}" hint-placeholder-val="{{ false }}"><button class="sg-btn sg-g" onClick="{{ back }}" disabled="{{ busy }}"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i>Назад</button></sc-if>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="sg-btn sg-s" onClick="{{ cancel }}" disabled="{{ busy }}">Отмена</button>
+            <sc-if value="{{ isStore }}" hint-placeholder-val="{{ true }}"><button class="sg-btn sg-p" onClick="{{ openStore }}" disabled="{{ noPwd }}"><i class="ri-folder-unlock-line" style="font-size:18px;"></i>Открыть</button></sc-if>
+            <sc-if value="{{ isCert }}" hint-placeholder-val="{{ false }}"><button class="sg-btn sg-p" onClick="{{ sign }}" disabled="{{ busy }}" aria-busy="{{ busy }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i>Подписать</button></sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:720}}">
+const CERTS = [
+  { id:'sign', fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', org:'ТОО «Астана Групп»', bin:'180540024521', usage:'Ключ подписи GOSTKNCA', from:'14.03.2025', to:'14.03.2027' },
+  { id:'old',  fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', org:'ТОО «Астана Групп»', bin:'180540024521', usage:'Ключ подписи GOSTKNCA', from:'12.03.2024', to:'12.03.2026', expired:true },
+];
+const STORES = [
+  { id:'file', label:'Файловая система (PKCS#12)', icon:'ri-folder-3-line' },
+  { id:'kaztoken', label:'Казтокен', icon:'ri-usb-line', device:'Казтокен' },
+  { id:'etoken', label:'eToken', icon:'ri-key-2-line', device:'eToken' },
+  { id:'idcard', label:'Удостоверение личности РК', icon:'ri-bank-card-line', device:'считыватель с удостоверением личности' },
+];
+const DEFAULT_PATH = 'D:\\ЭЦП\\GOSTKNCA_bee6db7eba72055477629abcce681ae7f18ead89.p12';
+
+class Component extends DCLogic {
+  state = { open:false, phase:'store', store:'file', path:DEFAULT_PATH, pwd:'', showPwd:false, pwdErr:'', cert:'sign', certErr:'', busy:false, ctx:'', title:'', doc:'' };
+  componentDidMount(){
+    this._onOpen = (e) => {
+      const d = (e && e.detail) || {};
+      this.setState({ open:true, phase:'store', pwd:'', showPwd:false, pwdErr:'', cert:'sign', certErr:'', busy:false,
+        ctx:d.ctx || '', title:d.title || 'Подписание ЭЦП', doc:d.doc || '' });
+    };
+    window.addEventListener('mp-sign-open', this._onOpen);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-sign-open', this._onOpen); clearTimeout(this._t); }
+  cancel(){
+    if(this.state.busy) return;
+    const ctx = this.state.ctx;
+    this.setState({ open:false });
+    try { window.dispatchEvent(new CustomEvent('mp-sign-cancel', { detail:{ ctx } })); } catch(e){}
+  }
+  openStore(){
+    const s = this.state;
+    if(!s.pwd) return;
+    const st = STORES.find(x => x.id === s.store);
+    if(st.device){ this.setState({ pwdErr:'Устройство не найдено. Подключите ' + st.device + ' и повторите попытку.' }); return; }
+    if(s.pwd !== '1'){ this.setState({ pwdErr:'Неверный пароль. Проверьте введенные данные' }); return; }
+    this.setState({ phase:'cert', pwdErr:'', certErr:'' });
+  }
+  sign(){
+    const s = this.state;
+    if(s.busy) return;
+    const c = CERTS.find(x => x.id === s.cert);
+    if(c.expired){ this.setState({ certErr:'Срок действия сертификата истек. Обновите сертификат' }); return; }
+    this.setState({ busy:true, certErr:'' });
+    this._t = setTimeout(() => {
+      let fail = false;
+      try { fail = sessionStorage.getItem('mp-ed-fail') === '1'; } catch(e){}
+      if(fail){ this.setState({ busy:false, certErr:'Система недоступна, обратитесь в техническую поддержку' }); return; }
+      const ctx = this.state.ctx;
+      this.setState({ open:false, busy:false });
+      try { window.dispatchEvent(new CustomEvent('mp-sign-done', { detail:{ ctx, signer:{ fio:c.fio, iin:c.iin, bin:c.bin, org:c.org }, at:Date.now() } })); } catch(e){}
+    }, 1200);
+  }
+  renderVals(){
+    const s = this.state;
+    const isStore = s.phase === 'store', isCert = s.phase === 'cert';
+    const st = STORES.find(x => x.id === s.store);
+    const phases = [ ['Хранилище', 'store'], ['Сертификат', 'cert'] ].map(([label, id], i) => {
+      const on = s.phase === id, done = id === 'store' && isCert;
+      return { label, n: done ? '✓' : String(i + 1), hasLine: i === 0,
+        dot:`width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;line-height:12px;font-weight:600;${on ? 'background:#4D42E9;color:#fff;' : done ? 'background:#38C793;color:#fff;' : 'background:#fff;border:1px solid #CDD0D5;color:#868C98;'}`,
+        lbl:`font-size:13px;line-height:18px;font-weight:500;color:${on ? '#0A0D14' : '#868C98'};` };
+    });
+    const stores = STORES.map(o => { const on = s.store === o.id; return { ...o, on,
+      onClick: () => this.setState({ store:o.id, pwdErr:'' }),
+      iconStyle:`font-size:18px;flex:0 0 auto;color:${on ? '#4D42E9' : '#868C98'};`,
+      style:`display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#EEF2FF' : '#fff'};font-family:inherit;cursor:pointer;` }; });
+    const certs = CERTS.map(c => { const on = s.cert === c.id; return { ...c, on,
+      onClick: () => this.setState({ cert:c.id, certErr:'' }),
+      radio:`width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:${on ? '5px solid #4D42E9' : '1.5px solid #CDD0D5'};background:#fff;`,
+      radioDot:'display:none;',
+      style:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;` }; });
+    return {
+      open:s.open, title:s.title, doc:s.doc, busy:s.busy, phases, isStore, isCert,
+      stores, isFile: s.store === 'file', isDevice: !!st.device, deviceName: st.device || '',
+      path:s.path,
+      browse: () => { const el = document.getElementById('sg-file'); if(el) el.click(); },
+      onFile: (e) => { const f = e && e.target && e.target.files && e.target.files[0]; if(f) this.setState({ path:'…\\' + f.name }); },
+      pwd:s.pwd, pwdType: s.showPwd ? 'text' : 'password',
+      pwdCls: 'sg-inp' + (s.pwdErr ? ' sg-err' : ''), pwdInvalid: !!s.pwdErr,
+      onPwd: (e) => this.setState({ pwd:e.target.value, pwdErr:'' }),
+      onPwdKey: (e) => { if(e.key === 'Enter') this.openStore(); },
+      togglePwd: () => this.setState({ showPwd:!s.showPwd }),
+      eyeIcon: s.showPwd ? 'ri-eye-off-line' : 'ri-eye-line', eyeLabel: s.showPwd ? 'Скрыть пароль' : 'Показать пароль',
+      hasPwdErr: !!s.pwdErr, noPwdErr: !s.pwdErr, pwdErr:s.pwdErr, noPwd: !s.pwd,
+      openStore: () => this.openStore(),
+      certs, hasCertErr: !!s.certErr, certErr:s.certErr,
+      back: () => this.setState({ phase:'store', certErr:'' }),
+      sign: () => this.sign(),
+      cancel: () => this.cancel(),
+      onKey: (e) => { if(e.key === 'Escape') this.cancel(); },
+    };
+  }
+}
+</script>
+</body>
+</html>
