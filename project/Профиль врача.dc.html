@@ -968,7 +968,7 @@ class Component extends DCLogic {
       hasMainPost: !!main, mainPost: main ? main.postFuncRu : '',
       hasMainOrg: !!main, mainOrg: main ? main.moNameRu : '',
       hasMainCat: !!mainCat, mainCat,
-      syncLabel, syncAt, hasSyncAt: !!syncAt && !loadingAny,
+      syncLabel, syncAt, hasSyncAt: !!syncAt && !loadingAny && !gError && !gNotFound,
       syncStyle: 'display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#31353F;',
       syncDot: `width:8px;height:8px;border-radius:50%;background:${dotC};flex:0 0 auto;${busy ? 'animation:mp-fade .9s ease-in-out infinite alternate;' : ''}`,
       busy, refreshing: s.refreshing,
