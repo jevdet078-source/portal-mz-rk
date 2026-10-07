@@ -90,6 +90,7 @@ const tabs = data.map(t => ({
 | `mp-knf` | `pending` / `invoice` / `done` — этап отправленного заявления КНФ (+ `mp-knf-at` — дата отправки) | `Заявление КНФ` → `Услуги` |
 | `mp-notif-read` | JSON-массив номеров прочитанных уведомлений | `Уведомления` ↔ `Header` (событие `mp-notif-change`) |
 | `mp-proc-ls`, `mp-proc-mi` | `p1` / `p2` / `p3` / `p45` / `done` — этап сквозного процесса в прототипе | `Процесс` → `Мои процессы` |
+| `mp-sur-scn` (sessionStorage) | сценарий ответа СУР в прототипе: `ok` / `slow` / `down` / `invalid` / `notfound` / `qualFail` / `noWork` / `noBin` / `noDegree` | `Профиль врача` (панель «Прототип») |
 
 Синхронно смена роли рассылается событием:
 `window.dispatchEvent(new CustomEvent('mp-role-change', { detail: id }))`.
