@@ -38,39 +38,22 @@
   .dc-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:8px;}
   .dc-row{transition:background .12s;}
   .dc-row:hover{background:var(--primary-lighter);}
+  /* Стартовый экран ЭПЗ — та же сетка ширин, что в «Профиле врача» */
+  .dash-wrap{max-width:1600px;margin:0 auto;padding:32px 40px 72px;}
+  .dash-stats{grid-template-columns:repeat(4,minmax(0,1fr));}
+  @media (max-width:1440px){ .dash-wrap{padding:32px 32px 72px;} }
+  @media (max-width:1024px){ .dash-wrap{padding:24px 24px 72px;} }
+  @media (max-width:860px){ .dash-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:640px){ .dash-wrap{padding:16px 16px 96px;} }
 </style>
 </helmet>
 
 <div style="display:flex;min-height:100vh;">
 
-  <!-- ============ LEFT SIDEBAR ============ -->
-  <aside style="width:252px;flex:0 0 auto;position:sticky;top:0;height:100vh;background:var(--n0);border-right:1px solid var(--stroke);display:flex;flex-direction:column;padding:18px 14px;">
-    <div style="display:flex;align-items:center;gap:11px;padding:6px 8px 18px;">
-      <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-sm);flex:0 0 auto;"><i class="ri-heart-pulse-fill" style="color:#fff;font-size:22px;"></i></div>
-      <div style="line-height:1.2;"><div style="font-size:14px;font-weight:600;letter-spacing:-.01em;">Кабинет врача</div><div style="font-size:11px;color:var(--n400);">Портал МЗ РК</div></div>
-    </div>
-
-    <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--n400);padding:8px 10px 8px;">Разделы</div>
-    <button onClick="{{ goEpzModule }}" style="{{ navEpzStyle }}">
-      <i class="ri-profile-line" style="font-size:20px;flex:0 0 auto;"></i>
-      <span style="flex:1;text-align:left;">Электронный паспорт здоровья</span>
-    </button>
-    <button disabled="{{ true }}" title="Раздел в разработке" style="width:100%;display:flex;align-items:center;gap:11px;padding:11px 12px;margin-top:4px;border:none;border-radius:11px;background:transparent;color:var(--n300);font-family:inherit;font-size:13.5px;font-weight:500;cursor:not-allowed;">
-      <i class="ri-user-settings-line" style="font-size:20px;flex:0 0 auto;"></i>
-      <span style="flex:1;text-align:left;">Профиль врача</span>
-      <span style="font-size:9.5px;font-weight:600;background:var(--n100);color:var(--n400);padding:3px 7px;border-radius:6px;">Скоро</span>
-    </button>
-
-    <div style="flex:1;"></div>
-
-    <div style="background:var(--n50);border:1px solid var(--stroke);border-radius:14px;padding:12px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:38px;height:38px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-user-3-fill" style="font-size:20px;color:var(--primary);"></i></div>
-        <div style="flex:1;min-width:0;line-height:1.25;"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Ахметов С.К.</div><div style="font-size:11px;color:var(--n400);">Врач-терапевт</div></div>
-      </div>
-      <a href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;justify-content:center;gap:7px;height:38px;margin-top:10px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;text-decoration:none;"><i class="ri-logout-box-r-line" style="font-size:17px;"></i>Выйти из системы</a>
-    </div>
-  </aside>
+  <!-- ============ LEFT SIDEBAR (общий для кабинета медработника) ============ -->
+  <div class="dn-host" style="position:sticky;top:0;height:100vh;flex:0 0 auto;z-index:40;">
+    <dc-import name="DoctorNav" style="height:100%;" active="epz" hint-size="252px,827px"></dc-import>
+  </div>
 
   <!-- ============ RIGHT COLUMN ============ -->
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
@@ -88,7 +71,7 @@
         </sc-if>
         <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 auto;"><i class="ri-notification-3-line" style="font-size:19px;color:var(--n500);"></i><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid #fff;"></span></button>
         <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 6px 0 12px;border:1px solid var(--stroke);border-radius:10px;flex:0 0 auto;">
-          <div style="text-align:right;line-height:1.25;"><div style="font-size:13px;font-weight:600;">Ахметов С.К.</div><div style="font-size:11px;color:var(--n400);">ГП №1 · каб. 204</div></div>
+          <div style="text-align:right;line-height:1.25;"><div style="font-size:13px;font-weight:600;">Ахметов С.К.</div><div style="font-size:11px;color:var(--n400);">ГП № 4 · каб. 204</div></div>
           <div style="width:30px;height:30px;border-radius:8px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-user-line" style="font-size:17px;color:var(--primary);"></i></div>
         </div>
       </div>
@@ -98,13 +81,13 @@
 
       <!-- ================= DASHBOARD ================= -->
       <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
-        <div style="max-width:1080px;margin:0 auto;padding:32px;animation:mp-fade .2s ease;">
+        <div class="dash-wrap" style="animation:mp-fade .2s ease;">
 
           <!-- greeting -->
           <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
             <div>
-              <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0;">Здравствуйте, Серик Канатович</h1>
-              <p style="font-size:14px;color:var(--n500);margin:6px 0 0;">Пятница, 24 мая 2024 · Городская поликлиника №1, участок №12</p>
+              <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0;">Здравствуйте, Серик Кайратович</h1>
+              <p style="font-size:14px;color:var(--n500);margin:6px 0 0;">Пятница, 24 мая 2024 · Городская поликлиника № 4, участок №12</p>
             </div>
             <div style="display:flex;align-items:center;gap:8px;height:38px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);font-size:13px;color:var(--n500);font-weight:500;"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);"></span>Смена активна · 08:30–17:00</div>
           </div>
@@ -136,7 +119,7 @@
           </div>
 
           <!-- STATS -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+          <div class="dash-stats" style="display:grid;gap:16px;margin-bottom:24px;">
             <sc-for list="{{ stats }}" as="st">
               <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:18px;box-shadow:var(--sh-xs);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><div style="width:38px;height:38px;border-radius:10px;background:{{ st.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ st.icon }}" style="font-size:20px;color:{{ st.color }};"></i></div><sc-if value="{{ st.hasTrend }}" hint-placeholder-val="{{ false }}"><span style="{{ st.trendStyle }}"><i class="{{ st.trendIcon }}" style="font-size:13px;"></i>{{ st.trend }}</span></sc-if></div>
@@ -1089,7 +1072,13 @@ class Component extends DCLogic {
     };
     this._kdpTick=null; this._accessTick=null;
   }
-  componentWillUnmount(){ clearInterval(this._kdpTick); clearInterval(this._accessTick); }
+  componentDidMount(){
+    // Меню (DoctorNav): клик по активному «ЭПЗ» — назад к поиску; уход в другой раздел из открытого ЭПЗ — с подтверждением
+    this._onNavHome = () => this.setState({ screen:'dashboard', cardOpen:false, drawer:null });
+    window.addEventListener('mp-doc-nav-home', this._onNavHome);
+    window.mpDocGuard = () => this.state.screen==='epz' && this.state.accessSecs>0 ? this.PATIENTS[this.state.patientId].name : '';
+  }
+  componentWillUnmount(){ clearInterval(this._kdpTick); clearInterval(this._accessTick); window.removeEventListener('mp-doc-nav-home', this._onNavHome); if(window.mpDocGuard) delete window.mpDocGuard; }
   startKdpTimer(){ clearInterval(this._kdpTick); this._kdpTick=setInterval(()=>{ this.setState(s=>{ if(s.kdpStage!=='pending'||s.kdpSecs<=0) return {}; return { kdpSecs:s.kdpSecs-1 }; }); },1000); }
   startAccessTimer(){ clearInterval(this._accessTick); this._accessTick=setInterval(()=>{ this.setState(s=>{ if(s.accessSecs<=0) return {}; return { accessSecs:s.accessSecs-1 }; }); },1000); }
   fmt(sec){ const m=Math.floor(sec/60), s=sec%60; return m+':'+String(s).padStart(2,'0'); }
@@ -1657,8 +1646,6 @@ class Component extends DCLogic {
 
     return {
       isDash: s.screen==='dashboard', inEpz: s.screen==='epz',
-      navEpzStyle:`width:100%;display:flex;align-items:center;gap:11px;padding:11px 12px;border:none;border-radius:11px;background:${s.screen==='epz'||s.screen==='dashboard'?'var(--primary-lighter)':'transparent'};color:var(--primary);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;`,
-      goEpzModule:()=>this.setState({ screen:'dashboard', cardOpen:false, drawer:null }),
       iin:s.iin, iinRef:this.iinRef,
       onIin:(e)=>this.setState({ iin:(e.target.value||'').replace(/\D/g,'').slice(0,12), iinError:false }),
       onIinKey:(e)=>{ if(e.key==='Enter') this.doRequest((this.iinRef.current&&this.iinRef.current.value)||s.iin); },

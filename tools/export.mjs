@@ -184,9 +184,9 @@ const GROUPS = [
   { title: 'Кабинет бизнеса · «Единое окно»', desc: 'Подача заявок на лекарственные средства и медицинские изделия', icon: 'ri-briefcase-4-line', pages: [
     'Кабинет бизнеса', 'Услуги', 'Паспорт регистрации цены', 'Заявка на регистрацию цены', 'Заявление КНФ',
     'Мои процессы', 'Процесс', 'Договора', 'Платежи', 'Уведомления', 'Пользователи', 'Организации', 'Рабочий календарь' ] },
-  { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Кабинет врача' ] },
+  { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Профиль врача', 'Кабинет врача' ] },
   { title: 'Компоненты', desc: 'Общие блоки и витрины компонентов дизайн-системы', icon: 'ri-shapes-line', pages: [
-    'Header', 'Footer', 'Assistant', 'BusinessNav', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast' ] },
+    'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast' ] },
 ];
 
 function indexHtml(pages) {
