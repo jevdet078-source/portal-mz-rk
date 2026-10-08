@@ -113,7 +113,7 @@
         </div>
       </sc-if>
       <div style="position:relative;">
-        <button onClick="{{ toggleLang }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--n600);cursor:pointer;">
+        <button class="hdr-lang" onClick="{{ toggleLang }}" aria-expanded="{{ langOpen }}" title="Язык интерфейса" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--n600);cursor:pointer;">
           <i class="ri-global-line" style="font-size:18px;color:var(--n400);"></i>{{ currentLang }}<i class="{{ chevron }}" style="font-size:18px;color:var(--n400);"></i>
         </button>
         <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">

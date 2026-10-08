@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Профиль медработника. Постановка: UC1.1 «Реализация профиля медперсонала» + описание методов sur2_service.
+
+  Источники данных:
+    • ИИН и ФИО — из сессии авторизации (ЭЦП);
+    • СУР (sur2_service), параллельно по ИИН + kdpToken:
+        М1 GetMoFpPersonalIin  → вкладка «Места работы» (personalItem[], статусы Работает / В отпуске / Уволен)
+        М2 GetEducation        → «Образование» (primEducation, postEducation) и «Трудовая деятельность» (laborActivity)
+        М3 QualificationByIin  → «Квалификация» (только enabled = true; бессрочный — без даты окончания)
+    • М4 GetMoInfoItems — после М1, одним запросом на все moId (recordIds через запятую) → БИН у каждого места работы.
+
+  Ошибки (§7 постановки):
+    СУР недоступен / некорректный ответ → «Не удалось загрузить данные профиля. Повторите попытку позже.», профиль не блокируется;
+    данных по ИИН нет → «Сведения о сотруднике не найдены в СУР.»;
+    пустой personalItem → вкладка «Места работы» не показывается;
+    М4 не вернул БИН по moId → БИН у этого места не показывается, остальное без изменений.
+  Сверх постановки: сбой одного метода не роняет весь профиль — ошибка и «Повторить» только в его вкладке.
+
+  Вкладка хранится в location.hash (#work, #qualification, #education, #labor).
+  Панель «Прототип» (слева внизу) переключает сценарии ответа СУР — sessionStorage['mp-sur-scn'].
+
+  Замечания аналитика после тестирования (профиль врача фидбк.docx):
+    • шапка — общая для кабинетов (Header cabinet="medical"): герб, уведомления, язык, врач с фото, «На главную»;
+    • фото профиля загружает сам врач: JPG/PNG/WebP до 5 МБ, обрезается по центру до квадрата 320×320,
+      хранится в localStorage['mp-doc-photo'], смена рассылается событием window 'mp-doc-photo-change';
+    • в «Местах работы» — только текущие места; прежние — во вкладке «Трудовая деятельность»;
+    • учёная степень, «Состояние должности», бейдж «Подтверждено ЭЦП», статус загрузки из СУР,
+      сводки над списками и поясняющие подписи в ошибках не показываются.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--teal-d:#164564;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--yellow:#F2AE40;--yellow-l:#FEF7EC;--yellow-d:#693D11;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  @keyframes pf-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+
+  .pf-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+  .pf-btn{height:38px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .pf-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);}
+  .pf-btn.sec:hover{background:var(--n100);border-color:var(--n300);}
+  .pf-btn.pri{border:none;background:var(--primary);color:#fff;}
+  .pf-btn.pri:hover{background:var(--primary-dark);}
+  .pf-btn.ghost{border:none;background:transparent;color:var(--primary);padding:0 10px;}
+  .pf-btn.ghost:hover{background:var(--primary-lighter);}
+  .pf-btn[disabled]{cursor:default;opacity:.65;}
+  .pf-btn.sec[disabled]:hover{background:var(--n0);border-color:var(--stroke);}
+
+  .pf-bin{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 2px 0 8px;border-radius:7px;background:var(--n100);font-size:12.5px;color:var(--n500);white-space:nowrap;}
+  .pf-bin .pf-copy{width:22px;height:22px;margin:0;}
+  .pf-copy{width:26px;height:26px;margin:-4px 0;padding:0;border:none;border-radius:7px;background:transparent;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;vertical-align:middle;transition:background .15s,color .15s;}
+  .pf-copy:hover{background:var(--n100);color:var(--primary);}
+
+  .pf-tabs{display:flex;gap:4px;padding:4px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-xs);overflow-x:auto;scrollbar-width:none;}
+  .pf-tabs::-webkit-scrollbar{display:none;}
+  .pf-tab{height:38px;padding:0 14px;border:none;border-radius:9px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--n500);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex:0 0 auto;transition:background .15s,color .15s;}
+  .pf-tab:hover{background:var(--n100);color:var(--n900);}
+  .pf-tab.on,.pf-tab.on:hover{background:var(--primary-lighter);color:var(--primary);font-weight:600;}
+  .pf-cnt{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .pf-tab.on .pf-cnt{background:var(--primary);color:#fff;}
+
+  .pf-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px 24px;}
+  .pf-dt{font-size:12.5px;line-height:16px;color:var(--n400);margin-bottom:4px;}
+  .pf-dd{font-size:14px;line-height:20px;color:var(--n900);font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow-wrap:anywhere;}
+  .pf-dd.mono{font-variant-numeric:tabular-nums;}
+  .pf-wide{grid-column:1/-1;}
+  .pf-note{font-size:12.5px;line-height:16px;color:var(--n400);margin-top:3px;}
+
+  .pf-key{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--stroke);border:1px solid var(--stroke);border-radius:12px;overflow:hidden;}
+  .pf-key > div{background:var(--n50);padding:12px 14px;min-width:0;}
+
+  .pf-badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;flex:0 0 auto;}
+  .pf-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .pf-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;font-size:12.5px;font-weight:500;white-space:nowrap;}
+
+  .pf-h{display:flex;align-items:center;gap:10px;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;margin:0;}
+  .pf-h i{font-size:20px;color:var(--n400);}
+
+  .pf-tl{position:relative;padding-left:28px;}
+  .pf-tl::before{content:'';position:absolute;left:7px;top:10px;bottom:10px;width:2px;background:var(--stroke);border-radius:2px;}
+  .pf-tl-dot{position:absolute;left:-28px;top:20px;width:16px;height:16px;border-radius:50%;border:3px solid var(--n0);box-shadow:0 0 0 1px var(--stroke);}
+
+  .pf-sk{background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:800px 100%;animation:pf-shimmer 1.3s linear infinite;border-radius:6px;}
+
+
+
+  .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+
+  .pf-btn:focus-visible,.pf-copy:focus-visible,.pf-tab:focus-visible,.pp-btn:focus-visible,.pf-ava:focus-visible,.pf-mi:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .pf-btn.danger{border:none;background:var(--red);color:#fff;}
+  .pf-btn.danger:hover{background:#C0173A;}
+
+  /* ---------- Фото профиля ---------- */
+  .pf-ava{position:relative;width:72px;height:72px;padding:0;border:none;border-radius:18px;background:var(--n100);color:var(--n300);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;font-family:inherit;}
+  .pf-ava.empty{box-shadow:inset 0 0 0 1px var(--stroke);}
+  .pf-ava-ov{position:absolute;inset:0;background:rgba(10,13,20,.45);color:#fff;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;}
+  .pf-ava:hover .pf-ava-ov,.pf-ava:focus-visible .pf-ava-ov{opacity:1;}
+  .pf-ava-badge{position:absolute;right:-4px;bottom:-4px;width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;border:2px solid var(--n0);display:flex;align-items:center;justify-content:center;pointer-events:none;box-shadow:var(--sh-sm);}
+  .pf-menu{position:absolute;left:0;top:calc(100% + 8px);z-index:60;min-width:224px;padding:6px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:0 12px 24px -8px rgba(10,13,20,.16);animation:mp-slidein .15s ease;}
+  .pf-mi{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);text-align:left;cursor:pointer;transition:background .12s;}
+  .pf-mi:hover{background:var(--n100);}
+  .pf-mi.red{color:var(--red);}
+  .pf-mi.red:hover{background:var(--red-l);}
+
+  /* ---------- Раскладка и адаптив ----------
+     >1440 — контент до 1600px, поля 40; 1025–1440 — поля 32; 641–1024 — меню иконками, поля 24;
+     ≤640 — меню внизу, поля 16, вкладки сеткой 2×2. Шапка портала — 73px на всех ширинах. */
+  .pf-wrap{max-width:1600px;margin:0 auto;padding:24px 40px 72px;}
+  .pf-title{font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;margin:0 0 16px;}
+  .pf-hero{display:flex;align-items:center;gap:24px;padding:24px 28px;}
+  .pf-herofoot{padding:12px 28px;}
+  .pf-fio{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.015em;margin:0;}
+  .pf-sync{display:flex;align-items:center;gap:12px;flex:0 0 auto;}
+  .pf-toast{right:24px;bottom:24px;}
+  .pf-pp{left:268px;bottom:20px;}
+  @media (max-width:1440px){
+    .pf-wrap{padding:24px 32px 72px;}
+    .pf-hero{padding:24px;}
+    .pf-herofoot{padding:12px 24px;}
+  }
+  @media (max-width:1024px){
+    .pf-wrap{padding:24px 24px 72px;}
+    .pf-pp{left:88px;}
+  }
+  @media (max-width:860px){
+    .pf-tab > i:first-child{display:none;}
+    .pf-tab{padding:0 12px;}
+    .pf-hero{flex-direction:column;align-items:stretch;gap:16px;}
+    .pf-sync{flex-wrap:wrap;gap:6px 12px;padding-top:16px;border-top:1px solid var(--stroke);}
+    .pf-sync > .pf-btn,.pf-sync > .sc-host{margin-left:auto;}
+  }
+  @media (max-width:640px){
+    .pf-wrap{padding:16px 16px 96px;}
+    .pf-title{font-size:18px;line-height:24px;margin-bottom:12px;}
+    .pf-hero{padding:16px;}
+    .pf-herofoot{padding:12px 16px;}
+    .pf-ava{width:56px;height:56px;border-radius:14px;}
+    .pf-ava-badge{width:22px;height:22px;}
+    .pf-ava-badge i{font-size:12px !important;}
+    .pf-alert-txt{flex:1 1 calc(100% - 40px) !important;}
+    .pf-alert-btn{margin-left:34px;}
+    .pf-fio{font-size:18px;line-height:24px;}
+    .pf-card:not(.pf-herocard){padding-left:16px !important;padding-right:16px !important;}
+    .pf-ibox{display:none !important;}
+    .pf-tabsbar{position:static !important;}
+    .pf-tabs{display:grid;grid-template-columns:1fr 1fr;}
+    .pf-tab{justify-content:center;white-space:normal;text-align:center;height:auto;min-height:40px;padding:6px 8px;line-height:16px;}
+    .pf-dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;}
+    .pf-toast{left:16px;right:16px;bottom:80px;max-width:none !important;}
+    .pf-pp{left:16px;bottom:76px;}
+    .pf-dlg-acts{flex-direction:column-reverse;align-items:stretch !important;}
+    .pf-dlg-acts > *{width:100%;}
+    .pf-dlg-acts .pf-dlg-sp{display:none;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+
+  <!-- ============ ШАПКА ПОРТАЛА (общая для кабинетов) ============ -->
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" cabinet="medical" user="Ахметов С.К." place="ГП № 4 · каб. 204" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+
+  <!-- ============ LEFT SIDEBAR ============ -->
+  <div class="dn-host" style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:41;">
+    <dc-import name="DoctorNav" style="height:100%;" active="profile" hint-size="252px,827px"></dc-import>
+  </div>
+
+  <!-- ============ RIGHT COLUMN ============ -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <main style="flex:1;">
+      <div class="pf-wrap" style="animation:mp-fade .2s ease;">
+
+        <h1 class="pf-title">Профиль врача</h1>
+
+        <!-- ================= HERO: кто я ================= -->
+        <section class="pf-card pf-herocard" aria-label="Основные сведения" style="overflow:visible;margin-bottom:16px;">
+          <div class="pf-hero">
+            <div style="display:flex;align-items:center;gap:18px;flex:1;min-width:0;">
+
+              <!-- фото профиля: без фото — сразу выбор файла, с фото — меню «заменить / удалить» -->
+              <div style="position:relative;flex:0 0 auto;">
+                <button ref="{{ avaRef }}" class="{{ avaCls }}" onClick="{{ avaClick }}" aria-label="{{ avaLabel }}" title="{{ avaLabel }}" aria-haspopup="{{ avaPopup }}" aria-expanded="{{ avaExpanded }}">
+                  <!-- фото задано фоном: <img src="{{ }}"> браузер запрашивает до подстановки шаблона (404) -->
+                  <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><span style="{{ avaImgStyle }}"></span></sc-if>
+                  <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><i class="ri-user-3-fill" style="font-size:36px;"></i></sc-if>
+                  <span class="pf-ava-ov"><i class="ri-camera-line" style="font-size:22px;"></i></span>
+                </button>
+                <span class="pf-ava-badge" aria-hidden="true"><i class="{{ avaBadgeIcon }}" style="font-size:13px;"></i></span>
+                <input ref="{{ fileRef }}" type="file" accept="image/jpeg,image/png,image/webp" onChange="{{ onFile }}" tabIndex="-1" aria-hidden="true" style="display:none;" />
+                <sc-if value="{{ photoMenu }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:59;"></div>
+                  <div role="menu" aria-label="Фото профиля" class="pf-menu">
+                    <button role="menuitem" ref="{{ menuFirstRef }}" class="pf-mi" onClick="{{ pickPhoto }}"><i class="ri-image-add-line" style="font-size:18px;color:var(--n400);"></i>Загрузить новое фото</button>
+                    <button role="menuitem" class="pf-mi red" onClick="{{ askDelete }}"><i class="ri-delete-bin-line" style="font-size:18px;"></i>Удалить фото</button>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div style="flex:1;min-width:0;">
+                <h2 class="pf-fio">{{ fio }}</h2>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:13.5px;color:var(--n500);">
+                  <span>ИИН <b style="font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;letter-spacing:.02em;">{{ iin }}</b></span>
+                  <button class="pf-copy" onClick="{{ copyIin }}" aria-label="Скопировать ИИН" title="Скопировать ИИН"><i class="ri-file-copy-line" style="font-size:15px;"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- синхронизация с СУР -->
+            <sc-if value="{{ showRefresh }}" hint-placeholder-val="{{ true }}">
+              <div class="pf-sync">
+                <sc-if value="{{ hasSyncAt }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n400);">{{ syncAt }}</div></sc-if>
+                <button class="pf-btn sec" onClick="{{ refresh }}" disabled="{{ busy }}" aria-busy="{{ refreshing }}"><i class="{{ refreshIcon }}" style="{{ refreshIconStyle }}"></i>{{ refreshLabel }}</button>
+              </div>
+            </sc-if>
+          </div>
+          <div class="pf-herofoot" style="display:flex;align-items:flex-start;gap:9px;background:var(--n50);border-top:1px solid var(--stroke);border-radius:0 0 16px 16px;font-size:13px;line-height:18px;color:var(--n500);">
+            <i class="ri-information-line" style="font-size:17px;color:var(--n400);flex:0 0 auto;margin-top:0;"></i>
+            <span>Если данные неверны, обратитесь в отдел кадров вашей медицинской организации.</span>
+          </div>
+        </section>
+
+        <!-- ================= ГЛОБАЛЬНЫЕ СОСТОЯНИЯ ================= -->
+        <sc-if value="{{ gError }}" hint-placeholder-val="{{ false }}">
+          <section role="alert" class="pf-card" style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-cloud-off-line" style="font-size:28px;color:var(--red);"></i></div>
+            <div style="font-size:17px;line-height:24px;font-weight:600;max-width:460px;">Не удалось загрузить данные профиля. Повторите попытку позже.</div>
+            <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
+              <button class="pf-btn pri" onClick="{{ retryAll }}"><i class="ri-refresh-line" style="font-size:17px;"></i>Повторить</button>
+              <a class="pf-btn sec" href="Кабинет врача.dc.html"><i class="ri-profile-line" style="font-size:17px;"></i>Перейти в ЭПЗ</a>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ gNotFound }}" hint-placeholder-val="{{ false }}">
+          <section role="status" class="pf-card" style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-user-search-line" style="font-size:28px;color:var(--primary);"></i></div>
+            <div style="font-size:17px;line-height:24px;font-weight:600;">Сведения о сотруднике не найдены в СУР.</div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+              <button class="pf-btn sec" onClick="{{ retryAll }}"><i class="ri-refresh-line" style="font-size:17px;"></i>Проверить снова</button>
+            </div>
+          </section>
+        </sc-if>
+
+        <!-- ================= ОСНОВНАЯ ЧАСТЬ ================= -->
+        <sc-if value="{{ showBody }}" hint-placeholder-val="{{ true }}">
+
+          <!-- предупреждение о сроке сертификата -->
+          <sc-if value="{{ hasCertAlert }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="{{ alertBox }}">
+              <i class="{{ alertIcon }}" style="{{ alertIconStyle }}"></i>
+              <div class="pf-alert-txt" style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);">{{ alertTitle }}</div>
+              <sc-if value="{{ alertShowLink }}" hint-placeholder-val="{{ true }}">
+                <button class="pf-btn sec pf-alert-btn" onClick="{{ alertGo }}" style="height:34px;">Открыть сертификат<i class="ri-arrow-right-line" style="font-size:16px;"></i></button>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- вкладки -->
+          <div id="pf-tabs-anchor"></div>
+          <div class="pf-tabsbar" style="position:sticky;top:73px;z-index:20;background:var(--bg);padding:8px 0 16px;margin-top:-8px;">
+            <div role="tablist" aria-label="Разделы профиля" class="pf-tabs">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+                <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.on }}" aria-controls="pf-panel" tabIndex="{{ t.tabIndex }}" onClick="{{ t.onClick }}" onKeyDown="{{ onTabKey }}" class="{{ t.cls }}">
+                  <i class="{{ t.icon }}" style="font-size:17px;"></i>{{ t.label }}
+                  <sc-if value="{{ t.hasCnt }}" hint-placeholder-val="{{ true }}"><span class="pf-cnt">{{ t.cnt }}</span></sc-if>
+                  <sc-if value="{{ t.loading }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line" aria-label="Загрузка" style="font-size:15px;animation:mp-spin .8s linear infinite;"></i></sc-if>
+                  <sc-if value="{{ t.err }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" aria-label="Ошибка загрузки" style="font-size:15px;color:var(--red);"></i></sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div id="pf-panel" role="tabpanel" aria-labelledby="{{ panelBy }}" style="animation:mp-fade .18s ease;">
+
+            <!-- ===== Загрузка (скелетон) ===== -->
+            <sc-if value="{{ panelLoading }}" hint-placeholder-val="{{ false }}">
+              <div aria-busy="true" aria-label="Загружаем сведения из СУР" style="display:flex;flex-direction:column;gap:16px;">
+                <sc-for list="{{ skel }}" as="k" hint-placeholder-count="2">
+                  <div class="pf-card" style="padding:20px 24px;">
+                    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;"><div class="pf-sk" style="width:40px;height:40px;border-radius:11px;"></div><div style="flex:1;"><div class="pf-sk" style="width:55%;height:16px;margin-bottom:8px;"></div><div class="pf-sk" style="width:32%;height:12px;"></div></div><div class="pf-sk" style="width:84px;height:24px;border-radius:999px;"></div></div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;"><div><div class="pf-sk" style="width:60%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:85%;height:14px;"></div></div><div><div class="pf-sk" style="width:50%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:70%;height:14px;"></div></div><div><div class="pf-sk" style="width:40%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:60%;height:14px;"></div></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- ===== Ошибка одного метода ===== -->
+            <sc-if value="{{ panelError }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" class="pf-card" style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+                <div style="width:48px;height:48px;border-radius:14px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class="ri-error-warning-line" style="font-size:24px;color:var(--red);"></i></div>
+                <div style="font-size:15px;line-height:22px;font-weight:600;">{{ panelErrorTitle }}</div>
+                <button class="pf-btn sec" onClick="{{ retryPanel }}" style="margin-top:16px;"><i class="ri-refresh-line" style="font-size:17px;"></i>Повторить</button>
+              </div>
+            </sc-if>
+
+            <!-- ===== МЕСТА РАБОТЫ (М1 + М4) ===== -->
+            <sc-if value="{{ showWork }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:16px;">
+                <h2 class="pf-h"><i class="ri-briefcase-4-line"></i>Текущие места работы</h2>
+
+                <!-- все места в М1 прежние: сами они — в «Трудовой деятельности» -->
+                <sc-if value="{{ noCurrentWork }}" hint-placeholder-val="{{ false }}">
+                  <div class="pf-card" style="padding:16px 24px;font-size:14px;line-height:20px;color:var(--n500);display:flex;gap:10px 16px;align-items:center;flex-wrap:wrap;">
+                    <span style="display:flex;gap:10px;align-items:center;flex:1;min-width:220px;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>Действующих мест работы нет.</span>
+                    <button class="pf-btn sec" onClick="{{ goLabor }}" style="height:34px;">Трудовая деятельность<i class="ri-arrow-right-line" style="font-size:16px;"></i></button>
+                  </div>
+                </sc-if>
+
+                <sc-for list="{{ workCur }}" as="w" hint-placeholder-count="2">
+                  <article class="pf-card" style="padding:20px 24px;">
+                    <div style="display:flex;gap:14px;align-items:flex-start;">
+                      <div class="pf-ibox" style="{{ w.iconBox }}"><i class="ri-hospital-line" style="font-size:20px;"></i></div>
+                      <div style="flex:1;min-width:0;">
+                        <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ w.mo }}</h3>
+                        <div style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-top:3px;font-size:13px;line-height:18px;color:var(--n500);">
+                          <sc-if value="{{ w.hasFp }}" hint-placeholder-val="{{ true }}"><span>{{ w.fp }}</span></sc-if>
+                          <sc-if value="{{ w.binLoading }}" hint-placeholder-val="{{ false }}"><span class="pf-sk" aria-label="Загружаем БИН" style="display:inline-block;width:120px;height:14px;"></span></sc-if>
+                          <sc-if value="{{ w.hasBin }}" hint-placeholder-val="{{ true }}">
+                            <span class="pf-bin">БИН <b style="font-weight:600;color:var(--n700);font-variant-numeric:tabular-nums;">{{ w.bin }}</b><button class="pf-copy" onClick="{{ w.copyBin }}" aria-label="Скопировать БИН" title="Скопировать БИН"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></span>
+                          </sc-if>
+                        </div>
+                      </div>
+                      <span class="pf-badge" style="{{ w.badgeStyle }}"><span class="dot"></span>{{ w.badge }}</span>
+                    </div>
+
+                    <div class="pf-key" style="margin-top:18px;">
+                      <div><div class="pf-dt">Должность</div><div class="pf-dd">{{ w.post }}</div></div>
+                      <div><div class="pf-dt">Специальность</div><div class="pf-dd">{{ w.spec }}</div></div>
+                      <div><div class="pf-dt">Количество ставок</div><div class="pf-dd mono">{{ w.rate }}</div></div>
+                    </div>
+
+                    <div class="pf-dl" style="margin-top:18px;">
+                      <sc-for list="{{ w.rows }}" as="r" hint-placeholder-count="5">
+                        <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div class="pf-note">{{ r.note }}</div></sc-if></div>
+                      </sc-for>
+                    </div>
+                  </article>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- ===== КВАЛИФИКАЦИЯ (М3) ===== -->
+            <sc-if value="{{ showQual }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:16px;">
+                <h2 class="pf-h"><i class="ri-award-line"></i>Квалификация и сертификаты</h2>
+
+                <sc-if value="{{ noCerts }}" hint-placeholder-val="{{ false }}">
+                  <div class="pf-card" style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+                    <div style="width:48px;height:48px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class="ri-award-line" style="font-size:24px;color:var(--n400);"></i></div>
+                    <div style="font-size:15px;font-weight:600;">Действующих сертификатов нет</div>
+                    <div style="font-size:13.5px;line-height:20px;color:var(--n500);margin-top:4px;max-width:440px;">В СУР нет активных записей о квалификации. Если сертификат у вас есть, обратитесь в отдел кадров.</div>
+                  </div>
+                </sc-if>
+
+                <sc-for list="{{ certs }}" as="c" hint-placeholder-count="2">
+                  <article id="{{ c.anchor }}" class="pf-card" style="{{ c.cardStyle }}">
+                    <div style="display:flex;gap:14px;align-items:center;">
+                      <div class="pf-ibox" style="width:40px;height:40px;border-radius:11px;background:var(--purple-l);color:var(--purple);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-award-line" style="font-size:20px;"></i></div>
+                      <div style="flex:1;min-width:0;">
+                        <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ c.spec }}</h3>
+                      </div>
+                      <sc-if value="{{ c.hasStatus }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ c.statusStyle }}"><span class="dot"></span>{{ c.status }}</span></sc-if>
+                    </div>
+
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                      <sc-if value="{{ c.hasCat }}" hint-placeholder-val="{{ true }}"><span class="pf-chip" title="Квалификационная категория" style="{{ c.catStyle }}"><i class="{{ c.catIcon }}" style="font-size:15px;"></i>{{ c.cat }}</span></sc-if>
+                      <span class="pf-chip" title="Срок действия" style="{{ c.termStyle }}"><i class="{{ c.termIcon }}" style="font-size:15px;"></i>{{ c.term }}</span>
+                    </div>
+
+
+                    <div class="pf-dl" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--stroke);">
+                      <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="5">
+                        <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}<sc-if value="{{ r.copy }}" hint-placeholder-val="{{ false }}"><button class="pf-copy" onClick="{{ r.onCopy }}" aria-label="{{ r.copyLabel }}" title="{{ r.copyLabel }}"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></sc-if></div></div>
+                      </sc-for>
+                    </div>
+                  </article>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- ===== ОБРАЗОВАНИЕ (М2) ===== -->
+            <sc-if value="{{ showEdu }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:28px;">
+                <sc-for list="{{ eduGroups }}" as="g" hint-placeholder-count="3">
+                  <section style="display:flex;flex-direction:column;gap:12px;">
+                    <h2 class="pf-h"><i class="{{ g.icon }}"></i>{{ g.title }}</h2>
+                    <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
+                      <div class="pf-card" style="padding:18px 24px;font-size:14px;color:var(--n500);display:flex;gap:10px;align-items:center;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>{{ g.emptyText }}</div>
+                    </sc-if>
+                    <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="1">
+                      <article class="pf-card" style="padding:20px 24px;">
+                        <div style="display:flex;gap:14px;align-items:flex-start;">
+                          <div class="pf-ibox" style="{{ e.iconBox }}"><i class="{{ e.icon }}" style="font-size:20px;"></i></div>
+                          <div style="flex:1;min-width:0;">
+                            <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ e.title }}</h3>
+                            <sc-if value="{{ e.hasSub }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:3px;">{{ e.sub }}</div></sc-if>
+                          </div>
+                          <sc-if value="{{ e.hasBadge }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ e.badgeStyle }}">{{ e.badge }}</span></sc-if>
+                        </div>
+                        <div class="pf-dl" style="margin-top:18px;">
+                          <sc-for list="{{ e.rows }}" as="r" hint-placeholder-count="4">
+                            <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div class="pf-note">{{ r.note }}</div></sc-if></div>
+                          </sc-for>
+                        </div>
+                      </article>
+                    </sc-for>
+                  </section>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- ===== ТРУДОВАЯ ДЕЯТЕЛЬНОСТЬ (М2) ===== -->
+            <sc-if value="{{ showLabor }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:16px;">
+                <sc-if value="{{ hasStage }}" hint-placeholder-val="{{ true }}">
+                  <div class="pf-card" style="padding:20px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <div style="width:44px;height:44px;border-radius:12px;background:var(--teal-l);color:var(--teal-d);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-time-line" style="font-size:22px;"></i></div>
+                    <div style="flex:1;min-width:220px;">
+                      <div style="font-size:13px;color:var(--n500);">Стаж в организациях здравоохранения</div>
+                      <div style="font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.015em;margin-top:2px;">{{ stage }}</div>
+                    </div>
+                  </div>
+                </sc-if>
+
+                <h2 class="pf-h" style="margin-top:4px;"><i class="ri-history-line"></i>История занятости</h2>
+
+                <sc-if value="{{ noLabor }}" hint-placeholder-val="{{ false }}">
+                  <div class="pf-card" style="padding:18px 24px;font-size:14px;color:var(--n500);display:flex;gap:10px;align-items:center;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>Сведений о трудовой деятельности в СУР нет.</div>
+                </sc-if>
+
+                <sc-if value="{{ hasLabor }}" hint-placeholder-val="{{ true }}">
+                  <ol class="pf-tl" style="list-style:none;margin:0;display:flex;flex-direction:column;gap:12px;">
+                    <sc-for list="{{ labor }}" as="l" hint-placeholder-count="3">
+                      <li style="position:relative;">
+                        <span class="pf-tl-dot" style="{{ l.dotStyle }}"></span>
+                        <article class="pf-card" style="padding:16px 20px;">
+                          <div style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:13px;color:var(--n500);font-variant-numeric:tabular-nums;">
+                            <span style="font-weight:500;color:var(--n700);">{{ l.period }}</span><span>·</span><span>{{ l.dur }}</span>
+                            <sc-if value="{{ l.current }}" hint-placeholder-val="{{ false }}"><span class="pf-badge" style="background:var(--green-l);color:var(--green-d);height:22px;"><span class="dot"></span>Текущее</span></sc-if>
+                            <sc-if value="{{ l.notOz }}" hint-placeholder-val="{{ false }}"><span class="pf-badge" title="Место работы не относится к организациям здравоохранения" style="background:var(--n100);color:var(--n500);height:22px;">Вне здравоохранения</span></sc-if>
+                          </div>
+                          <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:6px 0 0;">{{ l.place }}</h3>
+                          <div style="font-size:13.5px;line-height:19px;color:var(--n600);margin-top:3px;">{{ l.role }}</div>
+                        </article>
+                      </li>
+                    </sc-for>
+                  </ol>
+                </sc-if>
+              </div>
+            </sc-if>
+
+          </div>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+  </div>
+
+  <!-- Тост -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="pf-toast" role="status" aria-live="polite" style="position:fixed;z-index:80;max-width:380px;display:flex;gap:10px;align-items:center;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;">{{ toastText }}</div>
+    </div>
+  </sc-if>
+
+  <!-- Предпросмотр фото: сохраняется только по кнопке -->
+  <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cancelDraft }}" style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;padding:16px;animation:mp-fade .15s ease;">
+      <div role="dialog" aria-modal="true" aria-labelledby="pf-ph-t" onClick="{{ stop }}" style="width:100%;max-width:400px;background:#fff;border-radius:18px;box-shadow:0 24px 48px -12px rgba(10,13,20,.22);padding:24px;animation:mp-slidein .2s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div id="pf-ph-t" style="font-size:17px;line-height:24px;font-weight:600;">{{ draftTitle }}</div>
+          <button class="pf-copy" onClick="{{ cancelDraft }}" aria-label="Закрыть" title="Закрыть" style="width:32px;height:32px;margin:-4px -6px -4px 0;"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+        <div style="display:flex;justify-content:center;margin:20px 0 16px;">
+          <div role="img" aria-label="Предпросмотр фото профиля" style="{{ draftStyle }}"></div>
+        </div>
+        <div style="font-size:13px;line-height:18px;color:var(--n500);text-align:center;">JPG, PNG или WebP до 5 МБ. Фото обрезается по центру до квадрата.</div>
+        <div class="pf-dlg-acts" style="display:flex;align-items:center;gap:10px;margin-top:22px;">
+          <button class="pf-btn ghost" onClick="{{ repickDraft }}"><i class="ri-image-add-line" style="font-size:17px;"></i>Выбрать другое</button>
+          <div class="pf-dlg-sp" style="flex:1;"></div>
+          <button class="pf-btn sec" onClick="{{ cancelDraft }}">Отмена</button>
+          <button ref="{{ saveRef }}" class="pf-btn pri" onClick="{{ saveDraft }}">Сохранить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Удаление фото -->
+  <sc-if value="{{ hasDel }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ cancelDel }}" style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;padding:16px;animation:mp-fade .15s ease;">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="pf-del-t" onClick="{{ stop }}" style="width:100%;max-width:400px;background:#fff;border-radius:18px;box-shadow:0 24px 48px -12px rgba(10,13,20,.22);padding:24px;animation:mp-slidein .2s ease;">
+        <div style="width:44px;height:44px;border-radius:12px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-delete-bin-line" style="font-size:22px;color:var(--red);"></i></div>
+        <div id="pf-del-t" style="font-size:17px;line-height:24px;font-weight:600;">Удалить фото профиля?</div>
+        <div class="pf-dlg-acts" style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;">
+          <button ref="{{ delRef }}" class="pf-btn sec" onClick="{{ cancelDel }}">Отмена</button>
+          <button class="pf-btn danger" onClick="{{ confirmDel }}">Удалить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Панель прототипа: ответы СУР -->
+  <div class="pf-pp" style="{{ ppBox }}">
+    <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип · ответ СУР</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="radiogroup" aria-label="Сценарий ответа СУР" style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);">
+        <sc-for list="{{ scns }}" as="x" hint-placeholder-count="4">
+          <button class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}" style="{{ x.style }}"><i class="{{ x.icon }}" style="font-size:15px;"></i>{{ x.label }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+// ---------- Сессия ЭЦП (в прототипе — тестовый ключ «Медперсонал» из EcpPicker) ----------
+const SESSION = { fio:'Ахметов Серик Кайратович', iin:'850612300218' };
+
+// ---------- Тестовые ответы СУР ----------
+const pad = (n) => String(n).padStart(2, '0');
+const isoDays = (d) => { const x = new Date(); x.setHours(0,0,0,0); x.setDate(x.getDate() + d); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`; };
+
+// М1 GetMoFpPersonalIin
+const M1 = [
+  { moId:'1024', personalTypeRu:'Врачебный персонал', postFuncRu:'Врач-терапевт участковый', specialityRu:'Терапия', postTypeRu:'Основная', postCategoryRu:'Врачи', postCount:'1', typeEmployeeRu:'', statusPostRu:'Занята',
+    moNameRu:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', fpName:'Терапевтическое отделение, участок № 12', beginDate:'2019-09-02', endDate:'', active:true, isOnLeave:false },
+  { moId:'2207', personalTypeRu:'Врачебный персонал', postFuncRu:'Врач-кардиолог', specialityRu:'Кардиология', postTypeRu:'Совместительство', postCategoryRu:'Врачи', postCount:'0.5', typeEmployeeRu:'Внешнее совместительство', statusPostRu:'Занята',
+    moNameRu:'ТОО «Медицинский центр Шипагер»', fpName:'Консультативно-диагностическое отделение', beginDate:'2022-03-01', endDate:'', active:true, isOnLeave:true },
+  { moId:'0871', personalTypeRu:'Врачебный персонал', postFuncRu:'Врач-терапевт', specialityRu:'Терапия', postTypeRu:'Основная', postCategoryRu:'Врачи', postCount:'1', typeEmployeeRu:'', statusPostRu:'Вакантна',
+    moNameRu:'ГКП на ПХВ «Многопрофильная городская больница № 2» акимата г. Астаны', fpName:'Терапевтическое отделение стационара', beginDate:'2012-08-01', endDate:'2019-08-30', active:false, isOnLeave:null },
+];
+// М4 GetMoInfoItems (recordIds = moId через запятую)
+const M4 = { '1024':'990140002374', '2207':'030840005517', '0871':'060540008912' };
+
+// М2 GetEducation
+const M2 = {
+  primEducations:[
+    { typeEdu:'Высшее медицинское образование', diplomClassification:'Лечебное дело', miUz:'АО «Медицинский университет Астана»', org:'', numDiplom:'ЖБ-Б № 0412783', dtIssue:'2009-06-26', dtEnd:'2009-06-20' },
+  ],
+  postEducations:[
+    { postEducationType:'Интернатура', org:'АО «Медицинский университет Астана»', speciality:'Терапия', dtBeg:'2009-09-01', dtEnd:'2010-06-30', number:'ИН № 0098214', dtIssue:'2010-07-05' },
+    { postEducationType:'Резидентура', org:'НАО «Казахский национальный медицинский университет имени С.Д. Асфендиярова»', speciality:'Кардиология', dtBeg:'2010-09-01', dtEnd:'2012-06-29', number:'РЗ № 0003417', dtIssue:'2012-07-10' },
+  ],
+  laborActivities:[
+    { dtBeg:'2022-03-01', dtEnd:'', inOz:true, postFuncOz:'Врач-кардиолог', post:'Кардиология', workPlaceOz:'ТОО «Медицинский центр Шипагер»' },
+    { dtBeg:'2019-09-02', dtEnd:'', inOz:true, postFuncOz:'Врач-терапевт участковый', post:'Терапия', workPlaceOz:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны' },
+    { dtBeg:'2012-08-01', dtEnd:'2019-08-30', inOz:true, postFuncOz:'Врач-терапевт', post:'Терапия', workPlaceOz:'ГКП на ПХВ «Многопрофильная городская больница № 2» акимата г. Астаны' },
+    { dtBeg:'2010-09-01', dtEnd:'2012-06-29', inOz:true, postFuncOz:'Врач-резидент', post:'Кардиология', workPlaceOz:'ГКП на ПХВ «Городская клиническая больница № 1» г. Алматы' },
+  ],
+};
+
+// М3 QualificationByIin (enabled = false не показываем)
+const m3 = () => [
+  { categoryNameRus:'Высшая категория', specialityNameRus:'Терапия', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ63VEH00012345', qualificationDocumentIssuranceDate:'2022-11-18', qualificationDocumentEffectiveDate:'2022-11-20', qualificationEndDate:'2027-11-20', qualificationPermanentCertificate:false, licenseStatusNameRus:'Действующий', enabled:true },
+  { categoryNameRus:'Первая категория', specialityNameRus:'Кардиология', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ18VEH00098761', qualificationDocumentIssuranceDate:isoDays(-1758), qualificationDocumentEffectiveDate:isoDays(-1757), qualificationEndDate:isoDays(68), qualificationPermanentCertificate:false, licenseStatusNameRus:'Действующий', enabled:true },
+  { categoryNameRus:'Без категории', specialityNameRus:'Функциональная диагностика', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ02VEH00004418', qualificationDocumentIssuranceDate:'2015-04-03', qualificationDocumentEffectiveDate:'2015-04-03', qualificationEndDate:'', qualificationPermanentCertificate:true, licenseStatusNameRus:'Действующий', enabled:true },
+  { categoryNameRus:'Вторая категория', specialityNameRus:'Общая врачебная практика', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ71VEH00000912', qualificationDocumentIssuranceDate:'2011-05-10', qualificationDocumentEffectiveDate:'2011-05-10', qualificationEndDate:'2016-05-10', qualificationPermanentCertificate:false, licenseStatusNameRus:'Истёк', enabled:false },
+];
+
+// ---------- Сценарии прототипа ----------
+const SCNS = [
+  { id:'ok', label:'Все сведения', icon:'ri-checkbox-circle-line' },
+  { id:'slow', label:'Медленный ответ', icon:'ri-hourglass-line' },
+  { id:'down', label:'СУР недоступен', icon:'ri-cloud-off-line' },
+  { id:'invalid', label:'Некорректный ответ', icon:'ri-code-s-slash-line' },
+  { id:'notfound', label:'Нет данных по ИИН', icon:'ri-user-search-line' },
+  { id:'qualFail', label:'Сбой метода квалификации', icon:'ri-error-warning-line' },
+  { id:'noWork', label:'Нет мест работы', icon:'ri-briefcase-4-line' },
+  { id:'noBin', label:'БИН не получен (М4)', icon:'ri-building-2-line' },
+];
+
+// ---------- Форматирование ----------
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const parse = (iso) => { if(!iso) return null; const [y,m,d] = String(iso).slice(0,10).split('-').map(Number); return new Date(y, m-1, d); };
+const fd = (iso) => { const d = parse(iso); return d ? `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}` : ''; };
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? f[2] : b > 1 && b < 5 ? f[1] : b === 1 ? f[0] : f[2]; };
+const monthsBetween = (a, b) => { let m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()); if(b.getDate() < a.getDate()) m -= 1; return Math.max(0, m); };
+// период с включительной датой окончания: 01.09.2009 — 30.06.2010 = 10 мес.
+const span = (a, b) => { const e = new Date(b); e.setDate(e.getDate() + 1); return monthsBetween(a, e); };
+const durText = (months) => {
+  if(months < 1) return 'менее месяца';
+  const y = Math.floor(months/12), m = months % 12;
+  const parts = [];
+  if(y) parts.push(`${y} ${plural(y, ['год','года','лет'])}`);
+  if(m) parts.push(`${m} мес.`);
+  return parts.join(' ');
+};
+const rateText = (v) => {
+  const n = parseFloat(String(v || '').replace(',', '.'));
+  if(!isFinite(n)) return '';
+  const s = String(Math.round(n*100)/100).replace('.', ',');
+  return `${s} ${Number.isInteger(n) ? plural(n, ['ставка','ставки','ставок']) : 'ставки'}`;
+};
+const daysLeft = (iso) => { const d = parse(iso); return d ? Math.round((d - today()) / 86400000) : null; };
+const row = (label, value, extra) => (value === '' || value == null) ? null : { label, value, cls:'', hasNote:false, note:'', copy:false, ...(extra || {}) };
+
+const BADGE = {
+  green:'background:#EFFAF6;color:#176448;',
+  yellow:'background:#FEF7EC;color:#693D11;',
+  red:'background:#FDEDF0;color:#710E21;',
+  gray:'background:#F6F8FA;color:#525866;',
+  blue:'background:#EEF2FF;color:#312D86;',
+  purple:'background:#EEEBFF;color:#6E3FF3;',
+};
+const certTone = (status) => {
+  const s = String(status || '').toLowerCase();
+  if(/действ/.test(s) && !/не\s*действ/.test(s)) return 'green';
+  if(/приостан/.test(s)) return 'yellow';
+  if(/отозван|аннулир|прекращ|истек|истёк|не\s*действ/.test(s)) return 'red';
+  return 'gray';
+};
+const WARN_DAYS = 90;
+
+const TABS = [
+  { id:'work', label:'Места работы', icon:'ri-briefcase-4-line', m:'m1' },
+  { id:'qualification', label:'Квалификация', icon:'ri-award-line', m:'m3' },
+  { id:'education', label:'Образование', icon:'ri-graduation-cap-line', m:'m2' },
+  { id:'labor', label:'Трудовая деятельность', icon:'ri-history-line', m:'m2' },
+];
+const PANEL_ERR = {
+  m1:'Не удалось загрузить места работы. Повторите попытку позже.',
+  m2:'Не удалось загрузить сведения об образовании и трудовой деятельности. Повторите попытку позже.',
+  m3:'Не удалось загрузить сведения о квалификации. Повторите попытку позже.',
+};
+
+class Component extends DCLogic {
+  state = {
+    scn:'ok', tab:null,
+    m1:{ st:'loading' }, m2:{ st:'loading' }, m3:{ st:'loading' }, m4:{ st:'idle', bins:{} },
+    refreshing:false, syncedAt:null, toast:null, ppOpen:false,
+    photo:'', photoMenu:false, photoDraft:null, photoDel:false,
+  };
+  _timers = [];
+  fileRef = React.createRef();
+  menuFirstRef = React.createRef();
+  saveRef = React.createRef();
+  delRef = React.createRef();
+  avaRef = React.createRef();
+  focusAva(){ setTimeout(() => { const b = this.avaRef.current; if(b && b.focus) b.focus(); }, 30); }
+
+  componentDidMount(){
+    try { this.setState({ photo: localStorage.getItem('mp-doc-photo') || '' }); } catch(e){}
+    this._onKey = (e) => {
+      if(e.key !== 'Escape') return;
+      const st = this.state;
+      if(st.photoDraft) this.setState({ photoDraft:null });
+      else if(st.photoDel) this.setState({ photoDel:false });
+      else if(st.photoMenu) this.setState({ photoMenu:false });
+      else return;
+      this.focusAva();
+    };
+    window.addEventListener('keydown', this._onKey);
+    let scn = 'ok';
+    try { scn = sessionStorage.getItem('mp-sur-scn') || 'ok'; } catch(e){}
+    if(!SCNS.some(x => x.id === scn)) scn = 'ok';
+    this.setState({ scn, tab:this.hashTab() });
+    this._onHash = () => { const t = this.hashTab(); if(t) this.setState({ tab:t }); };
+    window.addEventListener('hashchange', this._onHash);
+    this.fetchAll('initial');
+  }
+  componentWillUnmount(){
+    window.removeEventListener('hashchange', this._onHash);
+    window.removeEventListener('keydown', this._onKey);
+    this._timers.forEach(clearTimeout); clearTimeout(this._tt);
+  }
+
+  // ---------- Фото профиля ----------
+  // Файл → проверка → квадрат 320×320 по центру (JPEG) → предпросмотр. Сохраняется только по «Сохранить».
+  pickPhoto(){
+    this.setState({ photoMenu:false });
+    const inp = this.fileRef.current;
+    if(inp){ inp.value = ''; inp.click(); }
+  }
+  readPhoto(file){
+    if(!file) return;
+    if(!/^image\/(jpeg|png|webp)$/.test(file.type)){ this.toast('Выберите изображение JPG, PNG или WebP', 'err'); return; }
+    if(file.size > 5 * 1024 * 1024){ this.toast('Файл больше 5 МБ — выберите фото меньшего размера', 'err'); return; }
+    const fail = () => this.toast('Не удалось открыть изображение', 'err');
+    const r = new FileReader();
+    r.onerror = fail;
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = fail;
+      img.onload = () => {
+        try {
+          const side = Math.min(img.naturalWidth, img.naturalHeight), N = 320;
+          const c = document.createElement('canvas'); c.width = N; c.height = N;
+          const g = c.getContext('2d');
+          g.fillStyle = '#fff'; g.fillRect(0, 0, N, N);
+          g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, N, N);
+          this.setState({ photoDraft: c.toDataURL('image/jpeg', 0.9) });
+          setTimeout(() => { const b = this.saveRef.current; if(b && b.focus) b.focus(); }, 30);
+        } catch(e){ fail(); }
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  }
+  setPhoto(url){
+    try { if(url) localStorage.setItem('mp-doc-photo', url); else localStorage.removeItem('mp-doc-photo'); }
+    catch(e){ this.toast('Не удалось сохранить фото', 'err'); return false; }
+    this.setState({ photo:url });
+    try { window.dispatchEvent(new CustomEvent('mp-doc-photo-change', { detail:url })); } catch(e){}
+    return true;
+  }
+
+  hashTab(){ const h = (location.hash || '').slice(1); return TABS.some(t => t.id === h) ? h : null; }
+  later(fn, ms){ this._timers.push(setTimeout(fn, ms)); }
+
+  // Ответ одного метода СУР для текущего сценария
+  answer(k){
+    const scn = this.state.scn;
+    if(scn === 'down' || scn === 'invalid') return { st:'error' };   // некорректный ответ — логируем и показываем общее сообщение
+    if(scn === 'notfound') return { st:'empty' };
+    if(k === 'm1') return { st:'ok', data: scn === 'noWork' ? [] : M1 };
+    if(k === 'm2') return { st:'ok', data: M2 };
+    if(k === 'm3') return scn === 'qualFail' ? { st:'error' } : { st:'ok', data: m3().filter(c => c.enabled) };
+    return { st:'error' };
+  }
+
+  // М4: один запрос на все moId из М1
+  fetchBins(items){
+    const ids = (items || []).map(x => x.moId).filter(Boolean);
+    if(!ids.length){ this.setState({ m4:{ st:'ok', bins:{} } }); return; }
+    this.setState({ m4:{ st:'loading', bins:{} } });
+    const gen = this._gen;
+    this.later(() => {
+      if(gen !== this._gen) return;
+      const bins = {};
+      ids.forEach(id => { if(M4[id] && !(this.state.scn === 'noBin' && id === '2207')) bins[id] = M4[id]; });
+      this.setState({ m4:{ st:'ok', bins } });
+    }, 450);
+  }
+
+  // mode: initial | retry | refresh (refresh не прячет уже показанные данные)
+  fetchAll(mode){
+    this._timers.forEach(clearTimeout); this._timers = [];
+    const gen = this._gen = (this._gen || 0) + 1;
+    const refresh = mode === 'refresh';
+    if(refresh) this.setState({ refreshing:true });
+    else this.setState({ m1:{ st:'loading' }, m2:{ st:'loading' }, m3:{ st:'loading' }, m4:{ st:'idle', bins:{} }, refreshing:false });
+    const base = this.state.scn === 'slow' ? 2600 : 700;
+    const got = {};
+    ['m1','m2','m3'].forEach((k, i) => this.later(() => {
+      if(gen !== this._gen) return;
+      got[k] = this.answer(k);
+      if(!refresh){
+        this.setState({ [k]:got[k] });
+        if(k === 'm1' && got[k].st === 'ok') this.fetchBins(got[k].data);
+      }
+      if(Object.keys(got).length === 3) this.settle(got, refresh);
+    }, base + i * 220));
+  }
+
+  settle(got, refresh){
+    const anyOk = ['m1','m2','m3'].some(k => got[k].st === 'ok');
+    if(!refresh){ if(anyOk) this.setState({ syncedAt:new Date() }); return; }
+    const allBad = ['m1','m2','m3'].every(k => got[k].st !== 'ok');
+    const hadData = ['m1','m2','m3'].some(k => this.state[k].st === 'ok');
+    if(allBad && hadData){
+      // при обновлении не теряем уже показанные сведения
+      this.setState({ refreshing:false });
+      this.toast('Не удалось обновить данные. Показаны сведения от ' + this.syncTime(), 'err');
+      return;
+    }
+    this.setState({ m1:got.m1, m2:got.m2, m3:got.m3, refreshing:false, syncedAt: anyOk ? new Date() : this.state.syncedAt });
+    if(got.m1.st === 'ok') this.fetchBins(got.m1.data); else this.setState({ m4:{ st:'idle', bins:{} } });
+    const partial = ['m1','m2','m3'].some(k => got[k].st === 'error');
+    if(anyOk) this.toast(partial ? 'Данные обновлены частично' : 'Данные профиля обновлены', partial ? 'warn' : 'ok');
+  }
+
+  fetchOne(k){
+    const gen = this._gen;
+    this.setState({ [k]:{ st:'loading' } });
+    this.later(() => {
+      if(gen !== this._gen) return;
+      const r = this.answer(k);
+      this.setState({ [k]:r });
+      if(k === 'm1' && r.st === 'ok') this.fetchBins(r.data);
+      if(r.st === 'ok') this.setState({ syncedAt:new Date() });
+    }, this.state.scn === 'slow' ? 2200 : 700);
+  }
+
+  setTab(id, focus){
+    if(id !== this._cur){
+      // новая вкладка открывается с начала, а не с середины прошлой
+      const a = document.getElementById('pf-tabs-anchor');
+      if(a){ const top = a.getBoundingClientRect().top + window.scrollY - 73; if(window.scrollY > top) window.scrollTo(0, top); }
+    }
+    this.setState({ tab:id });
+    try { history.replaceState(null, '', '#' + id); } catch(e){}
+    if(focus) setTimeout(() => { const el = document.getElementById('pf-tab-' + id); if(el) el.focus(); }, 0);
+  }
+
+  toast(text, kind){
+    clearTimeout(this._tt);
+    this.setState({ toast:{ text, kind:kind || 'ok' } });
+    this._tt = setTimeout(() => this.setState({ toast:null }), 3200);
+  }
+  copy(text, what){
+    const done = () => this.toast(`${what} скопирован`, 'ok');
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, () => this.copyFallback(text, done)); return; }
+    } catch(e){}
+    this.copyFallback(text, done);
+  }
+  copyFallback(text, done){
+    try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); }
+    catch(e){ this.toast('Не удалось скопировать', 'err'); }
+  }
+  syncTime(){ const d = this.state.syncedAt; return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; }
+
+  setScn(id){
+    try { sessionStorage.setItem('mp-sur-scn', id); } catch(e){}
+    this.setState({ scn:id });
+    this.fetchAll('initial');
+  }
+
+  renderVals(){
+    const s = this.state;
+    const T = today();
+    const st = (k) => s[k].st;
+    const loadingAny = ['m1','m2','m3'].some(k => st(k) === 'loading');
+    const gError = ['m1','m2','m3'].every(k => st(k) === 'error');
+    const gNotFound = ['m1','m2','m3'].every(k => st(k) === 'empty');
+    const showBody = !gError && !gNotFound;
+
+    // ---------- М1: места работы ----------
+    const m1 = st('m1') === 'ok' ? s.m1.data : [];
+    const order = (x) => x.active ? (x.isOnLeave ? 1 : 0) : 2;
+    const work = m1.slice().sort((a, b) => order(a) - order(b) || String(b.endDate || b.beginDate).localeCompare(String(a.endDate || a.beginDate)));
+    // только текущие места: прежние показываются в «Трудовой деятельности» (замечание аналитика)
+    const workItem = (x) => {
+      const leave = !!x.isOnLeave;
+      const bin = s.m4.bins[x.moId] || '';
+      const since = parse(x.beginDate);
+      const tenure = since ? durText(monthsBetween(since, T)) : '';
+      return {
+        mo: x.moNameRu, fp: x.fpName || '', hasFp: !!x.fpName,
+        bin, hasBin: !!bin,
+        binLoading: s.m4.st === 'loading',
+        copyBin: () => this.copy(bin, 'БИН'),
+        badge: leave ? 'В отпуске' : 'Работает',
+        badgeStyle: BADGE[leave ? 'yellow' : 'green'],
+        iconBox: 'width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:#EEF2FF;color:#4D42E9;',
+        post: x.postFuncRu || '—', spec: x.specialityRu || '—', rate: rateText(x.postCount) || '—',
+        rows: [
+          row('Тип персонала', x.personalTypeRu),
+          row('Тип должности', x.postTypeRu),
+          row('Категория должности', x.postCategoryRu),
+          row('Вид внештатной работы', x.typeEmployeeRu),
+          row('Дата приёма на работу', fd(x.beginDate), tenure ? { hasNote:true, note:`${tenure} в организации` } : null),
+        ].filter(Boolean),
+      };
+    };
+    const workCur = work.filter(x => x.active).map(workItem);
+    const hasPastWork = work.some(x => !x.active);
+    const workHidden = st('m1') === 'empty' || (st('m1') === 'ok' && m1.length === 0);   // §7: пустой personalItem — блок не показываем
+
+    // ---------- М3: сертификаты ----------
+    const m3d = st('m3') === 'ok' ? s.m3.data : [];
+    const certs = m3d.map((c, i) => {
+      const perm = !!c.qualificationPermanentCertificate;
+      const left = perm ? null : daysLeft(c.qualificationEndDate);
+      const tone = certTone(c.licenseStatusNameRus);
+      const expired = left !== null && left < 0;
+      const soon = left !== null && left >= 0 && left <= WARN_DAYS;
+      const end = parse(c.qualificationEndDate);
+      const term = perm ? 'Бессрочный' : expired ? 'Срок действия истёк' : soon ? `Истекает через ${left} ${plural(left, ['день','дня','дней'])}` : end ? `Осталось ${durText(monthsBetween(T, end))}` : 'Срок действия не указан';
+      const termTone = perm ? 'green' : expired ? 'red' : soon ? 'yellow' : 'gray';
+      const noCat = /без категор/i.test(c.categoryNameRus || '');
+      return {
+        sortKey: (tone === 'green' ? 0 : 1) * 1e6 + (perm ? 9e5 : (left === null ? 8e5 : left + 1e5)),
+        anchor: 'pf-cert-' + i,
+        spec: c.specialityNameRus || '—',
+        status: c.licenseStatusNameRus || '', hasStatus: !!c.licenseStatusNameRus, statusStyle: BADGE[tone],
+        cat: c.categoryNameRus || '', hasCat: !!c.categoryNameRus,
+        catStyle: noCat ? BADGE.gray : BADGE.purple, catIcon: noCat ? 'ri-medal-line' : 'ri-medal-fill',
+        term, termStyle: BADGE[termTone], termIcon: perm ? 'ri-infinity-line' : expired || soon ? 'ri-alarm-warning-line' : 'ri-calendar-check-line',
+        cardStyle: `padding:20px 24px;scroll-margin-top:150px;${soon || expired ? `box-shadow:0 0 0 1px ${expired ? '#DF1C41' : '#F2AE40'} inset;` : ''}`,
+        left, perm, soon, expired, raw:c,
+        rows: [
+          row('Регистрационный номер', c.qualificationRegistrationNumber, { copy:true, copyLabel:'Скопировать регистрационный номер', onCopy:() => this.copy(c.qualificationRegistrationNumber, 'Регистрационный номер') }),
+          row('Дата выдачи', fd(c.qualificationDocumentIssuranceDate)),
+          row('Дата вступления в силу', fd(c.qualificationDocumentEffectiveDate)),
+          perm ? null : row('Дата окончания действия', fd(c.qualificationEndDate)),
+        ].filter(Boolean),
+      };
+    }).sort((a, b) => a.sortKey - b.sortKey);
+    const nCerts = certs.length;
+
+    // предупреждение: ближайший истекающий / истёкший сертификат
+    const urgent = certs.filter(c => c.soon || c.expired).sort((a, b) => a.left - b.left)[0];
+    let alert = null;
+    if(urgent){
+      alert = urgent.expired
+        ? { tone:'red', icon:'ri-alarm-warning-line', title:`Срок сертификата «${urgent.spec}» истёк ${fd(urgent.raw.qualificationEndDate)}` }
+        : { tone:'yellow', icon:'ri-alarm-warning-line', title:`Сертификат «${urgent.spec}» истекает через ${urgent.left} ${plural(urgent.left, ['день','дня','дней'])} — ${fd(urgent.raw.qualificationEndDate)}` };
+    }
+
+    // ---------- М2: образование и трудовая деятельность ----------
+    const m2 = st('m2') === 'ok' ? s.m2.data : st('m2') === 'empty' ? {} : null;
+    const per = (a, b) => a && b ? `${fd(a)} — ${fd(b)}` : a ? `с ${fd(a)}` : '';
+    const eduBox = (bg, c) => `width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:${bg};color:${c};`;
+    const eduGroups = m2 ? [
+      { title:'Первичное образование', icon:'ri-graduation-cap-line', emptyText:'Сведений о первичном образовании в СУР нет.',
+        items:(m2.primEducations || []).map(e => ({
+          title:e.diplomClassification || '—', sub:e.typeEdu || '', hasSub:!!e.typeEdu, hasBadge:false, badge:'', badgeStyle:'',
+          icon:'ri-graduation-cap-line', iconBox:eduBox('#EEF2FF', '#4D42E9'),
+          rows:[ row('ВУЗ / Организация', e.miUz || e.org, { cls:'pf-wide' }), row('Номер диплома', e.numDiplom), row('Дата выдачи диплома', fd(e.dtIssue)), row('Дата окончания обучения', fd(e.dtEnd)) ].filter(Boolean),
+        })) },
+      { title:'Последипломная подготовка', icon:'ri-hospital-line', emptyText:'Сведений об интернатуре и резидентуре в СУР нет.',
+        items:(m2.postEducations || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))).map(e => {
+          const b = parse(e.dtBeg), en = parse(e.dtEnd);
+          return {
+            title:e.speciality || '—', sub:e.org || '', hasSub:!!e.org,
+            hasBadge:!!e.postEducationType, badge:e.postEducationType || '', badgeStyle: /резидент/i.test(e.postEducationType || '') ? BADGE.purple : BADGE.blue,
+            icon:'ri-hospital-line', iconBox:eduBox('#EBFAFF', '#164564'),
+            rows:[ row('Период подготовки', per(e.dtBeg, e.dtEnd), b && en ? { hasNote:true, note:`${durText(span(b, en))}` } : null), row('Номер свидетельства', e.number), row('Дата выдачи свидетельства', fd(e.dtIssue)) ].filter(Boolean),
+          };
+        }) },
+    ] : [];
+    eduGroups.forEach(g => { g.empty = !g.items.length; });
+
+    const laborRaw = m2 ? (m2.laborActivities || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))) : [];
+    const labor = laborRaw.map(l => {
+      const b = parse(l.dtBeg), e = parse(l.dtEnd), cur = !l.dtEnd;
+      return {
+        period: cur ? `С ${fd(l.dtBeg)} по настоящее время` : `${fd(l.dtBeg)} — ${fd(l.dtEnd)}`,
+        dur: b ? durText(e ? span(b, e) : monthsBetween(b, T)) : '',
+        current: cur, notOz: l.inOz === false,
+        place: l.workPlaceOz || '—',
+        role: [l.postFuncOz, l.post].filter(Boolean).join(' · '),
+        dotStyle: `background:${cur ? '#38C793' : '#CDD0D5'};`,
+      };
+    });
+    // стаж в ОЗ: объединяем пересекающиеся периоды
+    const iv = laborRaw.filter(l => l.inOz !== false && parse(l.dtBeg)).map(l => [parse(l.dtBeg), parse(l.dtEnd) || T]).sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    iv.forEach(([a, b]) => { const last = merged[merged.length - 1]; if(last && a <= last[1]) { if(b > last[1]) last[1] = b; } else merged.push([a, b]); });
+    const stageMonths = merged.reduce((sum, [a, b]) => sum + (b === T ? monthsBetween(a, b) : span(a, b)), 0);
+
+    // ---------- Вкладки ----------
+    const counts = { work:workCur.length, qualification:nCerts, education:null, labor:labor.length };
+    const visTabs = TABS.filter(t => !(t.id === 'work' && workHidden));
+    const cur = visTabs.some(t => t.id === s.tab) ? s.tab : visTabs[0].id;
+    this._cur = cur;
+    const curTab = TABS.find(t => t.id === cur);
+    const curSt = st(curTab.m);
+    const tabs = visTabs.map(t => {
+      const on = t.id === cur, ts = st(t.m);
+      return { ...t, tid:'pf-tab-' + t.id, on, tabIndex: on ? 0 : -1, cls: on ? 'pf-tab on' : 'pf-tab',
+        cnt: counts[t.id], hasCnt: ts === 'ok' && counts[t.id] != null && !s.refreshing,
+        loading: ts === 'loading', err: ts === 'error',
+        onClick: () => this.setTab(t.id) };
+    });
+
+    // ---------- Синхронизация ----------
+    const syncAt = s.syncedAt ? `Обновлено сегодня в ${this.syncTime()}` : '';
+    const busy = loadingAny || s.refreshing;
+    const alertTone = alert ? alert.tone : 'yellow';
+
+    return {
+      // шапка
+      fio: SESSION.fio, iin: SESSION.iin,
+      copyIin: () => this.copy(SESSION.iin, 'ИИН'),
+      syncAt, hasSyncAt: !!syncAt && !loadingAny && !gError && !gNotFound,
+      busy, refreshing: s.refreshing,
+      refresh: () => { if(busy) return; const hasData = ['m1','m2','m3'].some(k => st(k) === 'ok'); this.fetchAll(hasData ? 'refresh' : 'retry'); },
+      refreshLabel: s.refreshing ? 'Обновляем…' : 'Обновить',
+      refreshIcon: s.refreshing ? 'ri-loader-4-line' : 'ri-refresh-line',
+      refreshIconStyle: `font-size:17px;${s.refreshing ? 'animation:mp-spin .8s linear infinite;' : ''}`,
+
+      gError, gNotFound, showBody, showRefresh: showBody,
+      retryAll: () => this.fetchAll('retry'),
+
+      // предупреждение
+      hasCertAlert: !!alert && st('m3') === 'ok',
+      alertTitle: alert ? alert.title : '',
+      alertIcon: alert ? alert.icon : '',
+      alertIconStyle: `font-size:22px;flex:0 0 auto;color:${alertTone === 'red' ? '#DF1C41' : '#F2AE40'};`,
+      alertBox: `display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:16px;border-radius:14px;border:1px solid ${alertTone === 'red' ? '#F7C5CF' : '#FBDFB1'};background:${alertTone === 'red' ? '#FDEDF0' : '#FEF7EC'};animation:mp-slidein .2s ease;`,
+      alertShowLink: cur !== 'qualification',
+      alertGo: () => {
+        this.setTab('qualification');
+        const id = urgent ? urgent.anchor : '';
+        setTimeout(() => { const el = document.getElementById(id); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 60);
+      },
+
+      // вкладки
+      tabs, panelBy: 'pf-tab-' + cur,
+      onTabKey: (e) => {
+        const ids = visTabs.map(t => t.id), i = ids.indexOf(cur);
+        let n = null;
+        if(e.key === 'ArrowRight') n = ids[(i + 1) % ids.length];
+        else if(e.key === 'ArrowLeft') n = ids[(i - 1 + ids.length) % ids.length];
+        else if(e.key === 'Home') n = ids[0];
+        else if(e.key === 'End') n = ids[ids.length - 1];
+        if(n){ e.preventDefault(); this.setTab(n, true); }
+      },
+      panelLoading: curSt === 'loading', skel: [1, 2],
+      panelError: curSt === 'error',
+      panelErrorTitle: PANEL_ERR[curTab.m],
+      retryPanel: () => this.fetchOne(curTab.m),
+
+      // места работы
+      showWork: cur === 'work' && (curSt === 'ok' || curSt === 'empty'),
+      workCur, noCurrentWork: !workCur.length && hasPastWork,
+      goLabor: () => this.setTab('labor'),
+
+      // квалификация
+      showQual: cur === 'qualification' && (curSt === 'ok' || curSt === 'empty'),
+      certs, noCerts: nCerts === 0,
+
+      // образование
+      showEdu: cur === 'education' && (curSt === 'ok' || curSt === 'empty'),
+      eduGroups,
+
+      // трудовая деятельность
+      showLabor: cur === 'labor' && (curSt === 'ok' || curSt === 'empty'),
+      labor, hasLabor: labor.length > 0, noLabor: labor.length === 0,
+      hasStage: merged.length > 0, stage: durText(stageMonths),
+
+      // фото профиля
+      hasPhoto: !!s.photo, noPhoto: !s.photo,
+      // объект, а не строка: рантайм делит строку стилей по «;», а в data:-URL она есть
+      avaImgStyle: s.photo ? { position:'absolute', inset:0, background:`#F6F8FA url("${s.photo}") center/cover no-repeat` } : {},
+      avaCls: s.photo ? 'pf-ava' : 'pf-ava empty',
+      avaLabel: s.photo ? 'Изменить фото профиля' : 'Загрузить фото профиля',
+      avaPopup: s.photo ? 'menu' : undefined,
+      avaExpanded: s.photo ? (s.photoMenu ? 'true' : 'false') : undefined,
+      avaBadgeIcon: s.photo ? 'ri-pencil-fill' : 'ri-camera-fill',
+      avaClick: () => {
+        if(!s.photo){ this.pickPhoto(); return; }
+        this.setState({ photoMenu: !s.photoMenu });
+        setTimeout(() => { const b = this.menuFirstRef.current; if(b && b.focus) b.focus(); }, 30);
+      },
+      photoMenu: s.photoMenu,
+      closeMenu: () => this.setState({ photoMenu:false }),
+      avaRef: this.avaRef, fileRef: this.fileRef, menuFirstRef: this.menuFirstRef, saveRef: this.saveRef, delRef: this.delRef,
+      onFile: (e) => { const fl = e && e.target && e.target.files; this.readPhoto(fl && fl[0]); },
+      pickPhoto: () => this.pickPhoto(),
+      askDelete: () => {
+        this.setState({ photoMenu:false, photoDel:true });
+        setTimeout(() => { const b = this.delRef.current; if(b && b.focus) b.focus(); }, 30);
+      },
+      hasDraft: !!s.photoDraft,
+      draftStyle: s.photoDraft ? { width:176, height:176, borderRadius:24, background:`#F6F8FA url("${s.photoDraft}") center/cover no-repeat`, boxShadow:'0 0 0 1px #E2E4E9,0 2px 4px rgba(10,13,20,.06)' } : {},
+      draftTitle: s.photo ? 'Новое фото профиля' : 'Фото профиля',
+      cancelDraft: () => { this.setState({ photoDraft:null }); this.focusAva(); },
+      repickDraft: () => { this.setState({ photoDraft:null }); this.pickPhoto(); },
+      saveDraft: () => {
+        const had = !!s.photo;
+        if(this.setPhoto(s.photoDraft)){ this.setState({ photoDraft:null }); this.focusAva(); this.toast(had ? 'Фото профиля обновлено' : 'Фото профиля загружено', 'ok'); }
+      },
+      hasDel: s.photoDel,
+      cancelDel: () => { this.setState({ photoDel:false }); this.focusAva(); },
+      confirmDel: () => { if(this.setPhoto('')){ this.setState({ photoDel:false }); this.focusAva(); this.toast('Фото профиля удалено', 'ok'); } },
+      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+
+      // тост
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '',
+      toastIcon: s.toast && s.toast.kind === 'err' ? 'ri-error-warning-fill' : s.toast && s.toast.kind === 'warn' ? 'ri-alert-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle: `font-size:20px;flex:0 0 auto;color:${s.toast && s.toast.kind === 'err' ? '#DF1C41' : s.toast && s.toast.kind === 'warn' ? '#F2AE40' : '#38C793'};`,
+
+      // панель прототипа
+      ppOpen: s.ppOpen,
+      ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppBox: `position:fixed;z-index:50;width:${s.ppOpen ? 270 : 230}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
+      scns: SCNS.map(x => ({ ...x, on: s.scn === x.id, onClick: () => this.setScn(x.id),
+        style: s.scn === x.id ? 'background:#EEF2FF;border-color:#C6D0FF;color:#312D86;' : '' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

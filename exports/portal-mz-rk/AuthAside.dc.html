@@ -13,9 +13,11 @@
 <body>
 <!--
   Бренд-панель страниц «Вход» и «Регистрация» (левая половина экрана).
+  По замечаниям аналитика: только заголовок и предупреждение о конфиденциальности
+  (ст. 641 КоАП РК) — без списка преимуществ.
   Пропсы:
-    variant — login | register (заголовок и список преимуществ)
-  На экранах уже 1024px страница прячет панель целиком (класс .auth-aside в странице).
+    variant — login | register (заголовок)
+  На экранах уже 1024px страница прячет панель, а предупреждение показывает под формой.
 -->
 <x-dc>
 <helmet>
@@ -29,42 +31,17 @@
     <img src="uploads/images.jpg" alt="Герб РК" style="width:46px;height:46px;object-fit:contain;background:#fff;border-radius:10px;padding:3px;" />
     <div style="line-height:1.2;"><div style="font-size:14px;font-weight:600;">Министерство здравоохранения</div><div style="font-size:12px;color:rgba(255,255,255,.7);">Республики Казахстан</div></div>
   </a>
-  <div style="position:relative;margin-top:auto;">
-    <h1 style="font-size:36px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin:0 0 18px;max-width:440px;">{{ title }}</h1>
-    <p style="font-size:16px;line-height:1.6;color:rgba(255,255,255,.82);max-width:420px;margin:0 0 36px;">{{ lead }}</p>
-    <div style="display:flex;flex-direction:column;gap:16px;max-width:420px;">
-      <sc-for list="{{ perks }}" as="p" hint-placeholder-count="3">
-        <div style="display:flex;align-items:center;gap:14px;">
-          <div style="width:42px;height:42px;border-radius:11px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:22px;"></i></div>
-          <span style="font-size:15px;line-height:1.45;color:rgba(255,255,255,.92);">{{ p.text }}</span>
-        </div>
-      </sc-for>
-    </div>
+  <h1 style="position:relative;margin:auto 0 0;font-size:40px;font-weight:600;letter-spacing:-.02em;line-height:1.15;max-width:460px;">{{ title }}</h1>
+  <div role="note" style="position:relative;margin-top:auto;display:flex;gap:12px;align-items:flex-start;max-width:480px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);">
+    <i class="ri-shield-keyhole-line" style="font-size:22px;color:rgba(255,255,255,.9);flex:0 0 auto;"></i>
+    <p style="margin:0;font-size:13px;line-height:1.55;color:rgba(255,255,255,.86);">Информация, содержащаяся в информационной системе, является конфиденциальной и доступна только авторизованным пользователям. Несанкционированный вход и нарушение требований информационной безопасности влекут административную ответственность по ст. 641 КоАП РК от 5 июля 2014 года № 235-V.</p>
   </div>
-  <div style="position:relative;margin-top:48px;display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.6);"><i class="ri-lock-2-line" style="font-size:16px;"></i>Защищённое соединение · Государственный стандарт безопасности данных</div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:900}}">
 class Component extends DCLogic {
   renderVals(){
-    const reg = this.props.variant === 'register';
-    return reg ? {
-      title: 'Регистрация на портале Минздрава',
-      lead: 'Пара минут и ключ ЭЦП — анкету заполнять не нужно: сведения подтянутся из государственных баз данных.',
-      perks: [
-        { icon:'ri-key-2-line', text:'Личность и организация подтверждаются ЭЦП' },
-        { icon:'ri-database-2-line', text:'Данные заполняются из ГБД ФЛ и ГБД ЮЛ автоматически' },
-        { icon:'ri-user-settings-line', text:'Один ИИН — несколько профилей: гражданин, бизнес, медперсонал' },
-      ],
-    } : {
-      title: 'Единый вход в цифровые сервисы здравоохранения',
-      lead: 'Войдите, чтобы получить доступ к электронному паспорту здоровья, услугам, записям на приём и персональным рекомендациям.',
-      perks: [
-        { icon:'ri-profile-line', text:'Электронный паспорт здоровья (ЭПЗ)' },
-        { icon:'ri-calendar-check-line', text:'Запись на приём и направления' },
-        { icon:'ri-magic-line', text:'Персональные рекомендации и напоминания' },
-      ],
-    };
+    return { title: this.props.variant === 'register' ? 'Регистрация на портале Минздрава' : 'Единый вход в цифровые сервисы здравоохранения' };
   }
 }
 </script>

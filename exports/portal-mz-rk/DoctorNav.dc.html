@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Меню кабинета медработника. Подключается в «Профиль врача» и «Кабинет врача»
+  под общей шапкой портала (Header cabinet="medical") — так же, как BusinessNav в кабинете бизнеса:
+    <div class="dn-host" style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:41;">
+      <dc-import name="DoctorNav" style="height:100%;" active="profile" hint-size="252px,827px"></dc-import>
+    </div>
+  Обёртка со sticky (класс dn-host) обязательна: компонент растягивается на её высоту,
+  а на телефоне (≤640px) обёртка схлопывается и меню становится нижней панелью.
+  z-index 41 — выше шапки (40), чтобы подтверждение ухода из ЭПЗ накрывало и её.
+  Логотип и карточка «кто вошёл» из меню убраны: герб — в шапке портала, врач с фото — справа в шапке.
+  Адаптив: >1024px — 252px с подписями; 641–1024px — колонка иконок 72px; ≤640px — нижняя панель.
+
+  Пропсы:
+    active — profile | epz
+
+  Порядок разделов — по замечанию аналитика: 1) Профиль врача, 2) Электронный паспорт здоровья.
+
+  Связь со страницей:
+    • клик по активному пункту не перезагружает страницу, а шлёт событие window 'mp-doc-nav-home'
+      (кабинет врача возвращается к поиску пациента);
+    • событие window 'mp-doc-leave-request' (detail — адрес) — шапка просит подтвердить уход из ЭПЗ;
+    • window.mpDocGuard() — если страница его объявила и он вернул ФИО пациента,
+      значит открыт ЭПЗ с активной сессией доступа: уход со страницы её закроет,
+      поэтому сначала спрашиваем подтверждение.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--orange:#F17B2C;--orange-l:#FEF3EB;--stroke:#E2E4E9;}
+  .dn-aside{width:252px;height:100%;background:var(--n0);border-right:1px solid var(--stroke);display:flex;flex-direction:column;padding:16px 14px;box-sizing:border-box;font-family:'Inter',sans-serif;color:var(--n900);}
+  .dn-cap{font-size:11px;line-height:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);padding:12px 12px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dn-nav{display:flex;flex-direction:column;gap:4px;}
+  .dn-lbl{flex:1;min-width:0;}
+  .dn-short{display:none;}
+  .dn-fill{flex:1;}
+  .dn-user{padding-top:14px;border-top:1px solid var(--stroke);}
+  .dn-it{width:100%;display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-family:inherit;font-size:13.5px;line-height:18px;text-decoration:none;transition:background .15s,color .15s;box-sizing:border-box;}
+  .dn-it:hover{background:var(--n100);}
+  .dn-it.on,.dn-it.on:hover{background:var(--primary-lighter);}
+  .dn-out{display:flex;align-items:center;justify-content:center;gap:7px;height:38px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s;box-sizing:border-box;}
+  .dn-out:hover{background:var(--n100);border-color:var(--n300);}
+  .dn-out .dn-lbl{flex:0 0 auto;}
+  .dn-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:background .15s,border-color .15s;}
+  .dn-btn.sec{border:1px solid var(--stroke);background:#fff;color:var(--n600);}
+  .dn-btn.sec:hover{background:var(--n100);}
+  .dn-btn.pri{border:none;background:var(--primary);color:#fff;}
+  .dn-btn.pri:hover{background:var(--primary-dark);}
+  .dn-it:focus-visible,.dn-out:focus-visible,.dn-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  @keyframes dn-fade{from{opacity:0}to{opacity:1}}
+  @keyframes dn-pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+
+  /* Планшет (641–1024px): колонка иконок 72px, подписи — во всплывающих title */
+  @media (max-width:1024px){
+    .dn-aside{width:72px;padding:16px 12px;align-items:center;}
+    .dn-cap,.dn-lbl{display:none;}
+    .dn-nav{width:100%;align-items:center;}
+    .dn-it{width:44px;height:44px;padding:0;justify-content:center;}
+    .dn-user{width:100%;display:flex;justify-content:center;}
+    .dn-out{width:44px;height:44px;padding:0;}
+  }
+  /* Телефон (≤640px): нижняя панель — Профиль · ЭПЗ · Выйти */
+  @media (max-width:640px){
+    body{padding-bottom:64px;}
+    .dn-host{position:static !important;width:0 !important;height:0 !important;}
+    .dn-aside{position:fixed;left:0;right:0;bottom:0;z-index:45;width:auto;height:auto;min-height:64px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-direction:row;align-items:stretch;gap:4px;border-right:none;border-top:1px solid var(--stroke);box-shadow:0 -4px 12px rgba(10,13,20,.04);}
+    .dn-cap,.dn-fill{display:none;}
+    .dn-nav{flex-direction:row;flex:2;gap:4px;width:auto;}
+    .dn-user{flex:1;display:flex;padding:0;border-top:none;}
+    .dn-it,.dn-out{flex:1;width:auto;height:auto;min-height:52px;flex-direction:column;gap:2px;justify-content:center;padding:4px;border:none;font-size:11px;line-height:14px;font-weight:500;}
+    .dn-out{background:transparent;color:var(--n500);}
+    .dn-short{display:block;}
+  }
+</style>
+</helmet>
+<aside class="dn-aside" aria-label="Разделы кабинета">
+  <div class="dn-cap">Кабинет врача</div>
+  <nav class="dn-nav">
+    <sc-for list="{{ items }}" as="it" hint-placeholder-count="2">
+      <a href="{{ it.href }}" onClick="{{ it.onClick }}" class="{{ it.cls }}" aria-current="{{ it.current }}" title="{{ it.label }}" style="{{ it.style }}">
+        <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
+        <span class="dn-lbl">{{ it.label }}</span>
+        <span class="dn-short">{{ it.short }}</span>
+      </a>
+    </sc-for>
+  </nav>
+
+  <div class="dn-fill"></div>
+
+  <div class="dn-user">
+    <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="dn-out" title="Выйти из системы"><i class="ri-logout-box-r-line" style="font-size:18px;"></i><span class="dn-lbl">Выйти из системы</span><span class="dn-short">Выйти</span></a>
+  </div>
+</aside>
+
+<!-- Подтверждение: уход из открытого ЭПЗ закрывает сессию доступа -->
+<sc-if value="{{ hasLeave }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ stay }}" style="position:fixed;inset:0;z-index:90;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;padding:24px;animation:dn-fade .15s ease;font-family:'Inter',sans-serif;">
+    <div role="alertdialog" aria-modal="true" aria-labelledby="dn-leave-t" aria-describedby="dn-leave-d" onClick="{{ stop }}" style="width:100%;max-width:440px;background:#fff;border-radius:18px;box-shadow:0 24px 48px -12px rgba(10,13,20,.22);padding:24px;animation:dn-pop .2s ease;">
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-shield-keyhole-line" style="font-size:22px;color:var(--orange);"></i></div>
+      <div id="dn-leave-t" style="font-size:17px;line-height:24px;font-weight:600;color:var(--n900);">Завершить просмотр ЭПЗ?</div>
+      <div id="dn-leave-d" style="font-size:14px;line-height:20px;color:var(--n500);margin-top:6px;">Сессия доступа к данным пациента <b style="color:var(--n900);font-weight:600;">{{ leavePatient }}</b> будет закрыта. Чтобы открыть ЭПЗ снова, понадобится новое согласие пациента.</div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;">
+        <button ref="{{ stayRef }}" onClick="{{ stay }}" class="dn-btn sec">Остаться</button>
+        <button onClick="{{ leave }}" class="dn-btn pri">Завершить и перейти</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:252,&quot;height&quot;:827},&quot;active&quot;:&quot;profile&quot;}">
+const DN_PAGES = {
+  profile: 'Профиль врача.dc.html',
+  epz: 'Кабинет врача.dc.html',
+};
+
+class Component extends DCLogic {
+  state = { leaveTo:null, leavePatient:'' };
+  stayRef = React.createRef();
+
+  componentDidMount(){
+    this._onKey = (e) => { if(e.key === 'Escape' && this.state.leaveTo){ this._logout = false; this.setState({ leaveTo:null }); } };
+    window.addEventListener('keydown', this._onKey);
+    // переход из шапки портала (герб, «На главную», профиль, уведомления)
+    this._onLeaveReq = (e) => { const to = e && e.detail; if(to) this.ask(to); };
+    window.addEventListener('mp-doc-leave-request', this._onLeaveReq);
+  }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); window.removeEventListener('mp-doc-leave-request', this._onLeaveReq); }
+
+  // Подтверждение ухода из ЭПЗ с активной сессией. false — сессии нет, уходить можно сразу.
+  ask(to){
+    let patient = '';
+    try { patient = typeof window.mpDocGuard === 'function' ? (window.mpDocGuard() || '') : ''; } catch(err){}
+    if(!patient) return false;
+    this.setState({ leaveTo:to, leavePatient:patient });
+    setTimeout(() => { const b = this.stayRef.current; if(b && b.focus) b.focus(); }, 30);
+    return true;
+  }
+
+  // Переход в другой раздел. Возвращает true, если навигацию перехватили.
+  go(e, id){
+    const p = this.props || {};
+    if(id === p.active){
+      if(e && e.preventDefault) e.preventDefault();
+      try { window.dispatchEvent(new CustomEvent('mp-doc-nav-home', { detail:id })); } catch(err){}
+      return;
+    }
+    if(this.ask(DN_PAGES[id]) && e && e.preventDefault) e.preventDefault();
+  }
+
+  renderVals(){
+    const s = this.state, p = this.props || {};
+    const data = [
+      { id:'profile', label:'Профиль врача', short:'Профиль', icon:'ri-account-box-line', iconOn:'ri-account-box-fill' },
+      { id:'epz', label:'Электронный паспорт здоровья', short:'ЭПЗ', icon:'ri-profile-line', iconOn:'ri-profile-fill' },
+    ];
+    const items = data.map(it => {
+      const on = p.active === it.id;
+      return { ...it,
+        href: DN_PAGES[it.id],
+        icon: on ? it.iconOn : it.icon,
+        cls: on ? 'dn-it on' : 'dn-it',
+        current: on ? 'page' : undefined,
+        style: on ? 'color:#4D42E9;font-weight:600;' : 'color:#31353F;font-weight:500;',
+        onClick: (e) => this.go(e, it.id),
+      };
+    });
+    return {
+      items,
+      onLogout: (e) => {
+        if(this.ask('Портал Минздрава - Главная.dc.html')){ if(e && e.preventDefault) e.preventDefault(); this._logout = true; return; }
+        try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){}
+      },
+      hasLeave: !!s.leaveTo,
+      leavePatient: s.leavePatient,
+      stayRef: this.stayRef,
+      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+      stay: () => { this._logout = false; this.setState({ leaveTo:null }); },
+      leave: () => {
+        const to = s.leaveTo;
+        if(this._logout){ try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){} }
+        this.setState({ leaveTo:null }); window.location.href = to;
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
