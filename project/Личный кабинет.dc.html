@@ -27,6 +27,12 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .mp-scroll::-webkit-scrollbar{width:0;height:0;}
   image-slot{display:block!important;width:100%!important;height:100%!important;}
+  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .cn-host{position:sticky;top:90px;}
+  @media (max-width:1024px){
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
 </style>
 </helmet>
 
@@ -39,27 +45,11 @@
       <i class="ri-arrow-right-s-line"></i><span style="color:var(--n700);font-weight:500;">Личный кабинет</span>
     </div>
 
-    <div style="display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;">
+    <div class="lk-grid">
 
-      <!-- LEFT: profile + nav -->
-      <aside style="position:sticky;top:90px;display:flex;flex-direction:column;gap:16px;">
-        <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:24px;text-align:center;box-shadow:var(--sh-xs);">
-          <div style="width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 14px;border:3px solid var(--primary-lighter);background:var(--n100);">
-            <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="lk-avatar" shape="circle" placeholder="Фото" hint-size="96px,96px"></x-import>
-          </div>
-          <div style="font-size:18px;font-weight:600;letter-spacing:-.01em;">Аружан Сейтжанова</div>
-          <div style="font-size:13px;color:var(--n400);margin-top:2px;">ИИН 020116501540</div>
-          <div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:6px 12px;border-radius:999px;"><i class="ri-shield-check-fill"></i>ОСМС: застрахован</div>
-        </div>
-        <nav style="background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:var(--sh-xs);">
-          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
-            <button onClick="{{ n.onClick }}" style="{{ n.style }}">
-              <i class="{{ n.icon }}" style="font-size:20px;"></i><span style="flex:1;text-align:left;">{{ n.label }}</span>
-              <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ n.badgeStyle }}">{{ n.badge }}</span></sc-if>
-            </button>
-          </sc-for>
-        </nav>
-        <a href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n500);font-size:14px;font-weight:500;text-decoration:none;"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
+      <!-- LEFT: profile + nav (общий компонент — тот же, что в «Медицинской книжке») -->
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="{{ tab }}" hint-size="300px,620px"></dc-import>
       </aside>
 
       <!-- RIGHT: content -->
@@ -371,25 +361,28 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
+// Разделы кабинета живут в location.hash (#epz, #osms…): меню — общий компонент CitizenNav,
+// в нём ссылки «Личный кабинет.dc.html#…», поэтому разделы открываются и с других страниц.
+const LK_TABS = ['overview','epz','visits','results','osms','notif'];
+
 class Component extends DCLogic {
   state = { tab:'overview', epzOpen:0, bookingOpen:false, bookDay:1, bookSlot:null, booked:false, bookedWhen:'' };
+
+  componentDidMount(){
+    this.setState({ tab:this.hashTab() });
+    this._onHash = () => {
+      const t = this.hashTab();
+      if(t !== this.state.tab){ this.setState({ tab:t }); window.scrollTo(0, 0); }
+    };
+    window.addEventListener('hashchange', this._onHash);
+  }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+  hashTab(){ const h = (location.hash || '').slice(1); return LK_TABS.indexOf(h) !== -1 ? h : 'overview'; }
+  go(id){ if(location.hash.slice(1) === id) this.setState({ tab:id }); else location.hash = id; }
 
   renderVals(){
     const s = this.state;
     const C = { blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], teal:['#EBFAFF','#35B9E9'], orange:['#FEF3EB','#F17B2C'], purple:['#EEEBFF','#6E3FF3'], red:['#FDEDF0','#DF1C41'], yellow:['#FEF7EC','#F2AE40'], pink:['#FDEBFF','#E255F2'] };
-
-    const navData = [
-      { id:'overview', label:'Обзор', icon:'ri-dashboard-line' },
-      { id:'epz', label:'Паспорт здоровья', icon:'ri-profile-line' },
-      { id:'visits', label:'История приёмов', icon:'ri-history-line' },
-      { id:'results', label:'Результаты', icon:'ri-test-tube-line' },
-      { id:'osms', label:'Страхование ОСМС', icon:'ri-shield-check-line' },
-      { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', badge:'3' },
-    ];
-    const nav = navData.map(n => ({ ...n, hasBadge:!!n.badge, badge:n.badge,
-      onClick:()=>this.setState({ tab:n.id }),
-      badgeStyle:`font-size:11px;font-weight:600;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:${s.tab===n.id?'rgba(255,255,255,.25)':'#DF1C41'};color:#fff;`,
-      style:`width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:${s.tab===n.id?'600':'500'};cursor:pointer;transition:.12s;margin-bottom:2px;${s.tab===n.id?'background:#4D42E9;color:#fff;':'background:transparent;color:#31353F;'}` }));
 
     // recommendations
     const recData = [
@@ -515,10 +508,10 @@ class Component extends DCLogic {
     };
 
     return {
-      nav,
+      tab:s.tab,
       isOverview:s.tab==='overview', isEpz:s.tab==='epz', isVisits:s.tab==='visits', isResults:s.tab==='results', isOsms:s.tab==='osms', isNotif:s.tab==='notif',
       recommendations, stats, upcoming, recentVisits,
-      goAppointments:()=>this.setState({ tab:'visits' }), goVisits:()=>this.setState({ tab:'visits' }),
+      goAppointments:()=>this.go('visits'), goVisits:()=>this.go('visits'),
       personal, epzSummary, epzSections,
       timeline, results,
       osmsBars, osmsRows, osmsTotal,

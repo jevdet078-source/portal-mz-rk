@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Меню личного кабинета гражданина: карточка «кто вошёл» + разделы + «Выйти».
+  Подключается в «Личный кабинет» и «Медицинская книжка» в левой колонке:
+    <aside class="cn-host"><dc-import name="CitizenNav" active="lmk" hint-size="300px,620px"></dc-import></aside>
+  Обёртка cn-host — sticky на десктопе; на ≤1024px страница складывается в одну колонку,
+  карточка сжимается в строку, а разделы становятся горизонтальной лентой.
+
+  Пропсы:
+    active — overview | epz | visits | results | osms | notif | lmk
+
+  Разделы «Личного кабинета» — ссылки с якорем (Личный кабинет.dc.html#epz): внутри страницы
+  это просто смена hash (страница слушает hashchange), с других страниц — обычный переход.
+  «Выйти» сбрасывает mp-profile и mp-iin (как DoctorNav).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--red:#DF1C41;--stroke:#E2E4E9;}
+  .cn{display:flex;flex-direction:column;gap:16px;font-family:'Inter',sans-serif;color:var(--n900);}
+  .cn-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:24px;text-align:center;box-shadow:0 1px 2px rgba(10,13,20,.03);}
+  .cn-ava{width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 14px;border:3px solid var(--primary-lighter);background:var(--n100);flex:0 0 auto;}
+  .cn-name{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .cn-iin{font-size:13px;line-height:18px;color:var(--n400);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .cn-osms{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:6px 12px;border-radius:999px;white-space:nowrap;}
+  .cn-who{min-width:0;}
+  .cn-nav{position:relative;background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:0 1px 2px rgba(10,13,20,.03);display:flex;flex-direction:column;gap:2px;}
+  .cn-it{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);text-decoration:none;transition:background .12s,color .12s;box-sizing:border-box;}
+  .cn-it:hover{background:var(--n100);}
+  .cn-it.on,.cn-it.on:hover{background:var(--primary);color:#fff;font-weight:600;}
+  .cn-lbl{flex:1;text-align:left;white-space:nowrap;}
+  .cn-badge{font-size:11px;font-weight:600;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;}
+  .cn-it.on .cn-badge{background:rgba(255,255,255,.25);}
+  .cn-out{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n500);font-size:14px;font-weight:500;text-decoration:none;transition:background .12s,border-color .12s;}
+  .cn-out:hover{background:var(--n100);border-color:var(--n300);}
+  .cn-it:focus-visible,.cn-out:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  /* ≤1024px: колонка страницы складывается — карточка в строку, разделы лентой */
+  @media (max-width:1024px){
+    .cn{gap:12px;}
+    .cn-card{display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-radius:16px;}
+    .cn-ava{width:48px;height:48px;margin:0;border-width:2px;}
+    .cn-name{font-size:16px;line-height:22px;}
+    .cn-osms{margin:0 0 0 auto;}
+    .cn-nav{flex-direction:row;overflow-x:auto;scrollbar-width:none;border-radius:14px;padding:6px;}
+    .cn-nav::-webkit-scrollbar{display:none;}
+    .cn-it{width:auto;flex:0 0 auto;padding:9px 12px;gap:8px;font-size:13.5px;}
+    .cn-it i{font-size:18px !important;}
+    .cn-out{display:none;}
+  }
+  @media (max-width:520px){
+    .cn-osms span{display:none;}
+    .cn-osms{padding:6px 8px;}
+  }
+</style>
+</helmet>
+<div class="cn">
+  <div class="cn-card">
+    <div class="cn-ava">
+      <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="lk-avatar" shape="circle" placeholder="Фото" hint-size="96px,96px"></x-import>
+    </div>
+    <div class="cn-who">
+      <div class="cn-name">Аружан Сейтжанова</div>
+      <div class="cn-iin">ИИН 020116501540</div>
+    </div>
+    <div class="cn-osms" title="ОСМС: застрахован"><i class="ri-shield-check-fill"></i><span>ОСМС: застрахован</span></div>
+  </div>
+  <nav ref="{{ navRef }}" class="cn-nav" aria-label="Разделы личного кабинета">
+    <sc-for list="{{ items }}" as="n" hint-placeholder-count="7">
+      <a href="{{ n.href }}" class="{{ n.cls }}" aria-current="{{ n.current }}">
+        <i class="{{ n.icon }}" style="font-size:20px;flex:0 0 auto;"></i><span class="cn-lbl">{{ n.label }}</span>
+        <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span class="cn-badge" aria-label="{{ n.badgeLabel }}">{{ n.badge }}</span></sc-if>
+      </a>
+    </sc-for>
+  </nav>
+  <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="cn-out"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:620},&quot;active&quot;:&quot;overview&quot;}">
+const LK = 'Личный кабинет.dc.html';
+// Иконки — только контурные (-line): заливные на индиго-фоне активного пункта читаются как сплошной белый блок
+const CN_ITEMS = [
+  { id:'overview', label:'Обзор', icon:'ri-dashboard-line', href:LK + '#overview' },
+  { id:'epz', label:'Паспорт здоровья', icon:'ri-profile-line', href:LK + '#epz' },
+  { id:'lmk', label:'Медицинская книжка', icon:'ri-booklet-line', href:'Медицинская книжка.dc.html' },
+  { id:'visits', label:'История приёмов', icon:'ri-history-line', href:LK + '#visits' },
+  { id:'results', label:'Результаты', icon:'ri-test-tube-line', href:LK + '#results' },
+  { id:'osms', label:'Страхование ОСМС', icon:'ri-shield-check-line', href:LK + '#osms' },
+  { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:LK + '#notif', badge:'3', badgeLabel:'3 непрочитанных' },
+];
+
+class Component extends DCLogic {
+  navRef = React.createRef();
+  componentDidMount(){ this.reveal(); }
+  componentDidUpdate(prev){ if(!prev || prev.active !== (this.props || {}).active) this.reveal(); }
+  // ≤1024px разделы — горизонтальная лента: активный пункт прокручиваем в видимую область
+  reveal(){
+    setTimeout(() => {
+      const nav = this.navRef.current;
+      if(!nav || nav.scrollWidth <= nav.clientWidth) return;
+      const on = nav.querySelector('.cn-it.on');
+      if(on) nav.scrollLeft = Math.max(0, on.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2);
+    }, 0);
+  }
+  renderVals(){
+    const p = this.props || {};
+    const active = p.active || 'overview';
+    const items = CN_ITEMS.map(n => {
+      const on = n.id === active;
+      return { ...n,
+        cls: on ? 'cn-it on' : 'cn-it',
+        current: on ? 'page' : undefined,
+        hasBadge: !!n.badge, badge: n.badge || '', badgeLabel: n.badgeLabel || '',
+      };
+    });
+    return {
+      items, navRef: this.navRef,
+      onLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
+    };
+  }
+}
+</script>
+</body>
+</html>
