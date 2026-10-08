@@ -28,6 +28,7 @@ npm run record -- registration          # 2. Регистрация — осно
 npm run record -- registration-errors   # 3. Регистрация — ошибки и исключения
 npm run record -- admin-users           # 4. Администрирование — пользователи
 npm run record -- admin-orgs            # 5. Администрирование — организации
+npm run record -- lmk                   # 8. Медицинская книжка (ЛМК)
 ```
 
 → `exports/video/*.mp4` (в git не идут). Сценарии — `tools/record/<имя>.mjs`,
