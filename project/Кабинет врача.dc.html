@@ -48,34 +48,30 @@
 </style>
 </helmet>
 
-<div style="display:flex;min-height:100vh;">
+<div style="min-height:100vh;">
+
+  <!-- ============ ШАПКА ПОРТАЛА (общая для кабинетов) ============ -->
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" cabinet="medical" user="Ахметов С.К." place="ГП № 4 · каб. 204" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
 
   <!-- ============ LEFT SIDEBAR (общий для кабинета медработника) ============ -->
-  <div class="dn-host" style="position:sticky;top:0;height:100vh;flex:0 0 auto;z-index:40;">
+  <div class="dn-host" style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:41;">
     <dc-import name="DoctorNav" style="height:100%;" active="epz" hint-size="252px,827px"></dc-import>
   </div>
 
   <!-- ============ RIGHT COLUMN ============ -->
   <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
 
-    <!-- TOPBAR -->
-    <header style="position:sticky;top:0;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke);">
-      <div style="padding:14px 32px;display:flex;align-items:center;gap:16px;">
-        <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
-          <div style="flex:1;"><div style="font-size:17px;font-weight:600;letter-spacing:-.01em;">Электронный паспорт здоровья</div><div style="font-size:12.5px;color:var(--n400);">Поиск и просмотр медицинских данных пациентов</div></div>
-        </sc-if>
-        <sc-if value="{{ inEpz }}" hint-placeholder-val="{{ false }}">
+    <!-- Панель открытого ЭПЗ: возврат к поиску и таймер сессии доступа (под шапкой портала) -->
+    <sc-if value="{{ inEpz }}" hint-placeholder-val="{{ false }}">
+      <div style="position:sticky;top:73px;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke);">
+        <div style="padding:14px 32px;display:flex;align-items:center;gap:16px;">
           <button onClick="{{ backToDash }}" style="display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;flex:0 0 auto;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>К поиску пациента</button>
           <div style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:9px;background:var(--orange-l);color:var(--orange-d);font-size:12.5px;font-weight:600;flex:0 0 auto;"><i class="ri-time-line" style="font-size:15px;"></i>Сессия доступа: <span style="font-variant-numeric:tabular-nums;">{{ accessTimer }}</span></div>
-          <div style="flex:1;"></div>
-        </sc-if>
-        <button style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 auto;"><i class="ri-notification-3-line" style="font-size:19px;color:var(--n500);"></i><span style="position:absolute;top:8px;right:9px;width:7px;height:7px;border-radius:50%;background:var(--red);border:1.5px solid #fff;"></span></button>
-        <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 6px 0 12px;border:1px solid var(--stroke);border-radius:10px;flex:0 0 auto;">
-          <div style="text-align:right;line-height:1.25;"><div style="font-size:13px;font-weight:600;">Ахметов С.К.</div><div style="font-size:11px;color:var(--n400);">ГП № 4 · каб. 204</div></div>
-          <div style="width:30px;height:30px;border-radius:8px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-user-line" style="font-size:17px;color:var(--primary);"></i></div>
         </div>
       </div>
-    </header>
+    </sc-if>
 
     <main style="flex:1;">
 
@@ -163,7 +159,7 @@
           <div style="display:grid;grid-template-columns:236px 1fr;gap:22px;align-items:start;">
 
             <!-- section nav -->
-            <aside style="position:sticky;top:88px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;box-shadow:var(--sh-xs);">
+            <aside style="position:sticky;top:161px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;box-shadow:var(--sh-xs);">
               <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--n400);padding:8px 10px 6px;">Разделы ЭПЗ</div>
               <sc-for list="{{ sections }}" as="s">
                 <button onClick="{{ s.onClick }}" style="{{ s.style }}"><i class="{{ s.icon }}" style="font-size:18px;flex:0 0 auto;"></i><span style="flex:1;text-align:left;">{{ s.label }}</span></button>
@@ -868,6 +864,7 @@
         </div>
       </sc-if>
     </main>
+  </div>
   </div>
 
   <!-- ============ КДП MODAL ============ -->

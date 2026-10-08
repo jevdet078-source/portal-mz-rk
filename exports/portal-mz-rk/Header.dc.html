@@ -16,13 +16,34 @@
 <style>
   :root{--primary:#4D42E9;--primary-darker:#312D86;--primary-lighter:#EEF2FF;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;--orange:#F17B2C;--orange-l:#FEF3EB;--purple:#6E3FF3;--purple-l:#CAC2FF;--purple-ll:#EEEBFF;--purple-d:#2B1664;}
   @keyframes hdr-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .hdr-lnk:focus-visible,.hdr-user:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .hdr-user{transition:background .15s,border-color .15s;}
+  .hdr-user:hover{background:var(--n100) !important;border-color:#CDD0D5 !important;}
+  /*
+    Адаптив шапки кабинетов (layout="app"). Высота шапки на всех ширинах одна — 73px:
+    от неё считаются sticky-отступы меню и вкладок на страницах кабинетов.
+  */
+  @media (max-width:1024px){
+    .hdr-home-txt{display:none;}
+    .hdr-home{width:40px;padding:0 !important;justify-content:center;}
+  }
+  @media (max-width:860px){
+    .hdr-user-txt,.hdr-org-txt{display:none !important;}
+    .hdr-user{padding:0 4px !important;}
+  }
+  @media (max-width:640px){
+    .hdr-bar-app{padding:12px 16px !important;gap:12px !important;}
+    .hdr-brand-txt{display:none;}
+    .hdr-acts{gap:8px !important;}
+    .hdr-bell-pop{position:fixed !important;left:16px;right:16px !important;top:81px !important;width:auto !important;}
+  }
 </style>
 </helmet>
 <header style="background:#fff;border-bottom:1px solid var(--stroke);font-family:'Inter',sans-serif;">
-  <div style="{{ barStyle }}">
-    <a href="Портал Минздрава - Главная.dc.html" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;">
+  <div class="{{ barCls }}" style="{{ barStyle }}">
+    <a href="Портал Минздрава - Главная.dc.html" onClick="{{ guardHome }}" class="hdr-lnk" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;border-radius:10px;">
       <img src="uploads/images.jpg" alt="Герб Республики Казахстан" style="width:48px;height:48px;object-fit:contain;flex:0 0 auto;" />
-      <div style="line-height:1.2;max-width:240px;">
+      <div class="hdr-brand-txt" style="line-height:1.2;max-width:240px;">
         <div style="font-size:14px;font-weight:600;color:var(--n900);letter-spacing:-.01em;">Министерство здравоохранения</div>
         <div style="font-size:12px;color:var(--n400);font-weight:500;">Республики Казахстан</div>
       </div>
@@ -41,44 +62,61 @@
 
     <div style="flex:1;"></div>
 
-    <div style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
+    <div class="hdr-acts" style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
       <sc-if value="{{ showBell }}" hint-placeholder-val="{{ false }}">
         <div style="position:relative;">
-          <button onClick="{{ toggleBell }}" title="Уведомления" style="{{ bellStyle }}">
+          <button onClick="{{ toggleBell }}" title="Уведомления" aria-label="{{ bellLabel }}" aria-expanded="{{ bellOpen }}" style="{{ bellStyle }}">
             <i class="ri-notification-3-line" style="font-size:20px;"></i>
             <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
-              <span style="position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;line-height:16px;font-weight:600;text-align:center;border:2px solid #fff;box-sizing:content-box;">{{ unread }}</span>
+              <span style="position:absolute;top:-7px;right:-7px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;line-height:16px;font-weight:600;text-align:center;border:2px solid #fff;box-sizing:content-box;">{{ unread }}</span>
             </sc-if>
           </button>
           <sc-if value="{{ bellOpen }}" hint-placeholder-val="{{ false }}">
             <div onClick="{{ closeBell }}" style="position:fixed;inset:0;z-index:44;"></div>
-            <div style="position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:312px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);overflow:hidden;animation:hdr-drop .15s ease;">
+            <div class="hdr-bell-pop" style="position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:312px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);overflow:hidden;animation:hdr-drop .15s ease;">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px 14px 16px;border-bottom:1px solid var(--stroke);">
                 <span style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">Уведомления</span>
                 <button onClick="{{ closeBell }}" title="Закрыть" style="padding:2px;border:none;background:none;cursor:pointer;display:flex;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
               </div>
-              <div style="max-height:360px;overflow-y:auto;">
-                <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
-                  <a href="{{ n.href }}" style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;">
-                    <span style="{{ n.dotStyle }}"></span>
-                    <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
-                      <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
-                      <span style="{{ n.titleStyle }}">{{ n.title }}</span>
-                      <span style="font-size:12px;line-height:16px;color:var(--n500);">Эксперт: {{ n.expert }}</span>
-                      <span style="{{ n.statusStyle }}">{{ n.status }}</span>
-                    </span>
-                  </a>
-                </sc-for>
-              </div>
-              <div style="padding:12px 16px;">
-                <a href="Уведомления.dc.html" style="display:flex;align-items:center;justify-content:center;height:36px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;">Посмотреть все</a>
-              </div>
+              <sc-if value="{{ isBizNotes }}" hint-placeholder-val="{{ true }}">
+                <div style="max-height:360px;overflow-y:auto;">
+                  <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
+                    <a href="{{ n.href }}" style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;">
+                      <span style="{{ n.dotStyle }}"></span>
+                      <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                        <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
+                        <span style="{{ n.titleStyle }}">{{ n.title }}</span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);">Эксперт: {{ n.expert }}</span>
+                        <span style="{{ n.statusStyle }}">{{ n.status }}</span>
+                      </span>
+                    </a>
+                  </sc-for>
+                </div>
+                <div style="padding:12px 16px;">
+                  <a href="Уведомления.dc.html" style="display:flex;align-items:center;justify-content:center;height:36px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;">Посмотреть все</a>
+                </div>
+              </sc-if>
+              <!-- уведомления медработника: та же карточка, свои события -->
+              <sc-if value="{{ isDocNotes }}" hint-placeholder-val="{{ false }}">
+                <div style="max-height:360px;overflow-y:auto;">
+                  <sc-for list="{{ docNotes }}" as="n" hint-placeholder-count="2">
+                    <a href="{{ n.href }}" onClick="{{ n.onClick }}" style="{{ n.style }}">
+                      <span style="{{ n.dotStyle }}"></span>
+                      <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                        <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
+                        <span style="{{ n.titleStyle }}">{{ n.title }}</span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ n.text }}</span>
+                      </span>
+                    </a>
+                  </sc-for>
+                </div>
+              </sc-if>
             </div>
           </sc-if>
         </div>
       </sc-if>
       <div style="position:relative;">
-        <button onClick="{{ toggleLang }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--n600);cursor:pointer;">
+        <button class="hdr-lang" onClick="{{ toggleLang }}" aria-expanded="{{ langOpen }}" title="Язык интерфейса" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;font-size:14px;font-weight:600;color:var(--n600);cursor:pointer;">
           <i class="ri-global-line" style="font-size:18px;color:var(--n400);"></i>{{ currentLang }}<i class="{{ chevron }}" style="font-size:18px;color:var(--n400);"></i>
         </button>
         <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
@@ -109,7 +147,7 @@
         <div style="position:relative;">
           <button onClick="{{ toggleOrg }}" aria-haspopup="menu" aria-expanded="{{ orgOpen }}" title="Организация и роль" style="{{ orgBtnStyle }}">
             <span style="width:32px;height:32px;border-radius:8px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:18px;color:var(--orange);"></i></span>
-            <span style="line-height:1.2;white-space:nowrap;text-align:left;">
+            <span class="hdr-org-txt" style="line-height:1.2;white-space:nowrap;text-align:left;">
               <span style="display:block;font-size:13px;font-weight:600;color:var(--n900);">{{ org }}</span>
               <span style="display:block;font-size:12px;color:var(--n400);">{{ bin }}</span>
             </span>
@@ -149,9 +187,28 @@
           </sc-if>
         </div>
       </sc-if>
+      <!--
+        Кабинет медработника (cabinet="medical"): на месте организации — сам врач.
+        Фото — то, что он загрузил в «Профиле врача» (localStorage['mp-doc-photo']),
+        без фото — значок пользователя. Клик ведёт в профиль.
+      -->
+      <sc-if value="{{ hasDoc }}" hint-placeholder-val="{{ false }}">
+        <a href="Профиль врача.dc.html" onClick="{{ onDocMe }}" class="hdr-user" title="Профиль врача" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px 0 4px;border:1px solid var(--stroke);border-radius:10px;background:#fff;text-decoration:none;color:inherit;flex:0 0 auto;">
+          <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}">
+            <span aria-hidden="true" style="{{ photoStyle }}"></span>
+          </sc-if>
+          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}">
+            <span aria-hidden="true" style="width:32px;height:32px;border-radius:8px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-user-line" style="font-size:17px;"></i></span>
+          </sc-if>
+          <span class="hdr-user-txt" style="line-height:1.2;white-space:nowrap;text-align:left;">
+            <span style="display:block;font-size:13px;font-weight:600;color:var(--n900);">{{ user }}</span>
+            <span style="display:block;font-size:12px;color:var(--n400);">{{ place }}</span>
+          </span>
+        </a>
+      </sc-if>
       <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
-        <a href="Портал Минздрава - Главная.dc.html" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;">
-          <i class="ri-home-4-line" style="font-size:18px;"></i>На главную
+        <a href="Портал Минздрава - Главная.dc.html" onClick="{{ guardHome }}" class="hdr-lnk hdr-home" title="На главную" aria-label="На главную" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;box-sizing:border-box;">
+          <i class="ri-home-4-line" style="font-size:18px;"></i><span class="hdr-home-txt">На главную</span>
         </a>
       </sc-if>
     </div>
@@ -160,7 +217,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:70}}">
 class Component extends DCLogic {
-  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, read:['97','96','95','94'] };
+  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, read:['97','96','95','94'], photo:'', docRead:['d1'] };
   componentDidMount(){
     // прочитанные уведомления — общий ключ со страницей «Уведомления»
     try { const v = localStorage.getItem('mp-notif-read'); if(v){ const r = JSON.parse(v); if(Array.isArray(r)) this.setState({ read:r }); } } catch(e){}
@@ -176,8 +233,30 @@ class Component extends DCLogic {
     try { const b = localStorage.getItem('mp-biz-role'); if(b) this.setState({ bizRole:b }); } catch(e){}
     this._onBizRole = (e) => { if(e && e.detail) this.setState({ bizRole:e.detail }); };
     window.addEventListener('mp-biz-role-change', this._onBizRole);
+    // кабинет медработника: фото профиля и прочитанные уведомления
+    try { this.setState({ photo: localStorage.getItem('mp-doc-photo') || '' }); } catch(e){}
+    try { const v = localStorage.getItem('mp-doc-notif-read'); if(v){ const r = JSON.parse(v); if(Array.isArray(r)) this.setState({ docRead:r }); } } catch(e){}
+    this._onPhoto = (e) => this.setState({ photo: (e && typeof e.detail === 'string') ? e.detail : '' });
+    window.addEventListener('mp-doc-photo-change', this._onPhoto);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); }
+  componentWillUnmount(){ window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-doc-photo-change', this._onPhoto); }
+  // Кабинет врача: из открытого ЭПЗ с активной сессией доступа не уходим молча —
+  // просим меню кабинета (DoctorNav) показать подтверждение. true — переход перехвачен.
+  guard(e, to){
+    let patient = '';
+    try { patient = typeof window.mpDocGuard === 'function' ? (window.mpDocGuard() || '') : ''; } catch(err){}
+    if(!patient) return false;
+    if(e && e.preventDefault) e.preventDefault();
+    this.setState({ bellOpen:false, langOpen:false });
+    try { window.dispatchEvent(new CustomEvent('mp-doc-leave-request', { detail:to })); } catch(err){}
+    return true;
+  }
+  readDocNote(id){
+    if(this.state.docRead.indexOf(id) !== -1) return;
+    const r = this.state.docRead.concat(id);
+    this.setState({ docRead:r });
+    try { localStorage.setItem('mp-doc-notif-read', JSON.stringify(r)); } catch(e){}
+  }
   setBizRole(id){
     this.setState({ bizRole:id, orgOpen:false });
     try { localStorage.setItem('mp-biz-role', id); } catch(e){}
@@ -223,12 +302,30 @@ class Component extends DCLogic {
       { n:'98', meta:'ID 123456 · 01.01.2025, 10:00', title:PRICE, ok:false },
       { n:'97', meta:'ID 123456 · 01.01.2025, 10:00', title:CHANGE, ok:true },
     ];
-    const unread = noteData.filter(n => s.read.indexOf(n.n) === -1).length;
+    const isDoc = isAccount && this.props.cabinet === 'medical';
+    const unread = isDoc ? 0 : noteData.filter(n => s.read.indexOf(n.n) === -1).length;
     const notes = noteData.map(n => { const isNew = s.read.indexOf(n.n) === -1; return {
       meta:n.meta, title:n.title, expert:'Иванов. И.И.', status:'Завершена', href:'Уведомления.dc.html',
       dotStyle:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
       titleStyle:`font-size:14px;line-height:20px;font-weight:${isNew ? '600' : '500'};color:#0A0D14;`,
       statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${n.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` }; });
+
+    // ——— кабинет медработника ———
+    // срок сертификата — тот же, что в «Профиле врача» (тестовый ответ СУР: истекает через 68 дней)
+    const certEnd = new Date(); certEnd.setDate(certEnd.getDate() + 68);
+    const p2 = (n) => String(n).padStart(2, '0');
+    const docNoteData = [
+      { id:'d2', meta:'Сегодня', title:'Сертификат «Кардиология» истекает через 68 дней', text:`Срок действия — до ${p2(certEnd.getDate())}.${p2(certEnd.getMonth()+1)}.${certEnd.getFullYear()}`, href:'Профиль врача.dc.html#qualification' },
+      { id:'d1', meta:'Вчера, 16:40', title:'Сессия доступа к ЭПЗ завершена', text:'Пациент: Иванова А. С.', href:'Кабинет врача.dc.html' },
+    ];
+    const docUnread = docNoteData.filter(n => s.docRead.indexOf(n.id) === -1).length;
+    const docNotes = docNoteData.map((n, i) => { const isNew = s.docRead.indexOf(n.id) === -1; return { ...n,
+      onClick: (e) => { this.readDocNote(n.id); if(this.guard(e, n.href)) return; this.setState({ bellOpen:false }); },
+      style: `display:flex;gap:8px;padding:12px 16px;text-decoration:none;color:inherit;${i < docNoteData.length - 1 ? 'border-bottom:1px solid #E2E4E9;' : ''}`,
+      dotStyle: `width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
+      titleStyle: `font-size:14px;line-height:20px;font-weight:${isNew ? '600' : '500'};color:#0A0D14;` }; });
+    const user = this.props.user || '';
+    const onProfile = (() => { try { return /Профиль врача\.dc\.html$/.test(decodeURIComponent(location.pathname)); } catch(e){ return false; } })();
 
     // ——— роль внутри кабинета бизнеса ———
     const isAdmin = s.bizRole === 'admin';
@@ -250,7 +347,22 @@ class Component extends DCLogic {
       bellStyle:`position:relative;width:40px;height:40px;border:1px solid ${s.bellOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:${s.bellOpen ? '#EEF2FF' : '#fff'};color:${s.bellOpen ? '#4D42E9' : '#525866'};font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;`,
       toggleBell: () => this.setState(st => ({ bellOpen:!st.bellOpen, langOpen:false })),
       closeBell: () => this.setState({ bellOpen:false }),
-      notes, unread, hasUnread: unread > 0,
+      notes, unread: isDoc ? docUnread : unread, hasUnread: (isDoc ? docUnread : unread) > 0,
+      bellLabel: (isDoc ? docUnread : unread) > 0 ? `Уведомления, непрочитанных: ${isDoc ? docUnread : unread}` : 'Уведомления',
+      isBizNotes: !isDoc, isDocNotes: isDoc, docNotes,
+      // кабинет медработника: врач вместо организации
+      hasDoc: isDoc && !!user, user, place: this.props.place || '',
+      hasPhoto: !!s.photo, noPhoto: !s.photo,
+      // фото фоном: <img src="{{ }}"> браузер запрашивает до подстановки шаблона (404);
+      // стиль объектом: рантайм делит строку стилей по «;», а в data:-URL она есть
+      photoStyle: s.photo ? { width:32, height:32, borderRadius:8, flex:'0 0 auto', background:`#EEF2FF url("${s.photo}") center/cover no-repeat` } : {},
+      onDocMe: (e) => {
+        // уже в профиле — не перезагружаем страницу, а поднимаемся к началу
+        if(onProfile){ if(e && e.preventDefault) e.preventDefault(); window.scrollTo({ top:0, behavior:'smooth' }); return; }
+        this.guard(e, 'Профиль врача.dc.html');
+      },
+      guardHome: (e) => { this.guard(e, 'Портал Минздрава - Главная.dc.html'); },
+      barCls: isApp ? 'hdr-bar-app' : '',
       barStyle: isApp
         ? 'padding:12px 32px 12px 16px;display:flex;align-items:center;gap:24px;'
         : 'max-width:1440px;margin:0 auto;padding:12px 40px;display:flex;align-items:center;gap:24px;',
