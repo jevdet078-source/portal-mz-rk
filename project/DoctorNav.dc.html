@@ -7,12 +7,15 @@
 </head>
 <body>
 <!--
-  Меню кабинета медработника. Подключается в «Профиль врача» и «Кабинет врача»:
-    <div class="dn-host" style="position:sticky;top:0;height:100vh;flex:0 0 auto;z-index:40;">
+  Меню кабинета медработника. Подключается в «Профиль врача» и «Кабинет врача»
+  под общей шапкой портала (Header cabinet="medical") — так же, как BusinessNav в кабинете бизнеса:
+    <div class="dn-host" style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:41;">
       <dc-import name="DoctorNav" style="height:100%;" active="profile" hint-size="252px,827px"></dc-import>
     </div>
   Обёртка со sticky (класс dn-host) обязательна: компонент растягивается на её высоту,
   а на телефоне (≤640px) обёртка схлопывается и меню становится нижней панелью.
+  z-index 41 — выше шапки (40), чтобы подтверждение ухода из ЭПЗ накрывало и её.
+  Логотип и карточка «кто вошёл» из меню убраны: герб — в шапке портала, врач с фото — справа в шапке.
   Адаптив: >1024px — 252px с подписями; 641–1024px — колонка иконок 72px; ≤640px — нижняя панель.
 
   Пропсы:
@@ -23,6 +26,7 @@
   Связь со страницей:
     • клик по активному пункту не перезагружает страницу, а шлёт событие window 'mp-doc-nav-home'
       (кабинет врача возвращается к поиску пациента);
+    • событие window 'mp-doc-leave-request' (detail — адрес) — шапка просит подтвердить уход из ЭПЗ;
     • window.mpDocGuard() — если страница его объявила и он вернул ФИО пациента,
       значит открыт ЭПЗ с активной сессией доступа: уход со страницы её закроет,
       поэтому сначала спрашиваем подтверждение.
@@ -33,22 +37,17 @@
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
 <style>
   :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--orange:#F17B2C;--orange-l:#FEF3EB;--stroke:#E2E4E9;}
-  .dn-aside{width:252px;height:100%;background:var(--n0);border-right:1px solid var(--stroke);display:flex;flex-direction:column;padding:18px 14px;box-sizing:border-box;font-family:'Inter',sans-serif;color:var(--n900);}
-  .dn-brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px;}
-  .dn-logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));display:flex;align-items:center;justify-content:center;box-shadow:0 2px 4px rgba(10,13,20,.06);flex:0 0 auto;}
-  .dn-cap{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--n400);padding:8px 10px;}
+  .dn-aside{width:252px;height:100%;background:var(--n0);border-right:1px solid var(--stroke);display:flex;flex-direction:column;padding:16px 14px;box-sizing:border-box;font-family:'Inter',sans-serif;color:var(--n900);}
+  .dn-cap{font-size:11px;line-height:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--n400);padding:12px 12px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .dn-nav{display:flex;flex-direction:column;gap:4px;}
   .dn-lbl{flex:1;min-width:0;}
   .dn-short{display:none;}
   .dn-fill{flex:1;}
-  .dn-user{background:var(--n50);border:1px solid var(--stroke);border-radius:14px;padding:12px;}
-  .dn-ava{width:38px;height:38px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:13px;font-weight:600;color:var(--primary);}
+  .dn-user{padding-top:14px;border-top:1px solid var(--stroke);}
   .dn-it{width:100%;display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;font-family:inherit;font-size:13.5px;line-height:18px;text-decoration:none;transition:background .15s,color .15s;box-sizing:border-box;}
   .dn-it:hover{background:var(--n100);}
   .dn-it.on,.dn-it.on:hover{background:var(--primary-lighter);}
-  .dn-me{display:flex;align-items:center;gap:10px;padding:2px;margin:-2px;border-radius:10px;text-decoration:none;color:inherit;transition:background .15s;}
-  .dn-me:hover{background:var(--n100);}
-  .dn-out{display:flex;align-items:center;justify-content:center;gap:7px;height:38px;margin-top:10px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s;box-sizing:border-box;}
+  .dn-out{display:flex;align-items:center;justify-content:center;gap:7px;height:38px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;text-decoration:none;transition:background .15s,border-color .15s;box-sizing:border-box;}
   .dn-out:hover{background:var(--n100);border-color:var(--n300);}
   .dn-out .dn-lbl{flex:0 0 auto;}
   .dn-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:background .15s,border-color .15s;}
@@ -56,29 +55,27 @@
   .dn-btn.sec:hover{background:var(--n100);}
   .dn-btn.pri{border:none;background:var(--primary);color:#fff;}
   .dn-btn.pri:hover{background:var(--primary-dark);}
-  .dn-it:focus-visible,.dn-me:focus-visible,.dn-out:focus-visible,.dn-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .dn-it:focus-visible,.dn-out:focus-visible,.dn-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   @keyframes dn-fade{from{opacity:0}to{opacity:1}}
   @keyframes dn-pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
 
   /* Планшет (641–1024px): колонка иконок 72px, подписи — во всплывающих title */
   @media (max-width:1024px){
-    .dn-aside{width:72px;padding:18px 12px;align-items:center;}
-    .dn-brand{padding:6px 0 18px;}
-    .dn-txt,.dn-cap,.dn-lbl{display:none;}
+    .dn-aside{width:72px;padding:16px 12px;align-items:center;}
+    .dn-cap,.dn-lbl{display:none;}
     .dn-nav{width:100%;align-items:center;}
     .dn-it{width:44px;height:44px;padding:0;justify-content:center;}
-    .dn-user{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:8px;}
-    .dn-me{margin:0;}
-    .dn-out{width:44px;height:44px;margin:0;padding:0;}
+    .dn-user{width:100%;display:flex;justify-content:center;}
+    .dn-out{width:44px;height:44px;padding:0;}
   }
   /* Телефон (≤640px): нижняя панель — Профиль · ЭПЗ · Выйти */
   @media (max-width:640px){
     body{padding-bottom:64px;}
     .dn-host{position:static !important;width:0 !important;height:0 !important;}
     .dn-aside{position:fixed;left:0;right:0;bottom:0;z-index:45;width:auto;height:auto;min-height:64px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));flex-direction:row;align-items:stretch;gap:4px;border-right:none;border-top:1px solid var(--stroke);box-shadow:0 -4px 12px rgba(10,13,20,.04);}
-    .dn-brand,.dn-cap,.dn-fill,.dn-me{display:none;}
+    .dn-cap,.dn-fill{display:none;}
     .dn-nav{flex-direction:row;flex:2;gap:4px;width:auto;}
-    .dn-user{flex:1;display:flex;}
+    .dn-user{flex:1;display:flex;padding:0;border-top:none;}
     .dn-it,.dn-out{flex:1;width:auto;height:auto;min-height:52px;flex-direction:column;gap:2px;justify-content:center;padding:4px;border:none;font-size:11px;line-height:14px;font-weight:500;}
     .dn-out{background:transparent;color:var(--n500);}
     .dn-short{display:block;}
@@ -86,12 +83,7 @@
 </style>
 </helmet>
 <aside class="dn-aside" aria-label="Разделы кабинета">
-  <div class="dn-brand">
-    <div class="dn-logo"><i class="ri-heart-pulse-fill" style="color:#fff;font-size:22px;"></i></div>
-    <div class="dn-txt" style="line-height:1.2;"><div style="font-size:14px;font-weight:600;letter-spacing:-.01em;">Кабинет врача</div><div style="font-size:11px;color:var(--n400);">Портал МЗ РК</div></div>
-  </div>
-
-  <div class="dn-cap">Разделы</div>
+  <div class="dn-cap">Кабинет врача</div>
   <nav class="dn-nav">
     <sc-for list="{{ items }}" as="it" hint-placeholder-count="2">
       <a href="{{ it.href }}" onClick="{{ it.onClick }}" class="{{ it.cls }}" aria-current="{{ it.current }}" title="{{ it.label }}" style="{{ it.style }}">
@@ -105,10 +97,6 @@
   <div class="dn-fill"></div>
 
   <div class="dn-user">
-    <a href="Профиль врача.dc.html" onClick="{{ onMe }}" class="dn-me" title="Ахметов С.К. — открыть профиль">
-      <div class="dn-ava">АС</div>
-      <div class="dn-txt" style="flex:1;min-width:0;line-height:1.25;"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Ахметов С.К.</div><div style="font-size:11px;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Врач-терапевт участковый</div></div>
-    </a>
     <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="dn-out" title="Выйти из системы"><i class="ri-logout-box-r-line" style="font-size:18px;"></i><span class="dn-lbl">Выйти из системы</span><span class="dn-short">Выйти</span></a>
   </div>
 </aside>
@@ -139,10 +127,23 @@ class Component extends DCLogic {
   stayRef = React.createRef();
 
   componentDidMount(){
-    this._onKey = (e) => { if(e.key === 'Escape' && this.state.leaveTo) this.setState({ leaveTo:null }); };
+    this._onKey = (e) => { if(e.key === 'Escape' && this.state.leaveTo){ this._logout = false; this.setState({ leaveTo:null }); } };
     window.addEventListener('keydown', this._onKey);
+    // переход из шапки портала (герб, «На главную», профиль, уведомления)
+    this._onLeaveReq = (e) => { const to = e && e.detail; if(to) this.ask(to); };
+    window.addEventListener('mp-doc-leave-request', this._onLeaveReq);
   }
-  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); window.removeEventListener('mp-doc-leave-request', this._onLeaveReq); }
+
+  // Подтверждение ухода из ЭПЗ с активной сессией. false — сессии нет, уходить можно сразу.
+  ask(to){
+    let patient = '';
+    try { patient = typeof window.mpDocGuard === 'function' ? (window.mpDocGuard() || '') : ''; } catch(err){}
+    if(!patient) return false;
+    this.setState({ leaveTo:to, leavePatient:patient });
+    setTimeout(() => { const b = this.stayRef.current; if(b && b.focus) b.focus(); }, 30);
+    return true;
+  }
 
   // Переход в другой раздел. Возвращает true, если навигацию перехватили.
   go(e, id){
@@ -152,13 +153,7 @@ class Component extends DCLogic {
       try { window.dispatchEvent(new CustomEvent('mp-doc-nav-home', { detail:id })); } catch(err){}
       return;
     }
-    let patient = '';
-    try { patient = typeof window.mpDocGuard === 'function' ? (window.mpDocGuard() || '') : ''; } catch(err){}
-    if(patient){
-      if(e && e.preventDefault) e.preventDefault();
-      this.setState({ leaveTo:DN_PAGES[id], leavePatient:patient });
-      setTimeout(() => { const b = this.stayRef.current; if(b && b.focus) b.focus(); }, 30);
-    }
+    if(this.ask(DN_PAGES[id]) && e && e.preventDefault) e.preventDefault();
   }
 
   renderVals(){
@@ -180,14 +175,20 @@ class Component extends DCLogic {
     });
     return {
       items,
-      onMe: (e) => this.go(e, 'profile'),
-      onLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
+      onLogout: (e) => {
+        if(this.ask('Портал Минздрава - Главная.dc.html')){ if(e && e.preventDefault) e.preventDefault(); this._logout = true; return; }
+        try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){}
+      },
       hasLeave: !!s.leaveTo,
       leavePatient: s.leavePatient,
       stayRef: this.stayRef,
       stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
-      stay: () => this.setState({ leaveTo:null }),
-      leave: () => { const to = s.leaveTo; this.setState({ leaveTo:null }); window.location.href = to; },
+      stay: () => { this._logout = false; this.setState({ leaveTo:null }); },
+      leave: () => {
+        const to = s.leaveTo;
+        if(this._logout){ try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){} }
+        this.setState({ leaveTo:null }); window.location.href = to;
+      },
     };
   }
 }
