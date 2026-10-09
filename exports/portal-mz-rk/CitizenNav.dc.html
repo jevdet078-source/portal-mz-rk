@@ -12,18 +12,17 @@
 </head>
 <body>
 <!--
-  Меню личного кабинета гражданина: карточка «кто вошёл» + разделы + «Выйти».
-  Подключается в «Личный кабинет» и «Медицинская книжка» в левой колонке:
-    <aside class="cn-host"><dc-import name="CitizenNav" active="lmk" hint-size="300px,620px"></dc-import></aside>
-  Обёртка cn-host — sticky на десктопе; на ≤1024px страница складывается в одну колонку,
-  карточка сжимается в строку, а разделы становятся горизонтальной лентой.
+  Меню личного кабинета гражданина: карточка «кто вошёл» (фото, ФИО, ИИН) + разделы + «Выйти».
+  Подключается в «Личный кабинет» и «Личная медицинская карта» в левой колонке:
+    <aside class="cn-host"><dc-import name="CitizenNav" active="lmk" hint-size="300px,460px"></dc-import></aside>
+  Обёртка cn-host — sticky на десктопе; на ≤1024px карточка сжимается в строку, разделы — горизонтальной лентой.
 
   Пропсы:
-    active — overview | epz | visits | results | osms | notif | lmk
+    active — overview | lmk | notif
 
-  Разделы «Личного кабинета» — ссылки с якорем (Личный кабинет.dc.html#epz): внутри страницы
-  это просто смена hash (страница слушает hashchange), с других страниц — обычный переход.
-  «Выйти» сбрасывает mp-profile и mp-iin (как DoctorNav).
+  Разделы — по замечанию аналитика: Обзор, Личная медицинская карта, Уведомления
+  («Паспорт здоровья», «История приёмов», «Результаты», «Страхование ОСМС» и плашка ОСМС убраны).
+  «Выйти» сбрасывает mp-profile и mp-iin.
 -->
 <x-dc>
 <helmet>
@@ -34,7 +33,6 @@
   .cn-ava{width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 14px;border:3px solid var(--primary-lighter);background:var(--n100);flex:0 0 auto;}
   .cn-name{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
   .cn-iin{font-size:13px;line-height:18px;color:var(--n400);margin-top:2px;font-variant-numeric:tabular-nums;}
-  .cn-osms{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-size:12px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:6px 12px;border-radius:999px;white-space:nowrap;}
   .cn-who{min-width:0;}
   .cn-nav{position:relative;background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:0 1px 2px rgba(10,13,20,.03);display:flex;flex-direction:column;gap:2px;}
   .cn-it{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);text-decoration:none;transition:background .12s,color .12s;box-sizing:border-box;}
@@ -53,16 +51,11 @@
     .cn-card{display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-radius:16px;}
     .cn-ava{width:48px;height:48px;margin:0;border-width:2px;}
     .cn-name{font-size:16px;line-height:22px;}
-    .cn-osms{margin:0 0 0 auto;}
     .cn-nav{flex-direction:row;overflow-x:auto;scrollbar-width:none;border-radius:14px;padding:6px;}
     .cn-nav::-webkit-scrollbar{display:none;}
     .cn-it{width:auto;flex:0 0 auto;padding:9px 12px;gap:8px;font-size:13.5px;}
     .cn-it i{font-size:18px !important;}
     .cn-out{display:none;}
-  }
-  @media (max-width:520px){
-    .cn-osms span{display:none;}
-    .cn-osms{padding:6px 8px;}
   }
 </style>
 </helmet>
@@ -75,10 +68,9 @@
       <div class="cn-name">Аружан Сейтжанова</div>
       <div class="cn-iin">ИИН 020116501540</div>
     </div>
-    <div class="cn-osms" title="ОСМС: застрахован"><i class="ri-shield-check-fill"></i><span>ОСМС: застрахован</span></div>
   </div>
   <nav ref="{{ navRef }}" class="cn-nav" aria-label="Разделы личного кабинета">
-    <sc-for list="{{ items }}" as="n" hint-placeholder-count="7">
+    <sc-for list="{{ items }}" as="n" hint-placeholder-count="3">
       <a href="{{ n.href }}" class="{{ n.cls }}" aria-current="{{ n.current }}">
         <i class="{{ n.icon }}" style="font-size:20px;flex:0 0 auto;"></i><span class="cn-lbl">{{ n.label }}</span>
         <sc-if value="{{ n.hasBadge }}" hint-placeholder-val="{{ false }}"><span class="cn-badge" aria-label="{{ n.badgeLabel }}">{{ n.badge }}</span></sc-if>
@@ -88,16 +80,12 @@
   <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="cn-out"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:620},&quot;active&quot;:&quot;overview&quot;}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:460},&quot;active&quot;:&quot;overview&quot;}">
 const LK = 'Личный кабинет.dc.html';
 // Иконки — только контурные (-line): заливные на индиго-фоне активного пункта читаются как сплошной белый блок
 const CN_ITEMS = [
   { id:'overview', label:'Обзор', icon:'ri-dashboard-line', href:LK + '#overview' },
-  { id:'epz', label:'Паспорт здоровья', icon:'ri-profile-line', href:LK + '#epz' },
-  { id:'lmk', label:'Медицинская книжка', icon:'ri-booklet-line', href:'Медицинская книжка.dc.html' },
-  { id:'visits', label:'История приёмов', icon:'ri-history-line', href:LK + '#visits' },
-  { id:'results', label:'Результаты', icon:'ri-test-tube-line', href:LK + '#results' },
-  { id:'osms', label:'Страхование ОСМС', icon:'ri-shield-check-line', href:LK + '#osms' },
+  { id:'lmk', label:'Личная медицинская карта', icon:'ri-booklet-line', href:'Личная медицинская карта.dc.html' },
   { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:LK + '#notif', badge:'3', badgeLabel:'3 непрочитанных' },
 ];
 

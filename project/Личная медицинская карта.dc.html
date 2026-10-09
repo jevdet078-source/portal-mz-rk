@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личная медицинская карта (ЛМК) в личном кабинете гражданина.
+  Постановка: UC9.14 «Интеграция с ЛМК», сервис EH_GET_ALL_LMK; раскладка — по макету аналитика.
+
+  Запрос: PersonalId = ИИН из сессии; EndDate и Token не заполняем (сервис работает без токена).
+  На экран выводятся только поля постановки:
+    «Текущий медицинский статус» ← WorkAdmissionRecord (4): Status (4.3), MedicalExamType (4.8),
+        ConsultationDate (4.7), StartDate–EndDate (4.2, 4.1), врач (4.4), MedOrgCode (4.5) + Kato (4.6);
+        Contraindications (5) — в строке статуса.
+    «Сведения о работе»        ← PassportData (1): WorkPlace (1.3), Position (1.4), MainProfession (1.5),
+        ActivityCode (1.2, справочник «Целевые группы лиц, подлежащих обязательным медицинским осмотрам»).
+    «Медицинское заключение»   ← MedData (2): MedicalServiceCode (2.6, справочник 5.3), ConsultationDate (2.1),
+        DoctorName (2.3), DoctorConclusion (2.5), DoctorConclusionText (2.7), MedOrgNameRu / MedOrgNameKK (2.10 / 2.9).
+    «Ранее перенесённые инфекционные заболевания» ← InfectionHistory (3): CodeInfection (3.1, справочник 5.6), Date (3.2).
+    «Сведения о полученных прививках» ← VaccinationRecord (10): VaccinationCode (10.1, справочник 5.4), Date (10.2),
+        VaccinationId (10.3).
+    «Экспорт в PDF» — по макету, документ из ответа сервиса (Document.Base64PDF).
+  Не выводятся: PersonalID, SignBase64, служебные srcorg / srcis / user_ip / user_ip_is;
+  поля XSD вне постановки (FIO, Phone, Address, MedicalBookletSeries, HygieneTraining).
+
+  МО допуска приходит только кодом: наименование берём из MedData этой же записи, иначе показываем код.
+  Статус: DISAPPROVED → «Не допущен»; EXPIRED или EndDate в прошлом → «Срок истёк»; APPROVED → «Допущен».
+  Записей ЛМК может быть несколько (lmk[0..1000]) — переключатель «Статус» в карточке статуса, выбранная — в #hash.
+
+  Справочники ниже — демо: коды A1 / A11 / A14, JD4 / JD12 сверены с PDF из тестового ответа,
+  остальные значения нужно сверить со справочниками 5.3–5.6 и «Целевые группы».
+  В прототипе PDF — образец из тестового ответа сервиса (assets/lmk-sample.pdf).
+  Панель «Прототип» (слева внизу) — сценарии ответа сервиса, sessionStorage['mp-lmk-scn'].
+-->
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--teal-d:#164564;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--yellow:#F2AE40;--yellow-l:#FEF7EC;--yellow-d:#693D11;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+  @keyframes lm-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+
+  /* ---------- Раскладка (как в «Личном кабинете») ---------- */
+  .lm-wrap{max-width:1320px;margin:0 auto;padding:28px 40px 96px;}
+  .lm-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .lm-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
+  .lm-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .cn-host{position:sticky;top:90px;}
+  .lm-main{min-width:0;display:flex;flex-direction:column;gap:16px;}
+
+  .lm-head{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;}
+  .lm-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
+  .lm-acts{display:flex;gap:8px;flex-wrap:wrap;}
+
+  /* ---------- Базовые элементы ---------- */
+  .lm-card{background:var(--n0);border:1px solid var(--stroke);border-radius:18px;box-shadow:var(--sh-xs);padding:20px 22px;min-width:0;}
+  .lm-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .lm-btn.pri{border:none;background:var(--primary);color:#fff;font-weight:600;}
+  .lm-btn.pri:hover{background:var(--primary-dark);}
+  .lm-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);}
+  .lm-btn.sec:hover{background:var(--n100);border-color:var(--n300);}
+  .lm-btn.ghost{border:none;background:transparent;color:var(--primary);padding:0 10px;}
+  .lm-btn.ghost:hover{background:var(--primary-lighter);}
+  .lm-btn[disabled]{cursor:default;opacity:.65;}
+  .lm-btn.sec[disabled]:hover{background:var(--n0);border-color:var(--stroke);}
+  .lm-pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;flex:0 0 auto;background:var(--primary-lighter);color:var(--primary-darker);}
+  .lm-sk{background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:800px 100%;animation:lm-shimmer 1.3s linear infinite;border-radius:6px;}
+
+  /* заголовок карточки: значок + подзаголовок-эйлбраус + название */
+  .lm-ch{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;margin-bottom:16px;}
+  .lm-ch-l{display:flex;align-items:center;gap:12px;min-width:0;}
+  .lm-ch-ic{width:38px;height:38px;border-radius:11px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .lm-eb{font-size:12px;line-height:16px;color:var(--n400);}
+  .lm-h{font-size:17px;line-height:24px;font-weight:600;letter-spacing:-.01em;margin:0;}
+
+  /* ---------- Статус ---------- */
+  .lm-seg{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:11px;background:var(--n100);border:1px solid var(--stroke);max-width:100%;overflow-x:auto;scrollbar-width:none;}
+  .lm-seg::-webkit-scrollbar{display:none;}
+  .lm-seg-l{font-size:12.5px;color:var(--n500);padding:0 8px 0 6px;white-space:nowrap;}
+  .lm-seg-b{height:30px;padding:0 12px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:7px;transition:background .15s,color .15s;}
+  .lm-seg-b:hover{color:var(--n900);}
+  .lm-seg-b .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+  .lm-seg-b[disabled]{cursor:default;color:var(--n300);}
+  .lm-seg-b[disabled] .dot{background:var(--n300) !important;}
+  .lm-seg-b.on{background:#fff;color:var(--n900);font-weight:600;box-shadow:var(--sh-sm);}
+
+  .lm-banner{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;border:1px solid;}
+  .lm-banner-ic{width:40px;height:40px;border-radius:11px;background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .lm-banner-b{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:999px;font-size:11.5px;line-height:16px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;}
+  .lm-banner-t{font-size:14px;line-height:20px;color:var(--n700);margin-top:5px;overflow-wrap:anywhere;}
+
+  .lm-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px;}
+  .lm-tiles.n5{grid-template-columns:minmax(0,.95fr) minmax(0,.95fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,1.5fr);}
+  .lm-tiles.two{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;}
+  .lm-tiles.three{grid-template-columns:minmax(0,.75fr) minmax(0,1fr) minmax(0,1.45fr);margin-top:0;}
+  .lm-tile{background:var(--n50);border:1px solid var(--stroke);border-radius:12px;padding:11px 13px;min-width:0;}
+  .lm-tile.wide{grid-column:1/-1;}
+  .lm-dt{font-size:12px;line-height:16px;color:var(--n400);margin:0 0 4px;}
+  .lm-dd{font-size:14px;line-height:20px;color:var(--n900);font-weight:600;margin:0;overflow-wrap:anywhere;}
+  .lm-note{font-size:12.5px;line-height:16px;color:var(--n500);margin:3px 0 0;font-weight:500;}
+
+  /* ---------- Работа + заключение ---------- */
+  .lm-two{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.15fr);gap:16px;align-items:stretch;}
+  /* выбор медицинской услуги — выпадающий список в заголовке карточки (на месте плашки в макете) */
+  .lm-sel-w{position:relative;max-width:100%;}
+  .lm-sel{max-width:100%;height:32px;padding:0 8px 0 11px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);font-family:inherit;font-size:13px;font-weight:500;color:var(--n700);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .lm-sel:hover{background:var(--n100);border-color:var(--n300);}
+  .lm-sel .dot,.lm-opt .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+  .lm-sel-t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lm-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:320px;max-width:calc(100vw - 32px);max-height:340px;overflow-y:auto;padding:6px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:0 12px 24px -8px rgba(10,13,20,.16);animation:mp-slidein .15s ease;}
+  .lm-opt{width:100%;display:flex;align-items:center;gap:9px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:13.5px;line-height:18px;color:var(--n700);text-align:left;cursor:pointer;}
+  .lm-opt:hover,.lm-opt:focus-visible{background:var(--n100);outline:none;}
+  .lm-opt.on{background:var(--primary-lighter);color:var(--primary-darker);font-weight:600;}
+  .lm-opt .t{flex:1;min-width:0;}
+  .lm-opt .d{font-size:12px;color:var(--n400);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:500;}
+  .lm-chip{min-height:28px;padding:3px 10px;border:1px solid var(--stroke);border-radius:999px;background:#fff;font-family:inherit;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;display:inline-flex;align-items:center;gap:7px;text-align:left;transition:background .15s,border-color .15s,color .15s;}
+  .lm-chip:hover{border-color:var(--n300);color:var(--n900);}
+  .lm-chip .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+  .lm-chip.on{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);font-weight:600;}
+  .lm-concl{margin-top:10px;padding:16px 18px;border-radius:12px;background:var(--primary-lighter);}
+  .lm-concl-t{font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .lm-concl-p{font-size:14px;line-height:20px;color:var(--n700);margin:6px 0 0;overflow-wrap:anywhere;}
+
+  /* ---------- Таблицы ---------- */
+  .lm-tbl{border:1px solid var(--stroke);border-radius:12px;overflow:hidden;}
+  .lm-tr{display:grid;gap:12px;padding:12px 16px;align-items:center;border-top:1px solid var(--stroke);font-size:14px;line-height:20px;}
+  .lm-tr:first-child{border-top:none;}
+  .lm-tr.th{background:var(--n100);font-size:11.5px;line-height:15px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--n500);padding-top:10px;padding-bottom:10px;}
+  .lm-tbl.inf .lm-tr{grid-template-columns:110px minmax(0,1fr) 200px;}
+  .lm-tbl.vac .lm-tr{grid-template-columns:minmax(0,1fr) 170px 170px;}
+  .lm-code{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:7px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .lm-td-l{display:none;}
+  .lm-num{font-variant-numeric:tabular-nums;color:var(--n700);}
+  .lm-strong{font-weight:500;color:var(--n900);display:flex;align-items:center;gap:8px;}
+  .lm-strong .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto;}
+  .lm-more{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:13px;line-height:18px;color:var(--n500);}
+  .lm-empty{padding:16px;font-size:14px;line-height:20px;color:var(--n500);}
+
+  .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .lm-toast{right:28px;bottom:96px;}   /* над кнопкой AI-помощника */
+  .lm-pp{left:20px;bottom:20px;}
+
+  .lm-btn:focus-visible,.lm-seg-b:focus-visible,.lm-chip:focus-visible,.pp-btn:focus-visible,.lm-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  /* ---------- Адаптив ---------- */
+  @media (max-width:1180px){
+    .lm-tiles.n5{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
+    .lm-two{grid-template-columns:minmax(0,1fr);}
+  }
+  @media (max-width:1024px){
+    .lm-wrap{padding:20px 24px 96px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .lm-wrap{padding:16px 16px 96px;}
+    .lm-crumbs{margin-bottom:16px;}
+    .lm-title{font-size:20px;line-height:28px;}
+    .lm-acts{width:100%;}
+    .lm-acts > .lm-btn{flex:1;}
+    .lm-card{padding:16px;}
+    .lm-ch-ic{width:34px;height:34px;border-radius:10px;}
+    .lm-seg{width:100%;flex-wrap:wrap;overflow:visible;}
+    .lm-banner{align-items:flex-start;padding:12px;gap:12px;}
+    .lm-banner-ic{width:34px;height:34px;border-radius:10px;}
+    .lm-tiles[class]{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .lm-tiles.two[class]{grid-template-columns:minmax(0,1fr);}
+    .lm-menu{right:auto;left:0;}
+    .lm-tiles .lm-tile:last-child:nth-child(odd){grid-column:1/-1;}
+    .lm-tbl .lm-tr.th{display:none;}
+    .lm-tbl.inf .lm-tr,.lm-tbl.vac .lm-tr{grid-template-columns:minmax(0,1fr);gap:4px;padding:12px 14px;}
+    .lm-td-l{display:inline;color:var(--n400);font-size:12.5px;}
+    .lm-tbl .lm-tr:nth-child(2){border-top:none;}
+    .lm-toast{left:16px;right:16px;bottom:80px;max-width:none !important;}
+    .lm-pp{left:16px;bottom:16px;max-width:calc(100% - 32px);}
+    .lm-pp.closed{width:auto !important;}
+    .lm-pp-x{display:none;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+
+  <div class="lm-wrap">
+    <nav class="lm-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Личная медицинская карта</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="lmk" hint-size="300px,460px"></dc-import>
+      </aside>
+
+      <main class="lm-main" style="animation:mp-fade .2s ease;">
+        <div class="lm-head">
+          <h1 class="lm-title">Личная медицинская карта</h1>
+          <sc-if value="{{ isData }}" hint-placeholder-val="{{ true }}">
+            <div class="lm-acts">
+              <button class="lm-btn sec" onClick="{{ refresh }}" disabled="{{ busy }}" aria-busy="{{ refreshing }}"><i class="{{ refreshIcon }}" style="{{ refreshIconStyle }}"></i>{{ refreshLabel }}</button>
+              <sc-if value="{{ b.hasPdf }}" hint-placeholder-val="{{ true }}">
+                <a class="lm-btn pri" href="{{ pdfHref }}" download="{{ b.pdfName }}" onClick="{{ onDownload }}"><i class="ri-file-pdf-2-line" style="font-size:18px;"></i>Экспорт в PDF</a>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- ===== Загрузка ===== -->
+        <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+          <div role="status" aria-live="polite" aria-label="Загружаем личную медицинскую карту" style="display:flex;flex-direction:column;gap:16px;">
+            <div class="lm-card" aria-hidden="true">
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;"><div class="lm-sk" style="width:38px;height:38px;border-radius:11px;"></div><div class="lm-sk" style="width:36%;height:18px;"></div></div>
+              <div class="lm-sk" style="height:68px;border-radius:14px;"></div>
+              <div class="lm-tiles"><sc-for list="{{ skel5 }}" as="k" hint-placeholder-count="5"><div class="lm-tile"><div class="lm-sk" style="width:60%;height:11px;"></div><div class="lm-sk" style="width:85%;height:14px;margin-top:8px;"></div></div></sc-for></div>
+            </div>
+            <div class="lm-two" aria-hidden="true">
+              <div class="lm-card"><div class="lm-sk" style="width:50%;height:18px;margin-bottom:16px;"></div><div class="lm-sk" style="height:56px;border-radius:12px;"></div><div class="lm-sk" style="height:56px;border-radius:12px;margin-top:10px;"></div></div>
+              <div class="lm-card"><div class="lm-sk" style="width:50%;height:18px;margin-bottom:16px;"></div><div class="lm-sk" style="height:56px;border-radius:12px;"></div><div class="lm-sk" style="height:84px;border-radius:12px;margin-top:10px;"></div></div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ===== Ошибка сервиса ===== -->
+        <sc-if value="{{ isError }}" hint-placeholder-val="{{ false }}">
+          <section role="alert" class="lm-card" style="padding:48px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-cloud-off-line" style="font-size:28px;color:var(--red);"></i></div>
+            <h2 style="font-size:17px;line-height:24px;font-weight:600;margin:0;max-width:440px;">Не удалось получить сведения личной медицинской карты</h2>
+            <p style="font-size:14px;line-height:20px;color:var(--n500);margin:6px 0 0;">Повторите попытку позже.</p>
+            <button class="lm-btn pri" onClick="{{ retry }}" style="margin-top:20px;"><i class="ri-refresh-line" style="font-size:18px;"></i>Повторить</button>
+          </section>
+        </sc-if>
+
+        <!-- ===== Нет записей ===== -->
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <section role="status" class="lm-card" style="padding:48px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
+            <div style="width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-booklet-line" style="font-size:28px;color:var(--primary);"></i></div>
+            <h2 style="font-size:17px;line-height:24px;font-weight:600;margin:0;">Сведений личной медицинской карты нет</h2>
+            <button class="lm-btn ghost" onClick="{{ retry }}" style="margin-top:16px;"><i class="ri-refresh-line" style="font-size:18px;"></i>Проверить снова</button>
+          </section>
+        </sc-if>
+
+        <!-- ===== Данные ===== -->
+        <sc-if value="{{ isData }}" hint-placeholder-val="{{ true }}">
+          <div id="lm-panel" role="{{ panelRole }}" aria-labelledby="{{ panelBy }}" style="display:flex;flex-direction:column;gap:16px;">
+
+            <!-- Текущий медицинский статус -->
+            <section class="lm-card" aria-labelledby="lm-st-h">
+              <div class="lm-ch">
+                <div class="lm-ch-l">
+                  <span class="lm-ch-ic" aria-hidden="true"><i class="ri-shield-user-line" style="font-size:20px;"></i></span>
+                  <h2 class="lm-h" id="lm-st-h">Текущий медицинский статус</h2>
+                </div>
+                <sc-if value="{{ showSeg }}" hint-placeholder-val="{{ true }}">
+                  <div class="lm-seg" role="tablist" aria-label="Статус">
+                    <span class="lm-seg-l" aria-hidden="true">Статус:</span>
+                    <sc-for list="{{ books }}" as="t" hint-placeholder-count="2">
+                      <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.on }}" aria-controls="lm-panel" tabIndex="{{ t.tabIndex }}" class="{{ t.cls }}" title="{{ t.title }}" disabled="{{ t.disabled }}" onClick="{{ t.onClick }}" onKeyDown="{{ onBookKey }}"><span class="dot" style="{{ t.dotStyle }}"></span>{{ t.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+
+              <div class="lm-banner" style="{{ b.bannerBox }}">
+                <span class="lm-banner-ic" style="{{ b.bannerIcStyle }}"><i class="{{ b.bannerIcon }}" style="font-size:22px;"></i></span>
+                <div style="min-width:0;">
+                  <span class="lm-banner-b" style="{{ b.badgeStyle }}">{{ b.badge }}</span>
+                  <div class="lm-banner-t">{{ b.bannerText }}</div>
+                </div>
+              </div>
+
+              <sc-if value="{{ b.hasStTiles }}" hint-placeholder-val="{{ true }}">
+                <dl class="{{ b.stTilesCls }}">
+                  <sc-for list="{{ b.stTiles }}" as="r" hint-placeholder-count="5">
+                    <div class="lm-tile"><dt class="lm-dt">{{ r.label }}</dt><dd class="lm-dd" style="{{ r.valueStyle }}">{{ r.value }}</dd><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><dd class="lm-note" style="{{ r.noteStyle }}">{{ r.note }}</dd></sc-if></div>
+                  </sc-for>
+                </dl>
+              </sc-if>
+            </section>
+
+            <div class="lm-two">
+              <!-- Сведения о работе -->
+              <section class="lm-card" aria-labelledby="lm-job-h">
+                <div class="lm-ch">
+                  <div class="lm-ch-l">
+                    <span class="lm-ch-ic" aria-hidden="true"><i class="ri-briefcase-4-line" style="font-size:20px;"></i></span>
+                    <div><div class="lm-eb">Трудовая деятельность</div><h2 class="lm-h" id="lm-job-h">Сведения о работе</h2></div>
+                  </div>
+                </div>
+                <dl class="lm-tiles two">
+                  <sc-for list="{{ b.job }}" as="r" hint-placeholder-count="4">
+                    <div class="{{ r.cls }}"><dt class="lm-dt">{{ r.label }}</dt><dd class="lm-dd">{{ r.value }}</dd><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><dd class="lm-note">{{ r.note }}</dd></sc-if></div>
+                  </sc-for>
+                </dl>
+              </section>
+
+              <!-- Медицинское заключение -->
+              <section class="lm-card" aria-labelledby="lm-md-h">
+                <div class="lm-ch">
+                  <div class="lm-ch-l">
+                    <span class="lm-ch-ic" aria-hidden="true"><i class="ri-file-list-3-line" style="font-size:20px;"></i></span>
+                    <h2 class="lm-h" id="lm-md-h">Медицинское заключение</h2>
+                  </div>
+                  <sc-if value="{{ b.manyMed }}" hint-placeholder-val="{{ true }}">
+                    <div class="lm-sel-w">
+                      <button ref="{{ selRef }}" class="lm-sel" aria-haspopup="listbox" aria-expanded="{{ medOpen }}" aria-label="{{ b.selLabel }}" title="{{ b.medSvc }}" onClick="{{ toggleMed }}"><span class="dot" style="{{ b.medDot }}"></span><span class="lm-sel-t">{{ b.medSvc }}</span><i class="{{ medChev }}" style="font-size:18px;color:var(--n400);flex:0 0 auto;"></i></button>
+                      <sc-if value="{{ medOpen }}" hint-placeholder-val="{{ false }}">
+                        <div class="lm-menu" role="listbox" aria-label="Медицинские услуги" onKeyDown="{{ onMenuKey }}">
+                          <sc-for list="{{ b.medOpts }}" as="c" hint-placeholder-count="4">
+                            <button role="option" aria-selected="{{ c.on }}" class="{{ c.cls }}" onClick="{{ c.onClick }}"><span class="dot" style="{{ c.dotStyle }}"></span><span class="t">{{ c.label }}</span><span class="d">{{ c.date }}</span></button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ b.oneMed }}" hint-placeholder-val="{{ false }}"><span class="lm-pill">{{ b.medSvc }}</span></sc-if>
+                </div>
+                <sc-if value="{{ b.noMed }}" hint-placeholder-val="{{ false }}"><div class="lm-empty" style="padding:0;">Сведений нет</div></sc-if>
+                <sc-if value="{{ b.hasMed }}" hint-placeholder-val="{{ true }}">
+                  <div>
+                    <dl class="lm-tiles three">
+                      <sc-for list="{{ b.medTiles }}" as="r" hint-placeholder-count="3">
+                        <div class="lm-tile"><dt class="lm-dt">{{ r.label }}</dt><dd class="lm-dd">{{ r.value }}</dd></div>
+                      </sc-for>
+                    </dl>
+                    <div class="lm-concl" style="{{ b.medBox }}">
+                      <div class="lm-concl-t"><i class="{{ b.medIcon }}" style="{{ b.medIcStyle }}"></i>{{ b.medTitle }}</div>
+                      <sc-if value="{{ b.hasMedText }}" hint-placeholder-val="{{ true }}"><p class="lm-concl-p">{{ b.medText }}</p></sc-if>
+                    </div>
+                  </div>
+                </sc-if>
+              </section>
+            </div>
+
+            <!-- Ранее перенесённые инфекционные заболевания -->
+            <section class="lm-card" aria-labelledby="lm-inf-h">
+              <div class="lm-ch">
+                <div class="lm-ch-l">
+                  <span class="lm-ch-ic" aria-hidden="true"><i class="ri-virus-line" style="font-size:20px;"></i></span>
+                  <div><div class="lm-eb">Эпидемиологический анамнез</div><h2 class="lm-h" id="lm-inf-h">Ранее перенесённые инфекционные заболевания</h2></div>
+                </div>
+                <sc-if value="{{ b.hasInf }}" hint-placeholder-val="{{ true }}"><span class="lm-pill">{{ b.infCount }}</span></sc-if>
+              </div>
+              <div class="lm-tbl inf" role="table" aria-labelledby="lm-inf-h">
+                <div class="lm-tr th" role="row"><span role="columnheader">Код</span><span role="columnheader">Наименование заболевания</span><span role="columnheader">Дата перенесённого заболевания</span></div>
+                <sc-if value="{{ b.noInf }}" hint-placeholder-val="{{ false }}"><div class="lm-empty" role="row"><span role="cell">Сведений нет</span></div></sc-if>
+                <sc-for list="{{ b.inf }}" as="c" hint-placeholder-count="2">
+                  <div class="lm-tr" role="row">
+                    <span role="cell"><span class="lm-code">{{ c.code }}</span></span>
+                    <span role="cell" class="lm-strong">{{ c.name }}</span>
+                    <span role="cell" class="lm-num"><span class="lm-td-l">Дата: </span>{{ c.date }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+
+            <!-- Сведения о полученных прививках -->
+            <section class="lm-card" aria-labelledby="lm-vac-h">
+              <div class="lm-ch">
+                <div class="lm-ch-l">
+                  <span class="lm-ch-ic" aria-hidden="true"><i class="ri-syringe-line" style="font-size:20px;"></i></span>
+                  <div><div class="lm-eb">Вакцинация</div><h2 class="lm-h" id="lm-vac-h">Сведения о полученных прививках</h2></div>
+                </div>
+                <sc-if value="{{ b.hasVacc }}" hint-placeholder-val="{{ true }}"><span class="lm-pill">{{ b.vaccCount }}</span></sc-if>
+              </div>
+              <div class="lm-tbl vac" role="table" aria-labelledby="lm-vac-h">
+                <div class="lm-tr th" role="row"><span role="columnheader">Название вакцины</span><span role="columnheader">Дата вакцинации</span><span role="columnheader">ID вакцинации</span></div>
+                <sc-if value="{{ b.noVacc }}" hint-placeholder-val="{{ false }}"><div class="lm-empty" role="row"><span role="cell">Сведений нет</span></div></sc-if>
+                <sc-for list="{{ b.vaccShown }}" as="c" hint-placeholder-count="2">
+                  <div class="lm-tr" role="row">
+                    <span role="cell" class="lm-strong"><span class="dot" aria-hidden="true"></span>{{ c.name }}</span>
+                    <span role="cell" class="lm-num"><span class="lm-td-l">Дата вакцинации: </span>{{ c.date }}</span>
+                    <span role="cell" class="lm-num"><span class="lm-td-l">ID вакцинации: </span>{{ c.id }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ b.vaccMore }}" hint-placeholder-val="{{ false }}">
+                <div class="lm-more"><span>{{ b.vaccShownText }}</span><button class="lm-btn sec sm" onClick="{{ b.showAllVacc }}">{{ b.vaccMoreLabel }}</button></div>
+              </sc-if>
+            </section>
+
+          </div>
+        </sc-if>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- Тост -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="lm-toast" role="status" aria-live="polite" style="position:fixed;z-index:80;max-width:380px;display:flex;gap:10px;align-items:center;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;">{{ toastText }}</div>
+    </div>
+  </sc-if>
+
+  <!-- Панель прототипа: ответ сервиса EH_GET_ALL_LMK -->
+  <div class="{{ ppCls }}" style="{{ ppBox }}">
+    <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип<span class="lm-pp-x"> · ответ ЛМК</span></span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="radiogroup" aria-label="Сценарий ответа сервиса ЛМК" style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);">
+        <sc-for list="{{ scns }}" as="x" hint-placeholder-count="4">
+          <button class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}" style="{{ x.style }}"><i class="{{ x.icon }}" style="font-size:15px;"></i>{{ x.label }}</button>
+        </sc-for>
+        <div style="font-size:11.5px;line-height:15px;color:var(--n400);margin-top:4px;">PDF в прототипе — образец из тестового ответа сервиса.</div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1500}}">
+// ---------- Сессия (в прототипе — гражданин из «Личного кабинета») ----------
+const SESSION = { iin:'020116501540' };
+const PDF_HREF = 'assets/lmk-sample.pdf';
+
+// ---------- Даты ----------
+const pad = (n) => String(n).padStart(2, '0');
+const isoDays = (d) => { const x = new Date(); x.setHours(0,0,0,0); x.setDate(x.getDate() + d); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}T00:00:00.000+05:00`; };
+const parse = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; };
+const fd = (iso) => { const d = parse(iso); return d ? `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}` : ''; };
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const daysTo = (iso) => { const d = parse(iso); return d ? Math.round((d - today()) / 86400000) : null; };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? f[2] : b > 1 && b < 5 ? f[1] : b === 1 ? f[0] : f[2]; };
+const WARN_DAYS = 30;   // с какого остатка дней подсвечивать срок действия — уточнить у аналитика
+
+// ---------- Справочники (демо — сверить с НСИ) ----------
+// 5.3 «Наименования медицинских услуг» (A1, A11, A14 — по PDF из тестового ответа; порядок — как в бланке)
+const SERVICES = [
+  { code:'A1',  name:'Обследование на туберкулёз' },
+  { code:'A2',  name:'Носительство патогенного стафилококка' },
+  { code:'A3',  name:'Венерические заболевания' },
+  { code:'A4',  name:'Яйца гельминтов' },
+  { code:'A14', name:'Маркеры вирусных гепатитов, ВИЧ' },
+  { code:'A5',  name:'Бактериологическое исследование' },
+  { code:'A10', name:'Дерматовенеролог' },
+  { code:'A11', name:'Терапевт' },
+];
+// «Целевые группы лиц, подлежащих обязательным медицинским осмотрам» (ActivityCode)
+const ACTIVITY = {
+  JD2:'Работники организаций общественного питания',
+  JD4:'Работники организаций по обслуживанию пассажиров (железнодорожных, авиа-, морских, речных и автовокзалов)',
+  JD12:'Работники сферы обслуживания (бани, душевые, сауны, парикмахерские, косметические салоны)',
+};
+const VIRUS = { V1:'Ветряная оспа', V2:'Корь', V3:'Вирусный гепатит A', V4:'Вирусный гепатит B', V5:'Вирусный гепатит C' };   // 5.6 «Вирусы»
+const CONTRA = { CI1:'Носительство возбудителей кишечных инфекций', CI2:'Гельминтозы', CI3:'Заразные и паразитарные заболевания кожи' };   // 5.5 «Противопоказания»
+const VACC = { VC1:'Корь, краснуха, эпидемический паротит', VC2:'Дифтерия, столбняк (АДС-М)', VC3:'Вирусный гепатит B', VC4:'Грипп' };   // 5.4 «Код вакцинации»
+const KATO = { '710000000':'г. Астана', '750000000':'г. Алматы', '790000000':'г. Шымкент', '110000000':'Акмолинская область' };
+const EXAM_TYPE = { PRELIMINARY:'Предварительный', PERIODICAL:'Периодический' };
+
+// ---------- Тестовые ответы EH_GET_ALL_LMK (поля — как в постановке и XSD) ----------
+const MO5 = { MedOrgCode:'4550000000000105', MedOrgNameRu:'ГКП на ПХВ «Городская поликлиника № 5» акимата г. Астаны', MedOrgNameKk:'Астана қаласы әкімдігінің ШЖҚ «№ 5 қалалық емхана» МКК' };
+const LAB = { MedOrgCode:'4550000000000781', MedOrgNameRu:'ТОО «Медицинская лаборатория Олимп»', MedOrgNameKk:'«Олимп медициналық зертханасы» ЖШС' };
+const VIA = { MedOrgCode:'45500000000002333', MedOrgNameRu:'ТОО "Viamedis"', MedOrgNameKk:'"Viamedis" ЖШС' };
+const KAMKOR = { MedOrgCode:'MED004', MedOrgNameRu:'Медицинский центр «Қамқор»', MedOrgNameKk:'«Қамқор» медициналық орталығы' };
+const md = (code, day, doctor, ok, text, mo) => ({ ConsultationDate:isoDays(day), DoctorName:doctor, DoctorConclusion:ok, DoctorConclusionText:text, MedicalServiceCode:code, ...mo });
+const SIGN = 'MIIHNAYJKoZIhvcNAQcCoIIHJTCCByECAQExDjAMBggqgw4DCgEDAwUAMAsGCSqGSIb3DQEHAaCCBQEw…';
+
+// Действующая запись: S — день заключения терапевта относительно сегодня
+const current = (S, key) => ({
+  passport:{ PersonalID:SESSION.iin, ActivityCode:'JD2', WorkPlace:'ТОО «Астана Групп»', Position:'Повар-кондитер', MainProfession:'Повар' },
+  MedData:[
+    md('A1',  S-4, 'Нурланова Айгерим Сериковна', true, 'Флюорография: без патологий', MO5),
+    md('A2',  S-3, 'Касымова Жанар Болатовна', true, 'Патогенный стафилококк не выявлен', LAB),
+    md('A3',  S-3, 'Ибраев Марат Кайратович', true, 'Отрицательно', MO5),
+    md('A4',  S-3, 'Касымова Жанар Болатовна', true, 'Яйца гельминтов не обнаружены', LAB),
+    md('A14', S-3, 'Касымова Жанар Болатовна', true, 'Отрицательно', LAB),
+    md('A5',  S-2, 'Касымова Жанар Болатовна', true, 'Возбудители кишечных инфекций не выявлены', LAB),
+    md('A10', S-1, 'Ибраев Марат Кайратович', true, 'Заразные кожные заболевания не выявлены', MO5),
+    md('A11', S,   'Садыкова Гульнара Ахметовна', true, 'Годна', MO5),
+  ],
+  InfectionHistory:[ { Date:'2009-03-14T00:00:00.000+05:00', CodeInfection:'V1' } ],
+  WorkAdmissionRecord:{ StartDate:isoDays(S), EndDate:isoDays(S + 365), Status:'APPROVED', DoctorName:'Садыкова Гульнара Ахметовна', MedOrgCode:MO5.MedOrgCode, Kato:'710000000', MedicalExamType:'PERIODICAL', ConsultationDate:isoDays(S), SignBase64:SIGN },
+  Contraindications:[],
+  MedicalBookletSeries:key,
+  Document:{ Base64PDF:'JVBERi0xLjcK…' },
+  VaccinationRecord:[
+    { VaccinationCode:'VC4', Date:isoDays(S - 20), VaccinationId:'VAC-207731' },
+    { VaccinationCode:'VC4', Date:isoDays(S - 385), VaccinationId:'VAC-195020' },
+    { VaccinationCode:'VC3', Date:'2021-05-17T00:00:00.000+05:00', VaccinationId:'VAC-150377' },
+    { VaccinationCode:'VC2', Date:'2020-03-14T00:00:00.000+05:00', VaccinationId:'VAC-118204' },
+    { VaccinationCode:'VC3', Date:'2008-09-02T00:00:00.000+05:00', VaccinationId:'VAC-042118' },
+    { VaccinationCode:'VC1', Date:'2008-02-11T00:00:00.000+05:00', VaccinationId:'VAC-039561' },
+  ],
+});
+
+// Прежнее место работы — срок допуска истёк
+const previous = () => {
+  const S = -800;
+  return {
+    passport:{ PersonalID:SESSION.iin, ActivityCode:'JD4', WorkPlace:'АО «Пассажирские перевозки»', Position:'Кассир билетной кассы', MainProfession:'Кассир' },
+    MedData:[
+      md('A1',  S-2, 'Асан Асқар Арманұлы', true, 'Без патологий', VIA),
+      md('A11', S,   'Асан Асқар Арманұлы', true, 'Годна', VIA),
+    ],
+    InfectionHistory:[ { Date:'2009-03-14T00:00:00.000+05:00', CodeInfection:'V1' } ],
+    WorkAdmissionRecord:{ StartDate:isoDays(S), EndDate:isoDays(S + 365), Status:'APPROVED', DoctorName:'Асан Асқар Арманұлы', MedOrgCode:VIA.MedOrgCode, Kato:'710000000', MedicalExamType:'PRELIMINARY', ConsultationDate:isoDays(S), SignBase64:SIGN },
+    Contraindications:[],
+    MedicalBookletSeries:'AA001183',
+    Document:{ Base64PDF:'JVBERi0xLjcK…' },
+  };
+};
+
+// Не допущен: отклонения по бактериологии и у терапевта, противопоказание
+const disapproved = () => {
+  const b = current(-3, 'AA005209');
+  b.MedData = b.MedData.map(m => m.MedicalServiceCode === 'A5' ? { ...m, DoctorConclusion:false, DoctorConclusionText:'Выявлено носительство возбудителя кишечной инфекции' }
+    : m.MedicalServiceCode === 'A11' ? { ...m, DoctorConclusion:false, DoctorConclusionText:'Не годна до санации и повторного бактериологического исследования' } : m);
+  b.WorkAdmissionRecord = { Status:'DISAPPROVED', DoctorName:'Садыкова Гульнара Ахметовна', MedOrgCode:MO5.MedOrgCode, Kato:'710000000', MedicalExamType:'PERIODICAL', ConsultationDate:isoDays(-3), SignBase64:SIGN };
+  b.Contraindications = ['CI1'];
+  delete b.VaccinationRecord;
+  return b;
+};
+
+// Неполные сведения — как первая запись тестового ответа: одна услуга, без срока допуска,
+// МО допуска только кодом, без инфекций, противопоказаний и прививок
+const partial = () => ({
+  passport:{ PersonalID:SESSION.iin, ActivityCode:'JD12', WorkPlace:"ЖШС 'Алатау Құрылыс'", Position:'Мастер-парикмахер', MainProfession:'Парикмахер' },
+  MedData:[ md('A14', -46, 'Ахметова Дина Маратовна', true, 'Медицинское обследование пройдено успешно', KAMKOR) ],
+  WorkAdmissionRecord:{ Status:'APPROVED', DoctorName:'Асанов Асан Асанулы', MedOrgCode:'840', Kato:'750000000', MedicalExamType:'PRELIMINARY' },
+  MedicalBookletSeries:'AB123456',
+  Document:{ Base64PDF:'JVBERi0xLjcK…' },
+});
+
+// ---------- Сценарии прототипа ----------
+const SCNS = [
+  { id:'ok',      label:'Две записи',          icon:'ri-stack-line' },
+  { id:'one',     label:'Одна запись',         icon:'ri-booklet-line' },
+  { id:'soon',    label:'Срок истекает',       icon:'ri-alarm-warning-line' },
+  { id:'no',      label:'Не допущен',          icon:'ri-close-circle-line' },
+  { id:'partial', label:'Неполные сведения',   icon:'ri-question-line' },
+  { id:'empty',   label:'Записей нет',         icon:'ri-inbox-line' },
+  { id:'slow',    label:'Медленный ответ',     icon:'ri-hourglass-line' },
+  { id:'down',    label:'Сервис недоступен',   icon:'ri-cloud-off-line' },
+];
+const respond = (scn) => {
+  if(scn === 'down') return { st:'error' };
+  if(scn === 'empty') return { st:'ok', data:[] };
+  if(scn === 'one') return { st:'ok', data:[ current(-210, 'AA004517') ] };
+  if(scn === 'soon') return { st:'ok', data:[ current(-347, 'AA004517'), previous() ] };
+  if(scn === 'no') return { st:'ok', data:[ disapproved(), previous() ] };
+  if(scn === 'partial') return { st:'ok', data:[ partial() ] };
+  return { st:'ok', data:[ previous(), current(-210, 'AA004517') ] };   // ok, slow — порядок в ответе не важен
+};
+
+// ---------- Оформление ----------
+const TONE = {
+  green:  { bg:'#EFFAF6', fg:'#176448', ic:'#38C793', line:'#CBF5E5' },
+  yellow: { bg:'#FEF7EC', fg:'#693D11', ic:'#F2AE40', line:'#FBDFB1' },
+  red:    { bg:'#FDEDF0', fg:'#710E21', ic:'#DF1C41', line:'#F7C5CF' },
+  gray:   { bg:'#F6F8FA', fg:'#525866', ic:'#868C98', line:'#E2E4E9' },
+};
+const row = (label, value, extra) => (value === '' || value == null) ? null : { label, value, cls:'lm-tile', hasNote:false, note:'', valueStyle:'', noteStyle:'', ...(extra || {}) };
+const moName = (m) => m.MedOrgNameRu || m.MedOrgNameKk || m.MedOrgNameKK || (m.MedOrgCode ? `Код МО ${m.MedOrgCode}` : '');
+const svcName = (code) => { const s = SERVICES.find(x => x.code === code); return s ? s.name : `Медицинская услуга ${code}`; };
+const svcOrder = (code) => { const i = SERVICES.findIndex(x => x.code === code); return i === -1 ? 99 : i; };
+
+// Статус допуска по WorkAdmissionRecord
+const admission = (w) => {
+  w = w || {};
+  const left = daysTo(w.EndDate);
+  if(w.Status === 'DISAPPROVED') return { st:'no', left };
+  if(w.Status === 'EXPIRED' || (left !== null && left < 0)) return { st:'expired', left };
+  if(w.Status === 'APPROVED') return { st:'ok', left };
+  return { st:'unknown', left };
+};
+const RANK = { ok:0, unknown:1, no:2, expired:3 };
+// положения переключателя «Статус» — как в макете (порядок и подписи)
+const SEG = ['ok', 'expired', 'no'];
+const VACC_LIMIT = 5;
+const STATUS = {
+  ok:      { label:'Активен: Допущен',     badge:'Допущен к работе',    tone:'green', icon:'ri-checkbox-circle-line' },
+  no:      { label:'Не допущен',  badge:'Не допущен к работе', tone:'red',   icon:'ri-close-circle-line' },
+  expired: { label:'Срок истёк',  badge:'Срок допуска истёк',  tone:'gray',  icon:'ri-history-line' },
+  unknown: { label:'Без статуса', badge:'Статус не указан',    tone:'gray',  icon:'ri-question-line' },
+};
+
+class Component extends DCLogic {
+  state = { scn:'ok', st:'loading', data:[], sel:null, med:{}, medOpen:false, vaccAll:{}, refreshing:false, toast:null, ppOpen:false };
+  _timers = [];
+  selRef = React.createRef();
+
+  componentDidMount(){
+    let scn = 'ok';
+    try { scn = sessionStorage.getItem('mp-lmk-scn') || 'ok'; } catch(e){}
+    if(!SCNS.some(x => x.id === scn)) scn = 'ok';
+    this.setState({ scn, sel:this.hashSel() });
+    this._onHash = () => { const h = this.hashSel(); if(h) this.setState({ sel:h }); };
+    window.addEventListener('hashchange', this._onHash);
+    // список услуг закрывается кликом вне его и по Escape (фокус возвращается на кнопку)
+    this._onDown = (e) => { if(this.state.medOpen && !(e.target.closest && e.target.closest('.lm-sel-w'))) this.setState({ medOpen:false }); };
+    this._onKey = (e) => { if(e.key === 'Escape' && this.state.medOpen){ this.setState({ medOpen:false }); this.focusSel(); } };
+    document.addEventListener('mousedown', this._onDown);
+    window.addEventListener('keydown', this._onKey);
+    this.load('initial');
+  }
+  componentWillUnmount(){
+    window.removeEventListener('hashchange', this._onHash);
+    document.removeEventListener('mousedown', this._onDown);
+    window.removeEventListener('keydown', this._onKey);
+    this._timers.forEach(clearTimeout); clearTimeout(this._tt);
+  }
+  focusSel(){ setTimeout(() => { const b = this.selRef.current; if(b && b.focus) b.focus(); }, 0); }
+
+  hashSel(){ try { return decodeURIComponent((location.hash || '').slice(1)) || null; } catch(e){ return null; } }
+  later(fn, ms){ this._timers.push(setTimeout(fn, ms)); }
+
+  // Запрос EH_GET_ALL_LMK: PersonalId = ИИН. mode: initial | retry | refresh (refresh не прячет показанные сведения)
+  load(mode){
+    this._timers.forEach(clearTimeout); this._timers = [];
+    const gen = this._gen = (this._gen || 0) + 1;
+    const refresh = mode === 'refresh';
+    this.setState(refresh ? { refreshing:true } : { st:'loading', refreshing:false });
+    this.later(() => {
+      if(gen !== this._gen) return;
+      const r = respond(this.state.scn);
+      if(r.st === 'error'){
+        if(refresh){ this.setState({ refreshing:false }); this.toast('Не удалось обновить данные. Повторите попытку позже.', 'err'); }
+        else this.setState({ st:'error' });
+        return;
+      }
+      this.setState({ st:'ok', data:r.data, refreshing:false });
+      if(refresh) this.toast('Данные обновлены', 'ok');
+    }, this.state.scn === 'slow' ? 3200 : 900);
+  }
+
+  select(key, focus){
+    this.setState({ sel:key, medOpen:false });
+    try { history.replaceState(null, '', '#' + encodeURIComponent(key)); } catch(e){}
+    if(focus) setTimeout(() => { const el = document.getElementById('lm-st-' + key); if(el) el.focus(); }, 0);
+  }
+
+  toast(text, kind){
+    clearTimeout(this._tt);
+    this.setState({ toast:{ text, kind:kind || 'ok' } });
+    this._tt = setTimeout(() => this.setState({ toast:null }), 3200);
+  }
+  setScn(id){
+    try { sessionStorage.setItem('mp-lmk-scn', id); } catch(e){}
+    try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    this.setState({ scn:id, sel:null, med:{}, vaccAll:{}, medOpen:false });
+    this.load('initial');
+  }
+
+  // ---------- Запись ЛМК → модель экрана ----------
+  view(raw){
+    const p = raw.passport || {}, w = raw.WorkAdmissionRecord || {};
+    const adm = admission(w);
+    const key = raw.MedicalBookletSeries || '';
+    const meds = (raw.MedData || []).slice().sort((a, b) => svcOrder(a.MedicalServiceCode) - svcOrder(b.MedicalServiceCode) || String(b.ConsultationDate).localeCompare(String(a.ConsultationDate)));
+    const S = STATUS[adm.st], T = TONE[S.tone];
+
+    // МО допуска (4.5) приходит кодом: наименование — из MedData этой же записи, иначе код
+    const moByCode = {};
+    meds.forEach(m => { if(m.MedOrgCode && !moByCode[m.MedOrgCode]) moByCode[m.MedOrgCode] = m; });
+    const admMo = w.MedOrgCode ? moName(moByCode[w.MedOrgCode] || { MedOrgCode:w.MedOrgCode }) : '';
+
+    // строка статуса: противопоказания (5) + для истёкшего срока — дата окончания
+    const contra = (raw.Contraindications || []).filter(Boolean).map(c => CONTRA[c] || `код ${c}`);
+    const contraText = contra.length ? `Противопоказания: ${contra.join('; ')}.` : 'Противопоказания не выявлены.';
+    // отклонения по заключениям врачей (MedData.DoctorConclusion = false) — тоже в строке статуса, чтобы не искать их по списку услуг
+    const devs = (raw.MedData || []).filter(m => m.DoctorConclusion === false).sort((a, b) => svcOrder(a.MedicalServiceCode) - svcOrder(b.MedicalServiceCode)).map(m => svcName(m.MedicalServiceCode));
+    const devText = devs.length ? ` Отклонения в заключениях: ${devs.join(', ')}.` : '';
+    const bannerText = (adm.st === 'expired' && w.EndDate ? `Срок действия истёк ${fd(w.EndDate)}. ` : '') + contraText + devText;
+
+    // плитки статуса
+    const left = adm.left;
+    const soon = adm.st === 'ok' && left !== null && left <= WARN_DAYS;
+    // срок действия: «До EndDate», ниже — «с StartDate» и остаток дней (как в макете)
+    const term = w.EndDate ? `До ${fd(w.EndDate)}` : w.StartDate ? `с ${fd(w.StartDate)}` : '';
+    const leftText = adm.st === 'ok' && left !== null ? (left === 0 ? 'последний день' : `осталось ${left} ${plural(left, ['день','дня','дней'])}`) : '';
+    const termNote = [w.EndDate && w.StartDate ? `с ${fd(w.StartDate)}` : '', leftText].filter(Boolean).join(' · ');
+    const kato = KATO[w.Kato] || '';
+    const stTiles = [
+      row('Тип медицинского осмотра', EXAM_TYPE[w.MedicalExamType] || ''),
+      row('Дата выдачи', fd(w.ConsultationDate)),
+      row('Срок действия', term, { hasNote:!!termNote, note:termNote,
+        valueStyle: adm.st === 'ok' && w.EndDate ? `color:${soon ? TONE.yellow.fg : TONE.green.fg};` : adm.st === 'expired' ? `color:${TONE.red.fg};` : '' }),
+      row('Ответственный врач', w.DoctorName),
+      row('Медицинская организация', admMo, kato ? { hasNote:true, note:kato } : null),
+    ].filter(Boolean);
+
+    // сведения о работе (1.2–1.5)
+    const act = ACTIVITY[p.ActivityCode];
+    const job = [
+      row('Место работы', p.WorkPlace, { cls:'lm-tile wide' }),
+      row('Должность', p.Position),
+      row('Основная профессия', p.MainProfession),
+      row('Целевая группа', act || (p.ActivityCode ? `Код ${p.ActivityCode}` : ''), { cls:'lm-tile wide', hasNote:!!act, note:act ? `Код ${p.ActivityCode}` : '' }),
+    ].filter(Boolean);
+
+    // медицинское заключение (2): по одной услуге, остальные — переключателем
+    // по умолчанию открыто первое заключение с отклонениями — оно важнее остальных
+    const firstBad = meds.findIndex(x => x.DoctorConclusion === false);
+    const picked = this.state.med[key];
+    const mi = Math.min(picked != null ? picked : Math.max(0, firstBad), Math.max(0, meds.length - 1));
+    const m = meds[mi] || null;
+    const bad = m && m.DoctorConclusion === false;
+    const medOpts = meds.map((x, i) => {
+      const xb = x.DoctorConclusion === false;
+      return { label: svcName(x.MedicalServiceCode), date: fd(x.ConsultationDate), on: i === mi, cls: i === mi ? 'lm-opt on' : 'lm-opt',
+        dotStyle: `background:${xb ? TONE.red.ic : TONE.green.ic};`,
+        onClick: () => { this.setState(st => ({ med: { ...st.med, [key]: i }, medOpen:false })); this.focusSel(); } };
+    });
+    const medTiles = m ? [
+      { label:'Дата заключения', value: fd(m.ConsultationDate) || '—' },
+      { label:'ФИО врача', value: m.DoctorName || '—' },
+      { label:'Организация', value: moName(m) || '—' },
+    ] : [];
+    const n = meds.length;
+
+    // перенесённые инфекции (3), прививки (10)
+    const inf = (raw.InfectionHistory || []).slice().sort((a, b) => String(b.Date).localeCompare(String(a.Date)))
+      .map(x => ({ code: x.CodeInfection, name: VIRUS[x.CodeInfection] || `Код ${x.CodeInfection}`, date: fd(x.Date) || '—' }));
+    const vacc = (raw.VaccinationRecord || []).slice().sort((a, b) => String(b.Date).localeCompare(String(a.Date)))
+      .map(x => ({ name: VACC[x.VaccinationCode] || `Код ${x.VaccinationCode}`, date: fd(x.Date) || '—', id: x.VaccinationId || '—' }));
+    const cnt = (k) => `${k} ${plural(k, ['запись','записи','записей'])} в реестре`;
+    const allV = !!this.state.vaccAll[key];
+    const vaccShown = allV ? vacc : vacc.slice(0, VACC_LIMIT);
+
+    return {
+      key, st:adm.st, rank: RANK[adm.st],
+      sortDate: String(w.ConsultationDate || w.StartDate || (meds[0] && meds[0].ConsultationDate) || ''),
+      label: S.label, tone: S.tone, workplace: p.WorkPlace || '',
+      hasPdf: !!(raw.Document && raw.Document.Base64PDF),
+      pdfName: `Личная медицинская карта${p.WorkPlace ? ' — ' + p.WorkPlace.replace(/[\\/:*?"<>|]/g, '') : ''}.pdf`,
+      badge: S.badge, badgeStyle: `background:${T.fg};`,
+      bannerBox: `background:${T.bg};border-color:${T.line};`,
+      bannerIcon: S.icon, bannerIcStyle: `color:${T.ic};`,
+      bannerText,
+      stTiles, hasStTiles: stTiles.length > 0, stTilesCls: stTiles.length === 5 ? 'lm-tiles n5' : 'lm-tiles',
+      job,
+      hasMed: n > 0, noMed: n === 0, manyMed: n > 1,
+      medCount: `${n} ${plural(n, ['заключение','заключения','заключений'])}`,
+      medOpts, medTiles, oneMed: n === 1,
+      medSvc: m ? svcName(m.MedicalServiceCode) : '',
+      selLabel: m ? `Медицинская услуга: ${svcName(m.MedicalServiceCode)}. Выбрать другую` : '',
+      medDot: `background:${bad ? TONE.red.ic : TONE.green.ic};`,
+      medTitle: m ? `Заключение: ${bad ? 'Есть отклонения' : 'Без отклонений'}` : '',
+      medIcon: bad ? 'ri-close-circle-fill' : 'ri-checkbox-circle-fill',
+      medIcStyle: `font-size:18px;color:${bad ? TONE.red.ic : TONE.green.ic};`,
+      medBox: bad ? `background:${TONE.red.bg};` : '',
+      medText: m ? (m.DoctorConclusionText || '') : '', hasMedText: !!(m && m.DoctorConclusionText),
+      inf, hasInf: inf.length > 0, noInf: inf.length === 0, infCount: cnt(inf.length),
+      vacc, vaccShown, hasVacc: vacc.length > 0, noVacc: vacc.length === 0, vaccCount: cnt(vacc.length),
+      vaccMore: vacc.length > VACC_LIMIT,
+      vaccShownText: `Показано ${vaccShown.length} из ${vacc.length}`,
+      vaccMoreLabel: allV ? 'Свернуть' : `Показать ещё (всего ${vacc.length})`,
+      showAllVacc: () => this.setState(st => ({ vaccAll: { ...st.vaccAll, [key]: !allV } })),
+    };
+  }
+
+  renderVals(){
+    const s = this.state;
+    const raw = s.st === 'ok' ? s.data : [];
+    const list = raw.map(x => this.view(x)).sort((a, b) => a.rank - b.rank || b.sortDate.localeCompare(a.sortDate));
+    const cur = list.find(x => x.key === s.sel) || list[0] || null;
+    this._cur = cur ? cur.key : null;
+
+    // переключатель «Статус» (как в макете): «Активен: Допущен» · «Срок истёк» · «Не допущен».
+    // Несколько записей с одним статусом — отдельные положения с местом работы; статуса без записей — неактивное положение.
+    const segSt = SEG.concat(list.some(x => x.st === 'unknown') ? ['unknown'] : []);
+    const books = [];
+    segSt.forEach(stId => {
+      const recs = list.filter(x => x.st === stId);
+      if(!recs.length){ books.push({ label: STATUS[stId].label, title:'Нет записей с этим статусом', tid:'lm-st-none-' + stId, on:false, tabIndex:-1, disabled:true, cls:'lm-seg-b', dotStyle:'', onClick:() => {} }); return; }
+      recs.forEach(x => {
+        const on = !!(cur && x.key === cur.key);
+        books.push({ label: recs.length > 1 && x.workplace ? STATUS[stId].label + ' · ' + x.workplace : STATUS[stId].label,
+          title: x.workplace, tid:'lm-st-' + x.key, on, tabIndex: on ? 0 : -1, disabled:false,
+          cls: on ? 'lm-seg-b on' : 'lm-seg-b', dotStyle: 'background:' + TONE[x.tone].ic + ';',
+          onClick: () => this.select(x.key) });
+      });
+    });
+    const navIds = list.slice().sort((a, b) => segSt.indexOf(a.st) - segSt.indexOf(b.st)).map(x => x.key);
+
+    const loading = s.st === 'loading';
+    const busy = loading || s.refreshing;
+    const isData = s.st === 'ok' && list.length > 0;
+
+    return {
+      busy, refreshing: s.refreshing,
+      refresh: () => { if(!busy) this.load('refresh'); },
+      refreshLabel: s.refreshing ? 'Обновляем…' : 'Обновить данные',
+      refreshIcon: s.refreshing ? 'ri-loader-4-line' : 'ri-refresh-line',
+      refreshIconStyle: `font-size:17px;${s.refreshing ? 'animation:mp-spin .8s linear infinite;' : ''}`,
+
+      isLoading: loading, skel5:[1, 2, 3, 4, 5],
+      isError: s.st === 'error',
+      isEmpty: s.st === 'ok' && list.length === 0,
+      isData,
+      retry: () => this.load('retry'),
+
+      showSeg: list.length > 0, books,
+      panelRole: cur ? 'tabpanel' : undefined,
+      panelBy: cur ? 'lm-st-' + cur.key : undefined,
+      onBookKey: (e) => {
+        const ids = navIds, i = ids.indexOf(this._cur);
+        let n = null;
+        if(e.key === 'ArrowRight') n = ids[(i + 1) % ids.length];
+        else if(e.key === 'ArrowLeft') n = ids[(i - 1 + ids.length) % ids.length];
+        else if(e.key === 'Home') n = ids[0];
+        else if(e.key === 'End') n = ids[ids.length - 1];
+        if(n){ e.preventDefault(); this.select(n, true); }
+      },
+      b: cur || {},
+      selRef: this.selRef, medOpen: s.medOpen,
+      medChev: s.medOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+      toggleMed: () => {
+        const open = !s.medOpen;
+        this.setState({ medOpen: open });
+        if(open) setTimeout(() => { const el = document.querySelector('.lm-opt.on') || document.querySelector('.lm-opt'); if(el) el.focus(); }, 0);
+      },
+      onMenuKey: (e) => {
+        const opts = [...document.querySelectorAll('.lm-opt')], i = opts.indexOf(document.activeElement);
+        let n = -1;
+        if(e.key === 'ArrowDown') n = Math.min(opts.length - 1, i + 1);
+        else if(e.key === 'ArrowUp') n = Math.max(0, i - 1);
+        else if(e.key === 'Home') n = 0;
+        else if(e.key === 'End') n = opts.length - 1;
+        else if(e.key === 'Tab') this.setState({ medOpen:false });
+        if(n > -1){ e.preventDefault(); opts[n].focus(); }
+      },
+      pdfHref: PDF_HREF,
+      onDownload: () => this.toast('PDF личной медицинской карты скачивается', 'ok'),
+
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '',
+      toastIcon: s.toast && s.toast.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle: `font-size:20px;flex:0 0 auto;color:${s.toast && s.toast.kind === 'err' ? '#DF1C41' : '#38C793'};`,
+
+      ppOpen: s.ppOpen, ppCls: s.ppOpen ? 'lm-pp' : 'lm-pp closed',
+      ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppBox: `position:fixed;z-index:50;width:${s.ppOpen ? 250 : 220}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
+      scns: SCNS.map(x => ({ ...x, on: s.scn === x.id, onClick: () => this.setScn(x.id),
+        style: s.scn === x.id ? 'background:#EEF2FF;border-color:#C6D0FF;color:#312D86;' : '' })),
+    };
+  }
+}
+</script>
+</body>
+</html>

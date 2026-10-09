@@ -91,7 +91,7 @@ const tabs = data.map(t => ({
 | `mp-notif-read` | JSON-массив номеров прочитанных уведомлений | `Уведомления` ↔ `Header` (событие `mp-notif-change`) |
 | `mp-proc-ls`, `mp-proc-mi` | `p1` / `p2` / `p3` / `p45` / `done` — этап сквозного процесса в прототипе | `Процесс` → `Мои процессы` |
 | `mp-sur-scn` (sessionStorage) | сценарий ответа СУР в прототипе: `ok` / `slow` / `down` / `invalid` / `notfound` / `qualFail` / `noWork` / `noBin` | `Профиль врача` (панель «Прототип») |
-| `mp-lmk-scn` (sessionStorage) | сценарий ответа `EH_GET_ALL_LMK` в прототипе: `ok` / `one` / `soon` / `no` / `partial` / `empty` / `slow` / `down` | `Медицинская книжка` (панель «Прототип») |
+| `mp-lmk-scn` (sessionStorage) | сценарий ответа `EH_GET_ALL_LMK` в прототипе: `ok` / `one` / `soon` / `no` / `partial` / `empty` / `slow` / `down` | `Личная медицинская карта` (панель «Прототип») |
 | `mp-doc-photo` | фото профиля врача — data:URL JPEG 320×320 | `Профиль врача` → `Header` (событие `mp-doc-photo-change`) |
 | `mp-doc-notif-read` | JSON-массив id прочитанных уведомлений врача | `Header` (`cabinet="medical"`) |
 
