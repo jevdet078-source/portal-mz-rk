@@ -31,6 +31,7 @@
 | [Assistant.dc.html](../project/Assistant.dc.html) | Плавающий AI-помощник |
 | [AuthAside.dc.html](../project/AuthAside.dc.html) | Бренд-панель «Входа» и «Регистрации»: заголовок и предупреждение о конфиденциальности (ст. 641 КоАП РК), `variant="login"` / `"register"` |
 | [EcpPicker.dc.html](../project/EcpPicker.dc.html) | Заглушка окна NCALayer: тестовые сертификаты под все сценарии постановок. События `mp-ecp-open` → `mp-ecp-select` / `mp-ecp-cancel` |
+| [GovServices.dc.html](../project/GovServices.dc.html) | Окно «Государственные услуги»: категории слева, перечень услуг справа, поиск по всем категориям, на телефоне — полноэкранная панель с лентой категорий. Событие `mp-gov-open` (detail — id категории, необязательно) или ссылка `#gov-services` |
 
 ## Использование
 
