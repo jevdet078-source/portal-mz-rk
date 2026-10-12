@@ -35,6 +35,8 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-paneldown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   .mp-scroll::-webkit-scrollbar{height:0;width:0;}
+  .mp-tile[aria-expanded="false"]:hover,.mp-tile[aria-haspopup="dialog"]:hover{background:rgba(255,255,255,.12)!important;}
+  .mp-tile:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 </style>
 </helmet>
 
@@ -51,8 +53,8 @@
     <div style="max-width: 1280px; margin: 0 auto; padding: 22px 40px 36px; position: relative; display: grid; justify-content: center">
       <!-- MEGA TABS -->
       <div style="display: flex; gap: 6px; flex-wrap: wrap; position: static; flex-direction: row; justify-content: center">
-        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
-          <button onClick="{{ t.onClick }}" style="{{ t.style }}">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7">
+          <button class="mp-tile" onClick="{{ t.onClick }}" aria-haspopup="{{ t.popup }}" aria-expanded="{{ t.expanded }}" style="{{ t.style }}">
             <i class="{{ t.icon }}" style="font-size:26px;"></i>
             <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">{{ t.label }}</span>
           </button>
@@ -262,6 +264,9 @@
   <!-- FOOTER -->
   <div style="margin-top:48px;"><dc-import name="Footer" hint-size="100%,360px"></dc-import></div>
 
+  <!-- ГОСУДАРСТВЕННЫЕ УСЛУГИ (окно) -->
+  <dc-import name="GovServices" hint-size="1px,1px"></dc-import>
+
   <!-- FLOATING ASSISTANT -->
   <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
 
@@ -362,6 +367,7 @@ class Component extends DCLogic {
     if(/цен/.test(t) && /((^|\s)лс(\s|$)|лекарств|препарат)/.test(t)) return { text:'Регистрация цены производителя лекарственного средства подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-ls', icon:'ri-price-tag-3-line' } };
     if(/цен/.test(t) && /((^|\s)ми(\s|$)|издели|(^|\s)имн(\s|$))/.test(t)) return { text:'Регистрация цены производителя медицинского изделия подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-mi', icon:'ri-stethoscope-line' } };
     if(/(регистрац.*цен|цен.*регистрац)/.test(t)) return { text:'Уточните, для чего нужна регистрация цены:', chips:['Регистрация цены ЛС','Регистрация цены МИ'] };
+    if(/(госуслуг|государственн\S* услуг|egov|егов)/.test(t)) return { text:'Государственные услуги в сфере здравоохранения собраны в одном окне: медицинская помощь, фармацевтика, лицензирование и аккредитация. Выбранная услуга откроется на портале eGov.kz.', cta:{ label:'Государственные услуги', href:'#gov-services', icon:'ri-government-line' } };
     if(/(лицензи|фарм|бад|экспертиз)/.test(t)) return { text:'Для бизнеса доступны услуги лицензирования, санитарно-эпидемиологической экспертизы и регистрации. Переключите роль на «Бизнесу», чтобы увидеть полный список.', cta:{ label:'Каталог услуг', href:'Каталог услуг.dc.html', icon:'ri-award-line' } };
     return { text:'Я могу подсказать по записи к врачу, статусу ОСМС и отчислениям, вакцинации, поиску медорганизаций и лекарств. Опишите запрос подробнее — например, симптом или название услуги.' };
   }
@@ -446,9 +452,14 @@ class Component extends DCLogic {
       ],
     };
     const curTabs = tabSets[s.role];
-    const tabs = curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label,
+    const tabStyle = (on) => `display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${on?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}`;
+    // «Государственные услуги» — общий раздел для всех ролей, открывает окно GovServices
+    const govTab = { id:'gov', icon:'ri-government-line', label:'Государственные услуги', popup:'dialog', expanded:undefined,
+      onClick:()=>{ this.setState({ tab:null }); try { window.dispatchEvent(new CustomEvent('mp-gov-open')); } catch(e){} },
+      style:tabStyle(false) };
+    const tabs = [govTab, ...curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label, popup:'true', expanded:s.tab===t.id ? 'true' : 'false',
       onClick:()=>this.setState(st=>({ tab: st.tab===t.id ? null : t.id })),
-      style:`display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${s.tab===t.id?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}` }));
+      style:tabStyle(s.tab===t.id) }))];
     const activeTab = curTabs.find(t => t.id === s.tab);
     const panelGroups = activeTab ? activeTab.groups : [];
     const panelPopular = activeTab ? activeTab.popular.map(p => ({ ...p, color:p.c[1], bg:p.c[0] })) : [];

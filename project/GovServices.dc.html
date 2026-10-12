@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Государственные услуги — модальное окно с каталогом госуслуг МЗ РК на eGov.kz
+  (постановка «Добавление раздела „Государственные услуги“ на главную страницу портала»).
+
+  3 категории, 34 услуги. Каждая услуга — внешняя ссылка, открывается в новой вкладке.
+  Поиск — по наименованиям услуг всех категорий сразу.
+
+  Протокол (события window):
+    'mp-gov-open'  ← открыть окно; detail = id категории ('med' | 'pharma' | 'lic'), необязательно
+  Глубокая ссылка: <страница с компонентом>#gov-services
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;}
+  @keyframes gs-fade{from{opacity:0}to{opacity:1}}
+  @keyframes gs-pop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes gs-up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+
+  .gs-wrap{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif;color:var(--n900);}
+  .gs-dialog{position:relative;width:100%;max-width:1040px;height:min(720px,calc(100vh - 48px));display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(10,13,20,.24);overflow:hidden;outline:none;animation:gs-pop .18s ease;}
+  .gs-head{display:flex;align-items:center;gap:12px;padding:16px 16px 16px 24px;border-bottom:1px solid var(--stroke);flex:0 0 auto;}
+  .gs-body{flex:1;min-height:0;display:grid;grid-template-columns:304px minmax(0,1fr);}
+  .gs-nav{display:flex;flex-direction:column;gap:4px;padding:16px 12px;border-right:1px solid var(--stroke);background:var(--n50);overflow-y:auto;}
+  .gs-cat{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;border:none;border-radius:12px;background:transparent;font-family:inherit;text-align:left;cursor:pointer;transition:background .12s,color .12s;}
+  .gs-cat:hover:not([disabled]){background:var(--n100);}
+  .gs-cat[aria-current="true"],.gs-cat[aria-current="true"]:hover{background:var(--primary-lighter);}
+  .gs-cat[disabled]{cursor:default;opacity:.45;}
+  .gs-main{display:flex;flex-direction:column;min-width:0;min-height:0;}
+  .gs-main-head{padding:20px 24px 12px;flex:0 0 auto;}
+  .gs-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 20px;position:relative;scroll-behavior:smooth;}
+  .gs-search{display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:#fff;transition:border-color .12s,box-shadow .12s;}
+  .gs-search:hover{border-color:var(--n300);}
+  .gs-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .gs-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .gs-search input::placeholder{color:var(--n400);}
+  .gs-search input::-webkit-search-cancel-button{display:none;}
+  .gs-row{display:grid;grid-template-columns:28px minmax(0,1fr) 20px;align-items:start;gap:12px;padding:12px;border-radius:12px;text-decoration:none;color:var(--n900);transition:background .12s;}
+  .gs-row:hover{background:var(--n100);}
+  .gs-row:hover .gs-ext{color:var(--primary);}
+  .gs-row:hover .gs-name{color:var(--primary-darker);}
+  .gs-ext{color:var(--n400);font-size:18px;line-height:20px;transition:color .12s;}
+  .gs-name{font-size:14px;line-height:20px;font-weight:500;overflow-wrap:anywhere;hyphens:auto;transition:color .12s;}
+  .gs-num{font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;text-align:right;}
+  .gs-btn{transition:background .12s,color .12s;}
+  .gs-btn:hover{background:var(--n100) !important;color:var(--n600) !important;}
+  .gs-cat:focus-visible,.gs-row:focus-visible,.gs-btn:focus-visible,.gs-link:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .gs-link:hover{background:var(--primary-lighter) !important;}
+  .gs-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  .gs-scroll::-webkit-scrollbar{width:10px;height:0;}
+  .gs-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:10px;border:3px solid #fff;}
+  .gs-nav.gs-scroll::-webkit-scrollbar-thumb{border-color:var(--n50);}
+
+  /* Планшет */
+  @media (max-width:1023px){
+    .gs-wrap{padding:16px;}
+    .gs-dialog{height:min(760px,calc(100vh - 32px));}
+    .gs-body{grid-template-columns:236px minmax(0,1fr);}
+    .gs-nav{padding:12px 8px;}
+    .gs-cat{gap:10px;padding:10px;}
+    .gs-main-head{padding:16px 20px 12px;}
+    .gs-list{padding:0 12px 16px;}
+  }
+  /* Мобильный: полноэкранная панель, категории — горизонтальные вкладки */
+  @media (max-width:719px){
+    .gs-wrap{padding:0;align-items:stretch;}
+    .gs-dialog{height:100%;max-width:none;border-radius:0;animation:gs-up .2s ease;}
+    .gs-head{padding:10px 8px 10px 16px;}
+    .gs-body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);}
+    .gs-nav{flex-direction:row;gap:8px;padding:12px 16px;border-right:none;border-bottom:1px solid var(--stroke);background:#fff;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+    .gs-nav::-webkit-scrollbar{display:none;}
+    .gs-cat{width:auto;flex:0 0 auto;gap:8px;padding:7px 10px 7px 7px;border:1px solid var(--stroke);border-radius:999px;background:#fff;}
+    .gs-cat[aria-current="true"],.gs-cat[aria-current="true"]:hover{border-color:var(--primary-light);}
+    .gs-cat-ico{width:26px !important;height:26px !important;border-radius:999px !important;}
+    .gs-cat-ico i{font-size:15px !important;}
+    .gs-cat-label{white-space:nowrap;font-size:13.5px !important;}
+    .gs-main-head{padding:14px 16px 10px;}
+    .gs-list{padding:0 8px 24px;}
+    .gs-row{grid-template-columns:22px minmax(0,1fr) 18px;gap:10px;padding:12px 8px;}
+    .gs-search input{font-size:16px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .gs-dialog,.gs-wrap *{animation:none !important;}
+    .gs-list{scroll-behavior:auto;}
+  }
+</style>
+</helmet>
+<div>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ true }}">
+    <div class="gs-wrap" onKeyDown="{{ onKey }}">
+      <div onClick="{{ close }}" style="position:absolute;inset:0;background:rgba(10,13,20,.48);animation:gs-fade .15s ease;"></div>
+      <div ref="{{ dialogRef }}" role="dialog" aria-modal="true" aria-labelledby="gs-title" tabIndex="-1" class="gs-dialog">
+
+        <!-- Заголовок -->
+        <div class="gs-head">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-government-line" style="font-size:22px;color:var(--primary);"></i></div>
+          <h2 id="gs-title" style="flex:1;min-width:0;margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.01em;">Государственные услуги</h2>
+          <button class="gs-btn" onClick="{{ close }}" aria-label="Закрыть" title="Закрыть" style="width:40px;height:40px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-line" style="font-size:22px;"></i></button>
+        </div>
+
+        <div class="gs-body">
+          <!-- Категории -->
+          <nav class="gs-nav gs-scroll" aria-label="Категории государственных услуг">
+            <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
+              <button class="gs-cat" onClick="{{ c.onClick }}" aria-current="{{ c.current }}" disabled="{{ c.disabled }}" style="{{ c.style }}">
+                <span class="gs-cat-ico" style="{{ c.iconWrap }}"><i class="{{ c.icon }}" style="font-size:18px;"></i></span>
+                <span class="gs-cat-label" style="{{ c.labelStyle }}">{{ c.label }}</span>
+                <span aria-label="{{ c.countLabel }}" style="{{ c.badge }}">{{ c.count }}</span>
+              </button>
+            </sc-for>
+          </nav>
+
+          <!-- Услуги -->
+          <section class="gs-main" aria-labelledby="gs-list-title">
+            <div class="gs-main-head">
+              <h3 id="gs-list-title" style="margin:0 0 14px;font-size:18px;line-height:28px;font-weight:600;letter-spacing:-.01em;">{{ listTitle }}<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 8px;margin-left:8px;vertical-align:2px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;line-height:1;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;">{{ listCount }}</span></h3>
+              <label class="gs-search">
+                <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
+                <input ref="{{ inputRef }}" type="search" value="{{ q }}" onChange="{{ onQ }}" placeholder="Поиск по всем услугам" aria-label="Поиск по наименованию государственной услуги" autoComplete="off" spellCheck="false" enterKeyHint="search">
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                  <button class="gs-btn" type="button" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить" style="width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+                </sc-if>
+              </label>
+              <span class="gs-sr" aria-live="polite">{{ liveText }}</span>
+            </div>
+
+            <div ref="{{ listRef }}" class="gs-list gs-scroll">
+              <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
+                <div id="{{ g.anchor }}" style="{{ g.wrap }}">
+                  <sc-if value="{{ g.showHead }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px 6px;">
+                      <i class="{{ g.icon }}" style="{{ g.iconStyle }}"></i>
+                      <span style="font-size:11.5px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">{{ g.label }}</span>
+                      <span style="font-size:12px;line-height:16px;font-weight:600;color:var(--n400);font-variant-numeric:tabular-nums;">{{ g.count }}</span>
+                    </div>
+                  </sc-if>
+                  <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;">
+                    <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="8">
+                      <li>
+                        <a class="gs-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ it.aria }}" title="{{ it.hint }}">
+                          <span class="gs-num">{{ it.num }}</span>
+                          <span class="gs-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                          <i class="ri-external-link-line gs-ext" aria-hidden="true"></i>
+                        </a>
+                      </li>
+                    </sc-for>
+                  </ul>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 16px;">
+                  <div style="width:56px;height:56px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-search-eye-line" style="font-size:26px;color:var(--n400);"></i></div>
+                  <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);max-width:320px;">По вашему запросу государственные услуги не найдены</div>
+                  <button class="gs-link" onClick="{{ clearQ }}" style="margin-top:16px;height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class="ri-arrow-go-back-line" style="font-size:16px;"></i>Сбросить поиск</button>
+                </div>
+              </sc-if>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800}}">
+const EGOV = 'https://egov.kz/ru/services/presale/';
+const ELICENSE = 'https://elicense.kz/';
+
+// Источник — постановка «Анализ ГУ МЗ»: наименования и ссылки один в один.
+const CATS = [
+  { id:'med', label:'Медицинская помощь', icon:'ri-heart-pulse-line', tone:['#FDEDF0','#DF1C41'], items:[
+    ['Регистрация доверенных контактов для уведомления в случае госпитализации', 'P719'],
+    ['Справка по динамическому наблюдению', 'P708'],
+    ['Выдача выписки из медицинской карты стационарного больного', 'P707'],
+    ['Регистрация прижизненного волеизъявления на кремацию', 'P718'],
+    ['Вызов врача на дом', 'P701'],
+    ['Прикрепление к поликлинике', 'P703'],
+    ['Вызов скорой медицинской помощи', 'health_care_pass132-3_mz'],
+    ['Возврат излишне (ошибочно) зачисленных сумм отчислений, взносов и (или) пени за несвоевременную и (или) неполную уплату отчислений и (или) взносов обязательного социального медицинского страхования', 'health_care_pass1601009_mz'],
+    ['Выдача медицинской справки по форме № 073/у', 'P723'],
+    ['Выдача медицинской справки по форме № 075/у', 'P715'],
+    ['Регистрация прижизненного отказа или согласия на посмертное донорство органов (части органа) и (или) тканей (части ткани) в целях трансплантации', 'P712'],
+    ['Выдача больничного листа', 'P713'],
+    ['Справки из наркологии, психиатрии и тубдиспансера', 'P704'],
+    ['Запись на прием к врачу', 'P702'],
+    ['Корректировка сведений по вакцинации', 'P721'],
+    ['Прием и рассмотрение документов о целесообразности направления граждан Республики Казахстан на лечение за рубеж и (или) привлечения зарубежных специалистов для проведения лечения в отечественных медицинских организациях в рамках гарантированного объема бесплатной медицинской помощи', 'health_care_pass-132-5_mz'],
+    ['Выдача направления пациентам на госпитализацию в стационар', 'P710'],
+    ['Информация об ОСМС', 'P711'],
+    ['Выдача справки о временной нетрудоспособности', 'P714'],
+    ['Выдача санаторно-курортной карты', 'P716'],
+    ['Композитная услуга «Рождение ребенка»', 'Com013'],
+  ] },
+  { id:'pharma', label:'Фармацевтика', icon:'ri-capsule-line', tone:['#EFFAF6','#176448'], items:[
+    ['Получение заключения о безопасности, качестве и эффективности лекарственных средств и медицинских изделий', 'pharmaceutics_153-3pass_mz'],
+    ['Регистрация цены на лекарственные средства и медицинские изделия', 'pharmaceutics_pass601013_mz'],
+    ['Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', 'P709'],
+  ] },
+  { id:'lic', label:'Лицензирование и Аккредитация', icon:'ri-award-line', tone:['#EEF2FF','#4D42E9'], items:[
+    // Постановка: «переход по ссылке портала „Е-лицензирование“» — сама ссылка в документе не указана
+    ['Выдача сертификата специалиста для допуска к клинической практике', ELICENSE],
+    ['Аккредитация организации по оценке знаний в области здравоохранения', 'approval_documents_pass153-5_mz'],
+    ['Аккредитация субъектов здравоохранения, осуществляющих независимую экспертизу', 'accreditation_passEL4-R22_mz'],
+    ['Выдача сертификата менеджера в области здравоохранения', 'approval_documents_pass163_mz'],
+    ['Аккредитация медицинских организаций (стандарты аккредитации)', 'approval_documents_477pass_mz'],
+    ['Выдача лицензии на дезинфекцию, дезинсекцию, дератизацию в здравоохранении', 'licensing_pass603012_mz'],
+    ['Выдача лицензии на ввоз/вывоз органов, тканей, крови человека (не члены ЕАЭС)', 'licensing_2F151_mzsr_6'],
+    ['Выдача лицензии на оборот наркотических средств в здравоохранении', 'licensing_2F490pass_mz'],
+    ['Выдача лицензии на фармацевтическую деятельность', 'licensing_489pass_mz'],
+    ['Выдача лицензии на медицинскую деятельность', 'med_accreditatio_2F487pass_mz'],
+  ] },
+].map(c => ({ ...c, items: c.items.map(([name, ref]) => {
+  const ext = /^https?:/.test(ref);
+  return { name, href: ext ? ref : EGOV + ref, site: ext ? '«Е-лицензирование»' : 'eGov.kz', norm: norm(name) };
+}) }));
+
+function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
+
+// Разбивает наименование на части с подсветкой всех вхождений слов запроса
+function highlight(name, tokens){
+  if(!tokens.length) return [{ t:name, style:'' }];
+  const low = norm(name), mark = new Array(name.length).fill(false);
+  tokens.forEach(tk => { let i = low.indexOf(tk); while(i !== -1){ for(let k = i; k < i + tk.length; k++) mark[k] = true; i = low.indexOf(tk, i + tk.length); } });
+  const parts = []; let cur = '', on = mark[0];
+  for(let i = 0; i < name.length; i++){
+    if(mark[i] !== on){ parts.push({ t:cur, on }); cur = ''; on = mark[i]; }
+    cur += name[i];
+  }
+  parts.push({ t:cur, on });
+  return parts.filter(p => p.t).map(p => ({ t:p.t, style: p.on ? 'background:#EEF2FF;color:#312D86;border-radius:3px;box-shadow:0 0 0 1px #EEF2FF;' : '' }));
+}
+
+class Component extends DCLogic {
+  state = { open:false, cat:'med', q:'' };
+  dialogRef = React.createRef();
+  inputRef = React.createRef();
+  listRef = React.createRef();
+
+  componentDidMount(){
+    this._onOpen = (e) => this.openWith(e && e.detail);
+    this._onHash = () => { if(location.hash === '#gov-services'){ history.replaceState(null, '', location.pathname + location.search); this.openWith(); } };
+    window.addEventListener('mp-gov-open', this._onOpen);
+    window.addEventListener('hashchange', this._onHash);
+    this._onHash();
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-gov-open', this._onOpen);
+    window.removeEventListener('hashchange', this._onHash);
+    this.unlockScroll();
+  }
+
+  openWith(cat){
+    if(this.state.open) return;
+    this._returnFocus = document.activeElement;
+    // По умолчанию — первая категория «Медицинская помощь»
+    this.setState({ open:true, q:'', cat: CATS.some(c => c.id === cat) ? cat : 'med' });
+    this.lockScroll();
+    setTimeout(() => {
+      // На телефоне не вызываем клавиатуру сразу — фокус на самом окне
+      const wide = window.matchMedia && window.matchMedia('(min-width:720px) and (pointer:fine)').matches;
+      const el = wide ? this.inputRef.current : this.dialogRef.current;
+      if(el && el.focus) el.focus({ preventScroll:true });
+    }, 30);
+  }
+  close(){
+    if(!this.state.open) return;
+    this.setState({ open:false });
+    this.unlockScroll();
+    const r = this._returnFocus; this._returnFocus = null;
+    if(r && r.focus && document.contains(r)) setTimeout(() => r.focus({ preventScroll:true }), 0);
+  }
+  lockScroll(){
+    if(this._locked) return;
+    const de = document.documentElement, gap = window.innerWidth - de.clientWidth;
+    this._locked = { overflow: de.style.overflow, pad: document.body.style.paddingRight };
+    de.style.overflow = 'hidden';
+    if(gap > 0) document.body.style.paddingRight = gap + 'px';
+  }
+  unlockScroll(){
+    if(!this._locked) return;
+    document.documentElement.style.overflow = this._locked.overflow;
+    document.body.style.paddingRight = this._locked.pad;
+    this._locked = null;
+  }
+  scrollListTop(){ const l = this.listRef.current; if(l){ l.style.scrollBehavior = 'auto'; l.scrollTop = 0; l.style.scrollBehavior = ''; } }
+
+  onKey(e){
+    if(e.key === 'Escape'){
+      e.stopPropagation();
+      // Esc в непустом поиске сначала очищает запрос
+      if(this.state.q && e.target === this.inputRef.current){ this.setState({ q:'' }); this.scrollListTop(); return; }
+      this.close(); return;
+    }
+    if(e.key === 'Tab'){
+      const d = this.dialogRef.current; if(!d) return;
+      const f = [...d.querySelectorAll('a[href],button:not([disabled]),input')].filter(x => x.offsetParent !== null);
+      if(!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if(e.shiftKey && (document.activeElement === first || document.activeElement === d)){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+  }
+
+  renderVals(){
+    const s = this.state;
+    const tokens = norm(s.q).trim().split(/\s+/).filter(Boolean);
+    const searching = tokens.length > 0;
+    const matches = (it) => tokens.every(tk => it.norm.includes(tk));
+    const hits = CATS.map(c => ({ cat:c, items: searching ? c.items.filter(matches) : c.items }));
+    const total = hits.reduce((n, h) => n + h.items.length, 0);
+
+    const cats = hits.map(({ cat:c, items }) => {
+      const active = !searching && s.cat === c.id;
+      const count = searching ? items.length : c.items.length;
+      const disabled = searching && count === 0;
+      return {
+        id:c.id, label:c.label, icon:c.icon, count, disabled,
+        current: active ? 'true' : 'false',
+        countLabel: `${count} ${plural(count)}`,
+        onClick: (e) => {
+          // На телефоне категории — горизонтальная лента: выбранную подтягиваем в видимую область
+          const btn = e && e.currentTarget, nav = btn && btn.parentElement;
+          if(nav && nav.scrollWidth > nav.clientWidth){
+            const nb = nav.getBoundingClientRect(), bb = btn.getBoundingClientRect();
+            if(bb.left < nb.left + 16) nav.scrollLeft -= nb.left + 16 - bb.left;
+            else if(bb.right > nb.right - 16) nav.scrollLeft += bb.right - nb.right + 16;
+          }
+          if(searching){
+            // При поиске категория ведёт к своей группе результатов
+            const l = this.listRef.current, g = l && l.querySelector('#gs-g-' + c.id);
+            if(g) l.scrollTop = g.offsetTop - 4;
+            return;
+          }
+          if(s.cat !== c.id){ this.setState({ cat:c.id }); this.scrollListTop(); }
+        },
+        style: `color:${active ? '#312D86' : '#31353F'};`,
+        iconWrap: `width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${c.tone[0]};color:${c.tone[1]};`,
+        labelStyle: `flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:${active ? 600 : 500};`,
+        badge: `flex:0 0 auto;min-width:24px;height:22px;padding:0 7px;border-radius:999px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;${active ? 'background:#fff;color:#4D42E9;' : 'background:#F6F8FA;color:#868C98;box-shadow:inset 0 0 0 1px #E2E4E9;'}`,
+      };
+    });
+
+    const toItems = (items) => items.map((it, i) => ({
+      num: i + 1, href: it.href,
+      parts: highlight(it.name, tokens),
+      hint: `Откроется на ${it.site} в новой вкладке`,
+      aria: `${it.name} — откроется на ${it.site} в новой вкладке`,
+    }));
+
+    const curCat = CATS.find(c => c.id === s.cat) || CATS[0];
+    const groups = searching
+      ? hits.filter(h => h.items.length).map((h, gi) => ({
+          anchor: 'gs-g-' + h.cat.id, showHead: true,
+          label: h.cat.label, icon: h.cat.icon, count: h.items.length,
+          iconStyle: `font-size:16px;color:${h.cat.tone[1]};`,
+          wrap: gi ? 'margin-top:12px;' : '',
+          items: toItems(h.items),
+        }))
+      : [{ anchor: 'gs-g-' + curCat.id, showHead: false, label: curCat.label, icon: curCat.icon, count: curCat.items.length, iconStyle: '', wrap: '', items: toItems(curCat.items) }];
+
+    return {
+      open: s.open,
+      dialogRef: this.dialogRef, inputRef: this.inputRef, listRef: this.listRef,
+      close: () => this.close(),
+      onKey: (e) => this.onKey(e),
+      cats, groups,
+      listTitle: searching ? 'Результаты поиска' : curCat.label,
+      listCount: searching ? total : curCat.items.length,
+      q: s.q, hasQ: !!s.q,
+      onQ: (e) => { this.setState({ q: e.target.value }); this.scrollListTop(); },
+      clearQ: () => { this.setState({ q:'' }); this.scrollListTop(); const i = this.inputRef.current; if(i) i.focus(); },
+      empty: searching && total === 0,
+      liveText: searching ? (total ? `Найдено: ${total} ${plural(total)}` : 'По вашему запросу государственные услуги не найдены') : '',
+    };
+  }
+}
+
+function plural(n){
+  const m10 = n % 10, m100 = n % 100;
+  if(m10 === 1 && m100 !== 11) return 'услуга';
+  if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'услуги';
+  return 'услуг';
+}
+</script>
+</body>
+</html>
