@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  ЭПЗ · Амбулаторная помощь — раздел электронной карты пациента в «Кабинете врача».
+  Постановки: «Оптимизация интерфейса раздела „Амбулаторная помощь“ ЭПЗ» и
+  «Оптимизация модального окна „Карточка амбулаторного приёма“».
+
+  Таблица приёмов (11 столбцов), сводка, поиск, фильтры, сортировка, пагинация, экспорт.
+  Подробности — только в модальном окне: строки таблицы не раскрываются.
+  Окно: шапка и основная информация закреплены, ниже — аккордеон медицинских разделов
+  (по умолчанию свёрнуты, раскрываются независимо, сбрасываются при открытии другого приёма).
+
+  Пропсы: patient — ФИО пациента, iin — ИИН (печатная форма, имя файла экспорта,
+  ключ состояния списка в sessionStorage `mp-epz-amb-ui:<ИИН>`).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--teal-d:#164564;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;--yellow:#F2AE40;--yellow-l:#FEF7EC;--yellow-d:#693D11;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--purple:#6E3FF3;--purple-l:#EEEBFF;
+    --stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-modal:0 24px 48px -12px rgba(10,13,20,.22);
+  }
+  @keyframes amb-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes amb-fade{from{opacity:0}to{opacity:1}}
+  @keyframes amb-pop{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes amb-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+  .amb{display:flex;flex-direction:column;gap:12px;font-family:'Inter',sans-serif;color:var(--n900);animation:amb-in .2s ease;}
+  .amb button{font-family:inherit;}
+  .amb-focus:focus-visible,.amb button:focus-visible,.amb input:focus-visible,.amb-dlg button:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  /* Заголовок раздела */
+  .amb-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:6px;}
+  .amb-title{display:flex;align-items:center;gap:14px;min-width:0;}
+  .amb-title-ico{width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:24px;}
+  .amb-h1{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;}
+  .amb-sub{margin:2px 0 0;font-size:13.5px;line-height:20px;color:var(--n500);}
+  .amb-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;flex:0 0 auto;transition:background .12s,border-color .12s;box-shadow:var(--sh-xs);}
+  .amb-btn:hover{background:var(--n100);}
+  .amb-btn i{font-size:18px;color:var(--n500);}
+  .amb-btn[disabled]{opacity:.5;cursor:not-allowed;}
+
+  /* Сводка: одна горизонтальная панель с разделителями */
+  .amb-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+  .amb-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));}
+  .amb-stat{position:relative;display:flex;align-items:center;gap:12px;padding:14px 18px;min-width:0;}
+  .amb-stat+.amb-stat::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--stroke);}
+  .amb-stat-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:19px;}
+  .amb-stat-lbl{font-size:12.5px;line-height:16px;color:var(--n500);}
+  .amb-stat-val{margin-top:2px;font-size:20px;line-height:24px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums;}
+
+  /* Панель поиска и фильтров */
+  .amb-tools{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
+  .amb-search{flex:1 1 240px;min-width:200px;position:relative;display:flex;align-items:center;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);padding:0 6px 0 38px;transition:border-color .12s,box-shadow .12s;}
+  .amb-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .amb-search>i{position:absolute;left:12px;font-size:18px;color:var(--n400);pointer-events:none;}
+  .amb-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .amb-search input::placeholder{color:var(--n400);}
+  .amb .amb-search input:focus-visible{box-shadow:none;}
+  .amb-search input::-webkit-search-cancel-button{display:none;}
+  .amb-x{width:28px;height:28px;border:none;border-radius:7px;background:none;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .amb-x:hover{background:var(--n100);color:var(--n600);}
+  .amb-dd{position:relative;flex:0 0 auto;}
+  .amb-dd-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s;}
+  .amb-dd-btn:hover{background:var(--n100);}
+  .amb-dd-btn>i:first-child{font-size:17px;color:var(--n400);}
+  .amb-dd-btn .amb-chev{font-size:18px;color:var(--n400);transition:transform .15s;}
+  .amb-dd-btn[aria-expanded="true"] .amb-chev{transform:rotate(180deg);}
+  .amb-dd-btn.is-set{border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .amb-dd-btn.is-set>i{color:var(--primary);}
+  .amb-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:100%;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-md),0 0 0 1px rgba(10,13,20,.02);padding:6px;animation:amb-drop .14s ease;}
+  .amb-menu.r{left:auto;right:0;}
+  .amb-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:7px 10px;border:none;border-radius:8px;background:none;color:var(--n700);font-size:14px;text-align:left;cursor:pointer;white-space:nowrap;}
+  .amb-opt:hover,.amb-opt:focus-visible{background:var(--n100);box-shadow:none !important;}
+  .amb-opt[aria-selected="true"]{color:var(--primary-darker);font-weight:500;}
+  .amb-opt i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .amb-period{width:288px;padding:14px;}
+  .amb-period-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .amb-lbl{display:block;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n600);margin-bottom:6px;}
+  .amb-date{width:100%;height:38px;border:1px solid var(--stroke);border-radius:9px;padding:0 8px;font-family:inherit;font-size:13.5px;color:var(--n900);background:var(--n0);outline:none;font-variant-numeric:tabular-nums;}
+  .amb-date:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .amb-period-foot{display:flex;justify-content:flex-end;margin-top:12px;}
+  .amb-link{border:none;background:none;padding:6px 4px;border-radius:6px;color:var(--primary);font-size:13.5px;font-weight:600;cursor:pointer;}
+  .amb-link:hover{color:var(--primary-dark);text-decoration:underline;text-underline-offset:3px;}
+
+  /* Таблица приёмов: сетка, закреплённые «Дата» и «Действия» */
+  .amb-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
+  .amb-scroll::-webkit-scrollbar{height:8px;}
+  .amb-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:8px;}
+  .amb-tr{display:grid;grid-template-columns:98px 68px 112px minmax(144px,1fr) minmax(146px,.8fr) minmax(150px,1fr) minmax(178px,1.3fr) minmax(160px,1.1fr) 98px 110px 78px;min-width:1342px;background:var(--n0);}
+  .amb-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
+  .amb-thead>div{background:var(--n50);}
+  .amb-th{display:flex;align-items:center;padding:9px 8px;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .amb-sort{display:inline-flex;align-items:center;gap:2px;margin:-4px -6px;padding:4px 6px;border:none;border-radius:6px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+  .amb-sort:hover{background:var(--n100);color:var(--n700);}
+  .amb-sort i{font-size:16px;flex:0 0 auto;}
+  .amb-sort[data-on="1"]{color:var(--n900);}
+  .amb-sort[data-on="1"] i{color:var(--primary);}
+  .amb-sort[data-on="0"] i{color:var(--n300);}
+  .amb-row{border-top:1px solid var(--stroke);cursor:pointer;transition:background .1s;}
+  .amb-tbody .amb-row:first-child{border-top:none;}
+  .amb-row:hover,.amb-row:hover>div{background:var(--n100);}
+  .amb-td{padding:10px 8px;font-size:13px;line-height:18px;color:var(--n600);min-width:0;overflow-wrap:break-word;display:flex;flex-direction:column;justify-content:center;background:var(--n0);transition:background .1s;}
+  .amb-c1{position:sticky;left:0;z-index:1;padding-left:16px;}
+  .amb-cA{position:sticky;right:0;z-index:1;padding-right:12px;align-items:flex-end;justify-content:center;}
+  .amb-th.amb-cA{align-items:center;justify-content:flex-end;}
+  .amb-scroll.is-l .amb-c1{box-shadow:inset -1px 0 0 var(--stroke),6px 0 10px -6px rgba(10,13,20,.14);}
+  .amb-scroll.is-r .amb-cA{box-shadow:inset 1px 0 0 var(--stroke),-6px 0 10px -6px rgba(10,13,20,.14);}
+  .amb-strong{font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .amb-num{font-variant-numeric:tabular-nums;}
+  .amb-none{color:var(--n400);}
+  .amb-pill{display:inline-flex;align-items:center;align-self:flex-start;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;}
+  .amb-dot{display:inline-flex;align-items:center;align-self:flex-start;gap:7px;font-size:13px;line-height:18px;font-weight:500;color:var(--n700);white-space:nowrap;}
+  .amb-dot::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--dc);box-shadow:0 0 0 3px color-mix(in srgb,var(--dc) 16%,transparent);flex:0 0 auto;}
+  .amb-icd{display:inline-block;padding:0 6px;margin-right:6px;border-radius:6px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12.5px;font-weight:600;line-height:18px;font-variant-numeric:tabular-nums;letter-spacing:.01em;}
+  .amb-studies{display:inline-flex;align-items:center;align-self:flex-start;gap:6px;height:28px;padding:0 10px 0 8px;margin-left:-8px;border:none;border-radius:8px;background:none;color:var(--primary);font-size:13.5px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums;}
+  .amb-studies:hover{background:var(--primary-lighter);}
+  .amb-studies i{font-size:17px;}
+  .amb-open{width:34px;height:34px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s,border-color .12s;}
+  .amb-open i{font-size:18px;}
+  .amb-row:hover .amb-open{border-color:var(--primary-light);color:var(--primary);background:var(--n0);}
+
+  .amb-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 24px;}
+  .amb-empty-ico{width:48px;height:48px;border-radius:12px;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px;}
+  .amb-empty-t{font-size:15px;font-weight:600;line-height:20px;}
+
+  .amb-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--stroke);flex-wrap:wrap;}
+  .amb-count{font-size:13px;line-height:18px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .amb-count b{font-weight:600;color:var(--n900);}
+  .amb-pages{display:flex;align-items:center;gap:4px;}
+  .amb-pg{min-width:32px;height:32px;padding:0 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .amb-pg:hover:not([disabled]):not([aria-current="page"]){background:var(--n100);}
+  .amb-pg[aria-current="page"]{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;cursor:default;}
+  .amb-pg[disabled]{opacity:.45;cursor:not-allowed;}
+  .amb-pg i{font-size:18px;}
+
+  /* Модальное окно «Карточка амбулаторного приёма» */
+  .amb-ov{position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.48);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;animation:amb-fade .18s ease;font-family:'Inter',sans-serif;color:var(--n900);}
+  .amb-dlg{width:100%;max-width:1040px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);overflow:hidden;outline:none;animation:amb-pop .22s ease;}
+  .amb-dlg button{font-family:inherit;}
+  .amb-dlg-top{flex:0 0 auto;border-bottom:1px solid var(--stroke);}
+  .amb-dlg-head{display:flex;align-items:center;gap:12px;padding:16px 16px 16px 24px;}
+  .amb-dlg-t{margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .amb-dlg-s{margin:2px 0 0;font-size:13px;line-height:18px;color:var(--n500);}
+  .amb-close{width:40px;height:40px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .amb-close:hover{background:var(--n100);color:var(--n600);}
+  .amb-close i{font-size:22px;}
+  .amb-info{display:grid;grid-template-columns:auto auto auto minmax(0,1.25fr) minmax(0,.9fr) minmax(0,1.4fr);background:var(--n50);border-top:1px solid var(--stroke);}
+  .amb-inf{position:relative;padding:12px 20px;min-width:0;}
+  .amb-inf:first-child{padding-left:24px;}
+  .amb-inf+.amb-inf::before{content:'';position:absolute;left:0;top:12px;bottom:12px;width:1px;background:var(--stroke);}
+  .amb-inf-l{font-size:12px;line-height:16px;color:var(--n500);white-space:nowrap;}
+  .amb-inf-v{margin-top:3px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:break-word;}
+  .amb-inf-v .amb-pill{vertical-align:1px;}
+
+  .amb-dlg-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
+  .amb-sec{border-bottom:1px solid var(--stroke);}
+  .amb-sec:last-child{border-bottom:none;}
+  .amb-sec-h{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:10px 20px 10px 24px;border:none;background:var(--n0);text-align:left;cursor:pointer;transition:background .1s;}
+  .amb-sec-h:hover{background:var(--n50);}
+  .amb-sec-h:focus-visible{box-shadow:inset 0 0 0 2px var(--primary-light) !important;}
+  .amb-sec-h[aria-expanded="true"]{box-shadow:0 1px 0 var(--stroke);}
+  .amb-sec-h[aria-disabled="true"]{cursor:default;}
+  .amb-sec-h[aria-disabled="true"]:hover{background:var(--n0);}
+  .amb-sec-ico{width:32px;height:32px;border-radius:9px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px;}
+  .amb-sec-h[aria-disabled="true"] .amb-sec-ico{background:var(--n100);color:var(--n400);}
+  .amb-sec-t{font-size:14.5px;line-height:20px;font-weight:600;color:var(--n900);}
+  .amb-badge{min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--n100);box-shadow:inset 0 0 0 1px var(--stroke);color:var(--n600);font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .amb-sec-nd{font-size:13px;color:var(--n400);}
+  .amb-sec-chev{margin-left:auto;font-size:20px;color:var(--n400);transition:transform .18s;flex:0 0 auto;}
+  .amb-sec-h[aria-expanded="true"] .amb-sec-chev{transform:rotate(180deg);color:var(--n600);}
+  .amb-sec-b{padding:14px 24px 20px;animation:amb-in .16s ease;}
+
+  .amb-p{margin:0;font-size:14px;line-height:22px;color:var(--n700);white-space:pre-line;}
+  .amb-dl{display:grid;grid-template-columns:200px minmax(0,1fr);}
+  .amb-dl>div{padding:9px 0;border-top:1px solid var(--stroke);font-size:14px;line-height:20px;}
+  .amb-dl>div:nth-child(-n+2){border-top:none;padding-top:0;}
+  .amb-dl>div:nth-last-child(-n+2){padding-bottom:0;}
+  .amb-dt{color:var(--n500);padding-right:16px !important;}
+  .amb-dd-v{color:var(--n900);}
+  .amb-ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;}
+  .amb-ul li{position:relative;padding-left:14px;}
+  .amb-ul li::before{content:'';position:absolute;left:2px;top:9px;width:4px;height:4px;border-radius:50%;background:var(--n400);}
+  .amb-sub-h{margin:16px 0 8px;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--n400);}
+  .amb-sub-h:first-child{margin-top:0;}
+
+  .amb-vit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--stroke);border-radius:12px;}
+  .amb-vit>div{position:relative;padding:10px 14px;min-width:0;}
+  .amb-vit>div:nth-child(n+4){border-top:1px solid var(--stroke);}
+  .amb-vit>div:not(:nth-child(3n+1))::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:1px;background:var(--stroke);}
+  .amb-vit-l{font-size:12px;line-height:16px;color:var(--n500);}
+  .amb-vit-v{margin-top:2px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .amb-vit-v small{margin-left:4px;font-size:12px;font-weight:500;color:var(--n400);}
+  .amb-hi{color:var(--orange-d) !important;}
+  .amb-hi::after{content:' ↑';}
+  .amb-lo{color:var(--orange-d) !important;}
+  .amb-lo::after{content:' ↓';}
+
+  .amb-it{border:1px solid var(--stroke);border-radius:12px;overflow-x:auto;scrollbar-width:thin;}
+  .amb-it-r{display:grid;gap:0 12px;padding:9px 14px;border-top:1px solid var(--stroke);font-size:13.5px;line-height:19px;color:var(--n700);align-items:center;}
+  .amb-it-r:first-child{border-top:none;}
+  .amb-it-h{background:var(--n50);font-size:12px;line-height:16px;font-weight:500;color:var(--n500);padding-top:8px;padding-bottom:8px;}
+  .amb-it-r>div{min-width:0;overflow-wrap:break-word;}
+  .amb-g-dx{grid-template-columns:76px minmax(180px,2fr) 120px 112px minmax(160px,1.5fr);min-width:720px;}
+  .amb-g-lab{grid-template-columns:86px minmax(200px,2fr) minmax(150px,1.3fr) minmax(120px,1fr) 104px 32px;min-width:760px;}
+  .amb-g-dg{grid-template-columns:86px minmax(170px,1.4fr) minmax(150px,1.2fr) minmax(200px,2fr) 104px 32px;min-width:820px;}
+  .amb-g-rx{grid-template-columns:86px minmax(180px,1.6fr) 124px minmax(180px,1.7fr) 112px 104px;min-width:840px;}
+  .amb-g-doc{grid-template-columns:86px 196px minmax(180px,1.4fr) minmax(200px,1.6fr);min-width:720px;}
+  .amb-g-det{grid-template-columns:minmax(160px,1.4fr) minmax(120px,1fr) minmax(140px,1.2fr);}
+  .amb-det{grid-column:1/-1;margin:10px 0 2px;border-radius:10px;background:var(--n50);box-shadow:inset 0 0 0 1px var(--stroke);overflow:hidden;}
+  .amb-det .amb-it-r{padding:7px 12px;}
+  .amb-det .amb-it-h{background:transparent;}
+  .amb-det-p{padding:10px 12px;font-size:13.5px;line-height:20px;color:var(--n700);}
+  .amb-more{width:28px;height:28px;border:none;border-radius:7px;background:none;color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;justify-self:end;}
+  .amb-more:hover{background:var(--n100);color:var(--n900);}
+  .amb-more i{font-size:18px;transition:transform .15s;}
+  .amb-more[aria-expanded="true"] i{transform:rotate(180deg);}
+  .amb-it-r.is-open{background:var(--n50);}
+  .amb-sp{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;}
+  .amb-rec{display:grid;grid-template-columns:200px minmax(0,1fr);}
+  .amb-rec>div{padding:9px 0;border-top:1px solid var(--stroke);font-size:14px;line-height:20px;}
+  .amb-rec>div:nth-child(-n+2){border-top:none;padding-top:0;}
+  .amb-rec>div:nth-last-child(-n+2){padding-bottom:0;}
+
+  /* Адаптивность */
+  @media (max-width:1100px){
+    .amb-info{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .amb-inf:nth-child(4)::before{display:none;}
+    .amb-inf:nth-child(n+4){border-top:1px solid var(--stroke);}
+    .amb-inf:nth-child(4){padding-left:24px;}
+  }
+  @media (max-width:900px){
+    .amb-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .amb-stat:nth-child(3)::before{display:none;}
+    .amb-stat:nth-child(n+3){border-top:1px solid var(--stroke);}
+  }
+  @media (max-width:640px){
+    .amb-head{flex-wrap:wrap;}
+    .amb-title-ico{display:none;}
+    .amb-h1{font-size:20px;line-height:26px;}
+    .amb-head .amb-btn{width:100%;}
+    .amb-stat{padding:12px 14px;gap:10px;}
+    .amb-stat-ico{width:32px;height:32px;font-size:17px;}
+    .amb-stat-val{font-size:18px;}
+    .amb-tools{padding:12px;}
+    .amb-search{flex-basis:100%;}
+    .amb-search input{font-size:16px;}
+    .amb-dd{flex:1 1 auto;}
+    .amb-dd-btn{width:100%;}
+    .amb-dd-btn .amb-chev{margin-left:auto;}
+    .amb-menu{left:0;right:auto;}
+    .amb-menu.r{left:auto;right:0;}
+    .amb-period{width:min(288px,calc(100vw - 56px));}
+    .amb-foot{justify-content:center;}
+    .amb-ov{padding:0;}
+    .amb-dlg{max-width:none;max-height:none;height:100%;border-radius:0;}
+    /* Телефон: закреплён только заголовок окна, сведения о приёме прокручиваются вместе с разделами */
+    .amb-dlg{overflow-y:auto;overscroll-behavior:contain;}
+    .amb-dlg-top{display:contents;}
+    .amb-dlg-head{position:sticky;top:0;z-index:3;background:var(--n0);border-bottom:1px solid var(--stroke);}
+    .amb-info{border-top:none;border-bottom:1px solid var(--stroke);}
+    .amb-dlg-body{flex:none;overflow:visible;}
+    .amb-sec-h{position:static;}
+    .amb-sec{scroll-margin-top:96px;}
+    .amb-dlg-head{padding:12px 8px 12px 16px;}
+    .amb-dlg-t{font-size:16px;line-height:22px;}
+    .amb-print-lbl{display:none;}
+    .amb-print{width:40px;padding:0;}
+    .amb-info{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .amb-inf,.amb-inf:first-child,.amb-inf:nth-child(4){padding:10px 16px;}
+    .amb-inf::before{display:none;}
+    .amb-inf:nth-child(n+3){border-top:1px solid var(--stroke);}
+    .amb-inf:nth-child(2n){box-shadow:inset 1px 0 0 var(--stroke);}
+    .amb-sec-h{padding:10px 12px 10px 16px;}
+    .amb-sec-b{padding:12px 16px 18px;}
+    .amb-dl,.amb-rec{grid-template-columns:minmax(0,1fr);}
+    .amb-dl>div,.amb-rec>div{border-top:none;padding:0;}
+    .amb-dl>.amb-dt,.amb-rec>.amb-dt{padding-top:12px;font-size:12.5px;line-height:16px;}
+    .amb-dl>.amb-dt:first-child,.amb-rec>.amb-dt:first-child{padding-top:0;}
+    .amb-vit{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .amb-vit>div:nth-child(n+3){border-top:1px solid var(--stroke);}
+    .amb-vit>div::before{display:none;}
+    .amb-vit>div:nth-child(2n){box-shadow:inset 1px 0 0 var(--stroke);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .amb,.amb-ov,.amb-dlg,.amb-menu,.amb-sec-b{animation:none !important;}
+  }
+  .amb .amb-none,.amb-dlg .amb-none{color:var(--n400);font-weight:400;}
+  .amb-sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+</style>
+</helmet>
+
+<div class="amb">
+
+  <!-- Заголовок раздела и экспорт -->
+  <div class="amb-head">
+    <div class="amb-title">
+      <div class="amb-title-ico" aria-hidden="true"><i class="ri-stethoscope-line"></i></div>
+      <div style="min-width:0;">
+        <h1 class="amb-h1">Амбулаторная помощь</h1>
+        <p class="amb-sub">История амбулаторных приёмов, исследований и назначений</p>
+      </div>
+    </div>
+    <button class="amb-btn" type="button" onClick="{{ exportReport }}" disabled="{{ exportDisabled }}" title="{{ exportHint }}"><i class="ri-download-2-line"></i>Экспорт отчёта</button>
+  </div>
+
+  <!-- Сводные показатели -->
+  <div class="amb-card amb-stats" role="list" aria-label="Сводные показатели">
+    <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+      <div class="amb-stat" role="listitem">
+        <span class="amb-stat-ico" style="{{ st.icoStyle }}" aria-hidden="true"><i class="{{ st.icon }}"></i></span>
+        <div style="min-width:0;"><div class="amb-stat-lbl">{{ st.label }}</div><div class="amb-stat-val">{{ st.value }}</div></div>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- Поиск, фильтры, таблица, пагинация -->
+  <div class="amb-card">
+    <div class="amb-tools" ref="{{ toolsRef }}" onKeyDown="{{ onToolsKey }}">
+      <label class="amb-search">
+        <i class="ri-search-line" aria-hidden="true"></i>
+        <input type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по врачу, организации, диагнозу, причине обращения" aria-label="Поиск по ФИО врача, специальности, медицинской организации, виду приёма, коду и наименованию диагноза, причине обращения" autoComplete="off" spellCheck="false">
+        <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+          <button class="amb-x" type="button" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+        </sc-if>
+      </label>
+
+      <!-- Период -->
+      <div class="amb-dd">
+        <button class="{{ periodCls }}" type="button" onClick="{{ togglePeriod }}" aria-expanded="{{ periodExp }}" aria-haspopup="dialog"><i class="ri-calendar-line"></i><span>{{ periodLabel }}</span><i class="ri-arrow-down-s-line amb-chev"></i></button>
+        <sc-if value="{{ periodOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="amb-menu amb-period" role="dialog" aria-label="Период приёма">
+            <div class="amb-period-row">
+              <div><label class="amb-lbl" htmlFor="amb-from">С</label><input id="amb-from" class="amb-date" type="date" value="{{ from }}" max="{{ fromMax }}" min="{{ dataMin }}" onChange="{{ onFrom }}"></div>
+              <div><label class="amb-lbl" htmlFor="amb-to">По</label><input id="amb-to" class="amb-date" type="date" value="{{ to }}" min="{{ toMin }}" max="{{ dataMax }}" onChange="{{ onTo }}"></div>
+            </div>
+            <sc-if value="{{ hasPeriod }}" hint-placeholder-val="{{ false }}">
+              <div class="amb-period-foot"><button class="amb-link" type="button" onClick="{{ clearPeriod }}">Сбросить период</button></div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- Вид приёма -->
+      <div class="amb-dd">
+        <button class="{{ typeCls }}" type="button" onClick="{{ toggleType }}" aria-expanded="{{ typeExp }}" aria-haspopup="listbox"><span>{{ typeLabel }}</span><i class="ri-arrow-down-s-line amb-chev"></i></button>
+        <sc-if value="{{ typeOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="amb-menu" role="listbox" aria-label="Вид приёма" onKeyDown="{{ onMenuKey }}">
+            <sc-for list="{{ typeOpts }}" as="o">
+              <button class="amb-opt" type="button" role="option" aria-selected="{{ o.sel }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line"></i></sc-if></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- Специальность -->
+      <div class="amb-dd">
+        <button class="{{ specCls }}" type="button" onClick="{{ toggleSpec }}" aria-expanded="{{ specExp }}" aria-haspopup="listbox"><span>{{ specLabel }}</span><i class="ri-arrow-down-s-line amb-chev"></i></button>
+        <sc-if value="{{ specOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="amb-menu r" role="listbox" aria-label="Специальность врача" onKeyDown="{{ onMenuKey }}">
+            <sc-for list="{{ specOpts }}" as="o">
+              <button class="amb-opt" type="button" role="option" aria-selected="{{ o.sel }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line"></i></sc-if></button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+    </div>
+
+    <span class="amb-sr" aria-live="polite">{{ liveText }}</span>
+
+    <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+      <div class="{{ scrollCls }}" ref="{{ scrollRef }}" onScroll="{{ onScroll }}">
+        <div role="table" aria-label="Амбулаторные приёмы" aria-rowcount="{{ rowCount }}">
+          <div role="rowgroup">
+            <div class="amb-tr amb-thead" role="row">
+              <sc-for list="{{ cols }}" as="c" hint-placeholder-count="11">
+                <div class="{{ c.cls }}" role="columnheader" aria-sort="{{ c.ariaSort }}">
+                  <sc-if value="{{ c.sortable }}" hint-placeholder-val="{{ true }}">
+                    <button class="amb-sort" type="button" data-on="{{ c.on }}" onClick="{{ c.onSort }}" title="{{ c.hint }}">{{ c.label }}<i class="{{ c.icon }}" aria-hidden="true"></i></button>
+                  </sc-if>
+                  <sc-if value="{{ c.plain }}" hint-placeholder-val="{{ false }}">{{ c.label }}</sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div class="amb-tbody" role="rowgroup">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+              <div class="amb-tr amb-row" role="row" onClick="{{ r.open }}">
+                <div class="amb-td amb-c1" role="cell"><span class="amb-strong">{{ r.date }}</span></div>
+                <div class="amb-td" role="cell"><span class="amb-num">{{ r.time }}</span></div>
+                <div class="amb-td" role="cell"><span class="amb-pill" style="{{ r.typeStyle }}">{{ r.type }}</span></div>
+                <div class="amb-td" role="cell" style="color:var(--n900);font-weight:500;">{{ r.doctor }}</div>
+                <div class="amb-td" role="cell" style="overflow-wrap:normal;">{{ r.spec }}</div>
+                <div class="amb-td" role="cell">{{ r.org }}</div>
+                <div class="amb-td" role="cell">
+                  <sc-if value="{{ r.hasDx }}" hint-placeholder-val="{{ true }}"><div><span class="amb-icd">{{ r.dx }}</span>{{ r.dxName }}</div></sc-if>
+                  <sc-if value="{{ r.noDx }}" hint-placeholder-val="{{ false }}"><span class="amb-none">Нет данных</span></sc-if>
+                </div>
+                <div class="amb-td" role="cell"><span class="{{ r.reasonCls }}">{{ r.reason }}</span></div>
+                <div class="amb-td" role="cell">
+                  <sc-if value="{{ r.hasStudies }}" hint-placeholder-val="{{ true }}"><button class="amb-studies" type="button" onClick="{{ r.openStudies }}" aria-label="{{ r.studiesAria }}" title="Показать исследования"><i class="ri-flask-line" aria-hidden="true"></i>{{ r.studies }}</button></sc-if>
+                  <sc-if value="{{ r.noStudies }}" hint-placeholder-val="{{ false }}"><span class="amb-none amb-num">0</span></sc-if>
+                </div>
+                <div class="amb-td" role="cell">
+                  <sc-if value="{{ r.hasStatus }}" hint-placeholder-val="{{ true }}"><span class="amb-dot" style="{{ r.statusStyle }}"><span>{{ r.status }}</span></span></sc-if>
+                  <sc-if value="{{ r.noStatus }}" hint-placeholder-val="{{ false }}"><span class="amb-none">Нет данных</span></sc-if>
+                </div>
+                <div class="amb-td amb-cA" role="cell"><button class="amb-open" type="button" onClick="{{ r.open }}" aria-label="{{ r.openAria }}" title="Открыть карточку приёма"><i class="ri-eye-line" aria-hidden="true"></i></button></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div class="amb-foot">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"><div class="amb-count">Показано <b>{{ rangeText }}</b> из {{ totalText }}</div><sc-if value="{{ hasFilters }}" hint-placeholder-val="{{ false }}"><button class="amb-link" type="button" onClick="{{ resetAll }}" style="font-size:13px;">Сбросить фильтры</button></sc-if></div>
+        <sc-if value="{{ multiPage }}" hint-placeholder-val="{{ true }}">
+          <nav class="amb-pages" aria-label="Страницы списка приёмов">
+            <button class="amb-pg" type="button" onClick="{{ prevPage }}" disabled="{{ isFirst }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button>
+            <sc-for list="{{ pages }}" as="p" hint-placeholder-count="2">
+              <button class="amb-pg" type="button" onClick="{{ p.onClick }}" aria-current="{{ p.current }}" aria-label="{{ p.aria }}">{{ p.n }}</button>
+            </sc-for>
+            <button class="amb-pg" type="button" onClick="{{ nextPage }}" disabled="{{ isLast }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button>
+          </nav>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+      <div class="amb-empty">
+        <div class="amb-empty-ico" aria-hidden="true"><i class="ri-search-line"></i></div>
+        <div class="amb-empty-t">{{ emptyTitle }}</div>
+        <sc-if value="{{ hasFilters }}" hint-placeholder-val="{{ true }}">
+          <button class="amb-btn" type="button" onClick="{{ resetAll }}" style="margin-top:16px;"><i class="ri-filter-off-line"></i>Сбросить фильтры</button>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+</div>
+
+<!-- ============ Карточка амбулаторного приёма ============ -->
+<sc-if value="{{ cardOpen }}" hint-placeholder-val="{{ false }}">
+  <div class="amb-ov" onMouseDown="{{ ovDown }}" onClick="{{ ovClick }}" onKeyDown="{{ dlgKey }}">
+    <div class="amb-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="amb-dlg-t" aria-describedby="amb-dlg-s" tabIndex="-1">
+      <div class="amb-dlg-top">
+        <div class="amb-dlg-head">
+          <div style="flex:1;min-width:0;">
+            <h2 class="amb-dlg-t" id="amb-dlg-t">Карточка амбулаторного приёма</h2>
+            <p class="amb-dlg-s" id="amb-dlg-s">Протокол осмотра и медицинские назначения</p>
+          </div>
+          <button class="amb-btn amb-print" type="button" onClick="{{ printCard }}" aria-label="Печать" title="Печать карточки приёма"><i class="ri-printer-line"></i><span class="amb-print-lbl">Печать</span></button>
+          <button class="amb-close" type="button" onClick="{{ closeCard }}" aria-label="Закрыть" title="Закрыть"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="amb-info">
+          <div class="amb-inf"><div class="amb-inf-l">Дата приёма</div><div class="amb-inf-v amb-num">{{ cv.date }}</div></div>
+          <div class="amb-inf"><div class="amb-inf-l">Время приёма</div><div class="amb-inf-v amb-num">{{ cv.time }}</div></div>
+          <div class="amb-inf"><div class="amb-inf-l">Вид приёма</div><div class="amb-inf-v"><span class="amb-pill" style="{{ cv.typeStyle }}">{{ cv.type }}</span></div></div>
+          <div class="amb-inf"><div class="amb-inf-l">Врач</div><div class="amb-inf-v">{{ cv.doctor }}</div></div>
+          <div class="amb-inf"><div class="amb-inf-l">Специальность</div><div class="amb-inf-v">{{ cv.spec }}</div></div>
+          <div class="amb-inf"><div class="amb-inf-l">Медицинская организация</div><div class="amb-inf-v">{{ cv.org }}</div></div>
+        </div>
+      </div>
+
+      <div class="amb-dlg-body" ref="{{ bodyRef }}">
+        <sc-for list="{{ secs }}" as="s" hint-placeholder-count="10">
+          <section class="amb-sec" id="{{ s.anchor }}">
+            <button class="amb-sec-h" type="button" id="{{ s.hid }}" onClick="{{ s.toggle }}" aria-expanded="{{ s.expanded }}" aria-controls="{{ s.bid }}" aria-disabled="{{ s.disabled }}">
+              <span class="amb-sec-ico" aria-hidden="true"><i class="{{ s.icon }}"></i></span>
+              <span class="amb-sec-t">{{ s.title }}</span>
+              <sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span class="amb-badge" aria-label="{{ s.countAria }}">{{ s.count }}</span></sc-if>
+              <sc-if value="{{ s.empty }}" hint-placeholder-val="{{ false }}"><span class="amb-sec-nd">Нет данных</span></sc-if>
+              <sc-if value="{{ s.canOpen }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-down-s-line amb-sec-chev" aria-hidden="true"></i></sc-if>
+            </button>
+
+            <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
+              <div class="amb-sec-b" id="{{ s.bid }}" role="region" aria-labelledby="{{ s.hid }}">
+
+                <!-- Установленный диагноз -->
+                <sc-if value="{{ s.isDx }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-it"><div role="table" aria-label="Установленные диагнозы">
+                    <div class="amb-it-r amb-it-h amb-g-dx" role="row"><div role="columnheader">Код МКБ-10</div><div role="columnheader">Наименование диагноза</div><div role="columnheader">Характер заболевания</div><div role="columnheader">Дата установления</div><div role="columnheader">Дополнительные сведения</div></div>
+                    <sc-for list="{{ s.items }}" as="d">
+                      <div class="amb-it-r amb-g-dx" role="row"><div role="cell"><span class="amb-icd" style="margin:0;white-space:nowrap;">{{ d.code }}</span></div><div role="cell" style="color:var(--n900);font-weight:500;">{{ d.name }}</div><div role="cell"><span class="{{ d.charCls }}" style="{{ d.charStyle }}"><span>{{ d.char }}</span></span></div><div role="cell" class="amb-num">{{ d.date }}</div><div role="cell" class="{{ d.noteCls }}">{{ d.note }}</div></div>
+                    </sc-for>
+                  </div></div>
+                </sc-if>
+
+                <!-- Текст: жалобы, анамнез -->
+                <sc-if value="{{ s.isText }}" hint-placeholder-val="{{ false }}"><p class="amb-p">{{ s.text }}</p></sc-if>
+
+                <!-- Осмотр пациента -->
+                <sc-if value="{{ s.isExam }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-vit">
+                    <sc-for list="{{ s.vitals }}" as="v"><div><div class="amb-vit-l">{{ v.label }}</div><div class="amb-vit-v"><span class="{{ v.cls }}">{{ v.value }}</span><sc-if value="{{ v.hasUnit }}" hint-placeholder-val="{{ false }}"><small>{{ v.unit }}</small></sc-if></div></div></sc-for>
+                  </div>
+                  <div class="amb-sub-h" style="margin-top:16px;">Органы и системы</div>
+                  <sc-if value="{{ s.hasOrgans }}" hint-placeholder-val="{{ true }}">
+                    <div class="amb-dl"><sc-for list="{{ s.organs }}" as="o"><div class="amb-dt">{{ o.k }}</div><div class="amb-dd-v">{{ o.v }}</div></sc-for></div>
+                  </sc-if>
+                  <sc-if value="{{ s.noOrgans }}" hint-placeholder-val="{{ false }}"><div class="amb-none" style="font-size:14px;">Нет данных</div></sc-if>
+                  <div class="amb-sub-h">Дополнительные сведения</div>
+                  <p class="{{ s.extraCls }}">{{ s.extra }}</p>
+                </sc-if>
+
+                <!-- Заключение врача -->
+                <sc-if value="{{ s.isConcl }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-dl">
+                    <div class="amb-dt">Основной диагноз</div><div class="amb-dd-v" style="font-weight:500;">{{ s.main }}</div>
+                    <div class="amb-dt">Сопутствующие диагнозы</div>
+                    <div class="amb-dd-v">
+                      <sc-if value="{{ s.hasComorb }}" hint-placeholder-val="{{ true }}"><ul class="amb-ul"><sc-for list="{{ s.comorb }}" as="c"><li>{{ c.t }}</li></sc-for></ul></sc-if>
+                      <sc-if value="{{ s.noComorb }}" hint-placeholder-val="{{ false }}"><span class="amb-none">Нет данных</span></sc-if>
+                    </div>
+                    <div class="amb-dt">Клиническое заключение</div><div class="{{ s.clinicalCls }}">{{ s.clinical }}</div>
+                    <div class="amb-dt">Комментарий врача</div><div class="{{ s.commentCls }}">{{ s.comment }}</div>
+                  </div>
+                </sc-if>
+
+                <!-- Лабораторные исследования -->
+                <sc-if value="{{ s.isLabs }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-it"><div role="table" aria-label="Лабораторные исследования">
+                    <div class="amb-it-r amb-it-h amb-g-lab" role="row"><div role="columnheader">Дата</div><div role="columnheader">Наименование</div><div role="columnheader">Результат</div><div role="columnheader">Референсные значения</div><div role="columnheader">Статус</div><div role="columnheader"><span class="amb-sr">Подробный результат</span></div></div>
+                    <sc-for list="{{ s.items }}" as="l">
+                      <div class="{{ l.rowCls }}" role="row">
+                        <div role="cell" class="amb-num">{{ l.date }}</div>
+                        <div role="cell" style="color:var(--n900);font-weight:500;">{{ l.name }}</div>
+                        <div role="cell" class="{{ l.resCls }}">{{ l.result }}</div>
+                        <div role="cell" class="{{ l.refCls }}">{{ l.ref }}</div>
+                        <div role="cell"><span class="amb-sp" style="{{ l.statusStyle }}">{{ l.status }}</span></div>
+                        <div role="cell"><sc-if value="{{ l.hasDet }}" hint-placeholder-val="{{ false }}"><button class="amb-more" type="button" onClick="{{ l.toggle }}" aria-expanded="{{ l.detOpen }}" aria-label="{{ l.detAria }}" title="Подробный результат"><i class="ri-arrow-down-s-line"></i></button></sc-if></div>
+                        <sc-if value="{{ l.showDet }}" hint-placeholder-val="{{ false }}">
+                          <div class="amb-det">
+                            <div class="amb-it-r amb-it-h amb-g-det"><div>Показатель</div><div>Значение</div><div>Референсные значения</div></div>
+                            <sc-for list="{{ l.det }}" as="p"><div class="amb-it-r amb-g-det"><div>{{ p.k }}</div><div class="{{ p.cls }}">{{ p.v }}</div><div class="amb-num" style="color:var(--n500);">{{ p.ref }}</div></div></sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div></div>
+                </sc-if>
+
+                <!-- Диагностические исследования -->
+                <sc-if value="{{ s.isDiag }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-it"><div role="table" aria-label="Диагностические исследования">
+                    <div class="amb-it-r amb-it-h amb-g-dg" role="row"><div role="columnheader">Дата</div><div role="columnheader">Наименование</div><div role="columnheader">Результат</div><div role="columnheader">Заключение</div><div role="columnheader">Статус</div><div role="columnheader"><span class="amb-sr">Протокол исследования</span></div></div>
+                    <sc-for list="{{ s.items }}" as="d">
+                      <div class="{{ d.rowCls }}" role="row">
+                        <div role="cell" class="amb-num">{{ d.date }}</div>
+                        <div role="cell" style="color:var(--n900);font-weight:500;">{{ d.name }}</div>
+                        <div role="cell">{{ d.result }}</div>
+                        <div role="cell">{{ d.concl }}</div>
+                        <div role="cell"><span class="amb-sp" style="{{ d.statusStyle }}">{{ d.status }}</span></div>
+                        <div role="cell"><sc-if value="{{ d.hasDet }}" hint-placeholder-val="{{ false }}"><button class="amb-more" type="button" onClick="{{ d.toggle }}" aria-expanded="{{ d.detOpen }}" aria-label="{{ d.detAria }}" title="Протокол исследования"><i class="ri-arrow-down-s-line"></i></button></sc-if></div>
+                        <sc-if value="{{ d.showDet }}" hint-placeholder-val="{{ false }}">
+                          <div class="amb-det"><div class="amb-it-r amb-it-h" style="display:block;">Протокол исследования</div><div class="amb-det-p">{{ d.protocol }}</div></div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div></div>
+                </sc-if>
+
+                <!-- Назначения -->
+                <sc-if value="{{ s.isRx }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-it"><div role="table" aria-label="Назначения">
+                    <div class="amb-it-r amb-it-h amb-g-rx" role="row"><div role="columnheader">Дата</div><div role="columnheader">Наименование</div><div role="columnheader">Вид назначения</div><div role="columnheader">Дозировка и режим</div><div role="columnheader">Длительность</div><div role="columnheader">Статус</div></div>
+                    <sc-for list="{{ s.items }}" as="x">
+                      <div class="amb-it-r amb-g-rx" role="row"><div role="cell" class="amb-num">{{ x.date }}</div><div role="cell" style="color:var(--n900);font-weight:500;">{{ x.name }}</div><div role="cell">{{ x.kind }}</div><div role="cell" class="{{ x.doseCls }}">{{ x.dose }}</div><div role="cell">{{ x.dur }}</div><div role="cell"><span class="amb-sp" style="{{ x.statusStyle }}">{{ x.status }}</span></div></div>
+                    </sc-for>
+                  </div></div>
+                </sc-if>
+
+                <!-- Рекомендации -->
+                <sc-if value="{{ s.isRecs }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-rec">
+                    <sc-for list="{{ s.items }}" as="g"><div class="amb-dt">{{ g.cat }}</div><div><ul class="amb-ul" style="color:var(--n900);"><sc-for list="{{ g.items }}" as="t"><li>{{ t.t }}</li></sc-for></ul></div></sc-for>
+                  </div>
+                </sc-if>
+
+                <!-- Дополнительные сведения -->
+                <sc-if value="{{ s.isDocs }}" hint-placeholder-val="{{ false }}">
+                  <div class="amb-it"><div role="table" aria-label="Дополнительные сведения и документы">
+                    <div class="amb-it-r amb-it-h amb-g-doc" role="row"><div role="columnheader">Дата</div><div role="columnheader">Вид документа</div><div role="columnheader">Документ</div><div role="columnheader">Сведения</div></div>
+                    <sc-for list="{{ s.items }}" as="d">
+                      <div class="amb-it-r amb-g-doc" role="row"><div role="cell" class="amb-num">{{ d.date }}</div><div role="cell">{{ d.type }}</div><div role="cell" style="color:var(--n900);font-weight:500;">{{ d.name }}</div><div role="cell">{{ d.info }}</div></div>
+                    </sc-for>
+                  </div></div>
+                </sc-if>
+
+              </div>
+            </sc-if>
+          </section>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;patient&quot;:{&quot;type&quot;:&quot;string&quot;,&quot;default&quot;:&quot;Иванова Александра Сергеевна&quot;},&quot;iin&quot;:{&quot;type&quot;:&quot;string&quot;,&quot;default&quot;:&quot;920512400123&quot;},&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900}}">
+// ---------- Справочники и цвета (палитра AlignUI) ----------
+const TYPES = ['Первичный', 'Повторный', 'Консультация'];
+const TYPE_TONE = { 'Первичный':['#EFFAF6','#176448'], 'Повторный':['#EEF2FF','#4D42E9'], 'Консультация':['#FEF7EC','#693D11'] };
+const TYPE_ICON = { 'Первичный':'ri-user-add-line', 'Повторный':'ri-repeat-line', 'Консультация':'ri-team-line' };
+const CHAR_DOT = { 'Острое':'#F17B2C', 'Хроническое':'#6E3FF3' };
+const ST_TONE = {
+  'Готов':['#EFFAF6','#176448'], 'Выполнено':['#EFFAF6','#176448'],
+  'Активно':['#EBFAFF','#164564'], 'Назначено':['#EEF2FF','#4D42E9'], 'В работе':['#FEF7EC','#693D11'],
+};
+const ND = 'Нет данных';
+
+// ---------- Данные: история амбулаторных приёмов пациента ----------
+// Поля приёма: d, t, type, doc, spec, org, dx/dxName/char — основной диагноз и характер (столбец «Статус»),
+// reason, complaints, anamnesis, exam, dxList, concl, labs, diag, rx, recs, docs.
+// Количество исследований = лабораторные + диагностические по приёму.
+const KASYMOVA = ['Касымова Гульнара Маратовна', 'Терапевт', 'Городская поликлиника №4'];
+const NURLANOV = ['Нурланов Ерлан Серикович', 'Кардиолог', 'НИИ кардиологии и внутренних болезней'];
+const ABDRAKH = ['Абдрахманова Динара Талгатовна', 'Эндокринолог', 'Консультативно-диагностический центр №4'];
+const PETRENKO = ['Петренко Ольга Викторовна', 'Оториноларинголог', 'Городская поликлиника №4'];
+const ZHUMA = ['Жумабекова Салтанат Ериковна', 'Гастроэнтеролог', 'Городская поликлиника №4'];
+const SAGIN = ['Сагинтаев Арман Болатович', 'Невролог', 'Городская клиническая больница №7'];
+const OSPAN = ['Оспанова Айжан Кайратовна', 'Офтальмолог', 'Городская поликлиника №4'];
+const KIM = ['Ким Елена Владимировна', 'Акушер-гинеколог', 'Городская поликлиника №4'];
+const LI = ['Ли Вадим Анатольевич', 'Дерматовенеролог', 'Консультативно-диагностический центр №4'];
+
+const I10 = 'Эссенциальная (первичная) гипертензия';
+const E063 = 'Аутоиммунный тиреоидит';
+const J010 = 'Острый верхнечелюстной синусит';
+const K295 = 'Хронический гастрит неуточнённый';
+const G442 = 'Головная боль напряжённого типа';
+const J069 = 'Острая инфекция верхних дыхательных путей неуточнённая';
+const Z014 = 'Гинекологическое обследование (общее) (рутинное)';
+
+const OAK = (date, rows, result, ref, flag) => ({ date, name:'Общий анализ крови', result: result || 'В пределах нормы', ref: ref || '—', status:'Готов', flag, det: rows });
+
+const VISITS = [
+  { d:'26.10.2023', t:'09:40', type:'Повторный', who:KASYMOVA, dx:'I10', dxName:I10, char:'Хроническое',
+    reason:'Контроль артериального давления на фоне терапии',
+    complaints:'Активных жалоб нет. Головные боли стали реже, эпизодов повышения АД выше 140/90 мм рт. ст. за последнюю неделю не отмечала.',
+    anamnesis:'Артериальная гипертензия выявлена 12.10.2023. Консультирована кардиологом 19.10.2023, назначен лизиноприл 5 мг в сутки. Препарат принимает регулярно, побочных эффектов не отмечает.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски, чистые', bp:'128/82', hr:72, rr:16,
+      organs:[['Сердце','Тоны ясные, ритмичные'],['Лёгкие','Дыхание везикулярное, хрипов нет'],['Периферические отёки','Нет']],
+      extra:'Дневник самоконтроля АД ведёт: утренние значения 120–135/80–85 мм рт. ст.' },
+    dxList:[ ['I10',I10,'Хроническое','12.10.2023','Основной. Риск сердечно-сосудистых осложнений 2'], ['E06.3',E063,'Хроническое','10.08.2023','Сопутствующий'] ],
+    concl:{ main:'I10 — Эссенциальная (первичная) гипертензия, I степень, риск ССО 2.', comorb:['E06.3 — Аутоиммунный тиреоидит, медикаментозный эутиреоз.'],
+      clinical:'Целевой уровень АД достигнут на фоне терапии лизиноприлом. Переносимость удовлетворительная.', comment:'Продолжить терапию в прежней дозе. Взята на диспансерный учёт.' },
+    labs:[ { date:'26.10.2023', name:'Электролиты и креатинин крови', result:'В пределах нормы', ref:'—', status:'Готов', det:[['Калий','4,3 ммоль/л','3,5–5,1 ммоль/л'],['Натрий','140 ммоль/л','136–145 ммоль/л'],['Креатинин','71 мкмоль/л','44–80 мкмоль/л']] } ],
+    diag:[],
+    rx:[ ['26.10.2023','Лизиноприл 5 мг','Лекарственное','По 1 таблетке 1 раз в сутки утром','Постоянно','Активно'],
+         ['26.10.2023','Диспансерное наблюдение терапевта','Наблюдение','—','12 месяцев','Активно'] ],
+    recs:[ ['Режим',['Регулярный приём лизиноприла без пропусков']], ['Питание',['Ограничение соли до 5 г в сутки']], ['Контроль показателей',['Измерение АД утром и вечером с записью в дневник']], ['Наблюдение',['Диспансерное наблюдение у участкового терапевта']], ['Повторное обращение',['Через 3 месяца или при АД выше 140/90 мм рт. ст.']] ],
+    docs:[ ['26.10.2023','Учётный документ','Контрольная карта диспансерного наблюдения','Взята на учёт с диагнозом I10'], ['26.10.2023','Сведения о прививке','Вакцинация против гриппа','Вакцина гриппозная инактивированная, 0,5 мл, внутримышечно'] ] },
+
+  { d:'19.10.2023', t:'15:20', type:'Консультация', who:NURLANOV, dx:'I10', dxName:I10, char:'Хроническое',
+    reason:'Подбор гипотензивной терапии по направлению терапевта',
+    complaints:'Периодическая головная боль в затылочной области, повышение АД до 150/95 мм рт. ст., сердцебиение при физической нагрузке.',
+    anamnesis:'Повышение АД отмечает около 6 месяцев. Направлена терапевтом ГП №4 после первичного приёма 12.10.2023. Наследственность: у матери артериальная гипертензия.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'146/94', hr:80, rr:17,
+      organs:[['Сердце','Тоны ясные, акцент II тона над аортой'],['Лёгкие','Дыхание везикулярное'],['Щитовидная железа','Не увеличена']],
+      extra:'Индекс массы тела 26,4 кг/м².' },
+    dxList:[ ['I10',I10,'Хроническое','12.10.2023','Основной. Подтверждён кардиологом'] ],
+    concl:{ main:'I10 — Эссенциальная (первичная) гипертензия, I степень, риск ССО 2.', comorb:[],
+      clinical:'По данным СМАД среднесуточное АД 138/88 мм рт. ст., недостаточное ночное снижение. ЭхоКГ: начальные признаки гипертрофии левого желудочка.', comment:'Рекомендован старт терапии ингибитором АПФ. Контроль у терапевта через 7 дней.' },
+    labs:[],
+    diag:[ { date:'19.10.2023', name:'Эхокардиография', result:'Фракция выброса 62 %', concl:'Начальные признаки гипертрофии левого желудочка', status:'Выполнено', protocol:'КДР ЛЖ 4,8 см, толщина МЖП 1,1 см, толщина задней стенки ЛЖ 1,1 см. Клапанный аппарат без особенностей. Зон нарушения локальной сократимости не выявлено.' },
+           { date:'19.10.2023', name:'Суточное мониторирование АД', result:'Среднесуточное АД 138/88 мм рт. ст.', concl:'Недостаточное ночное снижение АД', status:'Выполнено' } ],
+    rx:[ ['19.10.2023','Лизиноприл 5 мг','Лекарственное','По 1 таблетке 1 раз в сутки утром','Постоянно','Активно'],
+         ['19.10.2023','Калий и креатинин крови','Исследование','—','Через 7 дней','Выполнено'] ],
+    recs:[ ['Режим',['Аэробная нагрузка не менее 30 минут 5 раз в неделю','Сон не менее 7 часов']], ['Питание',['Ограничение соли до 5 г в сутки','Ограничение кофеина']], ['Контроль показателей',['Дневник АД: измерения утром и вечером']], ['Повторное обращение',['К терапевту через 7 дней']] ],
+    docs:[ ['19.10.2023','Консультативное заключение','Заключение кардиолога','Направлено в Городскую поликлинику №4'] ] },
+
+  { d:'12.10.2023', t:'11:00', type:'Первичный', who:KASYMOVA, dx:'I10', dxName:I10, char:'Хроническое',
+    reason:'Повышение АД до 150/95 мм рт. ст., головная боль',
+    complaints:'Головная боль в лобно-височной области, повышение АД до 150/95 мм рт. ст., одышка при значительной физической нагрузке, общая слабость к вечеру.',
+    anamnesis:'Считает себя больной около 6 месяцев, когда впервые отметила повышение АД. Регулярно не лечилась. Не курит. Наблюдается у эндокринолога по поводу аутоиммунного тиреоидита.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'150/95', hr:78, rr:18,
+      organs:[['Сердце','Тоны приглушены, ритмичные'],['Лёгкие','Дыхание везикулярное, хрипов нет'],['Живот','Мягкий, безболезненный']],
+      extra:'Рост 165 см, вес 72 кг, индекс массы тела 26,4 кг/м².' },
+    dxList:[ ['I10',I10,'Хроническое','12.10.2023','Основной. Впервые выявлен'], ['E06.3',E063,'Хроническое','10.08.2023','Сопутствующий'] ],
+    concl:{ main:'I10 — Эссенциальная (первичная) гипертензия, впервые выявленная.', comorb:['E06.3 — Аутоиммунный тиреоидит, субклинический гипотиреоз.'],
+      clinical:'Для уточнения стадии и подбора терапии необходимы консультация кардиолога, ЭКГ и лабораторное обследование.', comment:'' },
+    labs:[ OAK('12.10.2023', [['Гемоглобин','132 г/л','120–140 г/л'],['Эритроциты','4,4 × 10¹²/л','3,9–4,7 × 10¹²/л'],['Лейкоциты','6,1 × 10⁹/л','4,0–9,0 × 10⁹/л'],['Тромбоциты','245 × 10⁹/л','180–320 × 10⁹/л'],['СОЭ','9 мм/ч','2–15 мм/ч']]),
+           { date:'12.10.2023', name:'Липидный профиль', result:'Холестерин общий 5,9 ммоль/л', ref:'< 5,2 ммоль/л', status:'Готов', flag:'h',
+             det:[['Холестерин общий','5,9 ммоль/л','< 5,2 ммоль/л','h'],['ЛПНП','3,8 ммоль/л','< 3,0 ммоль/л','h'],['ЛПВП','1,3 ммоль/л','> 1,2 ммоль/л'],['Триглицериды','1,4 ммоль/л','< 1,7 ммоль/л']] } ],
+    diag:[ { date:'12.10.2023', name:'ЭКГ в 12 отведениях', result:'Синусовый ритм, ЧСС 76 уд/мин', concl:'Признаки гипертрофии левого желудочка', status:'Выполнено', protocol:'Ритм синусовый, правильный. Электрическая ось сердца отклонена влево. Индекс Соколова — Лайона 36 мм.' } ],
+    rx:[ ['12.10.2023','Консультация кардиолога','Консультация','—','Однократно','Выполнено'],
+         ['12.10.2023','Суточное мониторирование АД','Исследование','—','Однократно','Выполнено'],
+         ['12.10.2023','Эхокардиография','Исследование','—','Однократно','Выполнено'] ],
+    recs:[ ['Режим',['Пешие прогулки не менее 30 минут в день']], ['Питание',['Ограничение соли до 5 г в сутки']], ['Контроль показателей',['Измерение АД дважды в день с ведением дневника']], ['Повторное обращение',['После консультации кардиолога']] ],
+    docs:[] },
+
+  { d:'21.09.2023', t:'16:10', type:'Повторный', who:ABDRAKH, dx:'E06.3', dxName:E063, char:'Хроническое',
+    reason:'Контроль ТТГ на фоне заместительной терапии',
+    complaints:'Утомляемость уменьшилась, зябкость не беспокоит.',
+    anamnesis:'Аутоиммунный тиреоидит диагностирован 10.08.2023. Принимает левотироксин 25 мкг в сутки в течение 6 недель.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски, нормальной влажности', bp:'124/80', hr:70, rr:16,
+      organs:[['Щитовидная железа','Не увеличена, безболезненная, узлы не пальпируются']], extra:'' },
+    dxList:[ ['E06.3',E063,'Хроническое','10.08.2023','Основной'], ['E03.8','Другие уточнённые формы гипотиреоза','Хроническое','10.08.2023','Субклинический гипотиреоз, медикаментозная компенсация'] ],
+    concl:{ main:'E06.3 — Аутоиммунный тиреоидит. Субклинический гипотиреоз, медикаментозная компенсация.', comorb:[],
+      clinical:'ТТГ в целевом диапазоне на фоне левотироксина 25 мкг в сутки.', comment:'Дозу не менять. Контроль ТТГ через 3 месяца.' },
+    labs:[ { date:'21.09.2023', name:'ТТГ (тиреотропный гормон)', result:'2,1 мМЕ/л', ref:'0,4–4,0 мМЕ/л', status:'Готов' } ],
+    diag:[],
+    rx:[ ['21.09.2023','Левотироксин натрия 25 мкг','Лекарственное','По 1 таблетке утром натощак, за 30 минут до еды','Постоянно','Активно'],
+         ['21.09.2023','ТТГ (тиреотропный гормон)','Исследование','—','Через 3 месяца','Назначено'] ],
+    recs:[ ['Режим',['Приём левотироксина строго натощак']], ['Контроль показателей',['ТТГ через 3 месяца']], ['Повторное обращение',['Через 3 месяца с результатом ТТГ']] ],
+    docs:[] },
+
+  { d:'07.09.2023', t:'10:30', type:'Повторный', who:PETRENKO, dx:'J01.0', dxName:J010, char:'Острое',
+    reason:'Контрольный осмотр после курса лечения',
+    complaints:'Жалоб нет. Носовое дыхание свободное.',
+    anamnesis:'Лечилась амбулаторно с 31.08.2023 по поводу острого верхнечелюстного синусита. Курс азитромицина завершён.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'118/76', hr:68, rr:16,
+      organs:[['Полость носа','Слизистая розовая, отделяемого нет'],['Пальпация пазух','Безболезненная']], extra:'Температура тела 36,6 °C.' },
+    dxList:[ ['J01.0',J010,'Острое','31.08.2023','Выздоровление'] ],
+    concl:{ main:'J01.0 — Острый верхнечелюстной синусит, выздоровление.', comorb:[], clinical:'Клинически — выздоровление. Трудоспособность восстановлена.', comment:'' },
+    labs:[], diag:[], rx:[],
+    recs:[ ['Режим',['Избегать переохлаждения в течение 2 недель']], ['Повторное обращение',['При повторной заложенности носа или повышении температуры']] ],
+    docs:[ ['07.09.2023','Лист временной нетрудоспособности','№ 0458921, закрыт','С 31.08.2023 по 07.09.2023, приступить к работе 08.09.2023'] ] },
+
+  { d:'31.08.2023', t:'08:50', type:'Первичный', who:PETRENKO, dx:'J01.0', dxName:J010, char:'Острое',
+    reason:'Заложенность носа, боль в области верхней челюсти, температура 37,9 °C',
+    complaints:'Заложенность носа, гнойные выделения, давящая боль в области верхней челюсти справа, усиливающаяся при наклоне головы, температура до 37,9 °C.',
+    anamnesis:'Заболела 5 дней назад после ОРВИ. Аллергологический анамнез: пенициллин — анафилактическая реакция (2018).',
+    exam:{ state:'Средней степени тяжести', consc:'Ясное', skin:'Обычной окраски, горячие на ощупь', bp:'122/78', hr:88, rr:18,
+      organs:[['Полость носа','Слизистая гиперемирована, отёчна, гнойное отделяемое в среднем носовом ходе справа'],['Пальпация пазух','Болезненность в проекции правой верхнечелюстной пазухи']], extra:'Температура тела 37,8 °C.' },
+    dxList:[ ['J01.0',J010,'Острое','31.08.2023','Основной. Правосторонний'] ],
+    concl:{ main:'J01.0 — Острый правосторонний верхнечелюстной синусит.', comorb:[], clinical:'С учётом аллергии на пенициллин назначен антибиотик группы макролидов.', comment:'Открыт лист временной нетрудоспособности.' },
+    labs:[ OAK('31.08.2023', [['Гемоглобин','130 г/л','120–140 г/л'],['Лейкоциты','11,2 × 10⁹/л','4,0–9,0 × 10⁹/л','h'],['Нейтрофилы','76 %','47–72 %','h'],['СОЭ','24 мм/ч','2–15 мм/ч','h']], 'Лейкоциты 11,2 × 10⁹/л', '4,0–9,0 × 10⁹/л', 'h') ],
+    diag:[ { date:'31.08.2023', name:'Рентгенография околоносовых пазух', result:'Затемнение правой верхнечелюстной пазухи', concl:'Признаки острого правостороннего верхнечелюстного синусита', status:'Выполнено' } ],
+    rx:[ ['31.08.2023','Азитромицин 500 мг','Лекарственное','По 1 таблетке 1 раз в сутки','3 дня','Выполнено'],
+         ['31.08.2023','Мометазон, спрей назальный','Лекарственное','По 2 впрыскивания в каждый носовой ход 2 раза в сутки','10 дней','Выполнено'],
+         ['31.08.2023','Промывание носа солевым раствором','Процедура','3 раза в сутки','10 дней','Выполнено'] ],
+    recs:[ ['Режим',['Домашний режим','Обильное тёплое питьё']], ['Повторное обращение',['Контрольный осмотр 07.09.2023']] ],
+    docs:[ ['31.08.2023','Лист временной нетрудоспособности','№ 0458921, открыт','С 31.08.2023'] ] },
+
+  { d:'10.08.2023', t:'13:15', type:'Консультация', who:ABDRAKH, dx:'E06.3', dxName:E063, char:'Хроническое',
+    reason:'Повышенный уровень ТТГ, направление терапевта',
+    complaints:'Утомляемость, зябкость, сухость кожи, прибавка массы тела на 4 кг за полгода.',
+    anamnesis:'Направлена терапевтом ГП №4: ТТГ 6,2 мМЕ/л от 27.07.2023. Ранее функцию щитовидной железы не обследовала. У сестры — гипотиреоз.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Суховатые', bp:'120/78', hr:64, rr:16,
+      organs:[['Щитовидная железа','Не увеличена, плотноэластической консистенции, безболезненная']], extra:'Тремора нет. Вес 72 кг.' },
+    dxList:[ ['E06.3',E063,'Хроническое','10.08.2023','Основной. Впервые выявлен'], ['E03.8','Другие уточнённые формы гипотиреоза','Хроническое','10.08.2023','Субклинический гипотиреоз'] ],
+    concl:{ main:'E06.3 — Аутоиммунный тиреоидит.', comorb:['E03.8 — Субклинический гипотиреоз.'],
+      clinical:'Повышение ТТГ при нормальном свободном Т4, высокий титр антител к ТПО, характерная ультразвуковая картина.', comment:'Начата заместительная терапия левотироксином.' },
+    labs:[ { date:'10.08.2023', name:'ТТГ и свободный Т4', result:'ТТГ 6,4 мМЕ/л', ref:'0,4–4,0 мМЕ/л', status:'Готов', flag:'h', det:[['ТТГ','6,4 мМЕ/л','0,4–4,0 мМЕ/л','h'],['Т4 свободный','13,8 пмоль/л','10,0–23,0 пмоль/л']] },
+           { date:'10.08.2023', name:'Антитела к тиреопероксидазе', result:'412 МЕ/мл', ref:'< 34 МЕ/мл', status:'Готов', flag:'h' } ],
+    diag:[ { date:'10.08.2023', name:'УЗИ щитовидной железы', result:'Объём 11,2 мл', concl:'Диффузные изменения паренхимы по типу аутоиммунного тиреоидита', status:'Выполнено', protocol:'Правая доля 2,0 × 1,8 × 4,6 см, левая доля 1,9 × 1,7 × 4,4 см. Эхогенность снижена, структура неоднородная. Узловых образований нет.' } ],
+    rx:[ ['10.08.2023','Левотироксин натрия 25 мкг','Лекарственное','По 1 таблетке утром натощак','Постоянно','Активно'] ],
+    recs:[ ['Режим',['Левотироксин утром натощак, за 30 минут до завтрака']], ['Питание',['Йодированная соль без дополнительного приёма препаратов йода']], ['Контроль показателей',['ТТГ через 6 недель']], ['Повторное обращение',['Через 6 недель с результатом ТТГ']] ],
+    docs:[ ['10.08.2023','Консультативное заключение','Заключение эндокринолога','Направлено в Городскую поликлинику №4'] ] },
+
+  { d:'27.07.2023', t:'09:00', type:'Первичный', who:KASYMOVA, dx:'R53', dxName:'Недомогание и утомляемость', char:'',
+    reason:'Утомляемость, зябкость, прибавка массы тела',
+    complaints:'Постоянная утомляемость, сонливость днём, зябкость, прибавка массы тела около 4 кг за полгода.',
+    anamnesis:'Симптомы нарастают в течение 6 месяцев. Режим сна не нарушен. Хронический гастрит в ремиссии.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Бледноватые, суховатые', bp:'126/80', hr:66, rr:16,
+      organs:[['Щитовидная железа','Не увеличена'],['Сердце','Тоны ясные, ритмичные']], extra:'' },
+    dxList:[ ['R53','Недомогание и утомляемость','','27.07.2023','Предварительный'] ],
+    concl:{ main:'R53 — Недомогание и утомляемость.', comorb:['K29.5 — Хронический гастрит, ремиссия.'], clinical:'Для исключения гипотиреоза и анемии назначено лабораторное обследование.', comment:'' },
+    labs:[ OAK('27.07.2023', [['Гемоглобин','124 г/л','120–140 г/л'],['Эритроциты','4,2 × 10¹²/л','3,9–4,7 × 10¹²/л'],['Лейкоциты','5,4 × 10⁹/л','4,0–9,0 × 10⁹/л'],['СОЭ','11 мм/ч','2–15 мм/ч']]),
+           { date:'27.07.2023', name:'ТТГ (тиреотропный гормон)', result:'6,2 мМЕ/л', ref:'0,4–4,0 мМЕ/л', status:'Готов', flag:'h' } ],
+    diag:[],
+    rx:[ ['27.07.2023','Консультация эндокринолога','Консультация','—','Однократно','Выполнено'] ],
+    recs:[ ['Повторное обращение',['После консультации эндокринолога']] ],
+    docs:[] },
+
+  { d:'15.06.2023', t:'11:45', type:'Повторный', who:ZHUMA, dx:'K29.5', dxName:K295, char:'Хроническое',
+    reason:'Контроль после курса терапии',
+    complaints:'Боли в эпигастрии не беспокоят. Изжога — редко, после нарушений диеты.',
+    anamnesis:'Получила курс эрадикационной терапии с 26.05.2023 по 08.06.2023, переносимость удовлетворительная.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'118/76', hr:70, rr:16,
+      organs:[['Язык','Чистый, влажный'],['Живот','Мягкий, безболезненный']], extra:'' },
+    dxList:[ ['K29.5',K295,'Хроническое','25.05.2023','Ремиссия'] ],
+    concl:{ main:'K29.5 — Хронический гастрит, ассоциированный с H. pylori, ремиссия.', comorb:[], clinical:'Клиническая ремиссия. Контроль эрадикации через 4 недели после окончания терапии.', comment:'' },
+    labs:[], diag:[],
+    rx:[ ['15.06.2023','Дыхательный уреазный тест','Исследование','—','Однократно','Назначено'] ],
+    recs:[ ['Питание',['Дробное питание 4–5 раз в день','Исключить острое, жареное, газированные напитки']], ['Повторное обращение',['Через 4 недели с результатом дыхательного теста']] ],
+    docs:[] },
+
+  { d:'25.05.2023', t:'14:00', type:'Первичный', who:ZHUMA, dx:'K29.5', dxName:K295, char:'Хроническое',
+    reason:'Боль и тяжесть в эпигастрии после еды, изжога',
+    complaints:'Ноющая боль и тяжесть в эпигастрии через 30–40 минут после еды, изжога, отрыжка кислым.',
+    anamnesis:'Беспокоит около 3 месяцев, ухудшение связывает с нерегулярным питанием. Самостоятельно принимала антациды с кратковременным эффектом.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'120/80', hr:74, rr:16,
+      organs:[['Язык','Обложен белым налётом у корня'],['Живот','Мягкий, болезненный в эпигастрии'],['Печень','Не увеличена']], extra:'' },
+    dxList:[ ['K29.5',K295,'Хроническое','25.05.2023','Основной. Ассоциирован с H. pylori'] ],
+    concl:{ main:'K29.5 — Хронический гастрит, ассоциированный с H. pylori, обострение.', comorb:[], clinical:'ФГДС: поверхностный антральный гастрит. Быстрый уреазный тест положительный.', comment:'Эрадикационная терапия назначена без препаратов пенициллинового ряда (аллергия на пенициллин).' },
+    labs:[ OAK('25.05.2023', [['Гемоглобин','126 г/л','120–140 г/л'],['Лейкоциты','6,8 × 10⁹/л','4,0–9,0 × 10⁹/л'],['СОЭ','12 мм/ч','2–15 мм/ч']]),
+           { date:'25.05.2023', name:'Антиген H. pylori в кале', result:'Положительный', ref:'Отрицательный', status:'Готов', flag:'h' } ],
+    diag:[ { date:'25.05.2023', name:'Фиброгастродуоденоскопия', result:'Поверхностный антральный гастрит', concl:'Хронический поверхностный гастрит антрального отдела', status:'Выполнено', protocol:'Пищевод свободно проходим, слизистая не изменена. Слизистая антрального отдела желудка очагово гиперемирована. Двенадцатиперстная кишка без особенностей. Быстрый уреазный тест положительный.' } ],
+    rx:[ ['25.05.2023','Омепразол 20 мг','Лекарственное','По 1 капсуле 2 раза в сутки','14 дней','Выполнено'],
+         ['25.05.2023','Кларитромицин 500 мг','Лекарственное','По 1 таблетке 2 раза в сутки','14 дней','Выполнено'],
+         ['25.05.2023','Метронидазол 500 мг','Лекарственное','По 1 таблетке 2 раза в сутки','14 дней','Выполнено'],
+         ['25.05.2023','Висмута трикалия дицитрат 120 мг','Лекарственное','По 1 таблетке 4 раза в сутки','14 дней','Выполнено'] ],
+    recs:[ ['Режим',['Не принимать НПВС без назначения врача']], ['Питание',['Дробное питание 4–5 раз в день','Исключить острое, жареное, кофе и алкоголь']], ['Повторное обращение',['После окончания курса терапии']] ],
+    docs:[] },
+
+  { d:'04.05.2023', t:'10:20', type:'Повторный', who:SAGIN, dx:'G44.2', dxName:G442, char:'Хроническое',
+    reason:'',
+    complaints:'Головная боль беспокоит реже — 1–2 раза в неделю, меньшей интенсивности.',
+    anamnesis:'Принимает амитриптилин 10 мг на ночь в течение 2 недель, занимается лечебной физкультурой.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'122/80', hr:70, rr:16,
+      organs:[['Неврологический статус','Очаговой симптоматики нет'],['Мышцы шеи','Напряжение умеренное, болезненность уменьшилась']], extra:'' },
+    dxList:[ ['G44.2',G442,'Хроническое','20.04.2023','Основной'] ],
+    concl:{ main:'G44.2 — Хроническая головная боль напряжённого типа, положительная динамика.', comorb:[], clinical:'Частота и интенсивность приступов уменьшились на фоне терапии.', comment:'' },
+    labs:[], diag:[],
+    rx:[ ['04.05.2023','Амитриптилин 10 мг','Лекарственное','По 1 таблетке на ночь','2 месяца','Выполнено'] ],
+    recs:[ ['Режим',['Перерывы в работе за компьютером каждые 45 минут','Гимнастика для мышц шеи ежедневно']], ['Повторное обращение',['При учащении головной боли']] ],
+    docs:[] },
+
+  { d:'20.04.2023', t:'12:30', type:'Первичный', who:SAGIN, dx:'G44.2', dxName:G442, char:'Хроническое',
+    reason:'Головная боль давящего характера, усиливается к вечеру',
+    complaints:'Двусторонняя давящая головная боль по типу «каски» 3–4 раза в неделю, усиливается к вечеру и после работы за компьютером.',
+    anamnesis:'Головные боли около года. Работает бухгалтером, длительно за компьютером. Обезболивающие принимает 2–3 раза в неделю.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'124/82', hr:72, rr:16,
+      organs:[['Неврологический статус','Очаговой симптоматики нет, менингеальных знаков нет'],['Мышцы шеи','Напряжение и болезненность перикраниальных мышц']], extra:'' },
+    dxList:[ ['G44.2',G442,'Хроническое','20.04.2023','Основной'] ],
+    concl:{ main:'G44.2 — Хроническая головная боль напряжённого типа.', comorb:[], clinical:'Органической патологии по данным обследования не выявлено. Признаков лекарственно-индуцированной головной боли нет.', comment:'Ограничить приём анальгетиков до 2 дней в неделю.' },
+    labs:[],
+    diag:[ { date:'20.04.2023', name:'Электроэнцефалография', result:'Без патологии', concl:'Эпилептиформной активности не выявлено', status:'Выполнено' } ],
+    rx:[ ['20.04.2023','Амитриптилин 10 мг','Лекарственное','По 1 таблетке на ночь','2 месяца','Выполнено'],
+         ['20.04.2023','Лечебная физкультура','Процедура','10 занятий','2 недели','Выполнено'] ],
+    recs:[ ['Режим',['Перерывы в работе каждые 45 минут','Сон не менее 7 часов']], ['Наблюдение',['Ведение дневника головной боли']], ['Повторное обращение',['Через 2 недели']] ],
+    docs:[] },
+
+  { d:'06.04.2023', t:'09:15', type:'Первичный', who:OSPAN, dx:'H52.1', dxName:'Миопия', char:'Хроническое',
+    reason:'Снижение остроты зрения вдаль',
+    complaints:'Снижение остроты зрения вдаль, утомляемость глаз к концу рабочего дня.',
+    anamnesis:'Очками не пользуется. Последний осмотр офтальмолога — 3 года назад.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'', hr:'', rr:'',
+      organs:[['Острота зрения','OD 0,5, OS 0,6; с коррекцией 1,0 на оба глаза'],['Глазное дно','Без патологии']], extra:'' },
+    dxList:[ ['H52.1','Миопия','Хроническое','06.04.2023','Слабой степени, обоих глаз'] ],
+    concl:{ main:'H52.1 — Миопия слабой степени обоих глаз.', comorb:[], clinical:'Подобрана очковая коррекция для дали.', comment:'' },
+    labs:[],
+    diag:[ { date:'06.04.2023', name:'Авторефрактометрия', result:'OD −1,0 дптр, OS −0,75 дптр', concl:'Миопическая рефракция обоих глаз', status:'Выполнено' } ],
+    rx:[ ['06.04.2023','Очки для дали: OD −1,0 дптр, OS −0,75 дптр','Медицинское изделие','Постоянное ношение вдаль','Постоянно','Выполнено'] ],
+    recs:[ ['Режим',['Гимнастика для глаз каждые 2 часа работы за компьютером']], ['Повторное обращение',['Плановый осмотр через 12 месяцев']] ],
+    docs:[ ['06.04.2023','Рецепт','Рецепт на очки','OD −1,0 дптр, OS −0,75 дптр'] ] },
+
+  { d:'16.03.2023', t:'15:00', type:'Повторный', who:KASYMOVA, dx:'J06.9', dxName:J069, char:'Острое',
+    reason:'Контрольный осмотр, закрытие листа нетрудоспособности',
+    complaints:'Жалоб нет.',
+    anamnesis:'Лечилась амбулаторно с 09.03.2023.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'116/74', hr:70, rr:16,
+      organs:[['Зев','Не гиперемирован'],['Лёгкие','Дыхание везикулярное, хрипов нет']], extra:'Температура тела 36,6 °C.' },
+    dxList:[ ['J06.9',J069,'Острое','09.03.2023','Выздоровление'] ],
+    concl:{ main:'J06.9 — Острая инфекция верхних дыхательных путей, выздоровление.', comorb:[], clinical:'Здорова. Трудоспособность восстановлена.', comment:'' },
+    labs:[], diag:[], rx:[], recs:[],
+    docs:[ ['16.03.2023','Лист временной нетрудоспособности','№ 0412377, закрыт','С 09.03.2023 по 16.03.2023, приступить к работе 17.03.2023'] ] },
+
+  { d:'09.03.2023', t:'08:30', type:'Первичный', who:KASYMOVA, dx:'J06.9', dxName:J069, char:'Острое',
+    reason:'Насморк, боль в горле, температура до 37,8 °C',
+    complaints:'Насморк, боль в горле при глотании, повышение температуры до 37,8 °C, общая слабость в течение 2 дней.',
+    anamnesis:'Заболела остро 2 дня назад. Контакт с больными ОРВИ на работе. Аллергия на пенициллин.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'118/76', hr:84, rr:18,
+      organs:[['Зев','Гиперемирован, миндалины не увеличены, налётов нет'],['Лёгкие','Дыхание везикулярное, хрипов нет'],['Лимфоузлы','Не увеличены']], extra:'Температура тела 37,6 °C.' },
+    dxList:[ ['J06.9',J069,'Острое','09.03.2023','Основной'] ],
+    concl:{ main:'J06.9 — Острая инфекция верхних дыхательных путей неуточнённая.', comorb:[], clinical:'Течение лёгкое, показаний к антибактериальной терапии нет.', comment:'Открыт лист временной нетрудоспособности.' },
+    labs:[ OAK('09.03.2023', [['Гемоглобин','128 г/л','120–140 г/л'],['Лейкоциты','7,2 × 10⁹/л','4,0–9,0 × 10⁹/л'],['Лимфоциты','36 %','19–37 %'],['СОЭ','14 мм/ч','2–15 мм/ч']]) ],
+    diag:[],
+    rx:[ ['09.03.2023','Парацетамол 500 мг','Лекарственное','По 1 таблетке при температуре выше 38,5 °C, не более 4 раз в сутки','До 5 дней','Выполнено'],
+         ['09.03.2023','Полоскание горла солевым раствором','Процедура','4 раза в сутки','5 дней','Выполнено'] ],
+    recs:[ ['Режим',['Домашний режим 5–7 дней','Обильное тёплое питьё']], ['Повторное обращение',['Контрольный осмотр 16.03.2023 или раньше при ухудшении']] ],
+    docs:[ ['09.03.2023','Лист временной нетрудоспособности','№ 0412377, открыт','С 09.03.2023'] ] },
+
+  { d:'16.02.2023', t:'10:00', type:'Повторный', who:KIM, dx:'Z01.4', dxName:Z014, char:'',
+    reason:'Обсуждение результатов обследования',
+    complaints:'Жалоб нет.',
+    anamnesis:'Профилактический осмотр 02.02.2023. Планирует беременность.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'116/74', hr:68, rr:16,
+      organs:[['Молочные железы','Без узловых образований']], extra:'' },
+    dxList:[ ['Z01.4',Z014,'','02.02.2023','Патологии не выявлено'] ],
+    concl:{ main:'Z01.4 — Гинекологическое обследование. Здорова.', comorb:[], clinical:'Цитологическое исследование и УЗИ органов малого таза — без патологии.', comment:'' },
+    labs:[], diag:[],
+    rx:[ ['16.02.2023','Фолиевая кислота 400 мкг','Лекарственное','По 1 таблетке 1 раз в сутки','3 месяца','Выполнено'] ],
+    recs:[ ['Питание',['Сбалансированное питание с достаточным содержанием фолатов']], ['Наблюдение',['Прегравидарная подготовка']], ['Повторное обращение',['Плановый осмотр через 12 месяцев']] ],
+    docs:[] },
+
+  { d:'02.02.2023', t:'11:10', type:'Первичный', who:KIM, dx:'Z01.4', dxName:Z014, char:'',
+    reason:'Профилактический осмотр',
+    complaints:'Жалоб нет.',
+    anamnesis:'Менструальный цикл регулярный. Беременностей не было. Гинекологические заболевания отрицает.',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Обычной окраски', bp:'118/76', hr:70, rr:16,
+      organs:[['Молочные железы','Мягкие, без узловых образований'],['Гинекологический осмотр','Без особенностей']], extra:'' },
+    dxList:[ ['Z01.4',Z014,'','02.02.2023','Профилактический осмотр'] ],
+    concl:{ main:'Z01.4 — Гинекологическое обследование (рутинное).', comorb:[], clinical:'Патологии при осмотре не выявлено. Назначено плановое обследование.', comment:'' },
+    labs:[ { date:'02.02.2023', name:'Цитологическое исследование мазка', result:'NILM — без интраэпителиальных изменений', ref:'NILM', status:'Готов' } ],
+    diag:[ { date:'02.02.2023', name:'УЗИ органов малого таза', result:'Без патологии', concl:'Эхопризнаков патологии органов малого таза не выявлено', status:'Выполнено' } ],
+    rx:[ ['02.02.2023','Цитологическое исследование мазка','Исследование','—','Однократно','Выполнено'],
+         ['02.02.2023','УЗИ органов малого таза','Исследование','—','Однократно','Выполнено'] ],
+    recs:[ ['Повторное обращение',['С результатами обследования']] ],
+    docs:[ ['02.02.2023','Медицинская справка','Справка о прохождении профилактического осмотра','Выдана по месту требования'] ] },
+
+  { d:'19.01.2023', t:'14:45', type:'Консультация', who:LI, dx:'L20.8', dxName:'Другие атопические дерматиты', char:'Хроническое',
+    reason:'Сухость и зуд кожи кистей',
+    complaints:'Сухость, шелушение и зуд кожи кистей, усиливающиеся в холодное время года.',
+    anamnesis:'Направлена терапевтом. Атопический дерматит в детстве. Пищевая аллергия на цитрусовые (крапивница).',
+    exam:{ state:'Удовлетворительное', consc:'Ясное', skin:'Сухость и лихенификация кожи тыльной поверхности кистей, единичные экскориации', bp:'120/78', hr:72, rr:16,
+      organs:[], extra:'' },
+    dxList:[ ['L20.8','Другие атопические дерматиты','Хроническое','19.01.2023','Обострение'] ],
+    concl:{ main:'L20.8 — Атопический дерматит кистей, обострение.', comorb:[], clinical:'Обострение связано с контактом с моющими средствами и холодом.', comment:'' },
+    labs:[], diag:[],
+    rx:[ ['19.01.2023','Метилпреднизолона ацепонат 0,1 %, крем','Лекарственное','Тонким слоем на поражённые участки 1 раз в сутки','7 дней','Выполнено'],
+         ['19.01.2023','Эмоленты','Лекарственное','2–3 раза в сутки и после каждого мытья рук','Постоянно','Активно'] ],
+    recs:[ ['Режим',['Работа с моющими средствами только в перчатках']], ['Повторное обращение',['При отсутствии эффекта через 2 недели']] ],
+    docs:[] },
+].map((v, i) => ({ ...v, id:i, doc:v.who[0], spec:v.who[1], org:v.who[2], key:iso(v.d) + 'T' + v.t, studies:v.labs.length + v.diag.length }));
+
+const SECTIONS = [
+  { id:'dx', title:'Установленный диагноз', icon:'ri-shield-cross-line' },
+  { id:'complaints', title:'Жалобы пациента', icon:'ri-chat-3-line' },
+  { id:'anamnesis', title:'Анамнез', icon:'ri-history-line' },
+  { id:'exam', title:'Осмотр пациента', icon:'ri-user-search-line' },
+  { id:'concl', title:'Заключение врача', icon:'ri-file-text-line' },
+  { id:'labs', title:'Лабораторные исследования', icon:'ri-test-tube-line' },
+  { id:'diag', title:'Диагностические исследования', icon:'ri-pulse-line' },
+  { id:'rx', title:'Назначения', icon:'ri-capsule-line' },
+  { id:'recs', title:'Рекомендации', icon:'ri-lightbulb-line' },
+  { id:'docs', title:'Дополнительные сведения', icon:'ri-folder-open-line' },
+];
+
+// Сортировка: ключ столбца → функция сравнения по возрастанию
+const COLS = [
+  { key:'date', label:'Дата', sort:(a,b) => cmp(a.key, b.key) },
+  { key:'time', label:'Время', sort:(a,b) => cmp(a.t, b.t) },
+  { key:'type', label:'Вид приёма', sort:(a,b) => TYPES.indexOf(a.type) - TYPES.indexOf(b.type) },
+  { key:'doc', label:'Врач', sort:(a,b) => a.doc.localeCompare(b.doc, 'ru') },
+  { key:'spec', label:'Специальность', sort:(a,b) => a.spec.localeCompare(b.spec, 'ru') },
+  { key:'org', label:'Медицинская организация', sort:(a,b) => a.org.localeCompare(b.org, 'ru') },
+  { key:'dx', label:'Диагноз (МКБ-10)' },
+  { key:'reason', label:'Причина обращения' },
+  { key:'studies', label:'Исследования' },
+  { key:'status', label:'Статус' },
+  { key:'actions', label:'Действия' },
+];
+const PAGE = 10;
+const DEF_SORT = { col:'date', dir:'desc' };
+
+function iso(d){ const [dd, mm, yy] = d.split('.'); return `${yy}-${mm}-${dd}`; }
+function ru(isoDate){ const [y, m, d] = isoDate.split('-'); return `${d}.${m}.${y}`; }
+function cmp(a, b){ return a < b ? -1 : a > b ? 1 : 0; }
+function norm(s){ return String(s || '').toLowerCase().replace(/ё/g, 'е'); }
+function plural(n, one, few, many){ const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : (a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many); }
+// Значение с единицами не рвётся по строкам: «5,9 ммоль/л», «мм рт. ст.», «уд/мин»
+function nb(s){ return String(s == null ? '' : s).replace(/(\d) (?=[^\d\s—–-])/g, '$1 ').replace(/мм рт\. ст\./g, 'мм рт. ст.').replace(/\/(?=\S)/g, '/⁠'); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+function tone(t){ return t ? `background:${t[0]};color:${t[1]};` : 'background:#F6F8FA;color:#525866;'; }
+function bpHigh(bp){ const m = /^(\d+)\/(\d+)/.exec(bp || ''); return !!m && (+m[1] >= 140 || +m[2] >= 90); }
+const SEARCH_FIELDS = (v) => norm([v.doc, v.spec, v.org, v.type, v.dx, v.dxName, v.reason].join(' '));
+VISITS.forEach(v => { v.hay = SEARCH_FIELDS(v); });
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = Object.assign({ q:'', from:'', to:'', type:'', spec:'', sort:DEF_SORT, page:1, pop:null,
+      card:null, open:{}, det:{}, edgeL:false, edgeR:false }, this.loadUi());
+    this.scrollRef = React.createRef();
+    this.toolsRef = React.createRef();
+    this.dlgRef = React.createRef();
+    this.bodyRef = React.createRef();
+  }
+
+  // Поиск, фильтры, сортировка и страница переживают переход по разделам ЭПЗ
+  uiKey(){ return 'mp-epz-amb-ui:' + (this.props.iin || ''); }
+  loadUi(){
+    try {
+      const raw = sessionStorage.getItem(this.uiKey());
+      if(!raw) return {};
+      const u = JSON.parse(raw);
+      return { q:u.q || '', from:u.from || '', to:u.to || '', type:u.type || '', spec:u.spec || '', sort:u.sort || DEF_SORT, page:u.page || 1 };
+    } catch(e){ return {}; }
+  }
+  saveUi(){
+    const s = this.state;
+    try { sessionStorage.setItem(this.uiKey(), JSON.stringify({ q:s.q, from:s.from, to:s.to, type:s.type, spec:s.spec, sort:s.sort, page:s.page })); } catch(e){}
+  }
+  set(patch){ this.setState(patch); this.saveUi(); }
+
+  componentDidMount(){
+    this._onDoc = (e) => {
+      if(!this.state.pop) return;
+      const t = this.toolsRef.current;
+      if(t && !t.contains(e.target)) this.setState({ pop:null });
+    };
+    this._onResize = () => this.measure();
+    document.addEventListener('mousedown', this._onDoc);
+    window.addEventListener('resize', this._onResize);
+    setTimeout(() => this.measure(), 0);
+  }
+  componentWillUnmount(){
+    document.removeEventListener('mousedown', this._onDoc);
+    window.removeEventListener('resize', this._onResize);
+    this.unlockScroll();
+  }
+  componentDidUpdate(){ this.measure(); }
+
+  // Тени у закреплённых столбцов — только когда под ними есть прокрученное содержимое
+  measure(){
+    const el = this.scrollRef.current; if(!el) return;
+    const l = el.scrollLeft > 1, r = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    if(l !== this.state.edgeL || r !== this.state.edgeR) this.setState({ edgeL:l, edgeR:r });
+  }
+
+  // ---------- выборка ----------
+  filtered(){
+    const s = this.state;
+    const tokens = norm(s.q).trim().split(/\s+/).filter(Boolean);
+    const col = COLS.find(c => c.key === s.sort.col) || COLS[0];
+    const k = s.sort.dir === 'asc' ? 1 : -1;
+    return VISITS
+      .filter(v => tokens.every(t => v.hay.includes(t)))
+      .filter(v => (!s.from || v.key.slice(0, 10) >= s.from) && (!s.to || v.key.slice(0, 10) <= s.to))
+      .filter(v => !s.type || v.type === s.type)
+      .filter(v => !s.spec || v.spec === s.spec)
+      .slice()
+      .sort((a, b) => (col.sort(a, b) * k) || cmp(b.key, a.key));
+  }
+
+  // ---------- модальное окно ----------
+  openCard(id, focusStudies){
+    const v = VISITS[id];
+    this._returnFocus = document.activeElement;
+    const open = {};
+    if(focusStudies){ if(v.labs.length) open.labs = true; if(v.diag.length) open.diag = true; }
+    this.setState({ card:id, open, det:{}, pop:null });
+    this.lockScroll();
+    setTimeout(() => {
+      const d = this.dlgRef.current; if(d) d.focus({ preventScroll:true });
+      if(focusStudies){
+        const b = this.bodyRef.current, sec = b && b.querySelector('#amb-sec-' + (v.labs.length ? 'labs' : 'diag'));
+        if(b && sec) sec.scrollIntoView({ block:'start' });
+      }
+    }, 40);
+  }
+  closeCard(){
+    if(this.state.card == null) return;
+    this.setState({ card:null, open:{}, det:{} });
+    this.unlockScroll();
+    const r = this._returnFocus; this._returnFocus = null;
+    if(r && r.focus && document.contains(r)) setTimeout(() => r.focus({ preventScroll:true }), 0);
+  }
+  lockScroll(){
+    if(this._locked) return;
+    const de = document.documentElement, gap = window.innerWidth - de.clientWidth;
+    this._locked = { overflow:de.style.overflow, pad:document.body.style.paddingRight };
+    de.style.overflow = 'hidden';
+    if(gap > 0) document.body.style.paddingRight = gap + 'px';
+  }
+  unlockScroll(){
+    if(!this._locked) return;
+    document.documentElement.style.overflow = this._locked.overflow;
+    document.body.style.paddingRight = this._locked.pad;
+    this._locked = null;
+  }
+  dlgKey(e){
+    if(e.key === 'Escape'){ e.stopPropagation(); this.closeCard(); return; }
+    if(e.key !== 'Tab') return;
+    const d = this.dlgRef.current; if(!d) return;
+    const f = [...d.querySelectorAll('button:not([disabled]):not([aria-disabled="true"])')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if(e.shiftKey && (document.activeElement === first || document.activeElement === d)){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+
+  // ---------- выпадающие списки ----------
+  togglePop(id){
+    const next = this.state.pop === id ? null : id;
+    this.setState({ pop:next });
+    if(next) setTimeout(() => {
+      const t = this.toolsRef.current; if(!t) return;
+      const el = next === 'period' ? t.querySelector('#amb-from') : (t.querySelector('.amb-menu [aria-selected="true"]') || t.querySelector('.amb-menu .amb-opt'));
+      if(el) el.focus();
+    }, 20);
+  }
+  closePop(){
+    const id = this.state.pop; if(!id) return;
+    this.setState({ pop:null });
+    const t = this.toolsRef.current, btn = t && t.querySelector('[aria-expanded="true"]');
+    if(btn) btn.focus();
+  }
+  menuKey(e){
+    const items = [...e.currentTarget.querySelectorAll('.amb-opt')];
+    const i = items.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown'){ e.preventDefault(); (items[i + 1] || items[0]).focus(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); (items[i - 1] || items[items.length - 1]).focus(); }
+    else if(e.key === 'Home'){ e.preventDefault(); items[0].focus(); }
+    else if(e.key === 'End'){ e.preventDefault(); items[items.length - 1].focus(); }
+    else if(e.key === 'Escape' || e.key === 'Tab'){ if(e.key === 'Escape') e.preventDefault(); this.closePop(); }
+  }
+
+  // ---------- экспорт и печать ----------
+  exportReport(list){
+    const head = ['Дата', 'Время', 'Вид приёма', 'Врач', 'Специальность', 'Медицинская организация', 'Код МКБ-10', 'Диагноз', 'Причина обращения', 'Исследования', 'Статус'];
+    const cell = (x) => { const t = String(x == null || x === '' ? ND : x); return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const lines = [head].concat(list.map(v => [v.d, v.t, v.type, v.doc, v.spec, v.org, v.dx, v.dxName, v.reason, v.studies, v.char]))
+      .map(r => r.map(cell).join(';'));
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type:'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    const now = new Date(), p = (n) => String(n).padStart(2, '0');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Амбулаторная помощь — ${this.props.patient || 'пациент'} — ${p(now.getDate())}.${p(now.getMonth() + 1)}.${now.getFullYear()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  // Печатная форма — все разделы приёма в исходном порядке, независимо от раскрытия
+  printCard(){
+    const v = VISITS[this.state.card]; if(!v) return;
+    const nd = (x) => (x === '' || x == null) ? `<span class="nd">${ND}</span>` : esc(x);
+    const table = (heads, rows) => rows.length
+      ? `<table><thead><tr>${heads.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+      : `<p class="nd">${ND}</p>`;
+    const e = v.exam;
+    const sec = (title, body) => `<section><h2>${esc(title)}</h2>${body}</section>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Карточка амбулаторного приёма — ${esc(v.d)}</title><style>
+      @page{size:A4;margin:14mm 14mm 16mm;}
+      body{font-family:Inter,Arial,sans-serif;font-size:10.5pt;line-height:1.4;color:#0A0D14;margin:0;}
+      h1{font-size:15pt;margin:0;} .sub{color:#525866;margin:2px 0 10px;}
+      .pt{display:flex;justify-content:space-between;border-bottom:1.5px solid #0A0D14;padding-bottom:6px;margin-bottom:10px;font-size:10pt;}
+      .info{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #CDD0D5;margin-bottom:12px;}
+      .info div{padding:5px 8px;border-right:1px solid #E2E4E9;border-bottom:1px solid #E2E4E9;} .info div:nth-child(3n){border-right:none;} .info div:nth-child(n+4){border-bottom:none;}
+      .info b{display:block;font-size:8.5pt;font-weight:500;color:#525866;}
+      section{margin-top:12px;break-inside:auto;} h2{font-size:11pt;margin:0 0 5px;padding-bottom:3px;border-bottom:1px solid #CDD0D5;break-after:avoid;}
+      table{width:100%;border-collapse:collapse;font-size:9.5pt;} th,td{text-align:left;vertical-align:top;padding:4px 6px;border:1px solid #E2E4E9;} th{background:#F6F8FA;font-weight:600;}
+      tr{break-inside:avoid;} dl{display:grid;grid-template-columns:170px 1fr;margin:0;gap:3px 10px;} dt{color:#525866;} dd{margin:0;}
+      p{margin:0;} ul{margin:0;padding-left:16px;} .nd{color:#868C98;} .det{color:#525866;font-size:9pt;}
+      .foot{margin-top:18px;color:#868C98;font-size:8.5pt;}
+    </style></head><body>
+      <div class="pt"><span><b>${esc(this.props.patient || '')}</b>${this.props.iin ? ' · ИИН ' + esc(this.props.iin) : ''}</span><span>Электронная карта пациента · Амбулаторная помощь</span></div>
+      <h1>Карточка амбулаторного приёма</h1><div class="sub">Протокол осмотра и медицинские назначения</div>
+      <div class="info">
+        <div><b>Дата приёма</b>${esc(v.d)}</div><div><b>Время приёма</b>${esc(v.t)}</div><div><b>Вид приёма</b>${esc(v.type)}</div>
+        <div><b>Врач</b>${esc(v.doc)}</div><div><b>Специальность</b>${esc(v.spec)}</div><div><b>Медицинская организация</b>${esc(v.org)}</div>
+      </div>
+      ${sec('Установленный диагноз', table(['Код МКБ-10', 'Наименование диагноза', 'Характер заболевания', 'Дата установления', 'Дополнительные сведения'], v.dxList.map(d => [esc(d[0]), esc(d[1]), nd(d[2]), esc(d[3]), nd(d[4])])))}
+      ${sec('Жалобы пациента', `<p>${nd(v.complaints)}</p>`)}
+      ${sec('Анамнез', `<p>${nd(v.anamnesis)}</p>`)}
+      ${sec('Осмотр пациента', `<dl>
+        <dt>Общее состояние</dt><dd>${nd(e.state)}</dd><dt>Сознание</dt><dd>${nd(e.consc)}</dd><dt>Кожные покровы</dt><dd>${nd(e.skin)}</dd>
+        <dt>Артериальное давление</dt><dd>${e.bp ? esc(e.bp) + ' мм рт. ст.' : nd('')}</dd><dt>ЧСС</dt><dd>${e.hr ? esc(e.hr) + ' уд/мин' : nd('')}</dd><dt>ЧДД</dt><dd>${e.rr ? esc(e.rr) + ' в минуту' : nd('')}</dd>
+        ${e.organs.length ? e.organs.map(o => `<dt>${esc(o[0])}</dt><dd>${esc(o[1])}</dd>`).join('') : `<dt>Органы и системы</dt><dd>${nd('')}</dd>`}
+        <dt>Дополнительные сведения</dt><dd>${nd(e.extra)}</dd></dl>`)}
+      ${sec('Заключение врача', `<dl><dt>Основной диагноз</dt><dd>${nd(v.concl.main)}</dd><dt>Сопутствующие диагнозы</dt><dd>${v.concl.comorb.length ? v.concl.comorb.map(esc).join('<br>') : nd('')}</dd><dt>Клиническое заключение</dt><dd>${nd(v.concl.clinical)}</dd><dt>Комментарий врача</dt><dd>${nd(v.concl.comment)}</dd></dl>`)}
+      ${sec('Лабораторные исследования', table(['Дата', 'Наименование', 'Результат', 'Референсные значения', 'Статус'], v.labs.map(l => [esc(l.date), esc(l.name) + (l.det ? `<div class="det">${l.det.map(p => `${esc(p[0])}: ${esc(p[1])} (${esc(p[2])})`).join('; ')}</div>` : ''), esc(l.result), esc(l.ref), esc(l.status)])))}
+      ${sec('Диагностические исследования', table(['Дата', 'Наименование', 'Результат', 'Заключение', 'Статус'], v.diag.map(d => [esc(d.date), esc(d.name) + (d.protocol ? `<div class="det">${esc(d.protocol)}</div>` : ''), esc(d.result), esc(d.concl), esc(d.status)])))}
+      ${sec('Назначения', table(['Дата', 'Наименование', 'Вид назначения', 'Дозировка и режим', 'Длительность', 'Статус'], v.rx.map(r => r.map(esc))))}
+      ${sec('Рекомендации', v.recs.length ? `<dl>${v.recs.map(g => `<dt>${esc(g[0])}</dt><dd><ul>${g[1].map(t => `<li>${esc(t)}</li>`).join('')}</ul></dd>`).join('')}</dl>` : `<p class="nd">${ND}</p>`)}
+      ${sec('Дополнительные сведения', table(['Дата', 'Вид документа', 'Документ', 'Сведения'], v.docs.map(r => r.map(esc))))}
+      <div class="foot">Сформировано ${esc(new Date().toLocaleString('ru-RU'))}</div>
+    </body></html>`;
+    const f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+    document.body.appendChild(f);
+    const w = f.contentWindow;
+    w.document.open(); w.document.write(html); w.document.close();
+    setTimeout(() => { w.focus(); w.print(); setTimeout(() => f.remove(), 1000); }, 250);
+  }
+
+  // ---------- разделы карточки ----------
+  sections(v){
+    const s = this.state;
+    const det = (key) => !!s.det[key];
+    const toggleDet = (key) => () => { const d = this.state.det; this.setState({ det:{ ...d, [key]:!d[key] } }); };
+    const cls = (val, base) => (val === '' || val == null) ? base + ' amb-none' : base;
+    const e = v.exam;
+    const counts = { dx:v.dxList.length, labs:v.labs.length, diag:v.diag.length, rx:v.rx.length, recs:v.recs.reduce((n, g) => n + g[1].length, 0), docs:v.docs.length };
+    const empty = { dx:!v.dxList.length, complaints:!v.complaints, anamnesis:!v.anamnesis, exam:false, concl:false, labs:!v.labs.length, diag:!v.diag.length, rx:!v.rx.length, recs:!v.recs.length, docs:!v.docs.length };
+
+    return SECTIONS.map(sec => {
+      const isEmpty = empty[sec.id];
+      const open = !isEmpty && !!s.open[sec.id];
+      const n = counts[sec.id];
+      const base = {
+        anchor:'amb-sec-' + sec.id, hid:'amb-h-' + sec.id, bid:'amb-b-' + sec.id,
+        title:sec.title, icon:sec.icon, open, expanded: isEmpty ? undefined : String(open),
+        disabled: isEmpty ? 'true' : undefined, empty:isEmpty, canOpen:!isEmpty,
+        hasCount: !isEmpty && n != null, count:n, countAria: n != null ? `Записей: ${n}` : '',
+        toggle: () => { if(isEmpty) return; this.setState({ open:{ ...this.state.open, [sec.id]:!this.state.open[sec.id] } }); },
+        isDx:false, isText:false, isExam:false, isConcl:false, isLabs:false, isDiag:false, isRx:false, isRecs:false, isDocs:false,
+      };
+      if(!open) return base;
+      switch(sec.id){
+        case 'dx': return { ...base, isDx:true, items: v.dxList.map(d => ({ code:d[0], name:d[1], date:d[3],
+          char: d[2] || ND, charCls: d[2] ? 'amb-dot' : 'amb-none', charStyle: d[2] ? `--dc:${CHAR_DOT[d[2]]};` : '',
+          note: d[4] || ND, noteCls: d[4] ? '' : 'amb-none' })) };
+        case 'complaints': return { ...base, isText:true, text:v.complaints };
+        case 'anamnesis': return { ...base, isText:true, text:v.anamnesis };
+        case 'exam': {
+          const vit = (label, value, unit, hi) => ({ label, value: value === '' || value == null ? ND : String(value), hasUnit: !(value === '' || value == null) && !!unit, unit,
+            cls: (value === '' || value == null ? 'amb-none' : '') + (hi ? ' amb-hi' : '') });
+          return { ...base, isExam:true,
+            vitals:[ vit('Общее состояние', e.state), vit('Сознание', e.consc), vit('Кожные покровы', e.skin),
+                     vit('Артериальное давление', e.bp, 'мм рт. ст.', bpHigh(e.bp)), vit('ЧСС', e.hr, 'уд/мин', e.hr > 90), vit('ЧДД', e.rr, 'в минуту', e.rr > 20) ],
+            organs: e.organs.map(o => ({ k:o[0], v:o[1] })), hasOrgans: e.organs.length > 0, noOrgans: !e.organs.length,
+            extra: e.extra || ND, extraCls: cls(e.extra, 'amb-p') };
+        }
+        case 'concl': return { ...base, isConcl:true, main: v.concl.main || ND,
+          comorb: v.concl.comorb.map(t => ({ t })), hasComorb: v.concl.comorb.length > 0, noComorb: !v.concl.comorb.length,
+          clinical: v.concl.clinical || ND, clinicalCls: cls(v.concl.clinical, 'amb-dd-v'),
+          comment: v.concl.comment || ND, commentCls: cls(v.concl.comment, 'amb-dd-v') };
+        case 'labs': return { ...base, isLabs:true, items: v.labs.map((l, i) => {
+          const key = 'lab' + i, o = det(key);
+          return { date:l.date, name:l.name, result:nb(l.result), ref:nb(l.ref), status:l.status, statusStyle:tone(ST_TONE[l.status]),
+            resCls: l.flag === 'h' ? 'amb-hi' : (l.flag === 'l' ? 'amb-lo' : ''), refCls: 'amb-num',
+            rowCls: 'amb-it-r amb-g-lab' + (o ? ' is-open' : ''),
+            hasDet: !!l.det, detOpen:String(o), showDet: !!l.det && o, toggle:toggleDet(key),
+            detAria: (o ? 'Скрыть' : 'Показать') + ' подробный результат: ' + l.name,
+            det: (l.det || []).map(p => ({ k:p[0], v:nb(p[1]), ref:nb(p[2]), cls: 'amb-num' + (p[3] === 'h' ? ' amb-hi' : p[3] === 'l' ? ' amb-lo' : '') })) };
+        }) };
+        case 'diag': return { ...base, isDiag:true, items: v.diag.map((d, i) => {
+          const key = 'dg' + i, o = det(key);
+          return { date:d.date, name:d.name, result:nb(d.result), concl:d.concl, status:d.status, statusStyle:tone(ST_TONE[d.status]),
+            rowCls: 'amb-it-r amb-g-dg' + (o ? ' is-open' : ''),
+            hasDet: !!d.protocol, detOpen:String(o), showDet: !!d.protocol && o, toggle:toggleDet(key), protocol:d.protocol,
+            detAria: (o ? 'Скрыть' : 'Показать') + ' протокол: ' + d.name };
+        }) };
+        case 'rx': return { ...base, isRx:true, items: v.rx.map(r => ({ date:r[0], name:r[1], kind:r[2], dose:r[3], doseCls: r[3] === '—' ? 'amb-none' : '', dur:r[4], status:r[5], statusStyle:tone(ST_TONE[r[5]]) })) };
+        case 'recs': return { ...base, isRecs:true, items: v.recs.map(g => ({ cat:g[0], items:g[1].map(t => ({ t })) })) };
+        case 'docs': return { ...base, isDocs:true, items: v.docs.map(r => ({ date:r[0], type:r[1], name:r[2], info:r[3] })) };
+      }
+      return base;
+    });
+  }
+
+  renderVals(){
+    const s = this.state;
+    const list = this.filtered();
+    const total = list.length;
+    const pageCount = Math.max(1, Math.ceil(total / PAGE));
+    const page = Math.min(s.page, pageCount);
+    const slice = list.slice((page - 1) * PAGE, page * PAGE);
+    const hasFilters = !!(s.q.trim() || s.from || s.to || s.type || s.spec);
+    const goPage = (p) => { this.set({ page:p }); const el = this.scrollRef.current; if(el) el.closest('.amb-card').scrollIntoView({ block:'nearest', behavior:'smooth' }); };
+
+    const count = (t) => VISITS.filter(v => v.type === t).length;
+    const stats = [
+      { label:'Всего приёмов', value:VISITS.length, icon:'ri-stethoscope-line', tone:['#EEF2FF','#4D42E9'] },
+      { label:'Первичных приёмов', value:count('Первичный'), icon:TYPE_ICON['Первичный'], tone:['#EFFAF6','#176448'] },
+      { label:'Повторных приёмов', value:count('Повторный'), icon:TYPE_ICON['Повторный'], tone:['#EBFAFF','#164564'] },
+      { label:'Консультаций', value:count('Консультация'), icon:TYPE_ICON['Консультация'], tone:['#FEF7EC','#693D11'] },
+    ].map(x => ({ ...x, icoStyle:tone(x.tone) }));
+
+    const cols = COLS.map((c, i) => {
+      const sortable = !!c.sort, on = s.sort.col === c.key;
+      return { label:c.label, sortable, plain:!sortable, on: on ? '1' : '0',
+        cls: 'amb-th' + (i === 0 ? ' amb-c1' : '') + (c.key === 'actions' ? ' amb-cA' : ''),
+        ariaSort: sortable ? (on ? (s.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none') : undefined,
+        icon: on ? (s.sort.dir === 'asc' ? 'ri-arrow-up-line' : 'ri-arrow-down-line') : 'ri-arrow-up-down-line',
+        hint: on ? (s.sort.dir === 'asc' ? 'По возрастанию. Нажмите — по убыванию' : 'По убыванию. Нажмите — по возрастанию') : 'Сортировать',
+        onSort: () => this.set({ sort:{ col:c.key, dir: on ? (s.sort.dir === 'asc' ? 'desc' : 'asc') : (c.key === 'date' ? 'desc' : 'asc') }, page:1 }),
+      };
+    });
+
+    const rows = slice.map(v => ({
+      date:v.d, time:v.t, type:v.type, typeStyle:tone(TYPE_TONE[v.type]),
+      doctor:v.doc, spec:v.spec, org:v.org,
+      hasDx:!!v.dx, noDx:!v.dx, dx:v.dx, dxName:v.dxName,
+      reason: v.reason ? nb(v.reason) : ND, reasonCls: v.reason ? '' : 'amb-none',
+      hasStudies: v.studies > 0, noStudies: !v.studies, studies:v.studies,
+      studiesAria: `Исследования: ${v.studies}. Открыть в карточке приёма`,
+      hasStatus:!!v.char, noStatus:!v.char, status:v.char, statusStyle: v.char ? `--dc:${CHAR_DOT[v.char]};` : '',
+      open: () => this.openCard(v.id),
+      openStudies: (e) => { e.stopPropagation(); this.openCard(v.id, true); },
+      openAria: `Открыть карточку приёма ${v.d} ${v.t}, ${v.doc}`,
+    }));
+    // Кнопка в строке открывает то же окно, что и клик по строке — не дублируем вызов
+    rows.forEach(r => { const o = r.open; r.open = (e) => { if(e && e.stopPropagation) e.stopPropagation(); o(); }; });
+
+    const pages = Array.from({ length:pageCount }, (_, i) => ({ n:i + 1, current: i + 1 === page ? 'page' : undefined,
+      aria: `Страница ${i + 1}`, onClick: () => { if(i + 1 !== page) goPage(i + 1); } }));
+
+    const fromTxt = s.from && ru(s.from), toTxt = s.to && ru(s.to);
+    const periodLabel = s.from && s.to ? `${fromTxt} – ${toTxt}` : s.from ? `С ${fromTxt}` : s.to ? `По ${toTxt}` : 'Весь период';
+    const specs = [...new Set(VISITS.map(v => v.spec))].sort((a, b) => a.localeCompare(b, 'ru'));
+    const opt = (key, value, label) => ({ label, sel: String(s[key] === value), isSel: s[key] === value,
+      onClick: () => { this.set({ [key]:value, page:1, pop:null }); const t = this.toolsRef.current, b = t && t.querySelector('[aria-expanded="true"]'); if(b) b.focus(); } });
+    const dates = VISITS.map(v => v.key.slice(0, 10)).sort();
+
+    const cv = s.card != null ? VISITS[s.card] : null;
+    const rangeA = total ? (page - 1) * PAGE + 1 : 0, rangeB = Math.min(page * PAGE, total);
+
+    return {
+      stats,
+      exportReport: () => this.exportReport(list),
+      exportDisabled: !total, exportHint: hasFilters ? 'Выгрузить отобранные приёмы в CSV' : 'Выгрузить все приёмы в CSV',
+
+      toolsRef:this.toolsRef, scrollRef:this.scrollRef,
+      q:s.q, hasQ:!!s.q,
+      onQ: (e) => this.set({ q:e.target.value, page:1 }),
+      onQKey: (e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); this.set({ q:'', page:1 }); } },
+      clearQ: () => { this.set({ q:'', page:1 }); const t = this.toolsRef.current, i = t && t.querySelector('input[type="search"]'); if(i) i.focus(); },
+
+      periodOpen: s.pop === 'period', periodExp: String(s.pop === 'period'), togglePeriod: () => this.togglePop('period'),
+      periodCls: 'amb-dd-btn' + (s.from || s.to ? ' is-set' : ''), periodLabel,
+      from:s.from, to:s.to, fromMax: s.to || dates[dates.length - 1], toMin: s.from || dates[0], dataMin:dates[0], dataMax:dates[dates.length - 1],
+      onFrom: (e) => this.set({ from:e.target.value, page:1 }), onTo: (e) => this.set({ to:e.target.value, page:1 }),
+      hasPeriod: !!(s.from || s.to), clearPeriod: () => this.set({ from:'', to:'', page:1 }),
+
+      typeOpen: s.pop === 'type', typeExp: String(s.pop === 'type'), toggleType: () => this.togglePop('type'),
+      typeCls: 'amb-dd-btn' + (s.type ? ' is-set' : ''), typeLabel: s.type || 'Все виды приёма',
+      typeOpts: [opt('type', '', 'Все виды приёма')].concat(TYPES.map(t => opt('type', t, t))),
+      specOpen: s.pop === 'spec', specExp: String(s.pop === 'spec'), toggleSpec: () => this.togglePop('spec'),
+      specCls: 'amb-dd-btn' + (s.spec ? ' is-set' : ''), specLabel: s.spec || 'Все специальности',
+      specOpts: [opt('spec', '', 'Все специальности')].concat(specs.map(t => opt('spec', t, t))),
+      onMenuKey: (e) => this.menuKey(e),
+      onToolsKey: (e) => { if(e.key === 'Escape' && s.pop){ e.preventDefault(); this.closePop(); } },
+      hasFilters, resetAll: () => this.set({ q:'', from:'', to:'', type:'', spec:'', page:1, pop:null }),
+
+      liveText: hasFilters ? (total ? `Найдено: ${total} ${plural(total, 'приём', 'приёма', 'приёмов')}` : 'Приёмы не найдены') : '',
+      hasRows: total > 0, noRows: total === 0,
+      emptyTitle: VISITS.length ? 'По заданным условиям приёмы не найдены' : 'Амбулаторные приёмы не зарегистрированы',
+      scrollCls: 'amb-scroll' + (s.edgeL ? ' is-l' : '') + (s.edgeR ? ' is-r' : ''),
+      onScroll: () => this.measure(),
+      rowCount: String(total + 1),
+      cols, rows,
+      rangeText: `${rangeA}–${rangeB}`, totalText: `${total} ${plural(total, 'приёма', 'приёмов', 'приёмов')}`,
+      multiPage: pageCount > 1, pages, isFirst: page === 1, isLast: page === pageCount,
+      prevPage: () => { if(page > 1) goPage(page - 1); }, nextPage: () => { if(page < pageCount) goPage(page + 1); },
+
+      cardOpen: !!cv, dlgRef:this.dlgRef, bodyRef:this.bodyRef,
+      cv: cv ? { date:cv.d, time:cv.t, type:cv.type, typeStyle:tone(TYPE_TONE[cv.type]), doctor:cv.doc, spec:cv.spec, org:cv.org } : {},
+      secs: cv ? this.sections(cv) : [],
+      closeCard: () => this.closeCard(),
+      printCard: () => this.printCard(),
+      dlgKey: (e) => this.dlgKey(e),
+      ovDown: (e) => { this._ovDown = e.target === e.currentTarget; },
+      ovClick: (e) => { if(e.target === e.currentTarget && this._ovDown) this.closeCard(); this._ovDown = false; },
+    };
+  }
+}
+</script>
+</body>
+</html>
