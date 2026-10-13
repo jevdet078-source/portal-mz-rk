@@ -45,6 +45,121 @@
   @media (max-width:1024px){ .dash-wrap{padding:24px 24px 72px;} }
   @media (max-width:860px){ .dash-stats{grid-template-columns:repeat(2,minmax(0,1fr));} }
   @media (max-width:640px){ .dash-wrap{padding:16px 16px 96px;} }
+
+  /* ЭПЗ: раскладка и меню разделов */
+  .epz-wrap{max-width:1320px;margin:0 auto;padding:22px 32px 60px;}
+  .epz-bar{padding:14px 32px;}
+  .epz-layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:22px;align-items:start;}
+  .epz-nav{position:sticky;top:161px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;box-shadow:var(--sh-xs);}
+  .epz-nav-cap{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--n400);padding:8px 10px 6px;}
+  .epz-nav-extra{border-top:1px solid var(--stroke);margin:8px 4px 0;padding-top:8px;}
+  .epz-nav-btn[aria-current="false"]:hover{background:var(--n100) !important;}
+  .epz-nav-btn:focus-visible,.epz-al:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  @media (max-width:1180px){
+    .epz-layout{grid-template-columns:minmax(0,1fr);gap:16px;}
+    .epz-nav{position:static;display:flex;gap:4px;overflow-x:auto;padding:6px;border-radius:14px;scrollbar-width:none;}
+    .epz-nav::-webkit-scrollbar{display:none;}
+    .epz-nav-cap{display:none;}
+    .epz-nav-extra{display:contents;}
+    .epz-nav-btn{width:auto !important;flex:0 0 auto;margin:0 !important;padding:9px 12px !important;white-space:nowrap;}
+  }
+  @media (max-width:1024px){ .epz-wrap{padding:20px 24px 48px;} .epz-bar{padding:12px 24px;} }
+  @media (max-width:640px){ .epz-wrap{padding:16px 16px 32px;} .epz-bar{padding:10px 16px;flex-wrap:nowrap !important;} .epz-back{padding:0 !important;} .epz-back-lbl{display:none;} }
+
+  /* ЭПЗ · Главная: краткая карточка пациента */
+  .epz-main{display:flex;flex-direction:column;gap:12px;container-type:inline-size;}
+  .epz-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+  .epz-person{display:flex;align-items:center;gap:16px;padding:18px 20px;}
+  .epz-avatar{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:18px;font-weight:600;}
+  .epz-name{margin:0;font-size:22px;font-weight:700;line-height:28px;letter-spacing:-.02em;color:var(--n900);}
+  .epz-facts{display:flex;flex-wrap:wrap;align-items:center;margin-top:4px;font-size:14px;line-height:20px;color:var(--n700);font-variant-numeric:tabular-nums;}
+  .epz-facts>span+span::before{content:'';display:inline-block;width:1px;height:12px;margin:0 12px;background:var(--n300);vertical-align:-1px;}
+  .epz-muted{color:var(--n400);}
+  .epz-row{display:grid;}
+  .epz-n4{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .epz-n3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .epz-attach{grid-template-columns:auto auto auto;}
+  .epz-cell{position:relative;display:flex;align-items:flex-start;gap:12px;padding:16px 18px;min-width:0;}
+  .epz-cell+.epz-cell::before{content:'';position:absolute;left:0;top:16px;bottom:16px;width:1px;background:var(--stroke);}
+  .epz-ico{width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:19px;}
+  .epz-txt{min-width:0;}
+  .epz-lbl{font-size:12.5px;line-height:16px;color:var(--n500);}
+  .epz-val{margin-top:2px;font-size:16px;font-weight:600;line-height:22px;color:var(--n900);overflow-wrap:anywhere;}
+  .epz-unit{margin-left:4px;font-size:12.5px;font-weight:500;color:var(--n400);}
+  .epz-sub{margin-top:1px;font-size:12.5px;line-height:16px;color:var(--n400);}
+  .epz-al{display:flex;align-items:center;gap:12px;width:100%;margin:0;padding:11px 12px 11px 16px;border:1px solid;border-radius:14px;font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+  .epz-al:hover{box-shadow:var(--sh-sm);}
+  .epz-al-ico{font-size:22px;flex:0 0 auto;}
+  .epz-al-txt{flex:1;min-width:0;font-size:14px;line-height:20px;color:var(--n600);}
+  .epz-al-txt b{font-weight:600;}
+  .epz-al-count{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 8px 0 12px;border:1px solid;border-radius:999px;background:var(--n0);font-size:13px;font-weight:600;white-space:nowrap;flex:0 0 auto;}
+  .epz-al-count i{font-size:18px;}
+  .epz-al-sev{background:var(--red-l);border-color:rgba(223,28,65,.24);}
+  .epz-al-sev:hover{border-color:rgba(223,28,65,.5);}
+  .epz-al-sev .epz-al-ico{color:var(--red);}
+  .epz-al-sev b{color:var(--red-d);}
+  .epz-al-sev .epz-al-count{color:var(--red);border-color:rgba(223,28,65,.24);}
+  .epz-al-mod{background:var(--orange-l);border-color:rgba(241,123,44,.28);}
+  .epz-al-mod:hover{border-color:rgba(241,123,44,.55);}
+  .epz-al-mod .epz-al-ico{color:var(--orange);}
+  .epz-al-mod b{color:var(--orange-d);}
+  .epz-al-mod .epz-al-count{color:var(--orange-d);border-color:rgba(241,123,44,.28);}
+  .epz-th{text-align:left;padding:11px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);white-space:nowrap;}
+  .epz-td{padding:14px 16px;font-size:13.5px;line-height:1.45;color:var(--n600);}
+  /* Телефон: строки таблицы аллергий — карточками, без горизонтальной прокрутки */
+  @media (max-width:640px){
+    .epz-at{min-width:0 !important;display:block;}
+    .epz-at .xthead{display:none;}
+    .epz-at .xtbody{display:block;}
+    .epz-at .xtr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:14px 16px;}
+    .epz-at .xtr:first-child{border-top:none !important;}
+    .epz-at .epz-td{display:block;padding:0;text-align:left !important;}
+    .epz-at .epz-td:nth-child(1){grid-area:1/1;font-size:14.5px;}
+    .epz-at .epz-td:nth-child(4){grid-area:1/2;}
+    .epz-at .epz-td:nth-child(3){grid-area:2/1/3/3;}
+    .epz-at .epz-td:nth-child(2){grid-area:3/1;font-size:12.5px;color:var(--n400);}
+    .epz-at .epz-td:nth-child(5){grid-area:3/2;font-size:12.5px;text-align:right !important;}
+  }
+  /* Перестройка по ширине самой карточки, а не окна */
+  @container (max-width:800px){
+    .epz-n4{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .epz-n4 .epz-cell:nth-child(3)::before{display:none;}
+    .epz-n4 .epz-cell:nth-child(n+3)::after{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:var(--stroke);}
+    .epz-n4 .epz-cell:nth-child(3)::after{right:0;}
+    .epz-n4 .epz-cell:nth-child(4)::after{left:0;}
+  }
+  @container (max-width:720px){
+    .epz-attach{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .epz-attach .epz-cell:first-child{grid-column:1/-1;}
+    .epz-attach .epz-cell:nth-child(2)::before{display:none;}
+    .epz-attach .epz-cell+.epz-cell::after{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:var(--stroke);}
+    .epz-attach .epz-cell:nth-child(2)::after{right:0;}
+    .epz-attach .epz-cell:nth-child(3)::after{left:0;}
+  }
+  @container (max-width:620px){
+    .epz-n3{grid-template-columns:minmax(0,1fr);}
+    .epz-n3 .epz-cell+.epz-cell::before{display:none;}
+    .epz-n3 .epz-cell+.epz-cell::after{content:'';position:absolute;top:0;left:18px;right:18px;height:1px;background:var(--stroke);}
+  }
+  @container (max-width:520px){
+    .epz-facts{gap:2px 14px;}
+    .epz-facts>span+span::before{display:none;}
+    .epz-al{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:start;row-gap:10px;}
+    .epz-al-count{grid-column:2;justify-self:start;}
+  }
+  /* Телефон: половинные ячейки — плитки (значок над подписью), ячейки во всю ширину — строкой */
+  @container (max-width:440px){
+    .epz-person{padding:16px;}
+    .epz-avatar{display:none;}
+    .epz-name{font-size:19px;line-height:25px;}
+    .epz-cell{padding:14px 16px;}
+    .epz-n4 .epz-cell,.epz-n3 .epz-cell:not(:last-child),.epz-attach .epz-cell:not(:first-child){flex-direction:column;gap:8px;}
+    .epz-ico{width:32px;height:32px;font-size:17px;}
+    .epz-n3{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .epz-n3 .epz-cell:last-child{grid-column:1/-1;}
+    .epz-n3 .epz-cell:nth-child(2)::before{display:block;}
+    .epz-n3 .epz-cell:nth-child(2)::after{display:none;}
+  }
 </style>
 </helmet>
 
@@ -66,8 +181,8 @@
     <!-- Панель открытого ЭПЗ: возврат к поиску и таймер сессии доступа (под шапкой портала) -->
     <sc-if value="{{ inEpz }}" hint-placeholder-val="{{ false }}">
       <div style="position:sticky;top:73px;z-index:30;background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-bottom:1px solid var(--stroke);">
-        <div style="padding:14px 32px;display:flex;align-items:center;gap:16px;">
-          <button onClick="{{ backToDash }}" style="display:flex;align-items:center;gap:6px;height:36px;padding:0 13px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;flex:0 0 auto;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>К поиску пациента</button>
+        <div class="epz-bar" style="display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;">
+          <button class="epz-back" onClick="{{ backToDash }}" aria-label="К поиску пациента" style="display:flex;align-items:center;justify-content:center;gap:6px;height:36px;min-width:36px;padding:0 13px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;flex:0 0 auto;"><i class="ri-arrow-left-line" style="font-size:16px;"></i><span class="epz-back-lbl">К поиску пациента</span></button>
           <div style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px;border-radius:9px;background:var(--orange-l);color:var(--orange-d);font-size:12.5px;font-weight:600;flex:0 0 auto;"><i class="ri-time-line" style="font-size:15px;"></i>Сессия доступа: <span style="font-variant-numeric:tabular-nums;">{{ accessTimer }}</span></div>
         </div>
       </div>
@@ -155,154 +270,121 @@
 
       <!-- ================= ЭПЗ ================= -->
       <sc-if value="{{ inEpz }}" hint-placeholder-val="{{ false }}">
-        <div style="max-width:1320px;margin:0 auto;padding:22px 32px 60px;animation:mp-fade .2s ease;">
-          <div style="display:grid;grid-template-columns:236px 1fr;gap:22px;align-items:start;">
+        <div class="epz-wrap" style="animation:mp-fade .2s ease;">
+          <div class="epz-layout">
 
             <!-- section nav -->
-            <aside style="position:sticky;top:161px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;box-shadow:var(--sh-xs);">
-              <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--n400);padding:8px 10px 6px;">Разделы ЭПЗ</div>
+            <aside class="epz-nav" aria-label="Разделы ЭПЗ">
+              <div class="epz-nav-cap">Разделы ЭПЗ</div>
               <sc-for list="{{ sections }}" as="s">
-                <button onClick="{{ s.onClick }}" style="{{ s.style }}"><i class="{{ s.icon }}" style="font-size:18px;flex:0 0 auto;"></i><span style="flex:1;text-align:left;">{{ s.label }}</span></button>
+                <button class="epz-nav-btn" onClick="{{ s.onClick }}" aria-current="{{ s.current }}" style="{{ s.style }}"><i class="{{ s.icon }}" style="font-size:18px;flex:0 0 auto;"></i><span style="flex:1;text-align:left;">{{ s.label }}</span></button>
               </sc-for>
-              <div style="border-top:1px solid var(--stroke);margin:8px 4px 0;padding-top:8px;">
+              <div class="epz-nav-extra">
                 <sc-for list="{{ sectionsExtra }}" as="s">
-                  <button onClick="{{ s.onClick }}" style="{{ s.style }}"><i class="{{ s.icon }}" style="font-size:18px;flex:0 0 auto;"></i><span style="flex:1;text-align:left;">{{ s.label }}</span></button>
+                  <button class="epz-nav-btn" onClick="{{ s.onClick }}" aria-current="{{ s.current }}" style="{{ s.style }}"><i class="{{ s.icon }}" style="font-size:18px;flex:0 0 auto;"></i><span style="flex:1;text-align:left;">{{ s.label }}</span></button>
                 </sc-for>
               </div>
             </aside>
 
             <section style="min-width:0;">
-              <!-- patient mini-header -->
-              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:14px;margin-bottom:18px;box-shadow:var(--sh-xs);">
+              <!-- Шапка пациента — во всех разделах, кроме «Главной»: там её заменяет блок 1 -->
+              <sc-if value="{{ showMiniHeader }}" hint-placeholder-val="{{ false }}">
+              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:18px;box-shadow:var(--sh-xs);">
                 <div style="width:42px;height:42px;border-radius:11px;background:{{ pAvBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:14px;font-weight:600;color:{{ pAvColor }};">{{ pInitials }}</div>
-                <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ pName }}</div><div style="font-size:12.5px;color:var(--n400);">{{ pMeta }}</div></div>
-                <span style="{{ pOsmsStyle }}"><i class="{{ pOsmsIcon }}"></i>{{ pOsmsText }}</span>
-                <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:6px 12px;border-radius:999px;"><i class="ri-eye-line"></i>Режим просмотра</span>
+                <div style="flex:1;min-width:180px;"><div style="font-size:15px;font-weight:600;">{{ pName }}</div><div style="font-size:12.5px;color:var(--n400);">{{ pMeta }}</div></div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <span style="{{ pOsmsStyle }}"><i class="{{ pOsmsIcon }}"></i>{{ pOsmsText }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-lighter);padding:6px 12px;border-radius:999px;"><i class="ri-eye-line"></i>Режим просмотра</span>
+                </div>
               </div>
+              </sc-if>
 
-              <!-- ===== Главная ===== -->
+              <!-- ===== Главная: краткая карточка пациента, 4 блока по постановке ===== -->
               <sc-if value="{{ secMain }}" hint-placeholder-val="{{ true }}">
-                <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+                <div class="epz-main" style="animation:mp-slidein .2s ease;">
 
-                  <!-- critical allergy alert ribbon -->
-                  <sc-if value="{{ pHasAllergy }}" hint-placeholder-val="{{ true }}">
-                  <div style="display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#FDEDF0,#fff);border:1px solid #F7C6CF;border-left:4px solid var(--red);border-radius:14px;padding:13px 18px;">
-                    <i class="ri-alarm-warning-fill" style="font-size:22px;color:var(--red);flex:0 0 auto;"></i>
-                    <div style="flex:1;"><span style="font-size:13.5px;font-weight:600;color:var(--red-d);">{{ pAllergyTitle }}</span><span style="font-size:13px;color:var(--n500);"> {{ pAllergyNote }}</span></div>
-                    <span style="font-size:11px;font-weight:600;color:var(--red);background:#fff;border:1px solid #F7C6CF;padding:4px 10px;border-radius:999px;flex:0 0 auto;">{{ pAllergyCount }}</span>
+                  <!-- Блок 1. Персональные данные -->
+                  <div class="epz-card epz-person">
+                    <div class="epz-avatar" style="background:{{ pAvBg }};color:{{ pAvColor }};" aria-hidden="true">{{ pInitials }}</div>
+                    <div style="min-width:0;">
+                      <h1 class="epz-name">{{ pName }}</h1>
+                      <div class="epz-facts">
+                        <span><span class="epz-muted">ИИН</span> {{ pIin }}</span>
+                        <span>{{ pSexFull }}</span>
+                        <span>{{ pAge }}</span>
+                        <span><span class="epz-muted">Дата рождения</span> {{ pDob }}</span>
+                      </div>
+                    </div>
                   </div>
-                  </sc-if>
 
-                  <!-- key metrics band -->
-                  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;">
-                    <sc-for list="{{ keyMetrics }}" as="m">
-                      <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:14px 16px;box-shadow:var(--sh-xs);">
-                        <div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--n400);margin-bottom:10px;"><i class="{{ m.icon }}" style="font-size:15px;color:{{ m.color }};"></i>{{ m.label }}</div>
-                        <div style="font-size:21px;font-weight:700;letter-spacing:-.01em;line-height:1;color:{{ m.valColor }};">{{ m.value }}</div>
-                        <div style="font-size:11.5px;color:var(--n400);margin-top:5px;">{{ m.sub }}</div>
+                  <!-- Блок 2. Основные медицинские показатели -->
+                  <div class="{{ metricsCls }}">
+                    <sc-for list="{{ mainMetrics }}" as="m" hint-placeholder-count="4">
+                      <div class="epz-cell">
+                        <span class="epz-ico" aria-hidden="true"><i class="{{ m.icon }}"></i></span>
+                        <div class="epz-txt">
+                          <div class="epz-lbl">{{ m.label }}</div>
+                          <div class="epz-val" style="{{ m.valStyle }}">{{ m.value }}<sc-if value="{{ m.hasUnit }}" hint-placeholder-val="{{ false }}"><span class="epz-unit">{{ m.unit }}</span></sc-if></div>
+                          <sc-if value="{{ m.hasSub }}" hint-placeholder-val="{{ true }}"><div class="epz-sub">{{ m.sub }}</div></sc-if>
+                        </div>
                       </div>
                     </sc-for>
                   </div>
 
-                  <!-- alerts (left) + pregnancy spotlight (right) -->
-                  <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start;">
-                    <div style="display:flex;flex-direction:column;gap:16px;">
-                      <!-- diagnoses / Д-учёт -->
-                      <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div style="font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;"><i class="ri-clipboard-line" style="color:var(--primary);font-size:19px;"></i>Активные диагнозы и Д-учёт</div><button onClick="{{ goDispensary }}" style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:4px;">Открыть<i class="ri-arrow-right-line" style="font-size:15px;"></i></button></div>
-                        <div onClick="{{ goDispensary }}" style="border:1px solid var(--primary-light);background:var(--primary-lighter);border-radius:14px;padding:16px;cursor:pointer;transition:box-shadow .12s;" style-hover="box-shadow:var(--sh-md);">
-                          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:38px;height:38px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-capsule-line" style="font-size:20px;color:var(--primary);"></i></div><div style="flex:1;"><div style="font-size:14.5px;font-weight:600;">{{ pDiagnosis }}</div><div style="font-size:12px;color:var(--n500);">МКБ-10: {{ pIcd }} · Основной диагноз</div></div><span style="font-size:11px;font-weight:600;color:var(--primary-darker);background:#fff;padding:4px 10px;border-radius:999px;">Д-группа {{ pDgroup }}</span></div>
-                          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;border-top:1px dashed var(--primary-light);padding-top:12px;"><div><div style="font-size:11px;color:var(--n400);">Регистрация</div><div style="font-size:13px;font-weight:600;">12.11.2022</div></div><div><div style="font-size:11px;color:var(--n400);">Последний визит</div><div style="font-size:13px;font-weight:600;">10.05.2024</div></div><div><div style="font-size:11px;color:var(--n400);">След. явка</div><div style="font-size:13px;font-weight:600;color:var(--red-d);">15.08.2024</div></div></div>
-                        </div>
-                      </div>
-                      <!-- allergy table -->
-                      <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                        <div style="font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-alarm-warning-line" style="color:var(--red);font-size:19px;"></i>Аллергологический анамнез</div>
-                        <sc-if value="{{ pHasAllergy }}" hint-placeholder-val="{{ true }}">
-                        <div class="xtable" style="width:100%;border-collapse:collapse;">
-                          <div class="xthead"><div class="xtr"><div class="xth" style="text-align:left;padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);background:var(--n50);border-radius:8px 0 0 8px;">Тип</div><div class="xth" style="text-align:left;padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);background:var(--n50);">Аллерген</div><div class="xth" style="text-align:left;padding:8px 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);background:var(--n50);border-radius:0 8px 8px 0;">Комментарий врача</div></div></div>
-                          <div class="xtbody">
-                            <sc-for list="{{ allergies }}" as="a">
-                              <div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:12px 10px;"><span style="{{ a.tagStyle }}">{{ a.type }}</span></div><div class="xtd" style="padding:12px 10px;font-size:13.5px;font-weight:600;">{{ a.allergen }}</div><div class="xtd" style="padding:12px 10px;font-size:13px;color:var(--n500);line-height:1.45;">{{ a.note }}</div></div>
-                            </sc-for>
-                          </div>
-                        </div>
-                        </sc-if>
-                        <sc-if value="{{ pNoAllergy }}" hint-placeholder-val="{{ false }}">
-                          <div style="display:flex;align-items:center;gap:10px;background:var(--green-l);border-radius:10px;padding:13px 15px;font-size:13.5px;color:var(--green-d);"><i class="ri-checkbox-circle-fill" style="font-size:18px;"></i>Аллергологический анамнез не отягощён. Сведения об аллергиях отсутствуют.</div>
-                        </sc-if>
-                      </div>
-                    </div>
+                  <!-- Блок 3. Лекарственная аллергия — только при наличии сведений; клик ведёт в «Аллергологический анамнез» -->
+                  <sc-if value="{{ alShow }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" class="{{ alCls }}" onClick="{{ goAllergy }}" aria-label="{{ alAria }}">
+                      <i class="ri-error-warning-fill epz-al-ico" aria-hidden="true"></i>
+                      <span class="epz-al-txt"><b>Лекарственная аллергия: {{ alName }}</b><span class="epz-al-note">{{ alNote }}</span></span>
+                      <span class="epz-al-count">{{ alCount }}<i class="ri-arrow-right-s-line" aria-hidden="true"></i></span>
+                    </button>
+                  </sc-if>
 
-                    <!-- pregnancy spotlight -->
-                    <sc-if value="{{ pPregnant }}" hint-placeholder-val="{{ true }}">
-                    <div style="background:linear-gradient(160deg,#F1FBFE,#fff 60%);border:1px solid #BEEBFB;border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
-                      <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--teal-d);margin-bottom:16px;"><i class="ri-bear-smile-fill"></i>Беременность · активна</div>
-                      <div style="display:flex;align-items:center;gap:18px;margin-bottom:18px;">
-                        <div style="width:104px;height:104px;border-radius:50%;background:conic-gradient(var(--teal) 0% 60%,#D6EFF8 60% 100%);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
-                          <div style="width:80px;height:80px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:26px;font-weight:700;color:var(--teal-d);line-height:1;">24</span><span style="font-size:10.5px;color:var(--n400);">из 40 нед</span></div>
-                        </div>
-                        <div style="flex:1;">
-                          <div style="font-size:13px;font-weight:600;color:var(--teal-d);background:#fff;border:1px solid #BEEBFB;display:inline-block;padding:4px 11px;border-radius:999px;margin-bottom:10px;">II триместр</div>
-                          <div style="font-size:12px;color:var(--n400);">ПДР</div><div style="font-size:16px;font-weight:600;margin-bottom:8px;">15.08.2024</div>
-                          <div style="font-size:12px;color:var(--n400);">Следующий визит</div><div style="font-size:16px;font-weight:600;color:var(--teal-d);">25.04.2024</div>
+                  <!-- Блок 4. Прикрепление -->
+                  <div class="epz-card epz-row epz-attach">
+                    <sc-for list="{{ attachInfo }}" as="m" hint-placeholder-count="3">
+                      <div class="epz-cell">
+                        <span class="epz-ico" aria-hidden="true"><i class="{{ m.icon }}"></i></span>
+                        <div class="epz-txt">
+                          <div class="epz-lbl">{{ m.label }}</div>
+                          <div class="epz-val" style="{{ m.valStyle }}">{{ m.value }}</div>
                         </div>
                       </div>
-                      <div style="display:flex;gap:6px;margin-bottom:8px;">
-                        <div style="flex:1;height:7px;border-radius:4px;background:var(--teal);"></div>
-                        <div style="flex:1;height:7px;border-radius:4px;background:var(--teal);opacity:.55;"></div>
-                        <div style="flex:1;height:7px;border-radius:4px;background:#D6EFF8;"></div>
-                      </div>
-                      <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--n400);margin-bottom:18px;"><span>I триместр</span><span>II</span><span>III</span></div>
-                      <button onClick="{{ goWomen }}" style="width:100%;height:42px;border:none;border-radius:11px;background:var(--teal);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">Карта беременности<i class="ri-arrow-right-line" style="font-size:18px;"></i></button>
-                    </div>
-                    </sc-if>
-                    <sc-if value="{{ pNotPregnant }}" hint-placeholder-val="{{ false }}">
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);display:flex;flex-direction:column;">
-                      <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:16px;"><i class="ri-heart-pulse-line" style="color:var(--primary);"></i>Сводка показателей</div>
-                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <sc-for list="{{ pVitalsCards }}" as="vc"><div style="border:1px solid var(--stroke);border-radius:12px;padding:13px;"><div style="font-size:11px;color:var(--n400);">{{ vc.label }}</div><div style="font-size:18px;font-weight:700;color:{{ vc.color }};margin-top:3px;">{{ vc.value }}</div></div></sc-for>
-                      </div>
-                      <div style="margin-top:14px;background:var(--n100);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--n500);display:flex;align-items:center;gap:8px;"><i class="ri-information-line" style="font-size:16px;color:var(--n400);"></i>{{ pVitalsNote }}</div>
-                    </div>
-                    </sc-if>
+                    </sc-for>
                   </div>
+                </div>
+              </sc-if>
 
-                  <!-- plan (left) + visit timeline (right) -->
-                  <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:16px;align-items:start;">
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                      <div style="font-size:15px;font-weight:600;margin-bottom:14px;">План наблюдения</div>
-                      <div style="display:flex;gap:6px;background:var(--n100);border:1px solid var(--stroke);border-radius:10px;padding:3px;margin-bottom:14px;">
-                        <sc-for list="{{ planTabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
-                      </div>
-                      <div style="display:flex;flex-direction:column;gap:12px;">
-                        <sc-for list="{{ planItems }}" as="p">
-                          <div style="display:flex;align-items:center;gap:12px;border:1px solid var(--stroke);border-radius:11px;padding:11px 13px;"><span style="width:10px;height:10px;border-radius:50%;background:{{ p.dot }};flex:0 0 auto;"></span><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">{{ p.title }}</div><div style="font-size:12px;color:var(--n400);">{{ p.meta }}</div></div></div>
-                        </sc-for>
-                      </div>
-                    </div>
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><div style="font-size:15px;font-weight:600;">Последние события</div><button onClick="{{ goAmbulatory }}" style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:4px;">Все записи<i class="ri-arrow-right-line" style="font-size:15px;"></i></button></div>
-                      <div style="display:flex;flex-direction:column;">
-                        <sc-for list="{{ summaryVisits }}" as="v">
-                          <div onClick="{{ v.onClick }}" style="display:flex;gap:14px;cursor:pointer;">
-                            <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-                              <div style="width:36px;height:36px;border-radius:10px;background:{{ v.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ v.icon }}" style="font-size:18px;color:{{ v.color }};"></i></div>
-                              <div style="{{ v.lineStyle }}"></div>
+              <!-- ===== Аллергологический анамнез ===== -->
+              <sc-if value="{{ secAllergy }}" hint-placeholder-val="{{ false }}">
+                <div style="animation:mp-slidein .2s ease;">
+                  <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-alert-line" style="font-size:24px;color:var(--primary);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Аллергологический анамнез</h1><sc-if value="{{ hasAllergyRows }}" hint-placeholder-val="{{ true }}"><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ allergyCountText }}</p></sc-if></div></div>
+                  <sc-if value="{{ hasAllergyRows }}" hint-placeholder-val="{{ true }}">
+                    <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
+                      <div class="xtable epz-at" style="min-width:640px;">
+                        <div class="xthead"><div class="xtr" style="background:var(--n50);">
+                          <div class="xth epz-th">Аллерген</div><div class="xth epz-th">Тип</div><div class="xth epz-th">Характер реакции</div><div class="xth epz-th">Тяжесть</div><div class="xth epz-th" style="text-align:right;">Год регистрации</div>
+                        </div></div>
+                        <div class="xtbody">
+                          <sc-for list="{{ allergyRows }}" as="a" hint-placeholder-count="2">
+                            <div class="xtr" style="border-top:1px solid var(--stroke);">
+                              <div class="xtd epz-td" style="font-weight:600;color:var(--n900);">{{ a.allergen }}</div>
+                              <div class="xtd epz-td">{{ a.type }}</div>
+                              <div class="xtd epz-td">{{ a.reaction }}</div>
+                              <div class="xtd epz-td"><span style="{{ a.sevStyle }}">{{ a.severity }}</span></div>
+                              <div class="xtd epz-td" style="text-align:right;font-variant-numeric:tabular-nums;color:{{ a.yearColor }};">{{ a.year }}</div>
                             </div>
-                            <div style="flex:1;padding-bottom:18px;"><div style="font-size:12px;color:var(--n400);">{{ v.date }}</div><div style="font-size:13.5px;font-weight:600;margin-top:1px;">{{ v.title }}</div><div style="font-size:12px;color:var(--n400);margin-top:1px;">{{ v.org }}</div><div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="{{ v.statusStyle }}">{{ v.status }}</span><span style="font-size:12px;color:var(--primary);font-weight:600;">{{ v.link }}</span></div></div>
-                          </div>
-                        </sc-for>
+                          </sc-for>
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  <!-- org strip -->
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:center;"><div style="width:40px;height:40px;border-radius:10px;background:var(--purple-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-hospital-line" style="font-size:21px;color:var(--purple);"></i></div><div><div style="font-size:12px;color:var(--n400);">Мед. организация</div><div style="font-size:14px;font-weight:600;">{{ pOrg }}</div></div></div>
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:center;"><div style="width:40px;height:40px;border-radius:10px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-map-pin-line" style="font-size:21px;color:var(--orange);"></i></div><div><div style="font-size:12px;color:var(--n400);">Участок</div><div style="font-size:14px;font-weight:600;">{{ pUchastok }}</div></div></div>
-                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:center;"><div style="width:40px;height:40px;border-radius:10px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-user-heart-line" style="font-size:21px;color:var(--teal);"></i></div><div><div style="font-size:12px;color:var(--n400);">Участковый врач</div><div style="font-size:14px;font-weight:600;">{{ pVrach }}</div></div></div>
-                  </div>
+                  </sc-if>
+                  <sc-if value="{{ noAllergyRows }}" hint-placeholder-val="{{ false }}">
+                    <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);padding:24px;display:flex;align-items:flex-start;gap:14px;">
+                      <span style="width:40px;height:40px;border-radius:10px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-information-line" style="font-size:20px;color:var(--n500);"></i></span>
+                      <div><div style="font-size:15px;font-weight:600;">Аллергические реакции не зарегистрированы</div><div style="font-size:13.5px;color:var(--n500);margin-top:3px;line-height:1.45;">Отсутствие записей не подтверждает отсутствие аллергии.</div></div>
+                    </div>
+                  </sc-if>
                 </div>
               </sc-if>
 
@@ -778,7 +860,7 @@
               <sc-if value="{{ secAmbulance }}" hint-placeholder-val="{{ false }}">
                 <div style="animation:mp-slidein .2s ease;">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;">
-                    <div style="display:flex;align-items:center;gap:14px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--red-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-ambulance-line" style="font-size:24px;color:var(--red);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Вызовы скорой медицинской помощи</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">История вызовов СМП: причина, срочность, исход и состав бригады. Нажмите на запись для деталей.</p></div></div>
+                    <div style="display:flex;align-items:center;gap:14px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--red-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-first-aid-kit-line" style="font-size:24px;color:var(--red);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Вызовы скорой медицинской помощи</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">История вызовов СМП: причина, срочность, исход и состав бригады. Нажмите на запись для деталей.</p></div></div>
                     <button style="height:42px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;flex:0 0 auto;"><i class="ri-download-2-line" style="font-size:18px;"></i>Экспорт</button>
                   </div>
                   <!-- summary mini cards -->
@@ -1034,36 +1116,39 @@ class Component extends DCLogic {
     super(props);
     this.iinRef = React.createRef();
     const C={ red:['#FDEDF0','#DF1C41'], blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], pink:['#FDEBFF','#E255F2'], teal:['#EBFAFF','#35B9E9'], orange:['#FEF3EB','#F17B2C'] };
+    // Данные «Главной» ЭПЗ. null — сведений нет («Нет данных»); preg — только при актуальной записи о беременности.
+    // Тяжесть аллергии: severe — тяжёлая, moderate — средняя, mild — лёгкая; year — при наличии.
     this.PATIENTS={
       ivanova:{ name:'Иванова Александра Сергеевна', iin:'920512400123', sex:'Жен', age:'32 года', dob:'12.05.1992', initials:'ИА', av:C.pink, osms:true,
-        blood:'A (II) Rh+', bmi:'26.2', bmiSub:'избыточный вес', bp:'120/80', pulse:'72', spo2:'98',
-        diagnosis:'Хронический гастрит', icd:'K29.0', dgroup:'II', pregnant:true, female:true,
-        org:'Городская поликлиника №4', uchastok:'Участок №12, Медеуский р-н', vrach:'Касымова Г.М.',
-        allergies:[{type:'Лекарственная',allergen:'Пенициллин',note:'Анафилактическая реакция в 2018 году',c:C.red},{type:'Пищевая',allergen:'Цитрусовые',note:'Крапивница, отёк Квинке лёгкой степени',c:['#FEF7EC','#693D11']}],
-        allergyTitle:'Внимание: лекарственная аллергия — Пенициллин', allergyNote:'· анафилактическая реакция (2018). Учитывать при назначениях.', allergyCount:'2 аллергена' },
+        blood:'A (II) Rh+', bloodDate:'15.01.2023', bp:'120/80', bpDate:'25.04.2024',
+        pregnant:true, preg:{ weeks:24, trimester:'II' }, female:true,
+        org:'Городская поликлиника №4', uchastok:'№12', vrach:'Касымова Г.М.',
+        allergies:[
+          { type:'Лекарственная', allergen:'Пенициллин', reaction:'Анафилактическая реакция', severity:'severe', year:'2018' },
+          { type:'Пищевая', allergen:'Цитрусовые', reaction:'Крапивница, отёк Квинке лёгкой степени', severity:'moderate', year:'2021' },
+        ] },
       kasymov:{ name:'Касымов Данияр Бакытович', iin:'790815300234', sex:'Муж', age:'45 лет', dob:'15.08.1979', initials:'КД', av:C.blue, osms:true,
-        blood:'B (III) Rh+', bmi:'28.4', bmiSub:'избыточный вес', bp:'138/88', pulse:'80', spo2:'97',
-        diagnosis:'Артериальная гипертензия', icd:'I10', dgroup:'III', pregnant:false, female:false,
-        org:'Городская поликлиника №1', uchastok:'Участок №7, Алмалинский р-н', vrach:'Оразов Б.С.',
-        allergies:[{type:'Лекарственная',allergen:'Аспирин',note:'Бронхоспазм при приёме',c:C.red}],
-        allergyTitle:'Внимание: лекарственная аллергия — Аспирин', allergyNote:'· бронхоспазм в анамнезе. Учитывать при назначениях.', allergyCount:'1 аллерген' },
+        blood:'B (III) Rh+', bloodDate:'03.03.2019', bp:'138/88', bpDate:'10.05.2024',
+        pregnant:false, preg:null, female:false,
+        org:'Городская поликлиника №1', uchastok:'№7', vrach:'Оразов Б.С.',
+        allergies:[ { type:'Лекарственная', allergen:'Ацетилсалициловая кислота', reaction:'Кожная сыпь, зуд', severity:'moderate', year:'' } ] },
       smagulov:{ name:'Смагулов Нурлан Ерланович', iin:'660203301122', sex:'Муж', age:'58 лет', dob:'03.02.1966', initials:'СН', av:C.green, osms:false,
-        blood:'O (I) Rh−', bmi:'30.1', bmiSub:'ожирение I ст.', bp:'145/92', pulse:'78', spo2:'96',
-        diagnosis:'Сахарный диабет 2 типа', icd:'E11.9', dgroup:'III', pregnant:false, female:false,
-        org:'Городская поликлиника №6', uchastok:'Участок №3, Турксибский р-н', vrach:'Ким Е.В.',
-        allergies:[], allergyTitle:'', allergyNote:'', allergyCount:'' },
+        blood:null, bloodDate:'', bp:'145/92', bpDate:'02.05.2024',
+        pregnant:false, preg:null, female:false,
+        org:'Городская поликлиника №6', uchastok:'№3', vrach:'Ким Е.В.',
+        allergies:[ { type:'Пищевая', allergen:'Арахис', reaction:'Крапивница', severity:'mild', year:'2016' } ] },
       akhmetova:{ name:'Ахметова Жанар Маратовна', iin:'880920400451', sex:'Жен', age:'37 лет', dob:'20.09.1988', initials:'АЖ', av:C.orange, osms:true,
-        blood:'AB (IV) Rh+', bmi:'23.4', bmiSub:'норма', bp:'118/76', pulse:'70', spo2:'99',
-        diagnosis:'Железодефицитная анемия', icd:'D50.9', dgroup:'II', pregnant:false, female:true,
-        org:'Городская поликлиника №4', uchastok:'Участок №9, Бостандыкский р-н', vrach:'Сейтова А.Б.',
-        allergies:[], allergyTitle:'', allergyNote:'', allergyCount:'' },
+        blood:'AB (IV) Rh+', bloodDate:'', bp:null, bpDate:'',
+        pregnant:false, preg:null, female:true,
+        org:'Городская поликлиника №4', uchastok:'№9', vrach:'Сейтова А.Б.',
+        allergies:[] },
     };
     this.BY_IIN={}; Object.keys(this.PATIENTS).forEach(k=>{ this.BY_IIN[this.PATIENTS[k].iin]=k; });
     this.state = {
       screen:'dashboard', iin:'', iinError:false, iinErrorText:'',
       kdpOpen:false, kdpStage:'pending', kdpName:'', kdpIin:'', kdpSecs:300, kdpPatient:'ivanova',
       patientId:'ivanova',
-      section:'main', planTab:'screen', prophyTab:'screen', womenTab:'preg',
+      section:'main', prophyTab:'screen', womenTab:'preg',
       vitalIdx:0, cardOpen:false, accessSecs:1800, archOpen:false,
       drawer:null, docFilter:'all', ambSel:0, dispTab:'reg', dispCase:0,
     };
@@ -1140,43 +1225,53 @@ class Component extends DCLogic {
 
     // ---------- SECTIONS NAV ----------
     const secData=[
-      { id:'main', label:'Главная (сводка)', icon:'ri-dashboard-line' },
+      { id:'main', label:'Главная', icon:'ri-dashboard-line' },
       { id:'ambulatory', label:'Амбулаторная помощь', icon:'ri-stethoscope-line' },
       { id:'diseases', label:'Заболевания', icon:'ri-virus-line' },
+      { id:'allergy', label:'Аллергологический анамнез', icon:'ri-alert-line' },
       { id:'hospital', label:'Госпитализация', icon:'ri-hotel-bed-line' },
       { id:'prophy', label:'Профилактика', icon:'ri-shield-check-line' },
       { id:'vitals', label:'Измерения', icon:'ri-heart-pulse-line' },
       { id:'dispensary', label:'Диспансерный учёт', icon:'ri-clipboard-line' },
     ].concat(P.pregnant?[{ id:'women', label:'Женское здоровье', icon:'ri-women-line' }]:[]);
     const navStyle=(id)=>`width:100%;display:flex;align-items:center;gap:11px;padding:11px 12px;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:${s.section===id?'600':'500'};cursor:pointer;transition:.12s;margin-bottom:2px;${s.section===id?'background:#4D42E9;color:#fff;':'background:transparent;color:#31353F;'}`;
-    const sections=secData.map(x=>({ ...x, onClick:()=>this.setState({ section:x.id, cardOpen:false, drawer:null }), style:navStyle(x.id) }));
+    // В узкой раскладке меню разделов — горизонтальная лента: активный пункт прокручиваем в видимую область
+    const goSection=(id)=>this.setState({ section:id, cardOpen:false, drawer:null }, ()=>setTimeout(()=>{
+      const nav=document.querySelector('.epz-nav'), on=nav&&nav.querySelector('[aria-current="page"]');
+      if(on&&nav.scrollWidth>nav.clientWidth){ const a=nav.getBoundingClientRect(), b=on.getBoundingClientRect(); nav.scrollTo({ left:nav.scrollLeft+b.left-a.left-(a.width-b.width)/2, behavior:'smooth' }); }
+    }, 0));
+    const navItem=(x)=>({ ...x, onClick:()=>goSection(x.id), style:navStyle(x.id), current:s.section===x.id?'page':'false' });
+    const sections=secData.map(navItem);
     const sectionsExtra=[
-      { id:'ambulance', label:'Вызовы скорой', icon:'ri-ambulance-line' },
+      { id:'ambulance', label:'Вызовы скорой', icon:'ri-first-aid-kit-line' },
       { id:'docs', label:'Больничные и справки', icon:'ri-file-list-3-line' },
-    ].map(x=>({ ...x, onClick:()=>this.setState({ section:x.id, cardOpen:false, drawer:null }), style:navStyle(x.id) }));
+    ].map(navItem);
 
-    // ---------- MAIN ----------
-    const allergies=(P.allergies||[]).map(a=>({ ...a, tagStyle:tag(a.type,a.c) }));
-    const keyMetrics=[
-      { icon:'ri-user-line', label:'Возраст', value:P.age.replace(/\s*(года|лет|год)/,''), sub:'г. р. '+P.dob, color:'#4D42E9', valColor:'#0A0D14' },
-      { icon:'ri-drop-line', label:'Группа крови', value:P.blood, sub:'подтв. 15.01.2023', color:'#DF1C41', valColor:'#DF1C41' },
-      { icon:'ri-scales-3-line', label:'ИМТ', value:P.bmi, sub:P.bmiSub, color:'#F17B2C', valColor:'#6E330C' },
-      { icon:'ri-heart-pulse-line', label:'АД (посл.)', value:P.bp, sub:'мм рт. ст.', color:'#4D42E9', valColor:'#0A0D14' },
-      { icon:'ri-shield-check-line', label:'ОСМС', value:P.osms?'Активен':'Нет', sub:P.osms?'застрахован':'не застрахован', color:P.osms?'#38C793':'#DF1C41', valColor:P.osms?'#176448':'#DF1C41' },
-    ];
-    const planTabs=[ {id:'screen',label:'Скрининги'},{id:'vacc',label:'Прививки'},{id:'patron',label:'Патронаж'} ].map(t=>({ ...t, onClick:()=>this.setState({ planTab:t.id }),
-      style:`flex:1;height:34px;border:none;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:${s.planTab===t.id?'600':'500'};cursor:pointer;${s.planTab===t.id?'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);':'background:transparent;color:#525866;'}` }));
-    const planMap={
-      screen:[ {title:'Маммография',meta:'Плановая дата: 15.06.2024',dot:'#4D42E9'},{title:'Флюорография',meta:'Выполнено: 10.01.2024',dot:'#CDD0D5'} ],
-      vacc:[ {title:'Вакцина против гриппа',meta:'Рекомендована в сезоне',dot:'#F17B2C'},{title:'АДС-М (ревакцинация)',meta:'Выполнено: 14.03.2020',dot:'#CDD0D5'} ],
-      patron:[ {title:'Дородовый патронаж',meta:'Плановая дата: 28.04.2024',dot:'#4D42E9'},{title:'Патронаж медсестры',meta:'Выполнено: 20.03.2024',dot:'#CDD0D5'} ],
-    };
-    const planItems=planMap[s.planTab];
-    const summaryVisits=[
-      { date:'12.04.2024', title:'Приём терапевта (осмотр)', org:'ГП №4, кабинет 204', icon:'ri-stethoscope-line', c:T.blue, status:'Стабильно', sc:T.green, link:'Протокол осмотра', go:()=>this.setState({cardOpen:true}) },
-      { date:'05.04.2024', title:'Лабораторное исследование', org:'Общий анализ крови (ОАК)', icon:'ri-test-tube-line', c:T.greenB, status:'Норма', sc:T.green, link:'Скачать PDF', go:()=>this.setState({cardOpen:true}) },
-      { date:'20.03.2024', title:'УЗИ скрининг (II триместр)', org:'ГП №4, кабинет 110', icon:'ri-scan-line', c:T.purple, status:'Без патологий', sc:T.green, link:'Заключение', go:()=>this.setState({cardOpen:true}) },
-    ].map((v,i,arr)=>({ ...v, color:v.c[1], bg:v.c[0], statusStyle:tag(v.status,v.sc), onClick:v.go, lineStyle:`width:2px;flex:1;background:${i===arr.length-1?'transparent':'#E2E4E9'};min-height:6px;` }));
+    // ---------- MAIN: краткая карточка пациента ----------
+    const plural=(n,one,few,many)=>{ const a=n%10, b=n%100; return n+' '+(a===1&&b!==11?one:(a>=2&&a<=4&&(b<12||b>14)?few:many)); };
+    const NO_DATA='Нет данных';
+    const val=(v,color)=>v ? `color:${color||'var(--n900)'};` : 'color:var(--n400);font-weight:500;';
+    const mainMetrics=[
+      { icon:'ri-drop-line', label:'Группа крови', value:P.blood||NO_DATA, valStyle:val(P.blood), sub:P.blood&&P.bloodDate?'Подтв. '+P.bloodDate:'' },
+      { icon:'ri-heart-pulse-line', label:'Последнее АД', value:P.bp||NO_DATA, valStyle:val(P.bp), unit:P.bp?'мм рт. ст.':'', sub:P.bp?P.bpDate:'' },
+      { icon:'ri-shield-check-line', label:'Статус ОСМС', value:P.osms==null?NO_DATA:(P.osms?'Застрахован':'Не застрахован'), valStyle:val(P.osms!=null, P.osms?'var(--green-d)':'var(--red)'), sub:'' },
+    ].concat(P.preg?[
+      { icon:'ri-women-line', label:'Беременность', value:'Активна', valStyle:val(true,'var(--primary)'), sub:P.preg.weeks+' нед. · '+P.preg.trimester+' триместр' },
+    ]:[]).map(m=>({ ...m, hasUnit:!!m.unit, hasSub:!!m.sub }));
+    const attachInfo=[
+      { icon:'ri-hospital-line', label:'Медицинская организация', value:P.org },
+      { icon:'ri-map-pin-line', label:'Участок', value:P.uchastok },
+      { icon:'ri-user-heart-line', label:'Участковый врач', value:P.vrach },
+    ].map(m=>({ ...m, value:m.value||NO_DATA, valStyle:val(m.value) }));
+
+    // Аллергия: на «Главной» — самая тяжёлая лекарственная; счётчик — все зарегистрированные аллергены
+    const SEV={ severe:['Тяжёлая',T.red,0], moderate:['Средняя',T.orangeD,1], mild:['Лёгкая',T.yellow,2] };
+    const allAllergies=(P.allergies||[]).slice().sort((a,b)=>SEV[a.severity][2]-SEV[b.severity][2]);
+    const drugAllergy=allAllergies.find(a=>a.type==='Лекарственная');
+    const allergyTotal=plural(allAllergies.length,'аллерген','аллергена','аллергенов');
+    // Перед тире и годом — неразрывные пробелы (U+00A0): «— реакция» и «(2018)» не отрываются при переносе
+    const alNote=drugAllergy ? ' — '+drugAllergy.reaction.toLowerCase()+(drugAllergy.year?' ('+drugAllergy.year+')':'') : '';
+    const allergyRows=allAllergies.map(a=>({ ...a, severity:SEV[a.severity][0], sevStyle:tag('',SEV[a.severity][1]), year:a.year||'—', yearColor:a.year?'var(--n600)':'var(--n400)' }));
 
     // ---------- LIST ----------
     let listTitle='',listSubtitle='',listFilters=[],listChips=[],listCols=[],listRows=[],listCount='';
@@ -1556,14 +1651,14 @@ class Component extends DCLogic {
 
     // ---------- AMBULANCE ----------
     const ambStats=[
-      { label:'Всего вызовов', value:'12', icon:'ri-ambulance-line', c:T.red },
+      { label:'Всего вызовов', value:'12', icon:'ri-first-aid-kit-line', c:T.red },
       { label:'Экстренных', value:'5', icon:'ri-alarm-warning-line', c:T.red },
       { label:'Госпитализаций', value:'4', icon:'ri-hotel-bed-line', c:T.blue },
       { label:'За 12 мес', value:'3', icon:'ri-calendar-line', c:T.teal },
     ].map(a=>({ ...a, color:a.c[1], valColor:a.c[1] }));
     const ambData=[
       { date:'24.05.2024 14:30', reason:'Боль в груди', profile:['Кардиологический',T.red], urgency:['1 категория · экстренная',T.red], result:'Госпитализирован',
-        detail:{ icon:'ri-ambulance-line', iconC:T.red, status:['Вызов завершён · госпитализация','Пациент доставлен в стационар',T.blue],
+        detail:{ icon:'ri-first-aid-kit-line', iconC:T.red, status:['Вызов завершён · госпитализация','Пациент доставлен в стационар',T.blue],
           meta:[['Исход вызова','Госпитализирован'],['Дата и время вызова','24.05.2024 14:30'],['Передан бригаде','14:33'],['Выезд бригады','14:36'],['Прибытие','14:51'],['Тип вызова','Первичный']],
           sections:[
             { heading:'Информация о вызове', icon:'ri-information-line', c:T.red, list:[['ri-error-warning-line','Причина: острая боль за грудиной, иррадиация в левую руку','#DF1C41'],['ri-pulse-line','Профиль вызова: кардиологический','#DF1C41'],['ri-alarm-warning-line','Категория срочности: 1 (экстренная)','#DF1C41'],['ri-map-pin-line','Адрес вызова: г. Алматы, мкр. Самал-2, д. 58','#525866']] },
@@ -1571,7 +1666,7 @@ class Component extends DCLogic {
             { heading:'Состав выездной бригады', icon:'ri-team-line', c:T.green, list:[['ri-user-star-line','Врач СМП: Нуртаев А.С. (старший бригады)','#176448'],['ri-user-line','Фельдшер: Әбенова Г.К.','#176448'],['ri-steering-2-line','Водитель: Сапаров Е.Т.','#525866']] },
           ] } },
       { date:'12.04.2024 09:15', reason:'Высокая температура', profile:['Общий',T.blue], urgency:['4 категория · неотложная',T.yellow], result:'Оказана помощь на месте',
-        detail:{ icon:'ri-ambulance-line', iconC:T.orange, status:['Вызов завершён','Помощь оказана на месте',T.green],
+        detail:{ icon:'ri-first-aid-kit-line', iconC:T.orange, status:['Вызов завершён','Помощь оказана на месте',T.green],
           meta:[['Исход вызова','Помощь на месте'],['Дата и время вызова','12.04.2024 09:15'],['Передан бригаде','09:18'],['Выезд бригады','09:22'],['Прибытие','09:40'],['Тип вызова','Первичный']],
           sections:[
             { heading:'Информация о вызове', icon:'ri-information-line', c:T.orange, list:[['ri-temp-hot-line','Причина: температура 39,2 °C, озноб, слабость','#F17B2C'],['ri-pulse-line','Профиль вызова: общий','#F17B2C'],['ri-time-line','Категория срочности: 4 (неотложная)','#693D11']] },
@@ -1579,7 +1674,7 @@ class Component extends DCLogic {
             { heading:'Состав выездной бригады', icon:'ri-team-line', c:T.green, list:[['ri-user-star-line','Фельдшер: Жумабаева А.Н. (старший бригады)','#176448'],['ri-steering-2-line','Водитель: Қайратұлы Д.','#525866']] },
           ] } },
       { date:'05.02.2024 22:00', reason:'Травма ноги', profile:['Травматологический',T.purple], urgency:['2 категория',T.orange], result:'Передан в травмпункт',
-        detail:{ icon:'ri-ambulance-line', iconC:T.purple, status:['Вызов завершён · передан','Направлен в травмпункт',T.orangeD],
+        detail:{ icon:'ri-first-aid-kit-line', iconC:T.purple, status:['Вызов завершён · передан','Направлен в травмпункт',T.orangeD],
           meta:[['Исход вызова','Передан в травмпункт'],['Дата и время вызова','05.02.2024 22:00'],['Передан бригаде','22:04'],['Выезд бригады','22:07'],['Прибытие','22:25'],['Тип вызова','Первичный']],
           sections:[
             { heading:'Информация о вызове', icon:'ri-information-line', c:T.purple, list:[['ri-walk-line','Причина: травма голеностопа, подозрение на перелом','#6E3FF3'],['ri-pulse-line','Профиль вызова: травматологический','#6E3FF3'],['ri-alarm-warning-line','Категория срочности: 2','#F17B2C']] },
@@ -1587,7 +1682,7 @@ class Component extends DCLogic {
             { heading:'Состав выездной бригады', icon:'ri-team-line', c:T.green, list:[['ri-user-star-line','Фельдшер: Оспанов Б.М. (старший)','#176448'],['ri-steering-2-line','Водитель: Серік Н.','#525866']] },
           ] } },
       { date:'18.01.2024 11:45', reason:'Потеря сознания', profile:['Неврологический',T.teal], urgency:['1 категория · экстренная',T.red], result:'Госпитализирован',
-        detail:{ icon:'ri-ambulance-line', iconC:T.teal, status:['Вызов завершён · госпитализация','Доставлен в стационар',T.blue],
+        detail:{ icon:'ri-first-aid-kit-line', iconC:T.teal, status:['Вызов завершён · госпитализация','Доставлен в стационар',T.blue],
           meta:[['Исход вызова','Госпитализирован'],['Дата и время вызова','18.01.2024 11:45'],['Передан бригаде','11:47'],['Выезд бригады','11:50'],['Прибытие','12:05'],['Тип вызова','Первичный']],
           sections:[
             { heading:'Информация о вызове', icon:'ri-information-line', c:T.teal, list:[['ri-mental-health-line','Причина: кратковременная потеря сознания (синкопе)','#164564'],['ri-pulse-line','Профиль вызова: неврологический','#164564'],['ri-alarm-warning-line','Категория срочности: 1 (экстренная)','#DF1C41']] },
@@ -1665,26 +1760,22 @@ class Component extends DCLogic {
       secProphy:s.section==='prophy', secVitals:s.section==='vitals', secDispensary:s.section==='dispensary', secWomen:s.section==='women',
       secAmbulance:s.section==='ambulance', secDocs:s.section==='docs',
       ambStats, ambRows, docFilters, docRows,
-      goAmbulatory:()=>this.setState({ section:'ambulatory' }),
-      goDispensary:()=>this.setState({ section:'dispensary' }),
-      goWomen:()=>this.setState({ section:'women', womenTab:'preg' }),
-      allergies, keyMetrics, planTabs, planItems, summaryVisits,
       // active patient identity
       pName:P.name, pInitials:P.initials, pAvBg:P.av[0], pAvColor:P.av[1],
       pMeta:'ИИН '+P.iin+' · '+P.sex+' · '+P.age,
       pOsmsText:P.osms?'ОСМС: застрахован':'ОСМС: не застрахован', pOsmsIcon:P.osms?'ri-shield-check-fill':'ri-error-warning-fill',
       pOsmsStyle:`display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;${P.osms?'color:var(--green-d);background:var(--green-l);':'color:var(--red-d);background:var(--red-l);'}`,
-      pHasAllergy:(P.allergies||[]).length>0, pNoAllergy:(P.allergies||[]).length===0, pAllergyTitle:P.allergyTitle, pAllergyNote:P.allergyNote, pAllergyCount:P.allergyCount,
-      pDiagnosis:P.diagnosis, pIcd:P.icd, pDgroup:P.dgroup,
-      pPregnant:P.pregnant, pNotPregnant:!P.pregnant,
-      pOrg:P.org, pUchastok:P.uchastok, pVrach:P.vrach,
-      pVitalsCards:[
-        { label:'Артериальное давление', value:P.bp, color:'#4D42E9' },
-        { label:'Пульс (ЧСС)', value:P.pulse+' уд/мин', color:'#0A0D14' },
-        { label:'Индекс массы тела', value:P.bmi, color:'#6E330C' },
-        { label:'Сатурация (SpO₂)', value:P.spo2+'%', color:'#164564' },
-      ],
-      pVitalsNote:'Последние измерения от 12.04.2024. Подробная динамика — в разделе «Измерения».',
+      showMiniHeader:s.section!=='main',
+      // «Главная»
+      pIin:P.iin, pSexFull:P.sex==='Жен'?'Женщина':'Мужчина', pAge:P.age, pDob:P.dob,
+      mainMetrics, metricsCls:'epz-card epz-row epz-n'+mainMetrics.length, attachInfo,
+      alShow:!!drugAllergy, alCls:'epz-al '+(drugAllergy&&drugAllergy.severity==='severe'?'epz-al-sev':'epz-al-mod'),
+      alName:drugAllergy?drugAllergy.allergen:'', alNote, alCount:allergyTotal,
+      alAria:drugAllergy?'Лекарственная аллергия: '+drugAllergy.allergen+alNote+'. Всего '+allergyTotal+'. Открыть аллергологический анамнез':'',
+      goAllergy:()=>goSection('allergy'),
+      // «Аллергологический анамнез»
+      secAllergy:s.section==='allergy', allergyRows, hasAllergyRows:allergyRows.length>0, noAllergyRows:allergyRows.length===0,
+      allergyCountText:'Зарегистрировано: '+allergyTotal,
       listTitle, listSubtitle, listIcon, listFilters, listChips, listCols, listRows, listCount,
       prophyTabs, prophyCols, prophyRows, prophyStats, prophyList, prophyIsScreen:s.prophyTab==='screen',
       vitalsRows, vitalDate, vd,
