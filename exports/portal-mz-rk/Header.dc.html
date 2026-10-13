@@ -37,6 +37,25 @@
     .hdr-acts{gap:8px !important;}
     .hdr-bell-pop{position:fixed !important;left:16px;right:16px !important;top:81px !important;width:auto !important;}
   }
+  /*
+    Адаптив публичной шапки (без layout="app"): на узких экранах прячем подпись герба,
+    а на телефоне и планшете вкладки ролей уходят второй строкой с горизонтальной прокруткой —
+    иначе шапка шире экрана и вся страница прокручивается вбок.
+  */
+  @media (max-width:1100px){
+    .hdr-bar-pub .hdr-brand-txt{display:none;}
+  }
+  @media (max-width:860px){
+    .hdr-bar-pub{flex-wrap:wrap;column-gap:12px !important;row-gap:8px !important;padding:10px 16px 0 !important;}
+    .hdr-bar-pub .hdr-roles{order:3;flex:1 0 100% !important;margin:0 -16px !important;padding:0 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;border-top:1px solid var(--n200);}
+    .hdr-bar-pub .hdr-roles::-webkit-scrollbar{display:none;}
+    .hdr-bar-pub .hdr-roles{gap:0 !important;}
+    .hdr-bar-pub .hdr-roles button{flex:1 0 auto;height:44px !important;padding:0 10px !important;}
+  }
+  @media (max-width:420px){
+    .hdr-bar-pub .hdr-roles button{padding:0 6px !important;font-size:13px !important;}
+    .hdr-bar-pub .hdr-roles button > span:first-child{gap:6px !important;}
+  }
 </style>
 </helmet>
 <header style="background:#fff;border-bottom:1px solid var(--stroke);font-family:'Inter',sans-serif;">
@@ -50,7 +69,7 @@
     </a>
 
     <sc-if value="{{ showRoles }}" hint-placeholder-val="{{ true }}">
-      <nav style="display:flex;align-items:stretch;gap:4px;flex:0 0 auto;align-self:stretch;margin-left:8px;">
+      <nav class="hdr-roles" aria-label="Тип пользователя" style="display:flex;align-items:stretch;gap:4px;flex:0 0 auto;align-self:stretch;margin-left:8px;">
         <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
           <button onClick="{{ r.onClick }}" style="{{ r.style }}">
             <span style="display:flex;align-items:center;gap:8px;"><i class="{{ r.icon }}" style="font-size:18px;"></i>{{ r.label }}</span>
@@ -362,7 +381,7 @@ class Component extends DCLogic {
         this.guard(e, 'Профиль врача.dc.html');
       },
       guardHome: (e) => { this.guard(e, 'Портал Минздрава - Главная.dc.html'); },
-      barCls: isApp ? 'hdr-bar-app' : '',
+      barCls: isApp ? 'hdr-bar-app' : 'hdr-bar-pub',
       barStyle: isApp
         ? 'padding:12px 32px 12px 16px;display:flex;align-items:center;gap:24px;'
         : 'max-width:1440px;margin:0 auto;padding:12px 40px;display:flex;align-items:center;gap:24px;',
