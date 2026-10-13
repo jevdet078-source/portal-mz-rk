@@ -16,29 +16,31 @@
 
   Источники данных:
     • ИИН и ФИО — из сессии авторизации (ЭЦП);
-    • СУР (sur2_service), параллельно по ИИН + kdpToken:
-        М1 GetMoFpPersonalIin  → вкладка «Места работы» (personalItem[], статусы Работает / В отпуске / Уволен)
+    • СУР (sur2_service):
+        М1 GetMoFpPersonalIin  → «Места работы»: все personalItem списком, бейджи Работает / В отпуске / Уволен (+ дата увольнения)
         М2 GetEducation        → «Образование» (primEducation, postEducation) и «Трудовая деятельность» (laborActivity)
         М3 QualificationByIin  → «Квалификация» (только enabled = true; бессрочный — без даты окончания)
-    • М4 GetMoInfoItems — после М1, одним запросом на все moId (recordIds через запятую) → БИН у каждого места работы.
+        М4 GetMoInfoItems      → БИН у каждого места работы: один запрос на все moId из М1 (recordIds через запятую)
 
-  Ошибки (§7 постановки):
-    СУР недоступен / некорректный ответ → «Не удалось загрузить данные профиля. Повторите попытку позже.», профиль не блокируется;
-    данных по ИИН нет → «Сведения о сотруднике не найдены в СУР.»;
-    пустой personalItem → вкладка «Места работы» не показывается;
-    М4 не вернул БИН по moId → БИН у этого места не показывается, остальное без изменений.
-  Сверх постановки: сбой одного метода не роняет весь профиль — ошибка и «Повторить» только в его вкладке.
+  Этап 1 — при регистрации: М1 + М4. Вкладки «Квалификация», «Образование», «Трудовая деятельность» пустые:
+    «Данные будут доступны после подтверждения согласия. Нажмите «Обновить».»
+  Этап 2 — «Обновить»: запрос согласия в KDP_SERVICE → SMS с номера 1414 → push-уведомление на портале.
+    «Да» → kdpToken → параллельно М2, М3, М1, затем М4 → все вкладки заполнены, меняется «Обновлено сегодня в ЧЧ:ММ».
+    «Нет» / нет ответа → данные не обновляются, ранее загруженные сохраняются.
+  «Обновить» — не чаще 1 раза в 2 минуты: после нажатия кнопка неактивна, на ней счётчик «Повторно через 01:59».
+    Время нажатия хранится на сервере (в прототипе — localStorage['mp-doc-sur-refresh']), счётчик переживает перезагрузку.
 
+  Ошибки (§7 постановки) — сообщением под шапкой профиля, ранее загруженные данные не удаляются:
+    СУР недоступен / некорректный ответ, нет данных по ИИН, «Нет» на SMS, номер не найден в БМГ, KDP_SERVICE недоступен.
+    Пустой personalItem → вкладка «Места работы» не показывается; М4 без данных по moId → БИН у этого места не показывается.
+
+  Сохранённый профиль (в прототипе вместо сервера) — localStorage['mp-doc-sur'].
   Вкладка хранится в location.hash (#work, #qualification, #education, #labor).
-  Панель «Прототип» (слева внизу) переключает сценарии ответа СУР — sessionStorage['mp-sur-scn'].
+  Панель «Прототип» (слева внизу): ответ СУР — sessionStorage['mp-sur-scn'], ответ на SMS — sessionStorage['mp-kdp-scn'].
 
-  Замечания аналитика после тестирования (профиль врача фидбк.docx):
-    • шапка — общая для кабинетов (Header cabinet="medical"): герб, уведомления, язык, врач с фото, «На главную»;
-    • фото профиля загружает сам врач: JPG/PNG/WebP до 5 МБ, обрезается по центру до квадрата 320×320,
-      хранится в localStorage['mp-doc-photo'], смена рассылается событием window 'mp-doc-photo-change';
-    • в «Местах работы» — только текущие места; прежние — во вкладке «Трудовая деятельность»;
-    • учёная степень, «Состояние должности», бейдж «Подтверждено ЭЦП», статус загрузки из СУР,
-      сводки над списками и поясняющие подписи в ошибках не показываются.
+  По замечаниям аналитика (профиль врача фидбк.docx): общая шапка кабинета (Header cabinet="medical"),
+  фото профиля загружает сам врач (JPG/PNG/WebP до 5 МБ, квадрат 320×320, localStorage['mp-doc-photo'],
+  событие window 'mp-doc-photo-change'); без бейджа ЭЦП, учёной степени и поясняющих подписей.
 -->
 <x-dc>
 <helmet>
@@ -60,15 +62,16 @@
   @keyframes pf-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 
   .pf-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
-  .pf-btn{height:38px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .pf-btn{height:38px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:13.5px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;text-decoration:none;font-variant-numeric:tabular-nums;transition:background .15s,border-color .15s,color .15s;}
   .pf-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);}
   .pf-btn.sec:hover{background:var(--n100);border-color:var(--n300);}
-  .pf-btn.pri{border:none;background:var(--primary);color:#fff;}
-  .pf-btn.pri:hover{background:var(--primary-dark);}
+  .pf-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;}
+  .pf-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
   .pf-btn.ghost{border:none;background:transparent;color:var(--primary);padding:0 10px;}
   .pf-btn.ghost:hover{background:var(--primary-lighter);}
-  .pf-btn[disabled]{cursor:default;opacity:.65;}
-  .pf-btn.sec[disabled]:hover{background:var(--n0);border-color:var(--stroke);}
+  .pf-btn[disabled],.pf-btn[disabled]:hover{cursor:default;background:var(--n100);border-color:var(--stroke);color:var(--n400);}
+  .pf-btn.danger{border:none;background:var(--red);color:#fff;}
+  .pf-btn.danger:hover{background:#C0173A;}
 
   .pf-bin{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 2px 0 8px;border-radius:7px;background:var(--n100);font-size:12.5px;color:var(--n500);white-space:nowrap;}
   .pf-bin .pf-copy{width:22px;height:22px;margin:0;}
@@ -80,15 +83,11 @@
   .pf-tab{height:38px;padding:0 14px;border:none;border-radius:9px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--n500);cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;flex:0 0 auto;transition:background .15s,color .15s;}
   .pf-tab:hover{background:var(--n100);color:var(--n900);}
   .pf-tab.on,.pf-tab.on:hover{background:var(--primary-lighter);color:var(--primary);font-weight:600;}
-  .pf-cnt{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
-  .pf-tab.on .pf-cnt{background:var(--primary);color:#fff;}
 
   .pf-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px 24px;}
   .pf-dt{font-size:12.5px;line-height:16px;color:var(--n400);margin-bottom:4px;}
-  .pf-dd{font-size:14px;line-height:20px;color:var(--n900);font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow-wrap:anywhere;}
-  .pf-dd.mono{font-variant-numeric:tabular-nums;}
+  .pf-dd{font-size:14px;line-height:20px;color:var(--n900);font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
   .pf-wide{grid-column:1/-1;}
-  .pf-note{font-size:12.5px;line-height:16px;color:var(--n400);margin-top:3px;}
 
   .pf-key{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--stroke);border:1px solid var(--stroke);border-radius:12px;overflow:hidden;}
   .pf-key > div{background:var(--n50);padding:12px 14px;min-width:0;}
@@ -97,23 +96,25 @@
   .pf-badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .pf-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;font-size:12.5px;font-weight:500;white-space:nowrap;}
 
-  .pf-h{display:flex;align-items:center;gap:10px;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;margin:0;}
+  .pf-h{display:flex;align-items:center;gap:10px;font-size:15px;line-height:22px;font-weight:600;letter-spacing:-.01em;margin:0;}
   .pf-h i{font-size:20px;color:var(--n400);}
+  .pf-ibox{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
 
   .pf-tl{position:relative;padding-left:28px;}
   .pf-tl::before{content:'';position:absolute;left:7px;top:10px;bottom:10px;width:2px;background:var(--stroke);border-radius:2px;}
   .pf-tl-dot{position:absolute;left:-28px;top:20px;width:16px;height:16px;border-radius:50%;border:3px solid var(--n0);box-shadow:0 0 0 1px var(--stroke);}
 
+  .pf-state{padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+  .pf-state-ic{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;}
+  .pf-state-t{font-size:15px;line-height:22px;font-weight:600;max-width:440px;}
+
   .pf-sk{background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:800px 100%;animation:pf-shimmer 1.3s linear infinite;border-radius:6px;}
-
-
 
   .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
   .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-cap{font-size:11px;line-height:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);margin:4px 0 2px;}
 
   .pf-btn:focus-visible,.pf-copy:focus-visible,.pf-tab:focus-visible,.pp-btn:focus-visible,.pf-ava:focus-visible,.pf-mi:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
-  .pf-btn.danger{border:none;background:var(--red);color:#fff;}
-  .pf-btn.danger:hover{background:#C0173A;}
 
   /* ---------- Фото профиля ---------- */
   .pf-ava{position:relative;width:72px;height:72px;padding:0;border:none;border-radius:18px;background:var(--n100);color:var(--n300);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;overflow:hidden;font-family:inherit;}
@@ -136,7 +137,8 @@
   .pf-herofoot{padding:12px 28px;}
   .pf-fio{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.015em;margin:0;}
   .pf-sync{display:flex;align-items:center;gap:12px;flex:0 0 auto;}
-  .pf-toast{right:24px;bottom:24px;}
+  .pf-stack{position:fixed;z-index:85;right:24px;bottom:24px;width:400px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;pointer-events:none;}
+  .pf-stack > *{pointer-events:auto;}
   .pf-pp{left:268px;bottom:20px;}
   @media (max-width:1440px){
     .pf-wrap{padding:24px 32px 72px;}
@@ -151,7 +153,7 @@
     .pf-tab > i:first-child{display:none;}
     .pf-tab{padding:0 12px;}
     .pf-hero{flex-direction:column;align-items:stretch;gap:16px;}
-    .pf-sync{flex-wrap:wrap;gap:6px 12px;padding-top:16px;border-top:1px solid var(--stroke);}
+    .pf-sync{flex-wrap:wrap;gap:8px 12px;padding-top:16px;border-top:1px solid var(--stroke);}
     .pf-sync > .pf-btn,.pf-sync > .sc-host{margin-left:auto;}
   }
   @media (max-width:640px){
@@ -162,16 +164,17 @@
     .pf-ava{width:56px;height:56px;border-radius:14px;}
     .pf-ava-badge{width:22px;height:22px;}
     .pf-ava-badge i{font-size:12px !important;}
-    .pf-alert-txt{flex:1 1 calc(100% - 40px) !important;}
-    .pf-alert-btn{margin-left:34px;}
     .pf-fio{font-size:18px;line-height:24px;}
+    .pf-sync > .pf-btn{width:100%;margin-left:0;}
     .pf-card:not(.pf-herocard){padding-left:16px !important;padding-right:16px !important;}
     .pf-ibox{display:none !important;}
     .pf-tabsbar{position:static !important;}
     .pf-tabs{display:grid;grid-template-columns:1fr 1fr;}
     .pf-tab{justify-content:center;white-space:normal;text-align:center;height:auto;min-height:40px;padding:6px 8px;line-height:16px;}
     .pf-dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px;}
-    .pf-toast{left:16px;right:16px;bottom:80px;max-width:none !important;}
+    .pf-state{padding:32px 16px;}
+    .pf-stack{left:16px;right:16px;bottom:80px;width:auto;align-items:stretch;}
+    .pf-toast{max-width:none !important;}
     .pf-pp{left:16px;bottom:76px;}
     .pf-dlg-acts{flex-direction:column-reverse;align-items:stretch !important;}
     .pf-dlg-acts > *{width:100%;}
@@ -233,13 +236,16 @@
               </div>
             </div>
 
-            <!-- синхронизация с СУР -->
-            <sc-if value="{{ showRefresh }}" hint-placeholder-val="{{ true }}">
-              <div class="pf-sync">
-                <sc-if value="{{ hasSyncAt }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n400);">{{ syncAt }}</div></sc-if>
-                <button class="pf-btn sec" onClick="{{ refresh }}" disabled="{{ busy }}" aria-busy="{{ refreshing }}"><i class="{{ refreshIcon }}" style="{{ refreshIconStyle }}"></i>{{ refreshLabel }}</button>
-              </div>
-            </sc-if>
+            <!-- обновление сведений из СУР -->
+            <div class="pf-sync">
+              <sc-if value="{{ hasSyncText }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--n400);font-variant-numeric:tabular-nums;">
+                  <sc-if value="{{ syncBusy }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line" aria-hidden="true" style="font-size:15px;animation:mp-spin .8s linear infinite;"></i></sc-if>
+                  <span>{{ syncText }}</span>
+                </div>
+              </sc-if>
+              <button class="{{ refreshCls }}" onClick="{{ refresh }}" disabled="{{ refreshOff }}" aria-label="{{ refreshAria }}"><i class="{{ refreshIcon }}" style="font-size:17px;"></i>{{ refreshLabel }}</button>
+            </div>
           </div>
           <div class="pf-herofoot" style="display:flex;align-items:flex-start;gap:9px;background:var(--n50);border-top:1px solid var(--stroke);border-radius:0 0 16px 16px;font-size:13px;line-height:18px;color:var(--n500);">
             <i class="ri-information-line" style="font-size:17px;color:var(--n400);flex:0 0 auto;margin-top:0;"></i>
@@ -247,251 +253,225 @@
           </div>
         </section>
 
-        <!-- ================= ГЛОБАЛЬНЫЕ СОСТОЯНИЯ ================= -->
-        <sc-if value="{{ gError }}" hint-placeholder-val="{{ false }}">
-          <section role="alert" class="pf-card" style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
-            <div style="width:56px;height:56px;border-radius:16px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-cloud-off-line" style="font-size:28px;color:var(--red);"></i></div>
-            <div style="font-size:17px;line-height:24px;font-weight:600;max-width:460px;">Не удалось загрузить данные профиля. Повторите попытку позже.</div>
-            <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;justify-content:center;">
-              <button class="pf-btn pri" onClick="{{ retryAll }}"><i class="ri-refresh-line" style="font-size:17px;"></i>Повторить</button>
-              <a class="pf-btn sec" href="Кабинет врача.dc.html"><i class="ri-profile-line" style="font-size:17px;"></i>Перейти в ЭПЗ</a>
+        <!-- ================= СООБЩЕНИЕ О РЕЗУЛЬТАТЕ ОБНОВЛЕНИЯ ================= -->
+        <div aria-live="polite">
+          <sc-if value="{{ hasNotice }}" hint-placeholder-val="{{ false }}">
+            <div role="{{ noticeRole }}" style="{{ noticeBox }}">
+              <i class="{{ noticeIcon }}" style="{{ noticeIconStyle }}"></i>
+              <div style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);padding-top:1px;">{{ noticeText }}</div>
+              <button class="pf-copy" onClick="{{ closeNotice }}" aria-label="Закрыть сообщение" title="Закрыть" style="width:28px;height:28px;margin:-3px -4px -3px 0;"><i class="ri-close-line" style="font-size:18px;"></i></button>
             </div>
-          </section>
-        </sc-if>
+          </sc-if>
+        </div>
 
-        <sc-if value="{{ gNotFound }}" hint-placeholder-val="{{ false }}">
-          <section role="status" class="pf-card" style="padding:40px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;animation:mp-slidein .2s ease;">
-            <div style="width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-user-search-line" style="font-size:28px;color:var(--primary);"></i></div>
-            <div style="font-size:17px;line-height:24px;font-weight:600;">Сведения о сотруднике не найдены в СУР.</div>
-            <div style="display:flex;gap:10px;margin-top:20px;">
-              <button class="pf-btn sec" onClick="{{ retryAll }}"><i class="ri-refresh-line" style="font-size:17px;"></i>Проверить снова</button>
+        <!-- ================= ВКЛАДКИ ================= -->
+        <div id="pf-tabs-anchor"></div>
+        <div class="pf-tabsbar" style="position:sticky;top:73px;z-index:20;background:var(--bg);padding:8px 0 16px;margin-top:-8px;">
+          <div role="tablist" aria-label="Разделы профиля" class="pf-tabs">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+              <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.on }}" aria-controls="pf-panel" tabIndex="{{ t.tabIndex }}" onClick="{{ t.onClick }}" onKeyDown="{{ onTabKey }}" class="{{ t.cls }}">
+                <i class="{{ t.icon }}" style="font-size:17px;"></i>{{ t.label }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div id="pf-panel" role="tabpanel" aria-labelledby="{{ panelBy }}" style="animation:mp-fade .18s ease;">
+
+          <!-- ===== Загрузка (скелетон) ===== -->
+          <sc-if value="{{ panelLoading }}" hint-placeholder-val="{{ false }}">
+            <div aria-busy="true" aria-label="Загрузка данных" style="display:flex;flex-direction:column;gap:16px;">
+              <sc-for list="{{ skel }}" as="k" hint-placeholder-count="2">
+                <div class="pf-card" style="padding:20px 24px;">
+                  <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;"><div class="pf-sk" style="width:40px;height:40px;border-radius:11px;"></div><div style="flex:1;"><div class="pf-sk" style="width:55%;height:16px;margin-bottom:8px;"></div><div class="pf-sk" style="width:32%;height:12px;"></div></div><div class="pf-sk" style="width:84px;height:24px;border-radius:999px;"></div></div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;"><div><div class="pf-sk" style="width:60%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:85%;height:14px;"></div></div><div><div class="pf-sk" style="width:50%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:70%;height:14px;"></div></div><div><div class="pf-sk" style="width:40%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:60%;height:14px;"></div></div></div>
+                </div>
+              </sc-for>
             </div>
-          </section>
-        </sc-if>
+          </sc-if>
 
-        <!-- ================= ОСНОВНАЯ ЧАСТЬ ================= -->
-        <sc-if value="{{ showBody }}" hint-placeholder-val="{{ true }}">
+          <!-- ===== Этап 1: до подтверждения согласия ===== -->
+          <sc-if value="{{ panelConsent }}" hint-placeholder-val="{{ false }}">
+            <div class="pf-card pf-state">
+              <div class="pf-state-ic" style="background:var(--primary-lighter);color:var(--primary);"><i class="ri-shield-user-line" style="font-size:26px;"></i></div>
+              <div class="pf-state-t">Данные будут доступны после подтверждения согласия. Нажмите «Обновить».</div>
+            </div>
+          </sc-if>
 
-          <!-- предупреждение о сроке сертификата -->
-          <sc-if value="{{ hasCertAlert }}" hint-placeholder-val="{{ false }}">
-            <div role="status" style="{{ alertBox }}">
-              <i class="{{ alertIcon }}" style="{{ alertIconStyle }}"></i>
-              <div class="pf-alert-txt" style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);">{{ alertTitle }}</div>
-              <sc-if value="{{ alertShowLink }}" hint-placeholder-val="{{ true }}">
-                <button class="pf-btn sec pf-alert-btn" onClick="{{ alertGo }}" style="height:34px;">Открыть сертификат<i class="ri-arrow-right-line" style="font-size:16px;"></i></button>
+          <!-- ===== Места работы не загружены (этап 1) ===== -->
+          <sc-if value="{{ panelError }}" hint-placeholder-val="{{ false }}">
+            <div role="alert" class="pf-card pf-state">
+              <div class="pf-state-ic" style="background:var(--red-l);color:var(--red);"><i class="ri-cloud-off-line" style="font-size:26px;"></i></div>
+              <div class="pf-state-t">Не удалось загрузить данные профиля. Повторите попытку позже.</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ panelNotFound }}" hint-placeholder-val="{{ false }}">
+            <div role="status" class="pf-card pf-state">
+              <div class="pf-state-ic" style="background:var(--n100);color:var(--n400);"><i class="ri-user-search-line" style="font-size:26px;"></i></div>
+              <div class="pf-state-t">Сведения о сотруднике не найдены в СУР.</div>
+            </div>
+          </sc-if>
+
+          <!-- ===== МЕСТА РАБОТЫ (М1 + М4) ===== -->
+          <sc-if value="{{ showWork }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <sc-for list="{{ work }}" as="w" hint-placeholder-count="2">
+                <article class="pf-card" style="padding:20px 24px;">
+                  <div style="display:flex;gap:14px;align-items:flex-start;">
+                    <div class="pf-ibox" style="{{ w.iconBox }}"><i class="ri-hospital-line" style="font-size:20px;"></i></div>
+                    <div style="flex:1;min-width:0;">
+                      <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ w.mo }}</h3>
+                      <div style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-top:3px;font-size:13px;line-height:18px;color:var(--n500);">
+                        <sc-if value="{{ w.hasFp }}" hint-placeholder-val="{{ true }}"><span>{{ w.fp }}</span></sc-if>
+                        <sc-if value="{{ w.hasBin }}" hint-placeholder-val="{{ true }}">
+                          <span class="pf-bin">БИН <b style="font-weight:600;color:var(--n700);font-variant-numeric:tabular-nums;">{{ w.bin }}</b><button class="pf-copy" onClick="{{ w.copyBin }}" aria-label="Скопировать БИН" title="Скопировать БИН"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></span>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <span class="pf-badge" style="{{ w.badgeStyle }}"><span class="dot"></span>{{ w.badge }}</span>
+                  </div>
+
+                  <div class="pf-key" style="margin-top:18px;">
+                    <div><div class="pf-dt">Должность</div><div class="pf-dd">{{ w.post }}</div></div>
+                    <div><div class="pf-dt">Специальность</div><div class="pf-dd">{{ w.spec }}</div></div>
+                    <div><div class="pf-dt">Количество ставок</div><div class="pf-dd">{{ w.rate }}</div></div>
+                  </div>
+
+                  <div class="pf-dl" style="margin-top:18px;">
+                    <sc-for list="{{ w.rows }}" as="r" hint-placeholder-count="6">
+                      <div><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div></div>
+                    </sc-for>
+                  </div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ===== КВАЛИФИКАЦИЯ (М3) ===== -->
+          <sc-if value="{{ showQual }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <sc-if value="{{ noCerts }}" hint-placeholder-val="{{ false }}">
+                <div class="pf-card pf-state">
+                  <div class="pf-state-ic" style="background:var(--n100);color:var(--n400);"><i class="ri-award-line" style="font-size:26px;"></i></div>
+                  <div class="pf-state-t">Сертификатов нет</div>
+                </div>
+              </sc-if>
+
+              <sc-for list="{{ certs }}" as="c" hint-placeholder-count="2">
+                <article class="pf-card" style="padding:20px 24px;">
+                  <div style="display:flex;gap:14px;align-items:flex-start;">
+                    <div class="pf-ibox" style="background:var(--purple-l);color:var(--purple);"><i class="ri-award-line" style="font-size:20px;"></i></div>
+                    <div style="flex:1;min-width:0;">
+                      <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ c.spec }}</h3>
+                      <sc-if value="{{ c.hasDoc }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:3px;">{{ c.doc }}</div></sc-if>
+                    </div>
+                    <sc-if value="{{ c.hasStatus }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ c.statusStyle }}"><span class="dot"></span>{{ c.status }}</span></sc-if>
+                  </div>
+
+                  <sc-if value="{{ c.hasChips }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+                      <sc-if value="{{ c.hasCat }}" hint-placeholder-val="{{ true }}"><span class="pf-chip" title="Квалификационная категория" style="{{ c.catStyle }}"><i class="{{ c.catIcon }}" style="font-size:15px;"></i>{{ c.cat }}</span></sc-if>
+                      <sc-if value="{{ c.perm }}" hint-placeholder-val="{{ false }}"><span class="pf-chip" style="background:#EFFAF6;color:#176448;"><i class="ri-infinity-line" style="font-size:15px;"></i>Бессрочный</span></sc-if>
+                    </div>
+                  </sc-if>
+
+                  <div class="pf-dl" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--stroke);">
+                    <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="4">
+                      <div><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}<sc-if value="{{ r.copy }}" hint-placeholder-val="{{ false }}"><button class="pf-copy" onClick="{{ r.onCopy }}" aria-label="{{ r.copyLabel }}" title="{{ r.copyLabel }}"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></sc-if></div></div>
+                    </sc-for>
+                  </div>
+                </article>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ===== ОБРАЗОВАНИЕ (М2) ===== -->
+          <sc-if value="{{ showEdu }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:28px;">
+              <sc-for list="{{ eduGroups }}" as="g" hint-placeholder-count="2">
+                <section style="display:flex;flex-direction:column;gap:12px;">
+                  <h2 class="pf-h"><i class="{{ g.icon }}"></i>{{ g.title }}</h2>
+                  <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
+                    <div class="pf-card" style="padding:18px 24px;font-size:14px;line-height:20px;color:var(--n500);">Сведений нет</div>
+                  </sc-if>
+                  <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="1">
+                    <article class="pf-card" style="padding:20px 24px;">
+                      <div style="display:flex;gap:14px;align-items:flex-start;">
+                        <div class="pf-ibox" style="{{ e.iconBox }}"><i class="{{ e.icon }}" style="font-size:20px;"></i></div>
+                        <div style="flex:1;min-width:0;">
+                          <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ e.title }}</h3>
+                          <sc-if value="{{ e.hasSub }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:3px;">{{ e.sub }}</div></sc-if>
+                        </div>
+                        <sc-if value="{{ e.hasBadge }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ e.badgeStyle }}">{{ e.badge }}</span></sc-if>
+                      </div>
+                      <div class="pf-dl" style="margin-top:18px;">
+                        <sc-for list="{{ e.rows }}" as="r" hint-placeholder-count="4">
+                          <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div></div>
+                        </sc-for>
+                      </div>
+                    </article>
+                  </sc-for>
+                </section>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- ===== ТРУДОВАЯ ДЕЯТЕЛЬНОСТЬ (М2) ===== -->
+          <sc-if value="{{ showLabor }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <sc-if value="{{ noLabor }}" hint-placeholder-val="{{ false }}">
+                <div class="pf-card pf-state">
+                  <div class="pf-state-ic" style="background:var(--n100);color:var(--n400);"><i class="ri-history-line" style="font-size:26px;"></i></div>
+                  <div class="pf-state-t">Сведений о трудовой деятельности нет</div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ hasLabor }}" hint-placeholder-val="{{ true }}">
+                <ol class="pf-tl" style="list-style:none;margin:0;display:flex;flex-direction:column;gap:12px;">
+                  <sc-for list="{{ labor }}" as="l" hint-placeholder-count="3">
+                    <li style="position:relative;">
+                      <span class="pf-tl-dot" style="{{ l.dotStyle }}"></span>
+                      <article class="pf-card" style="padding:16px 20px;">
+                        <div style="font-size:13px;line-height:18px;font-weight:500;color:var(--n500);font-variant-numeric:tabular-nums;">{{ l.period }}</div>
+                        <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:4px 0 0;">{{ l.place }}</h3>
+                        <sc-if value="{{ l.hasRows }}" hint-placeholder-val="{{ true }}">
+                          <div class="pf-dl" style="margin-top:12px;">
+                            <sc-for list="{{ l.rows }}" as="r" hint-placeholder-count="2">
+                              <div><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div></div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </article>
+                    </li>
+                  </sc-for>
+                </ol>
               </sc-if>
             </div>
           </sc-if>
 
-          <!-- вкладки -->
-          <div id="pf-tabs-anchor"></div>
-          <div class="pf-tabsbar" style="position:sticky;top:73px;z-index:20;background:var(--bg);padding:8px 0 16px;margin-top:-8px;">
-            <div role="tablist" aria-label="Разделы профиля" class="pf-tabs">
-              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
-                <button role="tab" id="{{ t.tid }}" aria-selected="{{ t.on }}" aria-controls="pf-panel" tabIndex="{{ t.tabIndex }}" onClick="{{ t.onClick }}" onKeyDown="{{ onTabKey }}" class="{{ t.cls }}">
-                  <i class="{{ t.icon }}" style="font-size:17px;"></i>{{ t.label }}
-                  <sc-if value="{{ t.hasCnt }}" hint-placeholder-val="{{ true }}"><span class="pf-cnt">{{ t.cnt }}</span></sc-if>
-                  <sc-if value="{{ t.loading }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line" aria-label="Загрузка" style="font-size:15px;animation:mp-spin .8s linear infinite;"></i></sc-if>
-                  <sc-if value="{{ t.err }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" aria-label="Ошибка загрузки" style="font-size:15px;color:var(--red);"></i></sc-if>
-                </button>
-              </sc-for>
-            </div>
-          </div>
-
-          <div id="pf-panel" role="tabpanel" aria-labelledby="{{ panelBy }}" style="animation:mp-fade .18s ease;">
-
-            <!-- ===== Загрузка (скелетон) ===== -->
-            <sc-if value="{{ panelLoading }}" hint-placeholder-val="{{ false }}">
-              <div aria-busy="true" aria-label="Загружаем сведения из СУР" style="display:flex;flex-direction:column;gap:16px;">
-                <sc-for list="{{ skel }}" as="k" hint-placeholder-count="2">
-                  <div class="pf-card" style="padding:20px 24px;">
-                    <div style="display:flex;gap:14px;align-items:center;margin-bottom:20px;"><div class="pf-sk" style="width:40px;height:40px;border-radius:11px;"></div><div style="flex:1;"><div class="pf-sk" style="width:55%;height:16px;margin-bottom:8px;"></div><div class="pf-sk" style="width:32%;height:12px;"></div></div><div class="pf-sk" style="width:84px;height:24px;border-radius:999px;"></div></div>
-                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;"><div><div class="pf-sk" style="width:60%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:85%;height:14px;"></div></div><div><div class="pf-sk" style="width:50%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:70%;height:14px;"></div></div><div><div class="pf-sk" style="width:40%;height:11px;margin-bottom:8px;"></div><div class="pf-sk" style="width:60%;height:14px;"></div></div></div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- ===== Ошибка одного метода ===== -->
-            <sc-if value="{{ panelError }}" hint-placeholder-val="{{ false }}">
-              <div role="alert" class="pf-card" style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
-                <div style="width:48px;height:48px;border-radius:14px;background:var(--red-l);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class="ri-error-warning-line" style="font-size:24px;color:var(--red);"></i></div>
-                <div style="font-size:15px;line-height:22px;font-weight:600;">{{ panelErrorTitle }}</div>
-                <button class="pf-btn sec" onClick="{{ retryPanel }}" style="margin-top:16px;"><i class="ri-refresh-line" style="font-size:17px;"></i>Повторить</button>
-              </div>
-            </sc-if>
-
-            <!-- ===== МЕСТА РАБОТЫ (М1 + М4) ===== -->
-            <sc-if value="{{ showWork }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;flex-direction:column;gap:16px;">
-                <h2 class="pf-h"><i class="ri-briefcase-4-line"></i>Текущие места работы</h2>
-
-                <!-- все места в М1 прежние: сами они — в «Трудовой деятельности» -->
-                <sc-if value="{{ noCurrentWork }}" hint-placeholder-val="{{ false }}">
-                  <div class="pf-card" style="padding:16px 24px;font-size:14px;line-height:20px;color:var(--n500);display:flex;gap:10px 16px;align-items:center;flex-wrap:wrap;">
-                    <span style="display:flex;gap:10px;align-items:center;flex:1;min-width:220px;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>Действующих мест работы нет.</span>
-                    <button class="pf-btn sec" onClick="{{ goLabor }}" style="height:34px;">Трудовая деятельность<i class="ri-arrow-right-line" style="font-size:16px;"></i></button>
-                  </div>
-                </sc-if>
-
-                <sc-for list="{{ workCur }}" as="w" hint-placeholder-count="2">
-                  <article class="pf-card" style="padding:20px 24px;">
-                    <div style="display:flex;gap:14px;align-items:flex-start;">
-                      <div class="pf-ibox" style="{{ w.iconBox }}"><i class="ri-hospital-line" style="font-size:20px;"></i></div>
-                      <div style="flex:1;min-width:0;">
-                        <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ w.mo }}</h3>
-                        <div style="display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin-top:3px;font-size:13px;line-height:18px;color:var(--n500);">
-                          <sc-if value="{{ w.hasFp }}" hint-placeholder-val="{{ true }}"><span>{{ w.fp }}</span></sc-if>
-                          <sc-if value="{{ w.binLoading }}" hint-placeholder-val="{{ false }}"><span class="pf-sk" aria-label="Загружаем БИН" style="display:inline-block;width:120px;height:14px;"></span></sc-if>
-                          <sc-if value="{{ w.hasBin }}" hint-placeholder-val="{{ true }}">
-                            <span class="pf-bin">БИН <b style="font-weight:600;color:var(--n700);font-variant-numeric:tabular-nums;">{{ w.bin }}</b><button class="pf-copy" onClick="{{ w.copyBin }}" aria-label="Скопировать БИН" title="Скопировать БИН"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></span>
-                          </sc-if>
-                        </div>
-                      </div>
-                      <span class="pf-badge" style="{{ w.badgeStyle }}"><span class="dot"></span>{{ w.badge }}</span>
-                    </div>
-
-                    <div class="pf-key" style="margin-top:18px;">
-                      <div><div class="pf-dt">Должность</div><div class="pf-dd">{{ w.post }}</div></div>
-                      <div><div class="pf-dt">Специальность</div><div class="pf-dd">{{ w.spec }}</div></div>
-                      <div><div class="pf-dt">Количество ставок</div><div class="pf-dd mono">{{ w.rate }}</div></div>
-                    </div>
-
-                    <div class="pf-dl" style="margin-top:18px;">
-                      <sc-for list="{{ w.rows }}" as="r" hint-placeholder-count="5">
-                        <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div class="pf-note">{{ r.note }}</div></sc-if></div>
-                      </sc-for>
-                    </div>
-                  </article>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- ===== КВАЛИФИКАЦИЯ (М3) ===== -->
-            <sc-if value="{{ showQual }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:16px;">
-                <h2 class="pf-h"><i class="ri-award-line"></i>Квалификация и сертификаты</h2>
-
-                <sc-if value="{{ noCerts }}" hint-placeholder-val="{{ false }}">
-                  <div class="pf-card" style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
-                    <div style="width:48px;height:48px;border-radius:14px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:14px;"><i class="ri-award-line" style="font-size:24px;color:var(--n400);"></i></div>
-                    <div style="font-size:15px;font-weight:600;">Действующих сертификатов нет</div>
-                    <div style="font-size:13.5px;line-height:20px;color:var(--n500);margin-top:4px;max-width:440px;">В СУР нет активных записей о квалификации. Если сертификат у вас есть, обратитесь в отдел кадров.</div>
-                  </div>
-                </sc-if>
-
-                <sc-for list="{{ certs }}" as="c" hint-placeholder-count="2">
-                  <article id="{{ c.anchor }}" class="pf-card" style="{{ c.cardStyle }}">
-                    <div style="display:flex;gap:14px;align-items:center;">
-                      <div class="pf-ibox" style="width:40px;height:40px;border-radius:11px;background:var(--purple-l);color:var(--purple);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-award-line" style="font-size:20px;"></i></div>
-                      <div style="flex:1;min-width:0;">
-                        <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ c.spec }}</h3>
-                      </div>
-                      <sc-if value="{{ c.hasStatus }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ c.statusStyle }}"><span class="dot"></span>{{ c.status }}</span></sc-if>
-                    </div>
-
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
-                      <sc-if value="{{ c.hasCat }}" hint-placeholder-val="{{ true }}"><span class="pf-chip" title="Квалификационная категория" style="{{ c.catStyle }}"><i class="{{ c.catIcon }}" style="font-size:15px;"></i>{{ c.cat }}</span></sc-if>
-                      <span class="pf-chip" title="Срок действия" style="{{ c.termStyle }}"><i class="{{ c.termIcon }}" style="font-size:15px;"></i>{{ c.term }}</span>
-                    </div>
-
-
-                    <div class="pf-dl" style="margin-top:18px;padding-top:18px;border-top:1px solid var(--stroke);">
-                      <sc-for list="{{ c.rows }}" as="r" hint-placeholder-count="5">
-                        <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}<sc-if value="{{ r.copy }}" hint-placeholder-val="{{ false }}"><button class="pf-copy" onClick="{{ r.onCopy }}" aria-label="{{ r.copyLabel }}" title="{{ r.copyLabel }}"><i class="ri-file-copy-line" style="font-size:14px;"></i></button></sc-if></div></div>
-                      </sc-for>
-                    </div>
-                  </article>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- ===== ОБРАЗОВАНИЕ (М2) ===== -->
-            <sc-if value="{{ showEdu }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:28px;">
-                <sc-for list="{{ eduGroups }}" as="g" hint-placeholder-count="3">
-                  <section style="display:flex;flex-direction:column;gap:12px;">
-                    <h2 class="pf-h"><i class="{{ g.icon }}"></i>{{ g.title }}</h2>
-                    <sc-if value="{{ g.empty }}" hint-placeholder-val="{{ false }}">
-                      <div class="pf-card" style="padding:18px 24px;font-size:14px;color:var(--n500);display:flex;gap:10px;align-items:center;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>{{ g.emptyText }}</div>
-                    </sc-if>
-                    <sc-for list="{{ g.items }}" as="e" hint-placeholder-count="1">
-                      <article class="pf-card" style="padding:20px 24px;">
-                        <div style="display:flex;gap:14px;align-items:flex-start;">
-                          <div class="pf-ibox" style="{{ e.iconBox }}"><i class="{{ e.icon }}" style="font-size:20px;"></i></div>
-                          <div style="flex:1;min-width:0;">
-                            <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:0;">{{ e.title }}</h3>
-                            <sc-if value="{{ e.hasSub }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:3px;">{{ e.sub }}</div></sc-if>
-                          </div>
-                          <sc-if value="{{ e.hasBadge }}" hint-placeholder-val="{{ true }}"><span class="pf-badge" style="{{ e.badgeStyle }}">{{ e.badge }}</span></sc-if>
-                        </div>
-                        <div class="pf-dl" style="margin-top:18px;">
-                          <sc-for list="{{ e.rows }}" as="r" hint-placeholder-count="4">
-                            <div class="{{ r.cls }}"><div class="pf-dt">{{ r.label }}</div><div class="pf-dd">{{ r.value }}</div><sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}"><div class="pf-note">{{ r.note }}</div></sc-if></div>
-                          </sc-for>
-                        </div>
-                      </article>
-                    </sc-for>
-                  </section>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- ===== ТРУДОВАЯ ДЕЯТЕЛЬНОСТЬ (М2) ===== -->
-            <sc-if value="{{ showLabor }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:16px;">
-                <sc-if value="{{ hasStage }}" hint-placeholder-val="{{ true }}">
-                  <div class="pf-card" style="padding:20px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <div style="width:44px;height:44px;border-radius:12px;background:var(--teal-l);color:var(--teal-d);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-time-line" style="font-size:22px;"></i></div>
-                    <div style="flex:1;min-width:220px;">
-                      <div style="font-size:13px;color:var(--n500);">Стаж в организациях здравоохранения</div>
-                      <div style="font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.015em;margin-top:2px;">{{ stage }}</div>
-                    </div>
-                  </div>
-                </sc-if>
-
-                <h2 class="pf-h" style="margin-top:4px;"><i class="ri-history-line"></i>История занятости</h2>
-
-                <sc-if value="{{ noLabor }}" hint-placeholder-val="{{ false }}">
-                  <div class="pf-card" style="padding:18px 24px;font-size:14px;color:var(--n500);display:flex;gap:10px;align-items:center;"><i class="ri-information-line" style="font-size:18px;color:var(--n400);"></i>Сведений о трудовой деятельности в СУР нет.</div>
-                </sc-if>
-
-                <sc-if value="{{ hasLabor }}" hint-placeholder-val="{{ true }}">
-                  <ol class="pf-tl" style="list-style:none;margin:0;display:flex;flex-direction:column;gap:12px;">
-                    <sc-for list="{{ labor }}" as="l" hint-placeholder-count="3">
-                      <li style="position:relative;">
-                        <span class="pf-tl-dot" style="{{ l.dotStyle }}"></span>
-                        <article class="pf-card" style="padding:16px 20px;">
-                          <div style="display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;font-size:13px;color:var(--n500);font-variant-numeric:tabular-nums;">
-                            <span style="font-weight:500;color:var(--n700);">{{ l.period }}</span><span>·</span><span>{{ l.dur }}</span>
-                            <sc-if value="{{ l.current }}" hint-placeholder-val="{{ false }}"><span class="pf-badge" style="background:var(--green-l);color:var(--green-d);height:22px;"><span class="dot"></span>Текущее</span></sc-if>
-                            <sc-if value="{{ l.notOz }}" hint-placeholder-val="{{ false }}"><span class="pf-badge" title="Место работы не относится к организациям здравоохранения" style="background:var(--n100);color:var(--n500);height:22px;">Вне здравоохранения</span></sc-if>
-                          </div>
-                          <h3 style="font-size:15px;line-height:21px;font-weight:600;margin:6px 0 0;">{{ l.place }}</h3>
-                          <div style="font-size:13.5px;line-height:19px;color:var(--n600);margin-top:3px;">{{ l.role }}</div>
-                        </article>
-                      </li>
-                    </sc-for>
-                  </ol>
-                </sc-if>
-              </div>
-            </sc-if>
-
-          </div>
-        </sc-if>
+        </div>
 
       </div>
     </main>
   </div>
   </div>
 
-  <!-- Тост -->
+  <!-- Push-уведомление и тост — стопкой справа внизу -->
+  <div class="pf-stack">
+  <sc-if value="{{ hasPush }}" hint-placeholder-val="{{ false }}">
+    <div class="pf-push" role="status" aria-live="polite" style="width:100%;display:flex;gap:12px;align-items:flex-start;padding:14px 14px 14px 16px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);animation:mp-slidein .22s ease;">
+      <div style="width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-message-3-line" style="font-size:19px;"></i></div>
+      <div style="flex:1;min-width:0;font-size:14px;line-height:20px;color:var(--n900);">На ваш номер телефона, указанный в Базе мобильных граждан, направлено SMS-сообщение с номера 1414. Для получения сведений из СУР необходимо ответить на SMS-сообщение, подтвердив своё согласие.</div>
+      <button class="pf-copy" onClick="{{ closePush }}" aria-label="Закрыть уведомление" title="Закрыть" style="width:28px;height:28px;margin:-4px -4px 0 0;"><i class="ri-close-line" style="font-size:18px;"></i></button>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
-    <div class="pf-toast" role="status" aria-live="polite" style="position:fixed;z-index:80;max-width:380px;display:flex;gap:10px;align-items:center;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+    <div class="pf-toast" role="status" aria-live="polite" style="max-width:380px;display:flex;gap:10px;align-items:center;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
       <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
       <div style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;">{{ toastText }}</div>
     </div>
   </sc-if>
+  </div>
 
   <!-- Предпросмотр фото: сохраняется только по кнопке -->
   <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
@@ -529,18 +509,30 @@
     </div>
   </sc-if>
 
-  <!-- Панель прототипа: ответы СУР -->
+  <!-- Панель прототипа: ответы СУР и КДП -->
   <div class="pf-pp" style="{{ ppBox }}">
     <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
       <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
-      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип · ответ СУР</span>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип · сценарии</span>
       <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
     </button>
     <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
-      <div role="radiogroup" aria-label="Сценарий ответа СУР" style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);">
-        <sc-for list="{{ scns }}" as="x" hint-placeholder-count="4">
-          <button class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}" style="{{ x.style }}"><i class="{{ x.icon }}" style="font-size:15px;"></i>{{ x.label }}</button>
-        </sc-for>
+      <div style="padding:8px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);max-height:calc(100vh - 220px);overflow-y:auto;">
+        <div class="pp-cap" id="pp-sur">Ответ СУР</div>
+        <div role="radiogroup" aria-labelledby="pp-sur" style="display:flex;flex-direction:column;gap:6px;">
+          <sc-for list="{{ scns }}" as="x" hint-placeholder-count="6">
+            <button class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}" style="{{ x.style }}"><i class="{{ x.icon }}" style="font-size:15px;"></i>{{ x.label }}</button>
+          </sc-for>
+        </div>
+        <div class="pp-cap" id="pp-kdp" style="margin-top:8px;">Согласие (КДП)</div>
+        <div role="radiogroup" aria-labelledby="pp-kdp" style="display:flex;flex-direction:column;gap:6px;">
+          <sc-for list="{{ kdps }}" as="x" hint-placeholder-count="5">
+            <button class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}" style="{{ x.style }}"><i class="{{ x.icon }}" style="font-size:15px;"></i>{{ x.label }}</button>
+          </sc-for>
+        </div>
+        <div style="height:1px;background:var(--stroke);margin:6px 0 2px;"></div>
+        <button class="pp-btn" onClick="{{ ppResetCd }}"><i class="ri-timer-flash-line" style="font-size:15px;"></i>Сбросить счётчик</button>
+        <button class="pp-btn" onClick="{{ ppRestart }}"><i class="ri-restart-line" style="font-size:15px;"></i>Профиль сразу после регистрации</button>
       </div>
     </sc-if>
   </div>
@@ -556,7 +548,7 @@ const SESSION = { fio:'Ахметов Серик Кайратович', iin:'850
 const pad = (n) => String(n).padStart(2, '0');
 const isoDays = (d) => { const x = new Date(); x.setHours(0,0,0,0); x.setDate(x.getDate() + d); return `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}`; };
 
-// М1 GetMoFpPersonalIin
+// М1 GetMoFpPersonalIin — все места работы (в т. ч. прежние)
 const M1 = [
   { moId:'1024', personalTypeRu:'Врачебный персонал', postFuncRu:'Врач-терапевт участковый', specialityRu:'Терапия', postTypeRu:'Основная', postCategoryRu:'Врачи', postCount:'1', typeEmployeeRu:'', statusPostRu:'Занята',
     moNameRu:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', fpName:'Терапевтическое отделение, участок № 12', beginDate:'2019-09-02', endDate:'', active:true, isOnLeave:false },
@@ -565,10 +557,10 @@ const M1 = [
   { moId:'0871', personalTypeRu:'Врачебный персонал', postFuncRu:'Врач-терапевт', specialityRu:'Терапия', postTypeRu:'Основная', postCategoryRu:'Врачи', postCount:'1', typeEmployeeRu:'', statusPostRu:'Вакантна',
     moNameRu:'ГКП на ПХВ «Многопрофильная городская больница № 2» акимата г. Астаны', fpName:'Терапевтическое отделение стационара', beginDate:'2012-08-01', endDate:'2019-08-30', active:false, isOnLeave:null },
 ];
-// М4 GetMoInfoItems (recordIds = moId через запятую)
+// М4 GetMoInfoItems (recordIds = moId через запятую): MOInfoItems.Id → Bin
 const M4 = { '1024':'990140002374', '2207':'030840005517', '0871':'060540008912' };
 
-// М2 GetEducation
+// М2 GetEducation (academicDegrees в профиле не показываются)
 const M2 = {
   primEducations:[
     { typeEdu:'Высшее медицинское образование', diplomClassification:'Лечебное дело', miUz:'АО «Медицинский университет Астана»', org:'', numDiplom:'ЖБ-Б № 0412783', dtIssue:'2009-06-26', dtEnd:'2009-06-20' },
@@ -585,51 +577,63 @@ const M2 = {
   ],
 };
 
-// М3 QualificationByIin (enabled = false не показываем)
+// М3 QualificationByIin (enabled = false не показываем).
+// Срок «Кардиологии» — тот же, что в уведомлении шапки кабинета (через 68 дней).
 const m3 = () => [
   { categoryNameRus:'Высшая категория', specialityNameRus:'Терапия', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ63VEH00012345', qualificationDocumentIssuranceDate:'2022-11-18', qualificationDocumentEffectiveDate:'2022-11-20', qualificationEndDate:'2027-11-20', qualificationPermanentCertificate:false, licenseStatusNameRus:'Действующий', enabled:true },
   { categoryNameRus:'Первая категория', specialityNameRus:'Кардиология', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ18VEH00098761', qualificationDocumentIssuranceDate:isoDays(-1758), qualificationDocumentEffectiveDate:isoDays(-1757), qualificationEndDate:isoDays(68), qualificationPermanentCertificate:false, licenseStatusNameRus:'Действующий', enabled:true },
-  { categoryNameRus:'Без категории', specialityNameRus:'Функциональная диагностика', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ02VEH00004418', qualificationDocumentIssuranceDate:'2015-04-03', qualificationDocumentEffectiveDate:'2015-04-03', qualificationEndDate:'', qualificationPermanentCertificate:true, licenseStatusNameRus:'Действующий', enabled:true },
+  { categoryNameRus:'Без категории', specialityNameRus:'Функциональная диагностика', documentNameRus:'Свидетельство о присвоении квалификации', qualificationRegistrationNumber:'KZ02VEH00004418', qualificationDocumentIssuranceDate:'2015-04-03', qualificationDocumentEffectiveDate:'2015-04-03', qualificationEndDate:'', qualificationPermanentCertificate:true, licenseStatusNameRus:'Действующий', enabled:true },
   { categoryNameRus:'Вторая категория', specialityNameRus:'Общая врачебная практика', documentNameRus:'Сертификат специалиста', qualificationRegistrationNumber:'KZ71VEH00000912', qualificationDocumentIssuranceDate:'2011-05-10', qualificationDocumentEffectiveDate:'2011-05-10', qualificationEndDate:'2016-05-10', qualificationPermanentCertificate:false, licenseStatusNameRus:'Истёк', enabled:false },
 ];
 
 // ---------- Сценарии прототипа ----------
 const SCNS = [
   { id:'ok', label:'Все сведения', icon:'ri-checkbox-circle-line' },
-  { id:'slow', label:'Медленный ответ', icon:'ri-hourglass-line' },
   { id:'down', label:'СУР недоступен', icon:'ri-cloud-off-line' },
   { id:'invalid', label:'Некорректный ответ', icon:'ri-code-s-slash-line' },
   { id:'notfound', label:'Нет данных по ИИН', icon:'ri-user-search-line' },
-  { id:'qualFail', label:'Сбой метода квалификации', icon:'ri-error-warning-line' },
   { id:'noWork', label:'Нет мест работы', icon:'ri-briefcase-4-line' },
   { id:'noBin', label:'БИН не получен (М4)', icon:'ri-building-2-line' },
 ];
+const KDPS = [
+  { id:'yes', label:'Ответ на SMS «Да»', icon:'ri-chat-check-line' },
+  { id:'no', label:'Ответ на SMS «Нет»', icon:'ri-chat-delete-line' },
+  { id:'none', label:'Нет ответа на SMS', icon:'ri-chat-off-line' },
+  { id:'noPhone', label:'Номер не найден в БМГ', icon:'ri-smartphone-line' },
+  { id:'down', label:'KDP_SERVICE недоступен', icon:'ri-cloud-off-line' },
+];
+
+// ---------- Тексты постановки (§7) ----------
+const MSG = {
+  surDown:'Не удалось загрузить данные профиля. Повторите попытку позже.',
+  notFound:'Сведения о сотруднике не найдены в СУР.',
+  consentNo:'Согласие не подтверждено. Данные не обновлены.',
+  noPhone:'Не найден номер телефона в Базе мобильных граждан. Обратитесь в отдел кадров или в службу поддержки.',
+  kdpDown:'Не удалось отправить запрос на согласие. Повторите попытку позже.',
+};
+
+// ---------- Хранилище (в прототипе вместо сервера) ----------
+const KEY_PROFILE = 'mp-doc-sur';            // { stage:1|2, at, work:'ok'|'empty'|'error'|'notfound', noBin }
+const KEY_PRESS = 'mp-doc-sur-refresh';      // время последнего нажатия «Обновить», мс
+const COOLDOWN = 120000;
+const readJson = (k) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } };
 
 // ---------- Форматирование ----------
-const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const parse = (iso) => { if(!iso) return null; const [y,m,d] = String(iso).slice(0,10).split('-').map(Number); return new Date(y, m-1, d); };
 const fd = (iso) => { const d = parse(iso); return d ? `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}` : ''; };
-const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? f[2] : b > 1 && b < 5 ? f[1] : b === 1 ? f[0] : f[2]; };
-const monthsBetween = (a, b) => { let m = (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()); if(b.getDate() < a.getDate()) m -= 1; return Math.max(0, m); };
-// период с включительной датой окончания: 01.09.2009 — 30.06.2010 = 10 мес.
-const span = (a, b) => { const e = new Date(b); e.setDate(e.getDate() + 1); return monthsBetween(a, e); };
-const durText = (months) => {
-  if(months < 1) return 'менее месяца';
-  const y = Math.floor(months/12), m = months % 12;
-  const parts = [];
-  if(y) parts.push(`${y} ${plural(y, ['год','года','лет'])}`);
-  if(m) parts.push(`${m} мес.`);
-  return parts.join(' ');
-};
 const rateText = (v) => {
   const n = parseFloat(String(v || '').replace(',', '.'));
   if(!isFinite(n)) return '';
   const s = String(Math.round(n*100)/100).replace('.', ',');
   return `${s} ${Number.isInteger(n) ? plural(n, ['ставка','ставки','ставок']) : 'ставки'}`;
 };
-const daysLeft = (iso) => { const d = parse(iso); return d ? Math.round((d - today()) / 86400000) : null; };
-const row = (label, value, extra) => (value === '' || value == null) ? null : { label, value, cls:'', hasNote:false, note:'', copy:false, ...(extra || {}) };
+const syncLabel = (ms) => {
+  const d = new Date(ms), t = new Date();
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return d.toDateString() === t.toDateString() ? `Обновлено сегодня в ${hm}` : `Обновлено ${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()} в ${hm}`;
+};
+const row = (label, value, extra) => (value === '' || value == null) ? null : { label, value, cls:'', copy:false, ...(extra || {}) };
 
 const BADGE = {
   green:'background:#EFFAF6;color:#176448;',
@@ -646,25 +650,28 @@ const certTone = (status) => {
   if(/отозван|аннулир|прекращ|истек|истёк|не\s*действ/.test(s)) return 'red';
   return 'gray';
 };
-const WARN_DAYS = 90;
+const NOTICE = {
+  error:{ icon:'ri-error-warning-fill', color:'#DF1C41', bg:'#FDEDF0', border:'#F7C5CF', role:'alert' },
+  warn:{ icon:'ri-alert-fill', color:'#F2AE40', bg:'#FEF7EC', border:'#FBDFB1', role:'alert' },
+  info:{ icon:'ri-information-fill', color:'#4D42E9', bg:'#EEF2FF', border:'#C6D0FF', role:'status' },
+};
 
 const TABS = [
-  { id:'work', label:'Места работы', icon:'ri-briefcase-4-line', m:'m1' },
-  { id:'qualification', label:'Квалификация', icon:'ri-award-line', m:'m3' },
-  { id:'education', label:'Образование', icon:'ri-graduation-cap-line', m:'m2' },
-  { id:'labor', label:'Трудовая деятельность', icon:'ri-history-line', m:'m2' },
+  { id:'work', label:'Места работы', icon:'ri-briefcase-4-line' },
+  { id:'qualification', label:'Квалификация', icon:'ri-award-line' },
+  { id:'education', label:'Образование', icon:'ri-graduation-cap-line' },
+  { id:'labor', label:'Трудовая деятельность', icon:'ri-history-line' },
 ];
-const PANEL_ERR = {
-  m1:'Не удалось загрузить места работы. Повторите попытку позже.',
-  m2:'Не удалось загрузить сведения об образовании и трудовой деятельности. Повторите попытку позже.',
-  m3:'Не удалось загрузить сведения о квалификации. Повторите попытку позже.',
-};
 
 class Component extends DCLogic {
   state = {
-    scn:'ok', tab:null,
-    m1:{ st:'loading' }, m2:{ st:'loading' }, m3:{ st:'loading' }, m4:{ st:'idle', bins:{} },
-    refreshing:false, syncedAt:null, toast:null, ppOpen:false,
+    scn:'ok', kdp:'yes', tab:null,
+    prof:null,            // сохранённый профиль
+    registering:false,    // этап 1: М1 + М4 при регистрации
+    fetching:false,       // этап 2: М2, М3, М1, затем М4 после kdpToken
+    push:false, notice:null,
+    pressAt:0, now:Date.now(),
+    toast:null, ppOpen:false,
     photo:'', photoMenu:false, photoDraft:null, photoDel:false,
   };
   _timers = [];
@@ -687,17 +694,25 @@ class Component extends DCLogic {
       this.focusAva();
     };
     window.addEventListener('keydown', this._onKey);
-    let scn = 'ok';
-    try { scn = sessionStorage.getItem('mp-sur-scn') || 'ok'; } catch(e){}
+    let scn = 'ok', kdp = 'yes';
+    try { scn = sessionStorage.getItem('mp-sur-scn') || 'ok'; kdp = sessionStorage.getItem('mp-kdp-scn') || 'yes'; } catch(e){}
     if(!SCNS.some(x => x.id === scn)) scn = 'ok';
-    this.setState({ scn, tab:this.hashTab() });
+    if(!KDPS.some(x => x.id === kdp)) kdp = 'yes';
+    let pressAt = 0;
+    try { pressAt = Number(localStorage.getItem(KEY_PRESS)) || 0; } catch(e){}
+    this.setState({ scn, kdp, tab:this.hashTab(), pressAt, now:Date.now() });
     this._onHash = () => { const t = this.hashTab(); if(t) this.setState({ tab:t }); };
     window.addEventListener('hashchange', this._onHash);
-    this.fetchAll('initial');
+    // счётчик «Повторно через мм:сс»
+    this._tick = setInterval(() => { if(this.state.pressAt && Date.now() - this.state.pressAt < COOLDOWN + 1000) this.setState({ now:Date.now() }); }, 250);
+    const prof = readJson(KEY_PROFILE);
+    if(prof && prof.stage) this.setState({ prof });
+    else this.register();
   }
   componentWillUnmount(){
     window.removeEventListener('hashchange', this._onHash);
     window.removeEventListener('keydown', this._onKey);
+    clearInterval(this._tick);
     this._timers.forEach(clearTimeout); clearTimeout(this._tt);
   }
 
@@ -743,80 +758,70 @@ class Component extends DCLogic {
 
   hashTab(){ const h = (location.hash || '').slice(1); return TABS.some(t => t.id === h) ? h : null; }
   later(fn, ms){ this._timers.push(setTimeout(fn, ms)); }
+  stopAll(){ this._timers.forEach(clearTimeout); this._timers = []; this._gen = (this._gen || 0) + 1; return this._gen; }
+  saveProf(prof){
+    try { localStorage.setItem(KEY_PROFILE, JSON.stringify(prof)); } catch(e){}
+    this.setState({ prof });
+  }
 
-  // Ответ одного метода СУР для текущего сценария
-  answer(k){
+  // Ответ СУР на М1 + М4 для текущего сценария (некорректный ответ — логируем и показываем общее сообщение)
+  surResult(){
     const scn = this.state.scn;
-    if(scn === 'down' || scn === 'invalid') return { st:'error' };   // некорректный ответ — логируем и показываем общее сообщение
-    if(scn === 'notfound') return { st:'empty' };
-    if(k === 'm1') return { st:'ok', data: scn === 'noWork' ? [] : M1 };
-    if(k === 'm2') return { st:'ok', data: M2 };
-    if(k === 'm3') return scn === 'qualFail' ? { st:'error' } : { st:'ok', data: m3().filter(c => c.enabled) };
-    return { st:'error' };
+    if(scn === 'down' || scn === 'invalid') return { st:'error' };
+    if(scn === 'notfound') return { st:'notfound' };
+    return { st:'ok', work: scn === 'noWork' ? 'empty' : 'ok', noBin: scn === 'noBin' };
   }
 
-  // М4: один запрос на все moId из М1
-  fetchBins(items){
-    const ids = (items || []).map(x => x.moId).filter(Boolean);
-    if(!ids.length){ this.setState({ m4:{ st:'ok', bins:{} } }); return; }
-    this.setState({ m4:{ st:'loading', bins:{} } });
-    const gen = this._gen;
+  // ---------- Этап 1: первичное наполнение при регистрации (М1 по ИИН → М4 по всем moId) ----------
+  register(){
+    const gen = this.stopAll();
+    this.setState({ registering:true, fetching:false, push:false, notice:null });
     this.later(() => {
       if(gen !== this._gen) return;
-      const bins = {};
-      ids.forEach(id => { if(M4[id] && !(this.state.scn === 'noBin' && id === '2207')) bins[id] = M4[id]; });
-      this.setState({ m4:{ st:'ok', bins } });
-    }, 450);
+      const r = this.surResult();
+      const prof = r.st === 'ok'
+        ? { stage:1, at:Date.now(), work:r.work, noBin:r.noBin }
+        : { stage:1, at:null, work:r.st, noBin:false };
+      this.saveProf(prof);
+      this.setState({ registering:false });
+    }, 1100);
   }
 
-  // mode: initial | retry | refresh (refresh не прячет уже показанные данные)
-  fetchAll(mode){
-    this._timers.forEach(clearTimeout); this._timers = [];
-    const gen = this._gen = (this._gen || 0) + 1;
-    const refresh = mode === 'refresh';
-    if(refresh) this.setState({ refreshing:true });
-    else this.setState({ m1:{ st:'loading' }, m2:{ st:'loading' }, m3:{ st:'loading' }, m4:{ st:'idle', bins:{} }, refreshing:false });
-    const base = this.state.scn === 'slow' ? 2600 : 700;
-    const got = {};
-    ['m1','m2','m3'].forEach((k, i) => this.later(() => {
-      if(gen !== this._gen) return;
-      got[k] = this.answer(k);
-      if(!refresh){
-        this.setState({ [k]:got[k] });
-        if(k === 'm1' && got[k].st === 'ok') this.fetchBins(got[k].data);
-      }
-      if(Object.keys(got).length === 3) this.settle(got, refresh);
-    }, base + i * 220));
-  }
-
-  settle(got, refresh){
-    const anyOk = ['m1','m2','m3'].some(k => got[k].st === 'ok');
-    if(!refresh){ if(anyOk) this.setState({ syncedAt:new Date() }); return; }
-    const allBad = ['m1','m2','m3'].every(k => got[k].st !== 'ok');
-    const hadData = ['m1','m2','m3'].some(k => this.state[k].st === 'ok');
-    if(allBad && hadData){
-      // при обновлении не теряем уже показанные сведения
-      this.setState({ refreshing:false });
-      this.toast('Не удалось обновить данные. Показаны сведения от ' + this.syncTime(), 'err');
-      return;
-    }
-    this.setState({ m1:got.m1, m2:got.m2, m3:got.m3, refreshing:false, syncedAt: anyOk ? new Date() : this.state.syncedAt });
-    if(got.m1.st === 'ok') this.fetchBins(got.m1.data); else this.setState({ m4:{ st:'idle', bins:{} } });
-    const partial = ['m1','m2','m3'].some(k => got[k].st === 'error');
-    if(anyOk) this.toast(partial ? 'Данные обновлены частично' : 'Данные профиля обновлены', partial ? 'warn' : 'ok');
-  }
-
-  fetchOne(k){
-    const gen = this._gen;
-    this.setState({ [k]:{ st:'loading' } });
+  // ---------- Этап 2: «Обновить» → согласие КДП → М2, М3, М1 → М4 ----------
+  refresh(){
+    if(this.cooldownLeft() > 0 || this.state.registering || this.state.fetching) return;
+    const gen = this.stopAll();
+    const at = Date.now();
+    try { localStorage.setItem(KEY_PRESS, String(at)); } catch(e){}
+    this.setState({ pressAt:at, now:at, notice:null, push:false });
+    const kdp = this.state.kdp;
+    // запрос согласия в KDP_SERVICE
     this.later(() => {
       if(gen !== this._gen) return;
-      const r = this.answer(k);
-      this.setState({ [k]:r });
-      if(k === 'm1' && r.st === 'ok') this.fetchBins(r.data);
-      if(r.st === 'ok') this.setState({ syncedAt:new Date() });
-    }, this.state.scn === 'slow' ? 2200 : 700);
+      if(kdp === 'down'){ this.notify('error', MSG.kdpDown); return; }
+      if(kdp === 'noPhone'){ this.notify('error', MSG.noPhone); return; }
+      this.setState({ push:true });
+      if(kdp === 'none') return;   // ответа нет: kdpToken не выдаётся, данные не обновляются
+      // ответ пользователя на SMS
+      this.later(() => {
+        if(gen !== this._gen) return;
+        this.setState({ push:false });
+        if(kdp === 'no'){ this.notify('warn', MSG.consentNo); return; }
+        // kdpToken получен
+        this.setState({ fetching:true });
+        this.later(() => {
+          if(gen !== this._gen) return;
+          const r = this.surResult();
+          this.setState({ fetching:false });
+          if(r.st === 'error'){ this.notify('error', MSG.surDown); return; }
+          if(r.st === 'notfound'){ this.notify('info', MSG.notFound); return; }
+          this.saveProf({ stage:2, at:Date.now(), work:r.work, noBin:r.noBin });
+        }, 1400);
+      }, 4500);
+    }, 600);
   }
+  cooldownLeft(){ const s = this.state; return s.pressAt ? Math.max(0, COOLDOWN - (s.now - s.pressAt)) : 0; }
+  notify(tone, text){ this.setState({ notice:{ tone, text } }); }
 
   setTab(id, focus){
     if(id !== this._cur){
@@ -845,77 +850,54 @@ class Component extends DCLogic {
     try { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); }
     catch(e){ this.toast('Не удалось скопировать', 'err'); }
   }
-  syncTime(){ const d = this.state.syncedAt; return d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : ''; }
 
-  setScn(id){
-    try { sessionStorage.setItem('mp-sur-scn', id); } catch(e){}
-    this.setState({ scn:id });
-    this.fetchAll('initial');
-  }
+  setScn(id){ try { sessionStorage.setItem('mp-sur-scn', id); } catch(e){} this.setState({ scn:id }); }
+  setKdp(id){ try { sessionStorage.setItem('mp-kdp-scn', id); } catch(e){} this.setState({ kdp:id }); }
+  resetCd(){ try { localStorage.removeItem(KEY_PRESS); } catch(e){} this.setState({ pressAt:0 }); }
 
   renderVals(){
     const s = this.state;
-    const T = today();
-    const st = (k) => s[k].st;
-    const loadingAny = ['m1','m2','m3'].some(k => st(k) === 'loading');
-    const gError = ['m1','m2','m3'].every(k => st(k) === 'error');
-    const gNotFound = ['m1','m2','m3'].every(k => st(k) === 'empty');
-    const showBody = !gError && !gNotFound;
+    const prof = s.prof;
+    const stage2 = !!prof && prof.stage === 2;
+    const workSt = prof ? prof.work : null;
 
-    // ---------- М1: места работы ----------
-    const m1 = st('m1') === 'ok' ? s.m1.data : [];
+    // ---------- М1 + М4: места работы ----------
+    // порядок: работает → в отпуске → уволен; внутри — сначала более поздние
     const order = (x) => x.active ? (x.isOnLeave ? 1 : 0) : 2;
-    const work = m1.slice().sort((a, b) => order(a) - order(b) || String(b.endDate || b.beginDate).localeCompare(String(a.endDate || a.beginDate)));
-    // только текущие места: прежние показываются в «Трудовой деятельности» (замечание аналитика)
-    const workItem = (x) => {
-      const leave = !!x.isOnLeave;
-      const bin = s.m4.bins[x.moId] || '';
-      const since = parse(x.beginDate);
-      const tenure = since ? durText(monthsBetween(since, T)) : '';
+    const work = workSt === 'ok' ? M1.slice().sort((a, b) => order(a) - order(b) || String(b.beginDate).localeCompare(String(a.beginDate))).map(x => {
+      const fired = !x.active, leave = !fired && !!x.isOnLeave;
+      const bin = prof.noBin && x.moId === '2207' ? '' : (M4[x.moId] || '');
       return {
         mo: x.moNameRu, fp: x.fpName || '', hasFp: !!x.fpName,
         bin, hasBin: !!bin,
-        binLoading: s.m4.st === 'loading',
         copyBin: () => this.copy(bin, 'БИН'),
-        badge: leave ? 'В отпуске' : 'Работает',
-        badgeStyle: BADGE[leave ? 'yellow' : 'green'],
-        iconBox: 'width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:#EEF2FF;color:#4D42E9;',
+        badge: fired ? 'Уволен' : leave ? 'В отпуске' : 'Работает',
+        badgeStyle: BADGE[fired ? 'gray' : leave ? 'yellow' : 'green'],
+        iconBox: fired ? 'background:#F6F8FA;color:#868C98;' : 'background:#EEF2FF;color:#4D42E9;',
         post: x.postFuncRu || '—', spec: x.specialityRu || '—', rate: rateText(x.postCount) || '—',
         rows: [
           row('Тип персонала', x.personalTypeRu),
           row('Тип должности', x.postTypeRu),
           row('Категория должности', x.postCategoryRu),
           row('Вид внештатной работы', x.typeEmployeeRu),
-          row('Дата приёма на работу', fd(x.beginDate), tenure ? { hasNote:true, note:`${tenure} в организации` } : null),
+          row('Состояние должности', x.statusPostRu),
+          row('Дата приёма на работу', fd(x.beginDate)),
+          fired ? row('Дата увольнения', fd(x.endDate)) : null,
         ].filter(Boolean),
       };
-    };
-    const workCur = work.filter(x => x.active).map(workItem);
-    const hasPastWork = work.some(x => !x.active);
-    const workHidden = st('m1') === 'empty' || (st('m1') === 'ok' && m1.length === 0);   // §7: пустой personalItem — блок не показываем
+    }) : [];
 
-    // ---------- М3: сертификаты ----------
-    const m3d = st('m3') === 'ok' ? s.m3.data : [];
-    const certs = m3d.map((c, i) => {
+    // ---------- М3: квалификация и сертификаты ----------
+    const certs = stage2 ? m3().filter(c => c.enabled).map(c => {
       const perm = !!c.qualificationPermanentCertificate;
-      const left = perm ? null : daysLeft(c.qualificationEndDate);
-      const tone = certTone(c.licenseStatusNameRus);
-      const expired = left !== null && left < 0;
-      const soon = left !== null && left >= 0 && left <= WARN_DAYS;
-      const end = parse(c.qualificationEndDate);
-      const term = perm ? 'Бессрочный' : expired ? 'Срок действия истёк' : soon ? `Истекает через ${left} ${plural(left, ['день','дня','дней'])}` : end ? `Осталось ${durText(monthsBetween(T, end))}` : 'Срок действия не указан';
-      const termTone = perm ? 'green' : expired ? 'red' : soon ? 'yellow' : 'gray';
       const noCat = /без категор/i.test(c.categoryNameRus || '');
       return {
-        sortKey: (tone === 'green' ? 0 : 1) * 1e6 + (perm ? 9e5 : (left === null ? 8e5 : left + 1e5)),
-        anchor: 'pf-cert-' + i,
         spec: c.specialityNameRus || '—',
-        status: c.licenseStatusNameRus || '', hasStatus: !!c.licenseStatusNameRus, statusStyle: BADGE[tone],
+        doc: c.documentNameRus || '', hasDoc: !!c.documentNameRus,
+        status: c.licenseStatusNameRus || '', hasStatus: !!c.licenseStatusNameRus, statusStyle: BADGE[certTone(c.licenseStatusNameRus)],
         cat: c.categoryNameRus || '', hasCat: !!c.categoryNameRus,
         catStyle: noCat ? BADGE.gray : BADGE.purple, catIcon: noCat ? 'ri-medal-line' : 'ri-medal-fill',
-        term, termStyle: BADGE[termTone], termIcon: perm ? 'ri-infinity-line' : expired || soon ? 'ri-alarm-warning-line' : 'ri-calendar-check-line',
-        cardStyle: `padding:20px 24px;scroll-margin-top:150px;${soon || expired ? `box-shadow:0 0 0 1px ${expired ? '#DF1C41' : '#F2AE40'} inset;` : ''}`,
-        left, perm, soon, expired, raw:c,
+        perm, hasChips: !!c.categoryNameRus || perm,
         rows: [
           row('Регистрационный номер', c.qualificationRegistrationNumber, { copy:true, copyLabel:'Скопировать регистрационный номер', onCopy:() => this.copy(c.qualificationRegistrationNumber, 'Регистрационный номер') }),
           row('Дата выдачи', fd(c.qualificationDocumentIssuranceDate)),
@@ -923,106 +905,84 @@ class Component extends DCLogic {
           perm ? null : row('Дата окончания действия', fd(c.qualificationEndDate)),
         ].filter(Boolean),
       };
-    }).sort((a, b) => a.sortKey - b.sortKey);
-    const nCerts = certs.length;
+    }) : [];
 
-    // предупреждение: ближайший истекающий / истёкший сертификат
-    const urgent = certs.filter(c => c.soon || c.expired).sort((a, b) => a.left - b.left)[0];
-    let alert = null;
-    if(urgent){
-      alert = urgent.expired
-        ? { tone:'red', icon:'ri-alarm-warning-line', title:`Срок сертификата «${urgent.spec}» истёк ${fd(urgent.raw.qualificationEndDate)}` }
-        : { tone:'yellow', icon:'ri-alarm-warning-line', title:`Сертификат «${urgent.spec}» истекает через ${urgent.left} ${plural(urgent.left, ['день','дня','дней'])} — ${fd(urgent.raw.qualificationEndDate)}` };
-    }
-
-    // ---------- М2: образование и трудовая деятельность ----------
-    const m2 = st('m2') === 'ok' ? s.m2.data : st('m2') === 'empty' ? {} : null;
+    // ---------- М2: образование ----------
     const per = (a, b) => a && b ? `${fd(a)} — ${fd(b)}` : a ? `с ${fd(a)}` : '';
-    const eduBox = (bg, c) => `width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:${bg};color:${c};`;
-    const eduGroups = m2 ? [
-      { title:'Первичное образование', icon:'ri-graduation-cap-line', emptyText:'Сведений о первичном образовании в СУР нет.',
-        items:(m2.primEducations || []).map(e => ({
+    const eduBox = (bg, c) => `background:${bg};color:${c};`;
+    const eduGroups = stage2 ? [
+      { title:'Первичное образование', icon:'ri-graduation-cap-line',
+        items:(M2.primEducations || []).map(e => ({
           title:e.diplomClassification || '—', sub:e.typeEdu || '', hasSub:!!e.typeEdu, hasBadge:false, badge:'', badgeStyle:'',
           icon:'ri-graduation-cap-line', iconBox:eduBox('#EEF2FF', '#4D42E9'),
           rows:[ row('ВУЗ / Организация', e.miUz || e.org, { cls:'pf-wide' }), row('Номер диплома', e.numDiplom), row('Дата выдачи диплома', fd(e.dtIssue)), row('Дата окончания обучения', fd(e.dtEnd)) ].filter(Boolean),
         })) },
-      { title:'Последипломная подготовка', icon:'ri-hospital-line', emptyText:'Сведений об интернатуре и резидентуре в СУР нет.',
-        items:(m2.postEducations || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))).map(e => {
-          const b = parse(e.dtBeg), en = parse(e.dtEnd);
-          return {
-            title:e.speciality || '—', sub:e.org || '', hasSub:!!e.org,
-            hasBadge:!!e.postEducationType, badge:e.postEducationType || '', badgeStyle: /резидент/i.test(e.postEducationType || '') ? BADGE.purple : BADGE.blue,
-            icon:'ri-hospital-line', iconBox:eduBox('#EBFAFF', '#164564'),
-            rows:[ row('Период подготовки', per(e.dtBeg, e.dtEnd), b && en ? { hasNote:true, note:`${durText(span(b, en))}` } : null), row('Номер свидетельства', e.number), row('Дата выдачи свидетельства', fd(e.dtIssue)) ].filter(Boolean),
-          };
-        }) },
+      { title:'Последипломная подготовка', icon:'ri-hospital-line',
+        items:(M2.postEducations || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))).map(e => ({
+          title:e.speciality || '—', sub:e.org || '', hasSub:!!e.org,
+          hasBadge:!!e.postEducationType, badge:e.postEducationType || '', badgeStyle: /резидент/i.test(e.postEducationType || '') ? BADGE.purple : BADGE.blue,
+          icon:'ri-hospital-line', iconBox:eduBox('#EBFAFF', '#164564'),
+          rows:[ row('Период подготовки', per(e.dtBeg, e.dtEnd)), row('Номер свидетельства', e.number), row('Дата выдачи свидетельства', fd(e.dtIssue)) ].filter(Boolean),
+        })) },
     ] : [];
     eduGroups.forEach(g => { g.empty = !g.items.length; });
 
-    const laborRaw = m2 ? (m2.laborActivities || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))) : [];
-    const labor = laborRaw.map(l => {
-      const b = parse(l.dtBeg), e = parse(l.dtEnd), cur = !l.dtEnd;
+    // ---------- М2: трудовая деятельность ----------
+    const labor = stage2 ? (M2.laborActivities || []).slice().sort((a, b) => String(b.dtBeg).localeCompare(String(a.dtBeg))).map(l => {
+      const cur = !l.dtEnd;
+      const rows = [ row('Должность', l.postFuncOz), row('Специальность', l.post) ].filter(Boolean);
       return {
-        period: cur ? `С ${fd(l.dtBeg)} по настоящее время` : `${fd(l.dtBeg)} — ${fd(l.dtEnd)}`,
-        dur: b ? durText(e ? span(b, e) : monthsBetween(b, T)) : '',
-        current: cur, notOz: l.inOz === false,
+        period: cur ? `с ${fd(l.dtBeg)} по настоящее время` : `${fd(l.dtBeg)} — ${fd(l.dtEnd)}`,
         place: l.workPlaceOz || '—',
-        role: [l.postFuncOz, l.post].filter(Boolean).join(' · '),
+        rows, hasRows: rows.length > 0,
         dotStyle: `background:${cur ? '#38C793' : '#CDD0D5'};`,
       };
-    });
-    // стаж в ОЗ: объединяем пересекающиеся периоды
-    const iv = laborRaw.filter(l => l.inOz !== false && parse(l.dtBeg)).map(l => [parse(l.dtBeg), parse(l.dtEnd) || T]).sort((a, b) => a[0] - b[0]);
-    const merged = [];
-    iv.forEach(([a, b]) => { const last = merged[merged.length - 1]; if(last && a <= last[1]) { if(b > last[1]) last[1] = b; } else merged.push([a, b]); });
-    const stageMonths = merged.reduce((sum, [a, b]) => sum + (b === T ? monthsBetween(a, b) : span(a, b)), 0);
+    }) : [];
 
     // ---------- Вкладки ----------
-    const counts = { work:workCur.length, qualification:nCerts, education:null, labor:labor.length };
+    const workHidden = workSt === 'empty';   // §7: пустой personalItem — блок «Места работы» не показываем
     const visTabs = TABS.filter(t => !(t.id === 'work' && workHidden));
     const cur = visTabs.some(t => t.id === s.tab) ? s.tab : visTabs[0].id;
     this._cur = cur;
-    const curTab = TABS.find(t => t.id === cur);
-    const curSt = st(curTab.m);
     const tabs = visTabs.map(t => {
-      const on = t.id === cur, ts = st(t.m);
-      return { ...t, tid:'pf-tab-' + t.id, on, tabIndex: on ? 0 : -1, cls: on ? 'pf-tab on' : 'pf-tab',
-        cnt: counts[t.id], hasCnt: ts === 'ok' && counts[t.id] != null && !s.refreshing,
-        loading: ts === 'loading', err: ts === 'error',
-        onClick: () => this.setTab(t.id) };
+      const on = t.id === cur;
+      return { ...t, tid:'pf-tab-' + t.id, on, tabIndex: on ? 0 : -1, cls: on ? 'pf-tab on' : 'pf-tab', onClick: () => this.setTab(t.id) };
     });
+    const isWork = cur === 'work';
+    const loadingPanel = !prof || s.registering || (!isWork && !stage2 && s.fetching);
+    const ready = !loadingPanel && (isWork || stage2);
 
-    // ---------- Синхронизация ----------
-    const syncAt = s.syncedAt ? `Обновлено сегодня в ${this.syncTime()}` : '';
-    const busy = loadingAny || s.refreshing;
-    const alertTone = alert ? alert.tone : 'yellow';
+    // ---------- Обновление ----------
+    const left = this.cooldownLeft();
+    const cd = left > 0;
+    const secs = Math.min(119, Math.floor(left / 1000));
+    const busy = s.registering || s.fetching;
+    const syncText = busy ? 'Обновляем данные…' : prof && prof.at ? syncLabel(prof.at) : '';
+    const tone = s.notice ? NOTICE[s.notice.tone] : NOTICE.info;
+    const kdpOn = (x) => s.kdp === x.id;
 
     return {
       // шапка
       fio: SESSION.fio, iin: SESSION.iin,
       copyIin: () => this.copy(SESSION.iin, 'ИИН'),
-      syncAt, hasSyncAt: !!syncAt && !loadingAny && !gError && !gNotFound,
-      busy, refreshing: s.refreshing,
-      refresh: () => { if(busy) return; const hasData = ['m1','m2','m3'].some(k => st(k) === 'ok'); this.fetchAll(hasData ? 'refresh' : 'retry'); },
-      refreshLabel: s.refreshing ? 'Обновляем…' : 'Обновить',
-      refreshIcon: s.refreshing ? 'ri-loader-4-line' : 'ri-refresh-line',
-      refreshIconStyle: `font-size:17px;${s.refreshing ? 'animation:mp-spin .8s linear infinite;' : ''}`,
+      hasSyncText: !!syncText, syncText, syncBusy: busy,
+      refresh: () => this.refresh(),
+      refreshOff: cd || busy,
+      refreshCls: !cd && !busy && prof && !stage2 ? 'pf-btn pri' : 'pf-btn sec',
+      refreshLabel: cd ? `Повторно через ${pad(Math.floor(secs / 60))}:${pad(secs % 60)}` : 'Обновить',
+      refreshAria: cd ? 'Обновить: повторно через ' + Math.ceil(left / 1000) + ' с' : 'Обновить',
+      refreshIcon: cd ? 'ri-time-line' : 'ri-refresh-line',
 
-      gError, gNotFound, showBody, showRefresh: showBody,
-      retryAll: () => this.fetchAll('retry'),
+      // сообщение о результате
+      hasNotice: !!s.notice, noticeText: s.notice ? s.notice.text : '', noticeRole: tone.role,
+      noticeIcon: tone.icon,
+      noticeIconStyle: `font-size:20px;line-height:20px;flex:0 0 auto;color:${tone.color};`,
+      noticeBox: `display:flex;align-items:flex-start;gap:10px;padding:13px 14px 13px 16px;margin-bottom:16px;border-radius:14px;border:1px solid ${tone.border};background:${tone.bg};animation:mp-slidein .2s ease;`,
+      closeNotice: () => this.setState({ notice:null }),
 
-      // предупреждение
-      hasCertAlert: !!alert && st('m3') === 'ok',
-      alertTitle: alert ? alert.title : '',
-      alertIcon: alert ? alert.icon : '',
-      alertIconStyle: `font-size:22px;flex:0 0 auto;color:${alertTone === 'red' ? '#DF1C41' : '#F2AE40'};`,
-      alertBox: `display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;margin-bottom:16px;border-radius:14px;border:1px solid ${alertTone === 'red' ? '#F7C5CF' : '#FBDFB1'};background:${alertTone === 'red' ? '#FDEDF0' : '#FEF7EC'};animation:mp-slidein .2s ease;`,
-      alertShowLink: cur !== 'qualification',
-      alertGo: () => {
-        this.setTab('qualification');
-        const id = urgent ? urgent.anchor : '';
-        setTimeout(() => { const el = document.getElementById(id); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 60);
-      },
+      // push
+      hasPush: s.push,
+      closePush: () => this.setState({ push:false }),
 
       // вкладки
       tabs, panelBy: 'pf-tab-' + cur,
@@ -1035,28 +995,15 @@ class Component extends DCLogic {
         else if(e.key === 'End') n = ids[ids.length - 1];
         if(n){ e.preventDefault(); this.setTab(n, true); }
       },
-      panelLoading: curSt === 'loading', skel: [1, 2],
-      panelError: curSt === 'error',
-      panelErrorTitle: PANEL_ERR[curTab.m],
-      retryPanel: () => this.fetchOne(curTab.m),
+      panelLoading: loadingPanel, skel: [1, 2],
+      panelConsent: !loadingPanel && !isWork && !stage2,
+      panelError: !loadingPanel && isWork && workSt === 'error',
+      panelNotFound: !loadingPanel && isWork && workSt === 'notfound',
 
-      // места работы
-      showWork: cur === 'work' && (curSt === 'ok' || curSt === 'empty'),
-      workCur, noCurrentWork: !workCur.length && hasPastWork,
-      goLabor: () => this.setTab('labor'),
-
-      // квалификация
-      showQual: cur === 'qualification' && (curSt === 'ok' || curSt === 'empty'),
-      certs, noCerts: nCerts === 0,
-
-      // образование
-      showEdu: cur === 'education' && (curSt === 'ok' || curSt === 'empty'),
-      eduGroups,
-
-      // трудовая деятельность
-      showLabor: cur === 'labor' && (curSt === 'ok' || curSt === 'empty'),
-      labor, hasLabor: labor.length > 0, noLabor: labor.length === 0,
-      hasStage: merged.length > 0, stage: durText(stageMonths),
+      showWork: ready && isWork && workSt === 'ok', work,
+      showQual: ready && cur === 'qualification', certs, noCerts: certs.length === 0,
+      showEdu: ready && cur === 'education', eduGroups,
+      showLabor: ready && cur === 'labor', labor, hasLabor: labor.length > 0, noLabor: labor.length === 0,
 
       // фото профиля
       hasPhoto: !!s.photo, noPhoto: !s.photo,
@@ -1097,16 +1044,20 @@ class Component extends DCLogic {
 
       // тост
       hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '',
-      toastIcon: s.toast && s.toast.kind === 'err' ? 'ri-error-warning-fill' : s.toast && s.toast.kind === 'warn' ? 'ri-alert-fill' : 'ri-checkbox-circle-fill',
-      toastIconStyle: `font-size:20px;flex:0 0 auto;color:${s.toast && s.toast.kind === 'err' ? '#DF1C41' : s.toast && s.toast.kind === 'warn' ? '#F2AE40' : '#38C793'};`,
+      toastIcon: s.toast && s.toast.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle: `font-size:20px;flex:0 0 auto;color:${s.toast && s.toast.kind === 'err' ? '#DF1C41' : '#38C793'};`,
 
       // панель прототипа
       ppOpen: s.ppOpen,
       ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
       ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
-      ppBox: `position:fixed;z-index:50;width:${s.ppOpen ? 270 : 230}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
+      ppBox: `position:fixed;z-index:50;width:${s.ppOpen ? 280 : 250}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
       scns: SCNS.map(x => ({ ...x, on: s.scn === x.id, onClick: () => this.setScn(x.id),
         style: s.scn === x.id ? 'background:#EEF2FF;border-color:#C6D0FF;color:#312D86;' : '' })),
+      kdps: KDPS.map(x => ({ ...x, on: kdpOn(x), onClick: () => this.setKdp(x.id),
+        style: kdpOn(x) ? 'background:#EEF2FF;border-color:#C6D0FF;color:#312D86;' : '' })),
+      ppResetCd: () => this.resetCd(),
+      ppRestart: () => { try { localStorage.removeItem(KEY_PROFILE); } catch(e){} this.resetCd(); this.setState({ prof:null }); this.register(); },
     };
   }
 }
