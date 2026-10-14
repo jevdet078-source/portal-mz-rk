@@ -186,7 +186,7 @@ const GROUPS = [
     'Мои процессы', 'Процесс', 'Договора', 'Платежи', 'Уведомления', 'Пользователи', 'Организации', 'Рабочий календарь' ] },
   { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Личная медицинская карта', 'Профиль врача', 'Кабинет врача' ] },
   { title: 'Компоненты', desc: 'Общие блоки и витрины компонентов дизайн-системы', icon: 'ri-shapes-line', pages: [
-    'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast' ] },
+    'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast', 'EpzAmbulatory' ] },
 ];
 
 function indexHtml(pages) {
