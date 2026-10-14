@@ -53,10 +53,12 @@
     <div style="max-width: 1280px; margin: 0 auto; padding: 22px 40px 36px; position: relative; display: grid; justify-content: center">
       <!-- MEGA TABS -->
       <div style="display: flex; gap: 6px; flex-wrap: wrap; position: static; flex-direction: row; justify-content: center">
-        <a class="mp-tile" href="{{ govHref }}" style="{{ govStyle }}">
-          <i class="ri-government-line" style="font-size:26px;"></i>
-          <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">Государственные услуги</span>
-        </a>
+        <sc-if value="{{ showGov }}" hint-placeholder-val="{{ true }}">
+          <a class="mp-tile" href="{{ govHref }}" style="{{ govStyle }}">
+            <i class="ri-government-line" style="font-size:26px;"></i>
+            <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">Государственные услуги</span>
+          </a>
+        </sc-if>
         <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
           <button class="mp-tile" onClick="{{ t.onClick }}" aria-haspopup="{{ t.popup }}" aria-expanded="{{ t.expanded }}" style="{{ t.style }}">
             <i class="{{ t.icon }}" style="font-size:26px;"></i>
@@ -326,8 +328,18 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
-// Страница «Государственные услуги» в контексте роли (категории зависят от неё)
-const govPage = (role) => 'Государственные услуги.dc.html?for=' + (role || 'citizens');
+// Страница «Государственные услуги» в контексте роли (категории зависят от неё).
+// Раздел есть только у «Гражданам» и «Бизнесу»: у «Медперсоналу» он исключён (замечания 14.10.2026, п. 2)
+const hasGov = (role) => role !== 'medical';
+const govPage = (role, cat) => 'Государственные услуги.dc.html?for=' + (role === 'business' ? 'business' : 'citizens') + (cat ? '&cat=' + cat : '');
+// Композитная услуга «Единого окна» открывается в кабинете бизнеса (реестр заявок «Услуги»);
+// без входа под профилем «Бизнес» — через вход с возвратом прямо к услуге
+const COMPOSITE = 'Услуги.dc.html';
+const bizEntry = (target, back) => {
+  let p = null; try { p = localStorage.getItem('mp-profile'); } catch(e){}
+  return p === 'business' ? target
+    : 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target) + (back ? '&back=' + encodeURIComponent(back) : '');
+};
 class Component extends DCLogic {
   constructor(props){
     super(props);
@@ -345,21 +357,16 @@ class Component extends DCLogic {
     window.addEventListener('mp-role-change', this._onRole);
     // #gov-services — старая ссылка на окно госуслуг: теперь это отдельная страница
     this._onHash = () => {
-      if((location.hash || '') !== '#gov-services') return false;
+      const h = location.hash || '';
+      // #pharma — «Фармацевтика» из паспорта услуги: панели больше нет, категория живёт на странице госуслуг
+      if(h === '#pharma'){ location.replace(govPage('business', 'pharma')); return true; }
+      if(h !== '#gov-services') return false;
       let r = null; try { r = localStorage.getItem('mp-role'); } catch(e){}
+      if(!hasGov(r)){ history.replaceState(null, '', location.pathname); return false; }
       location.replace(govPage(r)); return true;
     };
     window.addEventListener('hashchange', this._onHash);
-    if(this._onHash()) return;
-    // #pharma — «Все услуги фармацевтики» из паспорта: роль «Бизнесу» и открытая панель
-    if((location.hash || '') === '#pharma'){
-      try { localStorage.setItem('mp-role', 'business'); } catch(e){}
-      setTimeout(() => {
-        try { window.dispatchEvent(new CustomEvent('mp-role-change', { detail:'business' })); } catch(e){}
-        this.setState({ role:'business', tab:'pharma', faqOpen:0 });
-        history.replaceState(null, '', location.pathname);
-      }, 0);
-    }
+    this._onHash();
   }
   componentWillUnmount(){
     if(this._onRole) window.removeEventListener('mp-role-change', this._onRole);
@@ -368,9 +375,13 @@ class Component extends DCLogic {
   componentDidUpdate(){ if(this.chatRef.current) this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight; }
   botReply(q){
     const t = q.toLowerCase();
-    if(/справк/.test(t) && !/осмс|отчисл|прикреп/.test(t)) return { text:'Уточните, какая справка вам нужна — и я подскажу, как её получить:', chips:['Справка по ОСМС','Справка об отчислениях','Справка о прикреплении'] };
-    if(/(осмс|застрахован)/.test(t)) return { text:'Проверить статус застрахованного лица в системе ОСМС можно по ИИН, без авторизации. Там же доступна история отчислений за 12 месяцев.', cta:{ label:'Открыть проверку ОСМС', href:'ОСМС.dc.html', icon:'ri-shield-check-line' } };
-    if(/отчислени/.test(t)) return { text:'История отчислений за последние 12 месяцев отображается после проверки статуса ОСМС: дата, сумма и организация-плательщик.', cta:{ label:'История отчислений', href:'ОСМС.dc.html', icon:'ri-history-line' } };
+    const role = this.state.role;
+    // Раздел «ОСМС и отчисления» убран (замечания 14.10.2026): сведения об ОСМС — госуслуга «Информация об ОСМС»
+    const govCta = { label:'Государственные услуги', href:govPage('citizens'), icon:'ri-government-line' };
+    if(/справк/.test(t)) return { text:'Медицинские справки оформляются как государственные услуги на портале eGov.kz: формы № 075/у и № 073/у, справка по динамическому наблюдению, справки из наркологии, психиатрии и тубдиспансера.', cta:govCta };
+    if(/(осмс|застрахован|отчислени)/.test(t)) return { text:'Сведения о статусе в системе ОСМС и об отчислениях предоставляет государственная услуга «Информация об ОСМС» на портале eGov.kz. Там же — возврат ошибочно зачисленных отчислений и взносов.', cta:govCta };
+    // Композитная услуга «Единого окна» (замечания 14.10.2026, п. 1)
+    if(/(единое окно|единого окна|композит|регистрац\S* (лс|ми|лекарств|медицинск))/.test(t)) return { text:'Регистрация лекарственных средств и медицинских изделий — композитная государственная услуга с подачей пакета документов по принципу «Единого окна». ' + (bizEntry(COMPOSITE) === COMPOSITE ? 'Заявка подаётся в кабинете бизнеса, в разделе «Услуги».' : 'Заявка подаётся в кабинете бизнеса: войдите с ЭЦП под профилем «Бизнес» — услуга откроется сразу после входа.'), cta:{ label:'Перейти к услуге', href:bizEntry(COMPOSITE, 'Портал Минздрава - Главная.dc.html'), icon:'ri-stack-line' } };
     if(/прикреплен/.test(t)) return { text:'Прикрепиться к поликлинике можно онлайн: выберите медорганизацию по адресу проживания и подтвердите заявку. Это раздел «Каталог медицинских услуг».', cta:{ label:'Перейти к услугам', href:'Каталог услуг.dc.html', icon:'ri-service-line' } };
     if(/(голов|мигрен)/.test(t)) return { text:'Головная боль может быть связана с переутомлением, давлением или обезвоживанием.\n\nЕсли боль повторяется регулярно, рекомендуется консультация невролога. При резкой боли с нарушением речи или зрения — немедленно вызывайте скорую (103).', cta:{ label:'Записаться к врачу', href:'Каталог услуг.dc.html', icon:'ri-calendar-check-line' } };
     if(/(температ|жар|39|38)/.test(t)) return { text:'При высокой температуре — покой, обильное питьё, жаропонижающее при t выше 38,5 °C. Если держится более 3 дней — вызовите врача на дом.', cta:{ label:'Вызов врача на дом', href:'Каталог услуг.dc.html', icon:'ri-home-heart-line' } };
@@ -381,9 +392,13 @@ class Component extends DCLogic {
     if(/цен/.test(t) && /((^|\s)лс(\s|$)|лекарств|препарат)/.test(t)) return { text:'Регистрация цены производителя лекарственного средства подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-ls', icon:'ri-price-tag-3-line' } };
     if(/цен/.test(t) && /((^|\s)ми(\s|$)|издели|(^|\s)имн(\s|$))/.test(t)) return { text:'Регистрация цены производителя медицинского изделия подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-mi', icon:'ri-stethoscope-line' } };
     if(/(регистрац.*цен|цен.*регистрац)/.test(t)) return { text:'Уточните, для чего нужна регистрация цены:', chips:['Регистрация цены ЛС','Регистрация цены МИ'] };
-    if(/(госуслуг|государственн\S* услуг|egov|егов)/.test(t)) return { text: this.state.role === 'business' ? 'Государственные услуги для бизнеса собраны в отдельном разделе: фармацевтика, лицензирование и аккредитация. Выбранная услуга откроется на портале eGov.kz.' : this.state.role === 'citizens' ? 'Государственные услуги в сфере медицинской помощи собраны в отдельном разделе: справки, запись к врачу, прикрепление к поликлинике и другие. Выбранная услуга откроется на портале eGov.kz.' : 'Государственные услуги в сфере здравоохранения собраны в отдельном разделе: медицинская помощь, фармацевтика, лицензирование и аккредитация. Выбранная услуга откроется на портале eGov.kz.', cta:{ label:'Государственные услуги', href:govPage(this.state.role), icon:'ri-government-line' } };
-    if(/(лицензи|фарм|бад|экспертиз)/.test(t)) return { text:'Для бизнеса доступны услуги лицензирования, санитарно-эпидемиологической экспертизы и регистрации. Переключите роль на «Бизнесу», чтобы увидеть полный список.', cta:{ label:'Каталог услуг', href:'Каталог услуг.dc.html', icon:'ri-award-line' } };
-    return { text:'Я могу подсказать по записи к врачу, статусу ОСМС и отчислениям, вакцинации, поиску медорганизаций и лекарств. Опишите запрос подробнее — например, симптом или название услуги.' };
+    // У «Медперсоналу» раздела госуслуг нет — туда не ведём
+    if(role === 'medical' && /(сертификац|аккредитац|категори)/.test(t)) return { text:'Сертификация специалистов, аккредитация и присвоение квалификационной категории — в разделе «Профессиональная деятельность».', cta:{ label:'Сертификация специалистов', href:'Паспорт услуги.dc.html#cert-clinical', icon:'ri-medal-line' } };
+    if(/(госуслуг|государственн\S* услуг|egov|егов)/.test(t)) return role === 'medical'
+      ? { text:'Государственные услуги в сфере здравоохранения доступны в разделах «Гражданам» и «Бизнесу» и оформляются на портале eGov.kz. Для медицинских работников здесь — профессиональная деятельность, клинические протоколы, документация и отчётность.' }
+      : { text: role === 'business' ? 'Государственные услуги для бизнеса собраны в отдельном разделе: фармацевтика, лицензирование и аккредитация.' : 'Государственные услуги в сфере медицинской помощи собраны в отдельном разделе: справки, запись к врачу, прикрепление к поликлинике и другие. Выбранная услуга откроется на портале eGov.kz.', cta:{ label:'Государственные услуги', href:govPage(role), icon:'ri-government-line' } };
+    if(/(лицензи|аккредитац|фарм)/.test(t)) return { text:'Лицензии и аккредитация оформляются как государственные услуги: раздел «Государственные услуги» для бизнеса, категория «Лицензирование и аккредитация». Выбранная услуга откроется на портале eGov.kz или «Е‑лицензирование».', cta:{ label:'Лицензирование и аккредитация', href:govPage('business', 'lic'), icon:'ri-award-line' } };
+    return { text:'Я могу подсказать по записи к врачу, государственным услугам, вакцинации, поиску медорганизаций и лекарств. Опишите запрос подробнее — например, симптом или название услуги.' };
   }
 
   send(text){
@@ -411,20 +426,16 @@ class Component extends DCLogic {
       style:`display:flex;align-items:center;gap:8px;padding:9px 18px;border:none;border-radius:9px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.role===r.id?'background:#4D42E9;color:#fff;box-shadow:0 2px 4px rgba(77,66,233,.3);':'background:transparent;color:#525866;'}` }));
 
     // TABS + PANELS per role
-    const H = 'Каталог услуг.dc.html', MO='Медорганизации.dc.html', OS='ОСМС.dc.html', VC='Вакцинация.dc.html', PR='Беременность.dc.html', KD='Здоровье детей.dc.html', EM='Экстренная помощь.dc.html', LK='Лекарства.dc.html', DS='Заболевания.dc.html';
-    // Фармацевтика → паспорта услуг портала; ссылки в кабинет бизнеса без входа идут через вход с возвратом
-    const PASS = 'Паспорт услуги.dc.html';
-    let bizProfile = null; try { bizProfile = localStorage.getItem('mp-profile'); } catch(e){}
-    const CAB = (target) => bizProfile === 'business' ? target : 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target);
+    const H = 'Каталог услуг.dc.html', MO='Медорганизации.dc.html', VC='Вакцинация.dc.html', PR='Беременность.dc.html', KD='Здоровье детей.dc.html', EM='Экстренная помощь.dc.html', LK='Лекарства.dc.html';
+    // Замечания аналитика 14.10.2026: «Медуслуги и организации» → «Медорганизации» без блока
+    // «Медицинские услуги» (запись, вызов врача, прикрепление — это госуслуги, они в «Государственных услугах»);
+    // «ОСМС и отчисления» убран полностью. У «Бизнесу» остаётся только «Государственные услуги»,
+    // у «Медперсоналу» госуслуг нет.
     const tabSets = {
       citizens:[
-        { id:'med', icon:'ri-hospital-line', label:'Медуслуги и организации',
-          groups:[ {title:'Медицинские услуги', links:[{label:'Запись на приём',href:H},{label:'Вызов врача на дом',href:H},{label:'Прикрепление к поликлинике',href:H},{label:'Каталог услуг',href:H}]},
-                   {title:'Организации и врачи', links:[{label:'Поликлиники',href:MO},{label:'Стационары и лаборатории',href:MO},{label:'Аптеки',href:LK},{label:'Поиск врача',href:MO}]} ],
-          popular:[ {title:'Записаться к врачу',icon:'ri-calendar-check-line',c:C.blue,href:H},{title:'Найти поликлинику',icon:'ri-map-pin-line',c:C.purple,href:MO},{title:'Справочник заболеваний',icon:'ri-stethoscope-line',c:C.orange,href:DS} ] },
-        { id:'osms', icon:'ri-shield-check-line', label:'ОСМС и отчисления',
-          groups:[ {title:'Страхование', links:[{label:'Проверить статус ОСМС',href:OS},{label:'История отчислений',href:OS},{label:'Кто платит взносы',href:OS}]} ],
-          popular:[ {title:'Проверить ОСМС',icon:'ri-shield-check-line',c:C.green,href:OS},{title:'История отчислений',icon:'ri-history-line',c:C.blue,href:OS} ] },
+        { id:'med', icon:'ri-hospital-line', label:'Медорганизации',
+          groups:[ {title:'Организации и врачи', links:[{label:'Поликлиники',href:MO},{label:'Стационары и лаборатории',href:MO},{label:'Аптеки',href:LK},{label:'Поиск врача',href:MO}]} ],
+          popular:[ {title:'Найти поликлинику',icon:'ri-map-pin-line',c:C.purple,href:MO},{title:'Найти врача',icon:'ri-user-search-line',c:C.blue,href:MO},{title:'Аптеки и лекарства',icon:'ri-capsule-line',c:C.green,href:LK} ] },
         { id:'vac', icon:'ri-syringe-line', label:'Вакцинация',
           groups:[ {title:'Прививки', links:[{label:'Календарь прививок',href:VC},{label:'Виды вакцин',href:VC},{label:'Мифы и факты',href:VC},{label:'Адреса пунктов',href:VC}]} ],
           popular:[ {title:'Календарь прививок',icon:'ri-calendar-line',c:C.red,href:VC},{title:'Пункты вакцинации',icon:'ri-map-pin-line',c:C.teal,href:VC} ] },
@@ -438,20 +449,7 @@ class Component extends DCLogic {
           groups:[ {title:'Неотложные состояния', links:[{label:'Инфаркт и инсульт',href:EM},{label:'Ожоги и отравления',href:EM},{label:'Травмы',href:EM},{label:'До приезда скорой',href:EM}]} ],
           popular:[ {title:'Вызов 103 / 112',icon:'ri-phone-line',c:C.red,href:EM},{title:'До приезда скорой',icon:'ri-first-aid-kit-line',c:C.orange,href:EM} ] },
       ],
-      business:[
-        { id:'pharma', icon:'ri-capsule-line', label:'Фармацевтика',
-          groups:[ {title:'Лекарственные средства', links:[{label:'Регистрация цены на лекарственные средства',href:PASS+'#price-ls'},{label:'Мои заявки по лекарственным средствам',href:CAB('Услуги.dc.html#ls')}]},
-                   {title:'Медицинские изделия', links:[{label:'Регистрация цены на медицинские изделия',href:PASS+'#price-mi'},{label:'Мои заявки по медицинским изделиям',href:CAB('Услуги.dc.html#mi')}]},
-                   {title:'Лицензирование', links:[{label:'Лицензия на фармацевтическую деятельность',href:H}]} ],
-          popular:[ {title:'Регистрация цены ЛС',icon:'ri-price-tag-3-line',c:C.blue,href:PASS+'#price-ls'},{title:'Регистрация цены МИ',icon:'ri-stethoscope-line',c:C.teal,href:PASS+'#price-mi'},{title:'Кабинет заявителя «Единое окно»',icon:'ri-briefcase-4-line',c:C.orange,href:CAB('Кабинет бизнеса.dc.html')} ] },
-        { id:'sanepid', icon:'ri-shield-cross-line', label:'Сан-эпид надзор',
-          groups:[ {title:'Надзор и экспертиза', links:[{label:'Санитарно-карантинный контроль',href:H},{label:'Санитарно-эпидемиологическая экспертиза',href:H},{label:'Регистрация БАДов',href:H}]} ],
-          popular:[ {title:'Сан-эпид экспертиза',icon:'ri-microscope-line',c:C.teal,href:H},{title:'Регистрация БАД',icon:'ri-capsule-line',c:C.orange,href:H} ] },
-        { id:'license', icon:'ri-award-line', label:'Аккредитация и лицензирование',
-          groups:[ {title:'Лицензии', links:[{label:'Лицензия на медицинскую деятельность',href:H},{label:'Лицензия на оборот наркотических средств и прекурсоров',href:H},{label:'Лицензия на алкоголь',href:H}]},
-                   {title:'Аккредитация', links:[{label:'Аккредитация медорганизаций',href:H},{label:'Оценка соответствия',href:H},{label:'Прочие услуги лицензирования',href:H}]} ],
-          popular:[ {title:'Лицензия (медицина)',icon:'ri-award-line',c:C.blue,href:H},{title:'Лицензия на алкоголь',icon:'ri-goblet-line',c:C.red,href:H} ] },
-      ],
+      business:[],
       medical:[
         { id:'prof', icon:'ri-user-star-line', label:'Профессиональная деятельность',
           groups:[
@@ -467,8 +465,9 @@ class Component extends DCLogic {
     };
     const curTabs = tabSets[s.role];
     const tabStyle = (on) => `display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${on?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}`;
-    // «Государственные услуги» — первая плитка у всех ролей, ведёт на отдельную страницу;
-    // набор категорий на ней зависит от выбранной роли
+    // «Государственные услуги» — первая плитка у «Гражданам» и «Бизнесу», ведёт на отдельную страницу;
+    // набор категорий на ней зависит от выбранной роли. У «Медперсоналу» раздела нет (замечания 14.10.2026, п. 2)
+    const showGov = hasGov(s.role);
     const govHref = govPage(s.role);
     const govStyle = tabStyle(false) + 'text-decoration:none;';
     const tabs = [...curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label, popup:'true', expanded:s.tab===t.id ? 'true' : 'false',
@@ -480,8 +479,8 @@ class Component extends DCLogic {
 
     // SEARCH CHIPS
     const chipSets = {
-      citizens:['Проверить ОСМС','Записаться к врачу','Вакцинация','Медорганизации рядом','История отчислений'],
-      business:['Получить лицензию','Регистрация цены ЛС','Сан-эпид экспертиза','Регистрация БАД'],
+      citizens:['Государственные услуги','Записаться к врачу','Медорганизации рядом','Вакцинация'],
+      business:['Регистрация ЛС и МИ','Получить лицензию','Аккредитация','Государственные услуги'],
       medical:['Клинические протоколы','Сертификация','Расписание приёма','Электронные формы'],
     };
     const searchChips = chipSets[s.role].map(label => ({ label, onClick:()=>{ this.setState({ searchOpen:true, tab:null }); setTimeout(()=>this.send(label),60); } }));
@@ -490,19 +489,15 @@ class Component extends DCLogic {
     const newSets = {
       citizens:[
         { icon:'ri-calendar-check-line', c:C.blue, title:'Онлайн-запись к узким специалистам', desc:'Кардиолог, эндокринолог и другие — без визита в регистратуру.', href:H },
-        { icon:'ri-history-line', c:C.green, title:'История отчислений ОСМС', desc:'Отчисления за 12 месяцев по ИИН.', href:OS },
         { icon:'ri-home-heart-line', c:C.orange, title:'Вызов врача на дом онлайн', desc:'Оформление вызова с подтверждением времени.', href:H },
         { icon:'ri-file-list-3-line', c:C.purple, title:'Электронные направления', desc:'Направления на МРТ, КТ и УЗИ в кабинете.', href:H },
         { icon:'ri-syringe-line', c:C.red, title:'Запись на вакцинацию', desc:'Выбор вакцины и пункта прививки.', href:VC },
         { icon:'ri-home-heart-line', c:C.teal, title:'Патронаж детей', desc:'График визитов патронажной медсестры.', href:KD },
       ],
       business:[
-        { icon:'ri-price-tag-3-line', c:C.blue, title:'Регистрация цены на лекарственные средства', desc:'Электронная подача заявления.', href:PASS+'#price-ls' },
-        { icon:'ri-price-tag-3-line', c:C.teal, title:'Регистрация цены на медицинские изделия', desc:'Новый цифровой сервис для поставщиков.', href:PASS+'#price-mi' },
+        { icon:'ri-stack-line', c:C.blue, title:'Регистрация ЛС и МИ по принципу «Единого окна»', desc:'Подача пакета документов в одном окне.', href:bizEntry(COMPOSITE, 'Портал Минздрава - Главная.dc.html') },
         { icon:'ri-cloud-line', c:C.green, title:'Новые цифровые сервисы для поставщиков', desc:'Электронное взаимодействие с МЗ РК.', href:H },
-        { icon:'ri-award-line', c:C.purple, title:'Обновления лицензирования', desc:'Изменения в порядке выдачи лицензий.', href:H },
-        { icon:'ri-capsule-line', c:C.orange, title:'Регистрация БАДов', desc:'Упрощённая процедура регистрации.', href:H },
-      ],
+        { icon:'ri-award-line', c:C.purple, title:'Обновления лицензирования', desc:'Изменения в порядке выдачи лицензий.', href:H },      ],
       medical:[
         { icon:'ri-file-list-3-line', c:C.purple, title:'Электронные клинические протоколы', desc:'Актуальные протоколы в одном справочнике.', href:H },
         { icon:'ri-calendar-2-line', c:C.blue, title:'Обновление расписания приёма', desc:'Управление слотами и записями.', href:H },
@@ -614,8 +609,8 @@ class Component extends DCLogic {
       post:[
         { id:'pharma', label:'Фармацевтическая деятельность', icon:'ri-capsule-line', c:C_faq.green, subs:[
           { id:'pharma-lic', label:'Лицензирование', qs:[
-            { q:'Как получить лицензию на фармацевтическую деятельность?', a:'В разделе «Фармацевтика» подайте электронное заявление, приложите учредительные и разрешительные документы и оплатите госпошлину. Статус рассмотрения отслеживается в кабинете.' },
-            { q:'Как зарегистрировать цену на лекарственное средство?', a:'Воспользуйтесь сервисом «Регистрация цены на лекарственные средства», подайте заявление в электронном виде и приложите обосновывающие документы.' },
+            { q:'Как получить лицензию на фармацевтическую деятельность?', a:'Откройте «Государственные услуги» → «Лицензирование и аккредитация» → «Выдача лицензии на фармацевтическую деятельность»: заявление подаётся на портале eGov.kz с приложением учредительных и разрешительных документов и оплатой госпошлины.' },
+            { q:'Как зарегистрировать цену на лекарственное средство?', a:'Регистрация цены входит в композитную государственную услугу по регистрации лекарственных средств и медицинских изделий по принципу «Единого окна». Заявка подаётся в кабинете бизнеса: «Государственные услуги» → «Фармацевтика».' },
           ] },
           { id:'pharma-bad', label:'Регистрация БАД', qs:[
             { q:'Как зарегистрировать БАД?', a:'Регистрация выполняется через профильный сервис: подача заявления, экспертиза состава и внесение в реестр разрешённой продукции.' },
@@ -623,7 +618,7 @@ class Component extends DCLogic {
         ] },
         { id:'sanepid', label:'Санитарно-эпидемиологический надзор', icon:'ri-shield-cross-line', c:C_faq.teal, subs:[
           { id:'sanepid-exp', label:'Экспертиза и надзор', qs:[
-            { q:'Как пройти санитарно-эпидемиологическую экспертизу?', a:'Подайте заявку в разделе «Санитарно-эпидемиологический надзор», приложите документы на продукцию и дождитесь заключения экспертизы.' },
+            { q:'Как пройти санитарно-эпидемиологическую экспертизу?', a:'Подайте заявку в территориальное подразделение санитарно-эпидемиологического контроля, приложите документы на продукцию и дождитесь заключения экспертизы.' },
             { q:'Какие документы требуются для экспертизы?', a:'Комплект зависит от вида продукции: как правило, это техническая документация, протоколы испытаний и сведения о производителе.' },
           ] },
         ] },
@@ -685,10 +680,10 @@ class Component extends DCLogic {
 
     // AI overlay
     const aiSuggest = (s.role==='business'
-      ? ['Как получить лицензию','Регистрация цены ЛС','Сан-эпид экспертиза']
+      ? ['Регистрация ЛС и МИ','Как получить лицензию','Государственные услуги']
       : s.role==='medical'
       ? ['Где найти клинические протоколы','Как пройти сертификацию','Электронные формы']
-      : ['Справка','Болит голова','Записаться к врачу','Проверить ОСМС','Где ближайшая поликлиника']
+      : ['Справка','Болит голова','Записаться к врачу','Государственные услуги','Где ближайшая поликлиника']
     ).map(label => ({ label, onClick:()=>this.send(label) }));
 
     const aiMessages = s.messages.map(m => ({
@@ -704,7 +699,7 @@ class Component extends DCLogic {
     }));
 
     return {
-      roles, tabs, govHref, govStyle,
+      roles, tabs, showGov, govHref, govStyle,
       panelOpen: !!activeTab, panelGroups, panelPopular,
       closePanel: ()=>this.setState({ tab:null }),
       searchChips,

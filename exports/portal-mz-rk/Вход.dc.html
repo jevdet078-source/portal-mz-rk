@@ -27,7 +27,8 @@
   sessionStorage['mp-ecp-handoff'] = { cert, profile?, at }.
 
   Параметры: ?profile=business — пришли за услугой организации (профиль «Бизнес» первым);
-             ?return=<страница> — куда вернуть после входа в профиль «Бизнес».
+             ?return=<страница> — куда вернуть после входа в профиль «Бизнес»;
+             ?back=<страница> — куда ведёт «Вернуться» без входа (если return сам требует входа).
   После входа: localStorage mp-iin, mp-profile (citizen | business | medical | gov), mp-role.
 -->
 <x-dc>
@@ -150,7 +151,7 @@
             </sc-if>
 
             <sc-if value="{{ hasBackToService }}" hint-placeholder-val="{{ false }}">
-              <a class="lnk" href="{{ backToService }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:13px;font-weight:500;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>Вернуться к услуге без входа</a>
+              <a class="lnk" href="{{ backToService }}" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:13px;font-weight:500;color:var(--n500);text-decoration:none;"><i class="ri-arrow-left-line" style="font-size:16px;"></i>{{ backLabel }}</a>
             </sc-if>
           </div>
         </sc-if>
@@ -284,11 +285,15 @@ class Component extends DCLogic {
 
   // ?profile=business — пришли за услугой для организации; ?return=<страница> — куда вернуть после входа
   query(){
-    const out = { ret:null, forBusiness:false };
+    const out = { ret:null, back:null, forBusiness:false };
     try {
       const q = new URLSearchParams(location.search);
+      const ok = (v) => !!v && /^[^\/:?#\\]+\.dc\.html(\?[\w=&-]*)?(#[\w-]*)?$/.test(v);
       const r = q.get('return');
-      if(r && /^[^\/:?#\\]+\.dc\.html(\?[\w=&-]*)?(#[\w-]*)?$/.test(r)) out.ret = r;
+      if(ok(r)) out.ret = r;
+      // ?back=<страница> — куда вернуться без входа, если услуга сама открывается только после входа
+      const b = q.get('back');
+      if(ok(b)) out.back = b;
       out.forBusiness = q.get('profile') === 'business';
     } catch(e){}
     return out;
@@ -415,7 +420,7 @@ class Component extends DCLogic {
         style:`width:100%;display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#fff;font-family:inherit;text-align:left;cursor:pointer;${rec ? 'border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'border:1px solid #E2E4E9;box-shadow:0 1px 2px rgba(10,13,20,.03);'}` };
     });
     const sel = s.sel ? this.profileView(s.sel) : { label:'', icon:'', desc:'', iconWrap:'' };
-    const backToService = q.ret ? q.ret.replace(/\?[^#]*/, '') : '';
+    const backToService = q.back || (q.ret ? q.ret.replace(/\?[^#]*/, '') : '');
     const hasPassErr = !!s.passErr;
     const busy = s.waiting || s.checking;
     const secondary = !!(err && err.notFound);
@@ -425,6 +430,7 @@ class Component extends DCLogic {
       isStart: s.phase === 'start', isProfile: s.phase === 'profile', isPassword: s.phase === 'password',
       // ЭЦП
       forBusiness: q.forBusiness, hasBackToService: !!backToService, backToService,
+      backLabel: q.back ? 'Вернуться к перечню услуг' : 'Вернуться к услуге без входа',
       busy, notBusy: !busy,
       // при «не зарегистрированы» главное действие — регистрация в плашке, выбор ключа уходит во второстепенные
       ecpCls: busy ? 'btn-p busy' : secondary ? 'btn-s' : 'btn-p',
