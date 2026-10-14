@@ -16,10 +16,9 @@
     active    — home | contracts | payments | services | other | processes | users | orgs | calendar
     collapsed — "1", чтобы стартовать свёрнутым (как на странице процесса)
 
-  Пункты открываются по мере онбординга (Figma 5787:107798):
-    шаг 1 → Главная, Договора; шаг 2 → +Платежи; шаг 3 → +Услуги; готово → +Мои процессы.
-  Шаг хранится в localStorage['mp-biz-step'] = 1 | 2 | 3 | done,
-  смена рассылается событием window 'mp-biz-step-change'.
+  Все пункты видны сразу: онбординг в кабинете бизнеса удалён по замечанию аналитика 14.10.2026
+  (раньше пункты открывались по шагам mp-biz-step, Figma 5787:107798). Иначе композитная услуга,
+  открытая с портала после входа, попадала бы на «Услуги» без пункта «Услуги» в меню.
 
   Роль в организации — localStorage['mp-biz-role'] = applicant | admin,
   смена рассылается событием window 'mp-biz-role-change' (переключатель в шапке).
@@ -71,31 +70,27 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:272,&quot;height&quot;:827}}">
 class Component extends DCLogic {
-  state = { step:'done', role:'applicant', collapsed:null };
+  state = { role:'applicant', collapsed:null };
   componentDidMount(){
-    try { const v = localStorage.getItem('mp-biz-step'); if(v) this.setState({ step:v }); } catch(e){}
-    this._onStep = (e) => { if(e && e.detail) this.setState({ step:e.detail }); };
-    window.addEventListener('mp-biz-step-change', this._onStep);
     try { const r = localStorage.getItem('mp-biz-role'); if(r) this.setState({ role:r }); } catch(e){}
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-biz-role-change', this._onRole);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-biz-step-change', this._onStep); window.removeEventListener('mp-biz-role-change', this._onRole); }
+  componentWillUnmount(){ window.removeEventListener('mp-biz-role-change', this._onRole); }
   renderVals(){
     const s = this.state, p = this.props || {};
     const collapsed = s.collapsed === null ? p.collapsed === '1' : s.collapsed;
     const expanded = !collapsed;
-    const level = { '1':1, '2':2, '3':3, 'done':4 }[s.step] || 4;
     const isAdmin = s.role === 'admin';
 
     const applicant = [
-      { id:'home', label:'Главная', icon:'ri-home-4-line', href:'Кабинет бизнеса.dc.html', min:1 },
-      { id:'contracts', label:'Договора', icon:'ri-file-text-line', href:'Договора.dc.html', min:1 },
-      { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html', min:2 },
-      { id:'services', label:'Услуги', icon:'ri-file-copy-line', href:'Услуги.dc.html', min:3 },
+      { id:'home', label:'Главная', icon:'ri-home-4-line', href:'Кабинет бизнеса.dc.html' },
+      { id:'contracts', label:'Договора', icon:'ri-file-text-line', href:'Договора.dc.html' },
+      { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html' },
+      { id:'services', label:'Услуги', icon:'ri-file-copy-line', href:'Услуги.dc.html' },
       // ЕД не входит в композитную услугу ЛС / МИ — отдельный реестр (UC01.13 §1)
-      { id:'other', label:'Прочие услуги', icon:'ri-apps-2-line', href:'Прочие услуги.dc.html', min:3 },
-      { id:'processes', label:'Мои процессы', icon:'ri-file-list-line', href:'Мои процессы.dc.html', min:4, badge:'2' },
+      { id:'other', label:'Прочие услуги', icon:'ri-apps-2-line', href:'Прочие услуги.dc.html' },
+      { id:'processes', label:'Мои процессы', icon:'ri-file-list-line', href:'Мои процессы.dc.html', badge:'2' },
     ];
     // Роль администратора — надстройка, а не отдельный кабинет: тот же сотрудник ведёт
     // справочники организации и подаёт заявки. Поэтому разделы заявителя остаются на месте,
@@ -104,12 +99,12 @@ class Component extends DCLogic {
     // Модули администратора: учётные записи и полномочия, реестр организаций,
     // рабочий календарь для таймеров КНФ и ЕД.
     const admin = [
-      { id:'users', label:'Пользователи', icon:'ri-user-settings-line', href:'Пользователи.dc.html', min:0, group:'Администрирование' },
-      { id:'orgs', label:'Организации', icon:'ri-building-2-line', href:'Организации.dc.html', min:0 },
-      { id:'calendar', label:'Рабочий календарь', icon:'ri-calendar-schedule-line', href:'Рабочий календарь.dc.html', min:0 },
+      { id:'users', label:'Пользователи', icon:'ri-user-settings-line', href:'Пользователи.dc.html', group:'Администрирование' },
+      { id:'orgs', label:'Организации', icon:'ri-building-2-line', href:'Организации.dc.html' },
+      { id:'calendar', label:'Рабочий календарь', icon:'ri-calendar-schedule-line', href:'Рабочий календарь.dc.html' },
     ];
     const data = applicant.concat(isAdmin ? admin : []);
-    const items = data.filter(it => it.min <= level).map(it => {
+    const items = data.map(it => {
       const on = p.active === it.id;
       return { ...it,
         showLabel: expanded,

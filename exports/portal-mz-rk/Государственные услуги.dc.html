@@ -21,13 +21,17 @@
   Набор категорий зависит от типа пользователя (роль в шапке, localStorage `mp-role`):
     «Гражданам»    — только «Медицинская помощь»;
     «Бизнесу»      — «Фармацевтика» и «Лицензирование и аккредитация»;
-    «Медперсоналу» — в постановке не описан, показываем все три категории, как было (вопрос в бэклоге).
+    «Медперсоналу» — раздела нет (замечания 14.10.2026, п. 2): адрес с этой ролью и переключение
+                     на неё в шапке уводят на главную.
   Поиск идёт только по доступным категориям: скрытые услуги в результаты не попадают.
 
-  Адрес:  Государственные услуги.dc.html?for=<citizens|business|medical>&cat=<med|pharma|lic>
+  Адрес:  Государственные услуги.dc.html?for=<citizens|business>&cat=<med|pharma|lic>
           оба параметра необязательны; без `for` берётся роль из шапки.
   Смена роли в шапке (событие `mp-role-change`) сразу перестраивает категории.
-  Каждая услуга — внешняя ссылка (eGov.kz / «Е-лицензирование»), открывается в новой вкладке.
+  Услуги — внешние ссылки (eGov.kz / «Е-лицензирование»), открываются в новой вкладке.
+  Исключение — композитная услуга «Единого окна» в «Фармацевтике» (замечания 14.10.2026, п. 1):
+  она на портале, в кабинете бизнеса («Услуги»). Под профилем «Бизнес» — переход сразу,
+  без входа — «Вход» с ?profile=business&return=Услуги&back=<эта страница>, после входа — сразу в услугу.
 -->
 <x-dc>
 <helmet>
@@ -90,6 +94,9 @@
   .gs-row:hover .gs-name{color:var(--primary-darker);}
   .gs-ext{color:var(--n400);font-size:18px;line-height:20px;transition:color .12s;}
   .gs-name{font-size:14px;line-height:20px;font-weight:500;overflow-wrap:anywhere;hyphens:auto;transition:color .12s;}
+  .gs-row:hover .gs-go{color:var(--primary);transform:translateX(2px);}
+  .gs-go{color:var(--n400);font-size:18px;line-height:20px;transition:color .12s,transform .12s;}
+  .gs-meta{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:500;}
   .gs-num{font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;text-align:right;}
   .gs-btn{transition:background .12s,color .12s;}
   .gs-btn:hover{background:var(--n100) !important;color:var(--n600) !important;}
@@ -227,10 +234,15 @@
                 <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;">
                   <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="8">
                     <li>
-                      <a class="gs-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ it.aria }}" title="{{ it.hint }}">
+                      <a class="gs-row" href="{{ it.href }}" target="{{ it.target }}" rel="{{ it.rel }}" aria-label="{{ it.aria }}" title="{{ it.hint }}">
                         <span class="gs-num" aria-hidden="true">{{ it.num }}</span>
-                        <span class="gs-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
-                        <i class="ri-external-link-line gs-ext" aria-hidden="true"></i>
+                        <span style="min-width:0;display:flex;flex-direction:column;gap:6px;">
+                          <span class="gs-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                          <sc-if value="{{ it.isPortal }}" hint-placeholder-val="{{ false }}">
+                            <span class="gs-meta"><i class="{{ it.metaIcon }}" aria-hidden="true" style="font-size:14px;"></i>{{ it.meta }}</span>
+                          </sc-if>
+                        </span>
+                        <i class="{{ it.icon }}" aria-hidden="true"></i>
                       </a>
                     </li>
                   </sc-for>
@@ -266,6 +278,7 @@
 const HOME = 'Портал Минздрава - Главная.dc.html';
 const EGOV = 'https://egov.kz/ru/services/presale/';
 const ELICENSE = 'https://elicense.kz/';
+const COMPOSITE = 'Услуги.dc.html';   // кабинет бизнеса → «Услуги» (реестр заявок ЛС / МИ)
 
 // Источник — постановка «Анализ ГУ МЗ»: наименования и ссылки один в один.
 const CATS = [
@@ -292,9 +305,10 @@ const CATS = [
     ['Выдача санаторно-курортной карты', 'P716'],
     ['Композитная услуга «Рождение ребенка»', 'Com013'],
   ] },
+  // Замечания 14.10.2026, п. 1: «Получение заключения о безопасности…» и «Регистрация цены…» заменены
+  // одной композитной услугой. Она оформляется на портале, в кабинете бизнеса, а не на eGov.kz
   { id:'pharma', label:'Фармацевтика', icon:'ri-capsule-line', tone:['#EFFAF6','#176448'], items:[
-    ['Получение заключения о безопасности, качестве и эффективности лекарственных средств и медицинских изделий', 'pharmaceutics_153-3pass_mz'],
-    ['Регистрация цены на лекарственные средства и медицинские изделия', 'pharmaceutics_pass601013_mz'],
+    ['Композитная государственная услуга по регистрации лекарственных средств и медицинских изделий с подачей пакета документов по принципу «Единого окна»', 'portal:' + COMPOSITE],
     ['Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', 'P709'],
   ] },
   { id:'lic', label:'Лицензирование и аккредитация', icon:'ri-award-line', tone:['#EEF2FF','#4D42E9'], items:[
@@ -311,20 +325,28 @@ const CATS = [
     ['Выдача лицензии на медицинскую деятельность', 'med_accreditatio_2F487pass_mz'],
   ] },
 ].map(c => ({ ...c, items: c.items.map(([name, ref]) => {
+  // portal:<страница> — услуга портала (кабинет бизнеса), остальное — внешние eGov.kz / «Е-лицензирование»
+  if(ref.startsWith('portal:')) return { name, portal: ref.slice(7), site: 'портале', norm: norm(name) };
   const ext = /^https?:/.test(ref);
   return { name, href: ext ? ref : EGOV + ref, site: ext ? '«Е‑лицензирование»' : 'eGov.kz', norm: norm(name) };
 }) }));
 
-// Тип пользователя → доступные категории (замечания аналитика, п. 3–4)
+// Тип пользователя → доступные категории (замечания аналитика 13.10, п. 3–4).
+// «Медперсоналу» раздела нет (замечания 14.10.2026, п. 2) — такой адрес уводит на главную
 const AUD = {
   citizens: { label:'Гражданам', for:'Для граждан', icon:'ri-user-3-line', cats:['med'],
               lead:'Услуги в сфере медицинской помощи: справки, запись к врачу, прикрепление к поликлинике и другие.' },
   business: { label:'Бизнесу', for:'Для бизнеса', icon:'ri-briefcase-4-line', cats:['pharma', 'lic'],
               lead:'Услуги для организаций и предпринимателей: фармацевтика, лицензирование и аккредитация.' },
-  // Медперсонал в постановке не описан — показываем все категории, как было до доработки
-  medical:  { label:'Медперсоналу', for:'Для медперсонала', icon:'ri-stethoscope-line', cats:['med', 'pharma', 'lic'],
-              lead:'Медицинская помощь, фармацевтика, лицензирование и аккредитация — все государственные услуги Министерства здравоохранения.' },
 };
+const isMedical = (r) => r === 'medical';
+// Услуга портала: под профилем «Бизнес» — сразу в интерфейс услуги, иначе — вход с возвратом к ней
+function portalHref(target){
+  let p = null; try { p = localStorage.getItem('mp-profile'); } catch(e){}
+  if(p === 'business') return target;
+  const back = 'Государственные услуги.dc.html?for=business&cat=pharma';
+  return 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target) + '&back=' + encodeURIComponent(back);
+}
 const catById = (id) => CATS.find(c => c.id === id);
 
 function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
@@ -364,14 +386,16 @@ class Component extends DCLogic {
   constructor(props){
     super(props);
     // Роль: параметр ?for (ссылка с главной) → роль из шапки → «Гражданам»
-    let role = 'citizens', cat = '', fromUrl = false;
+    let role = 'citizens', cat = '', fromUrl = false, medical = false;
     try {
       const p = new URLSearchParams(location.search);
       const f = p.get('for');
       if(AUD[f]){ role = f; fromUrl = true; }
-      else { const r = localStorage.getItem('mp-role'); if(AUD[r]) role = r; }
+      else { const r = localStorage.getItem('mp-role'); if(AUD[r]) role = r; medical = isMedical(f) || (!f && isMedical(r)); }
       cat = p.get('cat') || '';
     } catch(e){}
+    // У «Медперсоналу» раздела нет: старые ссылки и закладки ведут на главную раздела
+    if(medical) try { location.replace(HOME); } catch(e){}
     this._syncRole = fromUrl;
     this.state = { role, cat, q:'', live:'' };
   }
@@ -382,7 +406,12 @@ class Component extends DCLogic {
       let cur = null; try { cur = localStorage.getItem('mp-role'); } catch(e){}
       if(cur !== this.state.role) setTimeout(() => this.broadcastRole(this.state.role), 0);
     }
-    this._onRole = (e) => { const r = e && e.detail; if(AUD[r] && r !== this.state.role) this.applyRole(r); };
+    // Переключение на «Медперсоналу» в шапке — раздела у этой роли нет, возвращаемся на главную
+    this._onRole = (e) => {
+      const r = e && e.detail;
+      if(isMedical(r)){ try { location.replace(HOME); } catch(err){} return; }
+      if(AUD[r] && r !== this.state.role) this.applyRole(r);
+    };
     window.addEventListener('mp-role-change', this._onRole);
 
     // «/» — к поиску (как на большинстве сервисов), если фокус не в поле ввода
@@ -537,12 +566,23 @@ class Component extends DCLogic {
       };
     });
 
-    const toItems = (items) => items.map((it, i) => ({
-      num: i + 1, href: it.href,
-      parts: highlight(it.name, tokens),
-      hint: `Откроется на ${it.site} в новой вкладке`,
-      aria: `${it.name} — откроется на ${it.site} в новой вкладке`,
-    }));
+    let signedBiz = false; try { signedBiz = localStorage.getItem('mp-profile') === 'business'; } catch(e){}
+    const toItems = (items) => items.map((it, i) => {
+      const parts = highlight(it.name, tokens);
+      // Услуга портала: в той же вкладке; без входа — через вход под профилем «Бизнес» с возвратом к услуге
+      if(it.portal){
+        const where = signedBiz ? 'Откроется в кабинете бизнеса' : 'Откроется после входа под профилем «Бизнес»';
+        return { num: i + 1, href: portalHref(it.portal), target: '_self', rel: '', parts,
+          isPortal: true, icon: 'ri-arrow-right-line gs-go',
+          meta: signedBiz ? 'В кабинете бизнеса' : 'Вход с ЭЦП · профиль «Бизнес»',
+          metaIcon: signedBiz ? 'ri-briefcase-4-line' : 'ri-key-2-line',
+          hint: where, aria: `${it.name} — ${where.toLowerCase()}` };
+      }
+      return { num: i + 1, href: it.href, target: '_blank', rel: 'noopener noreferrer', parts,
+        isPortal: false, icon: 'ri-external-link-line gs-ext', meta: '', metaIcon: '',
+        hint: `Откроется на ${it.site} в новой вкладке`,
+        aria: `${it.name} — откроется на ${it.site} в новой вкладке` };
+    });
 
     const groups = searching
       ? hits.filter(h => h.items.length).map((h, gi) => ({
@@ -555,8 +595,10 @@ class Component extends DCLogic {
       : [{ anchor: 'gs-g-' + cur.id, showHead: false, label: cur.label, icon: cur.icon, count: cur.items.length, iconStyle: '', wrap: '', items: toItems(cur.items) }];
 
     // Куда ведут ссылки — по фактическим адресам доступных услуг
-    const sites = [...new Set(allowed.flatMap(c => c.items.map(it => it.site)))];
-    const note = `Услуги оформляются на ${sites.length > 1 ? 'порталах ' + sites.join(' и ') : 'портале ' + sites[0]} и открываются в новой вкладке.`;
+    const all = allowed.flatMap(c => c.items);
+    const sites = [...new Set(all.filter(it => !it.portal).map(it => it.site))];
+    const note = `Услуги оформляются на ${sites.length > 1 ? 'порталах ' + sites.join(' и ') : 'портале ' + sites[0]} и открываются в новой вкладке.`
+      + (all.some(it => it.portal) ? ' Композитная услуга «Единого окна» — в кабинете бизнеса на этом портале.' : '');
 
     // Пустой результат: подсказываем раздел, где такие услуги есть (сами услуги не показываем)
     let other = null;
