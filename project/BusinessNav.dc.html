@@ -13,7 +13,7 @@
   Логотип «Единое окно МЗ РК» из шапки сайдбара убран — бренд теперь в Header портала.
 
   Пропсы:
-    active    — home | contracts | payments | services | processes | users | orgs | calendar
+    active    — home | contracts | payments | services | other | processes | users | orgs | calendar
     collapsed — "1", чтобы стартовать свёрнутым (как на странице процесса)
 
   Пункты открываются по мере онбординга (Figma 5787:107798):
@@ -93,6 +93,8 @@ class Component extends DCLogic {
       { id:'contracts', label:'Договора', icon:'ri-file-text-line', href:'Договора.dc.html', min:1 },
       { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html', min:2 },
       { id:'services', label:'Услуги', icon:'ri-file-copy-line', href:'Услуги.dc.html', min:3 },
+      // ЕД не входит в композитную услугу ЛС / МИ — отдельный реестр (UC01.13 §1)
+      { id:'other', label:'Прочие услуги', icon:'ri-apps-2-line', href:'Прочие услуги.dc.html', min:3 },
       { id:'processes', label:'Мои процессы', icon:'ri-file-list-line', href:'Мои процессы.dc.html', min:4, badge:'2' },
     ];
     // Роль администратора — надстройка, а не отдельный кабинет: тот же сотрудник ведёт
