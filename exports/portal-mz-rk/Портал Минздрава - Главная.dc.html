@@ -36,6 +36,8 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-paneldown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
   .mp-scroll::-webkit-scrollbar{height:0;width:0;}
+  .mp-tile[aria-expanded="false"]:hover,a.mp-tile:hover{background:rgba(255,255,255,.12)!important;}
+  .mp-tile:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 </style>
 </helmet>
 
@@ -52,8 +54,12 @@
     <div style="max-width: 1280px; margin: 0 auto; padding: 22px 40px 36px; position: relative; display: grid; justify-content: center">
       <!-- MEGA TABS -->
       <div style="display: flex; gap: 6px; flex-wrap: wrap; position: static; flex-direction: row; justify-content: center">
+        <a class="mp-tile" href="{{ govHref }}" style="{{ govStyle }}">
+          <i class="ri-government-line" style="font-size:26px;"></i>
+          <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">Государственные услуги</span>
+        </a>
         <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="6">
-          <button onClick="{{ t.onClick }}" style="{{ t.style }}">
+          <button class="mp-tile" onClick="{{ t.onClick }}" aria-haspopup="{{ t.popup }}" aria-expanded="{{ t.expanded }}" style="{{ t.style }}">
             <i class="{{ t.icon }}" style="font-size:26px;"></i>
             <span style="font-size:12.5px;font-weight:500;line-height:1.25;text-align:center;max-width:104px;">{{ t.label }}</span>
           </button>
@@ -321,6 +327,8 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
+// Страница «Государственные услуги» в контексте роли (категории зависят от неё)
+const govPage = (role) => 'Государственные услуги.dc.html?for=' + (role || 'citizens');
 class Component extends DCLogic {
   constructor(props){
     super(props);
@@ -336,6 +344,14 @@ class Component extends DCLogic {
     try { const r = localStorage.getItem('mp-role'); if(r && r!==this.state.role) this.setState({ role:r, tab:null, faqOpen:0 }); } catch(e){}
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail, tab:null, faqOpen:0 }); };
     window.addEventListener('mp-role-change', this._onRole);
+    // #gov-services — старая ссылка на окно госуслуг: теперь это отдельная страница
+    this._onHash = () => {
+      if((location.hash || '') !== '#gov-services') return false;
+      let r = null; try { r = localStorage.getItem('mp-role'); } catch(e){}
+      location.replace(govPage(r)); return true;
+    };
+    window.addEventListener('hashchange', this._onHash);
+    if(this._onHash()) return;
     // #pharma — «Все услуги фармацевтики» из паспорта: роль «Бизнесу» и открытая панель
     if((location.hash || '') === '#pharma'){
       try { localStorage.setItem('mp-role', 'business'); } catch(e){}
@@ -346,7 +362,10 @@ class Component extends DCLogic {
       }, 0);
     }
   }
-  componentWillUnmount(){ if(this._onRole) window.removeEventListener('mp-role-change', this._onRole); }
+  componentWillUnmount(){
+    if(this._onRole) window.removeEventListener('mp-role-change', this._onRole);
+    if(this._onHash) window.removeEventListener('hashchange', this._onHash);
+  }
   componentDidUpdate(){ if(this.chatRef.current) this.chatRef.current.scrollTop = this.chatRef.current.scrollHeight; }
   botReply(q){
     const t = q.toLowerCase();
@@ -363,6 +382,7 @@ class Component extends DCLogic {
     if(/цен/.test(t) && /((^|\s)лс(\s|$)|лекарств|препарат)/.test(t)) return { text:'Регистрация цены производителя лекарственного средства подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-ls', icon:'ri-price-tag-3-line' } };
     if(/цен/.test(t) && /((^|\s)ми(\s|$)|издели|(^|\s)имн(\s|$))/.test(t)) return { text:'Регистрация цены производителя медицинского изделия подаётся онлайн в кабинете заявителя «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', cta:{ label:'Паспорт услуги', href:'Паспорт услуги.dc.html#price-mi', icon:'ri-stethoscope-line' } };
     if(/(регистрац.*цен|цен.*регистрац)/.test(t)) return { text:'Уточните, для чего нужна регистрация цены:', chips:['Регистрация цены ЛС','Регистрация цены МИ'] };
+    if(/(госуслуг|государственн\S* услуг|egov|егов)/.test(t)) return { text: this.state.role === 'business' ? 'Государственные услуги для бизнеса собраны в отдельном разделе: фармацевтика, лицензирование и аккредитация. Выбранная услуга откроется на портале eGov.kz.' : this.state.role === 'citizens' ? 'Государственные услуги в сфере медицинской помощи собраны в отдельном разделе: справки, запись к врачу, прикрепление к поликлинике и другие. Выбранная услуга откроется на портале eGov.kz.' : 'Государственные услуги в сфере здравоохранения собраны в отдельном разделе: медицинская помощь, фармацевтика, лицензирование и аккредитация. Выбранная услуга откроется на портале eGov.kz.', cta:{ label:'Государственные услуги', href:govPage(this.state.role), icon:'ri-government-line' } };
     if(/(лицензи|фарм|бад|экспертиз)/.test(t)) return { text:'Для бизнеса доступны услуги лицензирования, санитарно-эпидемиологической экспертизы и регистрации. Переключите роль на «Бизнесу», чтобы увидеть полный список.', cta:{ label:'Каталог услуг', href:'Каталог услуг.dc.html', icon:'ri-award-line' } };
     return { text:'Я могу подсказать по записи к врачу, статусу ОСМС и отчислениям, вакцинации, поиску медорганизаций и лекарств. Опишите запрос подробнее — например, симптом или название услуги.' };
   }
@@ -447,9 +467,14 @@ class Component extends DCLogic {
       ],
     };
     const curTabs = tabSets[s.role];
-    const tabs = curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label,
+    const tabStyle = (on) => `display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${on?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}`;
+    // «Государственные услуги» — первая плитка у всех ролей, ведёт на отдельную страницу;
+    // набор категорий на ней зависит от выбранной роли
+    const govHref = govPage(s.role);
+    const govStyle = tabStyle(false) + 'text-decoration:none;';
+    const tabs = [...curTabs.map(t => ({ id:t.id, icon:t.icon, label:t.label, popup:'true', expanded:s.tab===t.id ? 'true' : 'false',
       onClick:()=>this.setState(st=>({ tab: st.tab===t.id ? null : t.id })),
-      style:`display:flex;flex-direction:column;align-items:center;gap:8px;width:118px;padding:14px 6px;border:none;border-radius:14px;font-family:inherit;cursor:pointer;transition:.15s;${s.tab===t.id?'background:#fff;color:#4D42E9;':'background:transparent;color:#fff;'}` }));
+      style:tabStyle(s.tab===t.id) }))];
     const activeTab = curTabs.find(t => t.id === s.tab);
     const panelGroups = activeTab ? activeTab.groups : [];
     const panelPopular = activeTab ? activeTab.popular.map(p => ({ ...p, color:p.c[1], bg:p.c[0] })) : [];
@@ -680,7 +705,7 @@ class Component extends DCLogic {
     }));
 
     return {
-      roles, tabs,
+      roles, tabs, govHref, govStyle,
       panelOpen: !!activeTab, panelGroups, panelPopular,
       closePanel: ()=>this.setState({ tab:null }),
       searchChips,

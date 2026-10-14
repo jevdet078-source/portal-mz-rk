@@ -95,6 +95,13 @@ const tabs = data.map(t => ({
 | `mp-ed-session` (sessionStorage) | несохранённая сессия мастера ЕД: заявка, форма, шаг — переживает перезагрузку | `Заявка ЕД` |
 | `mp-ed-fail` (sessionStorage) | `1` — сценарий «Техсбой» (кнопка в панели «Прототип») | страницы ЕД, `EdSign` |
 | `mp-ed-reg-ui` (sessionStorage) | применённые фильтры и страница реестра «Прочие услуги» | `Прочие услуги` |
+| `mp-sur-scn` (sessionStorage) | сценарий ответа СУР в прототипе: `ok` / `down` / `invalid` / `notfound` / `noWork` / `noBin` | `Профиль врача` (панель «Прототип») |
+| `mp-kdp-scn` (sessionStorage) | ответ на запрос согласия (КДП) в прототипе: `yes` / `no` / `none` / `noPhone` / `down` | `Профиль врача` (панель «Прототип») |
+| `mp-doc-sur` | сохранённый профиль из СУР (в прототипе вместо сервера): `{ stage:1|2, at, work:"ok"|"empty"|"error"|"notfound", noBin }` | `Профиль врача` |
+| `mp-doc-sur-refresh` | время последнего нажатия «Обновить», мс — счётчик «Повторно через мм:сс» (на бою хранится на сервере) | `Профиль врача` |
+| `mp-lmk-scn` (sessionStorage) | сценарий ответа `EH_GET_ALL_LMK` в прототипе: `ok` / `one` / `soon` / `no` / `partial` / `empty` / `slow` / `down` | `Личная медицинская карта` (панель «Прототип») |
+| `mp-doc-photo` | фото профиля врача — data:URL JPEG 320×320 | `Профиль врача` → `Header` (событие `mp-doc-photo-change`) |
+| `mp-doc-notif-read` | JSON-массив id прочитанных уведомлений врача | `Header` (`cabinet="medical"`) |
 
 Синхронно смена роли рассылается событием:
 `window.dispatchEvent(new CustomEvent('mp-role-change', { detail: id }))`.

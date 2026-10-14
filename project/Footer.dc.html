@@ -10,11 +10,23 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
-<style>:root{--primary:#4D42E9;--primary-darker:#312D86;--n900:#0A0D14;}</style>
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;--n900:#0A0D14;}
+  /* Адаптив: на планшете две колонки, на телефоне одна */
+  @media (max-width:1023px){
+    .ftr-in{padding:40px 24px 28px !important;}
+    .ftr-grid{grid-template-columns:1fr 1fr !important;gap:32px !important;}
+  }
+  @media (max-width:640px){
+    .ftr-in{padding:32px 16px 24px !important;}
+    .ftr-grid{grid-template-columns:minmax(0,1fr) !important;gap:28px !important;}
+    .ftr-bottom{margin-top:28px !important;}
+  }
+</style>
 </helmet>
 <footer style="background:var(--n900);color:rgba(255,255,255,.7);font-family:'Inter',sans-serif;">
-  <div style="max-width:1440px;margin:0 auto;padding:56px 40px 32px;">
-    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px;">
+  <div class="ftr-in" style="max-width:1440px;margin:0 auto;padding:56px 40px 32px;">
+    <div class="ftr-grid" style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:40px;">
       <div>
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
           <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--primary-darker));display:flex;align-items:center;justify-content:center;"><i class="ri-heart-pulse-fill" style="color:#fff;font-size:22px;"></i></div>
@@ -48,7 +60,7 @@
         </div>
       </div>
     </div>
-    <div style="border-top:1px solid rgba(255,255,255,.1);margin-top:40px;padding-top:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div class="ftr-bottom" style="border-top:1px solid rgba(255,255,255,.1);margin-top:40px;padding-top:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <span style="font-size:13px;color:rgba(255,255,255,.5);">© Министерство здравоохранения Республики Казахстан</span>
       <span style="font-size:13px;color:rgba(255,255,255,.4);">Версия портала 1.0 · Обновлено 24.06.2026</span>
     </div>
