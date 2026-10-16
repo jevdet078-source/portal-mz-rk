@@ -80,6 +80,14 @@
   .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .tnum{font-variant-numeric:tabular-nums;}
+  /* фильтры: строгая сетка — подписи в одну строку, поля на одной линии, кнопки на уровне полей */
+  .flt{background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:20px 24px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;align-items:start;}
+  .fld{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .f8{grid-column:span 8;} .f4{grid-column:span 4;} .f3{grid-column:span 3;}
+  .lbl{font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .flt-act{grid-column:span 6;display:flex;gap:8px;justify-content:flex-end;padding-top:26px;}
+  @media (max-width:1100px){ .f8{grid-column:span 7;} .f4{grid-column:span 5;} .f3{grid-column:span 6;} .flt-act{grid-column:1 / -1;padding-top:0;} }
+  @media (max-width:720px){ .flt{padding:16px;} .f8,.f4,.f3,.flt-act{grid-column:1 / -1;} .flt-act .btn{flex:1;} }
   @media (max-width:640px){ .arm-main{padding:16px 16px 96px !important;} .arm-pp{left:96px !important;right:16px;flex-wrap:wrap;} .arm-pp > div{flex-wrap:wrap;} }
 </style>
 </helmet>
@@ -107,17 +115,17 @@
             <sc-if value="{{ canCreate }}" hint-placeholder-val="{{ true }}"><a class="btn btn-p" href="Создание комиссии.dc.html"><i class="ri-add-line" style="font-size:20px;"></i>Создать комиссию</a></sc-if>
           </div>
 
-          <form onSubmit="{{ apply }}" role="search" aria-label="Фильтр комиссий" style="background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:20px 24px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;">
-            <div style="flex:2 1 300px;display:flex;flex-direction:column;gap:6px;min-width:0;">
-              <label for="fk-q" style="font-size:14px;line-height:20px;font-weight:500;">Поиск заявки</label>
+          <form class="flt" onSubmit="{{ apply }}" role="search" aria-label="Фильтр комиссий">
+            <div class="fld f8">
+              <label for="fk-q" class="lbl">Поиск заявки</label>
               <div style="position:relative;">
                 <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
-                <input id="fk-q" class="inp" type="search" value="{{ fq }}" onChange="{{ onQ }}" placeholder="ID, заявитель, торговое наименование" autoComplete="off" style="padding-left:40px;" />
+                <input id="fk-q" class="inp" type="search" value="{{ fq }}" onChange="{{ onQ }}" placeholder="№ комиссии или заявки, заявитель, торговое наименование" autoComplete="off" style="padding-left:40px;" />
               </div>
               <sc-if value="{{ qShort }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">Заявитель и торговое наименование — от 3 символов</span></sc-if>
             </div>
-            <div style="flex:1 1 200px;display:flex;flex-direction:column;gap:6px;min-width:0;">
-              <div id="fk-lbl-st" style="font-size:14px;line-height:20px;font-weight:500;">Статус</div>
+            <div class="fld f4">
+              <div id="fk-lbl-st" class="lbl">Статус</div>
               <div style="position:relative;">
                 <button type="button" class="inp sel" onClick="{{ toggleSt }}" aria-haspopup="listbox" aria-expanded="{{ stOpen }}" aria-labelledby="fk-lbl-st" style="padding-right:36px;">
                   <span class="clamp1" style="{{ stValStyle }}">{{ stDisplay }}</span>
@@ -125,7 +133,7 @@
                 </button>
                 <sc-if value="{{ stOpen }}" hint-placeholder-val="{{ false }}">
                   <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
-                  <div role="listbox" aria-labelledby="fk-lbl-st" style="position:absolute;left:0;top:calc(100% + 4px);z-index:25;width:240px;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
+                  <div role="listbox" aria-labelledby="fk-lbl-st" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:25;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
                     <sc-for list="{{ stOpts }}" as="o" hint-placeholder-count="4">
                       <button type="button" role="option" aria-selected="{{ o.on }}" class="opt" onClick="{{ o.pick }}"><span style="flex:1;">{{ o.label }}</span><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);"></i></sc-if></button>
                     </sc-for>
@@ -134,8 +142,8 @@
               </div>
             </div>
             <sc-for list="{{ dates }}" as="d" hint-placeholder-count="2">
-              <div style="flex:1 1 160px;max-width:200px;display:flex;flex-direction:column;gap:6px;min-width:0;">
-                <label for="{{ d.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ d.label }}</label>
+              <div class="fld f3">
+                <label for="{{ d.id }}" class="lbl">{{ d.label }}</label>
                 <div style="position:relative;">
                   <input id="{{ d.id }}" class="{{ d.cls }}" value="{{ d.value }}" onChange="{{ d.onChange }}" placeholder="дд.мм.гггг" inputMode="numeric" maxLength="10" autoComplete="off" aria-invalid="{{ d.invalid }}" style="padding-right:40px;" />
                   <button type="button" class="ib" onClick="{{ d.pick }}" aria-label="{{ d.pickLabel }}" style="position:absolute;right:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
@@ -144,7 +152,7 @@
                 <sc-if value="{{ d.hasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ d.err }}</span></sc-if>
               </div>
             </sc-for>
-            <div style="display:flex;gap:8px;padding-top:26px;margin-left:auto;">
+            <div class="flt-act">
               <button type="button" class="btn btn-g" onClick="{{ reset }}" disabled="{{ resetDisabled }}">Сбросить</button>
               <button type="submit" class="btn btn-p" disabled="{{ applyDisabled }}">Применить</button>
             </div>
@@ -157,7 +165,7 @@
 
           <div style="background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
             <div style="overflow-x:auto;">
-              <div role="table" aria-label="Комиссии" style="min-width:980px;">
+              <div role="table" aria-label="Комиссии" style="min-width:1090px;">
                 <div role="row" style="display:flex;background:var(--n100);">
                   <sc-for list="{{ cols }}" as="c" hint-placeholder-count="7"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
                 </div>
@@ -166,24 +174,24 @@
                 </sc-if>
                 <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
                   <div role="row" class="row" tabIndex="0" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="{{ r.rowStyle }}">
-                    <div role="cell" style="width:150px;flex:0 0 auto;padding:12px 10px 12px 20px;display:flex;align-items:center;gap:8px;">
+                    <div role="cell" style="width:136px;flex:0 0 auto;min-width:0;padding:12px 10px 12px 20px;display:flex;align-items:center;gap:8px;">
                       <span title="{{ r.taskTitle }}" style="{{ r.taskDot }}"></span>
-                      <a class="num tnum" href="{{ r.href }}" onClick="{{ r.link }}">{{ r.num }}</a>
+                      <a class="num tnum clamp1" href="{{ r.href }}" onClick="{{ r.link }}" title="{{ r.num }}" style="min-width:0;">{{ r.num }}</a>
                     </div>
-                    <div role="cell" style="width:160px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n600);">ЕД</div>
-                    <div role="cell" style="width:150px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.date }}</div>
-                    <div role="cell" style="width:80px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;" class="tnum" title="{{ r.objTitle }}">{{ r.objects }}</div>
-                    <div role="cell" style="flex:1 1 200px;min-width:0;padding:12px 10px;display:flex;align-items:center;">
+                    <div role="cell" style="width:164px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n600);">ЕД</div>
+                    <div role="cell" style="width:150px;flex:0 0 auto;padding:12px 10px;white-space:nowrap;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.date }}</div>
+                    <div role="cell" style="width:72px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;" class="tnum" title="{{ r.objTitle }}">{{ r.objects }}</div>
+                    <div role="cell" style="flex:1 0 228px;min-width:228px;padding:12px 10px;display:flex;align-items:center;gap:8px;">
                       <sc-for list="{{ r.people }}" as="p" hint-placeholder-count="5">
                         <span class="ava-s" style="{{ p.style }}">{{ p.ini }}<span class="ava-t">{{ p.tip }}</span></span>
                       </sc-for>
                       <sc-if value="{{ r.hasMore }}" hint-placeholder-val="{{ false }}"><span class="ava-s" style="{{ r.moreStyle }}">{{ r.more }}<span class="ava-t">{{ r.moreTip }}</span></span></sc-if>
                     </div>
-                    <div role="cell" style="width:190px;flex:0 0 auto;padding:12px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+                    <div role="cell" style="width:176px;flex:0 0 auto;padding:12px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;">
                       <span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span>
                       <sc-if value="{{ r.hasTimer }}" hint-placeholder-val="{{ false }}"><span class="tnum" title="{{ r.timerTitle }}" style="{{ r.timerStyle }}"><i class="{{ r.timerIcon }}" style="font-size:13px;"></i>{{ r.timer }}</span></sc-if>
                     </div>
-                    <div role="cell" style="width:160px;flex:0 0 auto;padding:12px 20px 12px 10px;"><span style="{{ r.voteStyle }}" class="tnum">{{ r.vote }}</span></div>
+                    <div role="cell" style="width:164px;flex:0 0 auto;padding:12px 20px 12px 10px;"><span style="{{ r.voteStyle }}" class="tnum">{{ r.vote }}</span></div>
                   </div>
                 </sc-for>
                 <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
@@ -330,11 +338,11 @@ class Component extends DCLogic {
     const per = s.per, pages = Math.max(1, Math.ceil(list.length / per)), page = Math.min(s.page, pages);
     const rows = list.slice((page - 1) * per, page * per).map(c => {
       const st = A.fkStatus(c, now);
-      const b = A.FK_TONE[st], t = ED.TONE[b];
+      const b = A.FK_TONE[st];
       const comp = A.fkComp(c);
-      const people = comp.slice(0, 6).map(u => { const av = A.avatar(u); const voted = A.fkVoted(c, u); return { ini:A.user(u).iin.slice(0, 2), tip:A.fkLabel(u) + (u === c.chair ? ' · председательствует' : '') + ' · ' + A.fkMemberState(c, u, now),
-        style:`width:30px;height:30px;margin-left:-6px;border-radius:50%;border:2px solid #fff;background:${u === c.chair ? '#312D86' : av[0]};color:${u === c.chair ? '#fff' : av[1]};font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;${voted && (st !== 'open') ? 'box-shadow:0 0 0 1.5px #38C793;' : ''}` }; });
-      if(people.length) people[0].style = people[0].style.replace('margin-left:-6px;', 'margin-left:0;');
+      const people = comp.slice(0, comp.length > 6 ? 5 : 6).map(u => { const av = A.avatar(u); const voted = A.fkVoted(c, u); return { ini:A.user(u).iin.slice(0, 2), tip:A.fkLabel(u) + (u === c.chair ? ' · председательствует' : '') + ' · ' + A.fkMemberState(c, u, now),
+        // кружки без наложения: проголосовавший — зелёное кольцо через белый зазор, председательствующий — тёмная заливка
+        style:`width:28px;height:28px;border-radius:50%;background:${u === c.chair ? '#312D86' : av[0]};color:${u === c.chair ? '#fff' : av[1]};font-size:11px;line-height:28px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:default;${voted && (st !== 'open') ? 'box-shadow:0 0 0 2px #fff,0 0 0 3.5px #38C793;' : ''}` }; });
       // статус голосования (табл. 1, п. 2.7)
       const isSecView = A.roleKey(me) === 'sec' || view === 'approval';
       const vote = isSecView ? A.fkVoteCount(c) + '/' + comp.length : A.fkMemberState(c, me, now);
@@ -349,11 +357,11 @@ class Component extends DCLogic {
       const href = 'Комиссия ФК.dc.html?id=' + encodeURIComponent(c.id) + '&from=' + view;
       const objs = c.objects.map(n => { const a = ED.get(n); return a ? ED.summary(a).trade : n; });
       return { num:A.fkNum(c), href, date:ED.fmtDT(c.start), objects:String(c.objects.length), objTitle:objs.join(', '), people,
-        hasMore: comp.length > 6, more:'+' + (comp.length - 6), moreTip: comp.slice(6).map(u => A.fkLabel(u)).join(', '),
-        moreStyle:'width:30px;height:30px;margin-left:-6px;border-radius:50%;border:2px solid #fff;background:#F6F8FA;color:#525866;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;',
-        badge:{ label:A.FK_LABEL[st], style:`display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 7px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`, dot:`width:6px;height:6px;border-radius:50%;background:${t.dot};` },
+        hasMore: comp.length > 6, more:'+' + (comp.length - 5), moreTip: comp.slice(5).map(u => A.fkLabel(u)).join(', '),
+        moreStyle:'width:28px;height:28px;border-radius:50%;border:1px dashed #CDD0D5;background:#fff;color:#525866;font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;cursor:default;',
+        badge: A.pill(A.FK_LABEL[st], b, { size:'sm' }),
         hasTimer, timer, timerStyle, timerTitle, timerIcon,
-        vote, voteStyle: vt ? `display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:${vt[0]};color:${vt[1]};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;` : 'font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;',
+        vote, voteStyle: vt ? `display:inline-flex;align-items:center;min-height:22px;padding:3px 8px;box-sizing:border-box;border-radius:999px;background:${vt[0]};color:${vt[1]};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;` : 'font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;',
         taskDot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${task ? '#4D42E9' : 'transparent'};`, taskTitle,
         aria:'Комиссия № ' + A.fkNum(c) + ', ' + A.FK_LABEL[st],
         open: () => { location.href = href; }, key:(e) => { if(e.key === 'Enter'){ e.preventDefault(); location.href = href; } }, link:(e) => { if(e) e.stopPropagation(); },
@@ -376,8 +384,8 @@ class Component extends DCLogic {
     if(F.from) chips.push({ label:'с ' + F.from, key:'from', val:'' });
     if(F.to) chips.push({ label:'по ' + F.to, key:'to', val:'' });
     const plural = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'комиссия' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'комиссии' : 'комиссий'; };
-    const hc = 'display:flex;align-items:center;padding:8px 10px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
-    const cols = [ ['№', 'width:150px;flex:0 0 auto;padding-left:20px;'], ['Наименование услуги', 'width:160px;flex:0 0 auto;'], ['Дата голосования', 'width:150px;flex:0 0 auto;'], ['ЛС/МИ', 'width:80px;flex:0 0 auto;'], ['Участники', 'flex:1 1 200px;min-width:0;'], ['Статус', 'width:190px;flex:0 0 auto;'], ['Статус голосования', 'width:160px;flex:0 0 auto;padding-right:20px;'] ].map(([label, st]) => ({ label, style: hc + st }));
+    const hc = 'display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:8px 10px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
+    const cols = [ ['№', 'width:136px;flex:0 0 auto;padding-left:20px;'], ['Наименование услуги', 'width:164px;flex:0 0 auto;'], ['Дата голосования', 'width:150px;flex:0 0 auto;'], ['ЛС/МИ', 'width:72px;flex:0 0 auto;'], ['Участники', 'flex:1 0 228px;min-width:228px;'], ['Статус', 'width:176px;flex:0 0 auto;'], ['Статус голосования', 'width:164px;flex:0 0 auto;padding-right:20px;'] ].map(([label, st]) => ({ label, style: hc + st }));
     const filteredOut = ready && !fail && !noAccess && all.length > 0 && list.length === 0;
     const E = fail ? { icon:'ri-wifi-off-line', title:'Не удалось загрузить комиссии', text:ED.FAIL_MSG, tone:'red', btn:'' }
       : noAccess ? { icon:'ri-lock-2-line', title:'Пункт «Согласование» недоступен', text:'Раздел есть только у ПФК или ЗПФК, выбранного председательствующим комиссии.', tone:'gray', btn:'' }

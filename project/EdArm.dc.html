@@ -157,10 +157,26 @@ const ARM = (() => {
     if(s === 'Завершено' && app.result === 'p7') return 'green';
     return NN_TONE[s] || 'gray';
   };
-  const nnBadge = (app, size) => {
-    const ED = E(), t = ED.TONE[nnTone(app)], sm = size === 'sm', label = nnStatus(app);
-    return { label, style:`display:inline-flex;align-items:center;gap:6px;height:${sm ? 22 : 24}px;padding:0 ${sm ? 8 : 10}px 0 ${sm ? 7 : 8}px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`, dot:`width:6px;height:6px;border-radius:50%;background:${t.dot};flex:0 0 auto;` };
+  // Метка статуса — единая для всех экранов АРМ. Ширина по содержимому (hug), отступы 4/10 px.
+  // o.wrap — максимум символов в строке: длинный статус («На согласовании у начальника управления»)
+  // делится на две ровные строки по ближайшему к середине пробелу, рамка облегает текст, точка — у первой строки.
+  const splitLabel = (label, max) => {
+    label = String(label || '');
+    if(!max || label.length <= max) return label;
+    const mid = label.length / 2;
+    let best = -1;
+    for(let i = 0; i < label.length; i++) if(label[i] === ' ' && (best === -1 || Math.abs(i - mid) < Math.abs(best - mid))) best = i;
+    return best === -1 ? label : label.slice(0, best) + '\n' + label.slice(best + 1);
   };
+  const pill = (label, tone, o) => {
+    o = o || {};
+    const ED = E(), t = ED.TONE[tone] || ED.TONE.gray, sm = o.size === 'sm', text = splitLabel(label, o.wrap);
+    const two = text.indexOf('\n') !== -1;
+    return { label:text,
+      style:`display:inline-flex;align-items:flex-start;gap:6px;max-width:100%;box-sizing:border-box;min-height:${sm ? 22 : 24}px;padding:${sm ? '3px 8px 3px 7px' : '4px 10px 4px 8px'};border-radius:${two ? 8 : 999}px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:pre-line;text-align:left;vertical-align:middle;`,
+      dot:`width:6px;height:6px;margin-top:5px;border-radius:50%;background:${t.dot};flex:0 0 auto;` };
+  };
+  const nnBadge = (app, size, wrap) => pill(nnStatus(app), nnTone(app), { size, wrap });
   // «Назначено на» (UC01.13.3 §4)
   const assigneeOf = (app) => {
     const n = app && app.nn || {};
@@ -825,7 +841,7 @@ const ARM = (() => {
     ROLE, STAFF, user, shortName, fullName, initials, roleKey, roleLabel, ofRole, fkLabel, avatar, CHIEF, DIR, DEP, CHAIR, SEC,
     current, setCurrent, emit,
     notifsFor, unreadFor, readNotif,
-    NN_FILTER, NN_STAGES, FINAL, nnStatus, nnStage, nnTone, nnBadge, assigneeOf, isApproval, apprStatus, pendingRec,
+    NN_FILTER, NN_STAGES, FINAL, nnStatus, nnStage, nnTone, nnBadge, pill, splitLabel, assigneeOf, isApproval, apprStatus, pendingRec,
     perm, nextOptions, assign, reassign, submit, approve, returnTo, confirmPay, profComplete, remarkSet, conclSave, conclEdit,
     FK_LABEL, FK_TONE, FK_ACTIVE, fkStatus, fkNum, fkList, fkGet, fkComp, fkVoted, fkVoteCount, fkMemberState, fkResults, freeObjects, commissionOf,
     fkCreate, fkSetMembers, fkVote, fkDecide, fkSign, fkTick, fkSkip,

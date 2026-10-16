@@ -39,12 +39,12 @@
       <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Уведомления</h1>
       <div style="font-size:14px;line-height:20px;color:#525866;">{{ who }}</div>
     </div>
-    <div role="tablist" aria-label="Фильтр уведомлений" style="display:flex;background:#F6F8FA;border-radius:10px;padding:3px;gap:2px;">
+    <div role="tablist" aria-label="Фильтр уведомлений" style="display:flex;background:#F6F8FA;border:1px solid #E2E4E9;border-radius:10px;padding:3px;gap:2px;">
       <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
         <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<sc-if value="{{ t.hasN }}" hint-placeholder-val="{{ false }}"><span style="{{ t.nStyle }}">{{ t.n }}</span></sc-if></button>
       </sc-for>
     </div>
-    <a class="nt-b" href="{{ closeHref }}" style="height:36px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Закрыть</a>
+    <a class="nt-b" href="{{ closeHref }}" style="height:40px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Закрыть</a>
   </div>
 
   <div style="background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
@@ -58,7 +58,7 @@
             <div role="cell" style="width:88px;flex:0 0 auto;padding:10px 12px 10px 20px;display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px;color:#525866;" class="tnum"><span style="{{ r.dot }}"></span>{{ r.n }}</div>
             <div role="cell" style="width:128px;flex:0 0 auto;padding:10px 12px;font-size:14px;line-height:20px;"><a class="nt-id tnum" href="{{ r.href }}" onClick="{{ r.openLink }}">{{ r.ref }}</a></div>
             <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:18px;color:#525866;">{{ r.svc }}</div>
-            <div role="cell" style="width:236px;flex:0 0 auto;padding:10px 12px;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
+            <div role="cell" style="width:220px;flex:0 0 auto;padding:10px 12px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
             <div role="cell" style="width:148px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;" class="tnum">{{ r.at }}</div>
             <div role="cell" style="flex:1;min-width:0;padding:10px 20px 10px 12px;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}">{{ r.text }}</span></div>
           </div>
@@ -104,8 +104,7 @@ class Component extends DCLogic {
     const TONE = { blue:'#4D42E9', green:'#38C793', red:'#DF1C41', yellow:'#F17B2C' };
     const badge = (x) => {
       const tone = x.kind === 'fk' ? ({ 'Открытая':'teal', 'Голосование':'blue', 'Принятие решения':'orange', 'На согласовании':'purple', 'Состоялась':'green', 'Не состоялась':'gray' }[x.status] || 'gray') : ({ 'Решение принято':'green' }[x.status] || (A.NN_FILTER.indexOf(x.status) !== -1 ? A.nnTone({ nn:{ status:x.status } }) : 'gray'));
-      const t = ED.TONE[tone] || ED.TONE.gray;
-      return { label:x.status || '—', style:`display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 7px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;`, dot:`width:6px;height:6px;border-radius:50%;background:${t.dot};flex:0 0 auto;` };
+      return A.pill(x.status || '—', tone, { size:'sm', wrap:24 });
     };
     const rows = list.slice((page - 1) * per, page * per).map(x => {
       const href = x.kind === 'fk' ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(x.ref) + '&from=notifications' : 'Карточка заявки ННЦРЗ.dc.html?n=' + x.ref;
@@ -119,14 +118,14 @@ class Component extends DCLogic {
         textStyle:`font-size:14px;line-height:20px;font-weight:${x.read ? 400 : 600};color:#0A0D14;` };
     });
     const hc = 'display:flex;align-items:center;padding:8px 12px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
-    const tabStyle = (on) => `height:30px;padding:0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#0A0D14;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const tabStyle = (on) => `height:32px;padding:0 10px 0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:background .15s,color .15s;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 0 0 1px #E2E4E9,0 2px 4px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     return {
       who: ready ? 'Получатель: ' + A.fullName(me) + ' · ' + A.roleLabel(me) : '',
       tabs: [ ['all', 'Все', all.length], ['unread', 'Непрочитанные', unread] ].map(([id, label, n]) => ({ label, on: s.tab === id, n:String(n), hasN: n > 0,
-        nStyle:`min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${id === 'unread' ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
+        nStyle:`min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${s.tab === id ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
         pick: () => this.setState({ tab:id, page:1 }), style: tabStyle(s.tab === id) })),
       closeHref: arm === 'fk' ? 'АРМ ФК.dc.html#active' : 'АРМ ННЦРЗ.dc.html#registry',
-      cols: [ ['№', 88, 20], ['ID заявки', 128], ['Наименование услуги', 200], ['Статус', 236], ['Дата действия', 148], ['Текст уведомления', 0] ].map(([label, w, pl]) => ({ label: arm === 'fk' && label === 'ID заявки' ? '№ комиссии' : label, style: hc + (w ? `width:${w}px;flex:0 0 auto;` : 'flex:1;min-width:0;') + (pl ? `padding-left:${pl}px;` : '') })),
+      cols: [ ['№', 88, 20], ['ID заявки', 128], ['Наименование услуги', 200], ['Статус', 220], ['Дата действия', 148], ['Текст уведомления', 0] ].map(([label, w, pl]) => ({ label: arm === 'fk' && label === 'ID заявки' ? '№ комиссии' : label, style: hc + (w ? `width:${w}px;flex:0 0 auto;` : 'flex:1;min-width:0;') + (pl ? `padding-left:${pl}px;` : '') })),
       rows, empty: ready && rows.length === 0, emptyTitle: s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Уведомлений пока нет',
       hasPager: list.length > per, range: ((page - 1) * per + 1) + '–' + Math.min(page * per, list.length) + ' из ' + list.length,
       pages: Array.from({ length:pages }, (_, i) => ({ n:String(i + 1), cur: i + 1 === page ? 'page' : 'false', aria:'Страница ' + (i + 1), go: () => this.setState({ page:i + 1 }) })),
