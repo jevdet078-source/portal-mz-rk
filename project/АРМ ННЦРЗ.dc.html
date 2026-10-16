@@ -184,7 +184,7 @@
           <!-- Таблица -->
           <div style="background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
             <div style="overflow-x:auto;">
-              <div role="table" aria-label="Заявки ЕД" style="min-width:1120px;">
+              <div role="table" aria-label="Заявки ЕД" style="min-width:1100px;">
                 <div role="row" style="display:flex;background:var(--n100);">
                   <sc-for list="{{ cols }}" as="c" hint-placeholder-count="9"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
                 </div>
@@ -208,10 +208,10 @@
                     <div role="cell" style="width:64px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.catStyle }}">{{ r.cat }}</span></div>
                     <div role="cell" style="width:104px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.sent }}</div>
                     <div role="cell" style="width:180px;flex:0 0 auto;padding:10px 8px;font-size:13px;line-height:18px;color:var(--n600);">{{ r.stage }}</div>
-                    <div role="cell" style="flex:1 1 170px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;font-weight:500;" title="{{ r.trade }}"><span class="clamp1" style="display:block;">{{ r.trade }}</span><span class="clamp1" style="display:block;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ r.org }}</span></div>
+                    <div role="cell" style="flex:1 1 150px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;font-weight:500;" title="{{ r.trade }}"><span class="clamp1" style="display:block;">{{ r.trade }}</span><span class="clamp1" style="display:block;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ r.org }}</span></div>
                     <div role="cell" style="width:112px;flex:0 0 auto;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);"><span class="clamp1" style="display:block;">{{ r.maker }}</span></div>
                     <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 8px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
-                    <div role="cell" style="width:140px;flex:0 0 auto;padding:10px 16px 10px 8px;"><span title="{{ r.timerTitle }}" style="{{ r.timerStyle }}">{{ r.timer }}</span></div>
+                    <div role="cell" style="width:132px;flex:0 0 auto;padding:10px 12px 10px 8px;"><span title="{{ r.timerTitle }}" style="{{ r.timerStyle }}">{{ r.timer }}</span></div>
                   </div>
                 </sc-for>
                 <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
@@ -427,7 +427,7 @@ class Component extends DCLogic {
     const tones = { red:['#FDEDF0','#DF1C41'], gray:['#F6F8FA','#868C98'], green:['#EFFAF6','#38C793'] };
 
     const hc = 'display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:8px 8px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
-    const cols = [ ['№ заявки', 'width:96px;flex:0 0 auto;padding-left:16px;'], ['Услуга', 'width:64px;flex:0 0 auto;'], ['ЛС/МИ', 'width:64px;flex:0 0 auto;'], ['Дата подачи', 'width:104px;flex:0 0 auto;'], ['Этап экспертизы', 'width:180px;flex:0 0 auto;'], ['Торговое наименование', 'flex:1 1 170px;min-width:0;'], ['Производитель', 'width:112px;flex:0 0 auto;'], ['Статус', 'width:200px;flex:0 0 auto;'], ['Осталось дней', 'width:140px;flex:0 0 auto;padding-right:16px;'] ]
+    const cols = [ ['№ заявки', 'width:96px;flex:0 0 auto;padding-left:16px;'], ['Услуга', 'width:64px;flex:0 0 auto;'], ['ЛС/МИ', 'width:64px;flex:0 0 auto;'], ['Дата подачи', 'width:104px;flex:0 0 auto;'], ['Этап экспертизы', 'width:180px;flex:0 0 auto;'], ['Торговое наименование', 'flex:1 1 150px;min-width:0;'], ['Производитель', 'width:112px;flex:0 0 auto;'], ['Статус', 'width:200px;flex:0 0 auto;'], ['Осталось дней', 'width:132px;flex:0 0 auto;padding-right:12px;'] ]
       .map(([label, st]) => ({ label, style: hc + st }));
     // выбранная вкладка — белая «таблетка» с рамкой и тенью, текст и счётчик в основном цвете; невыбранная — серый текст
     const tabStyle = (on) => `height:32px;padding:0 10px 0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 0 0 1px #E2E4E9,0 2px 4px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
