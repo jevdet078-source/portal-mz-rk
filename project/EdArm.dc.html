@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  АРМ экспертов услуги ЕД — «бэкенд» прототипа поверх EdData (window.mpEd).
+  Невизуальный компонент: подключается рядом с EdData (<dc-import name="EdData"> + <dc-import name="EdArm">),
+  кладёт API в window.mpArm и рассылает 'mp-arm-ready'; изменения — событие 'mp-arm-change'.
+
+  Источники: постановки UC01.13.3 «Обработка заявки АРМ ННЦРЗ (ЕД)» и UC01.13.4 «Обработка заявки
+  АРМ Формулярной комиссии (ЕД)» (Confluence, выгрузка 15.10.2026), BPMN 2.1–2.3 (04.10.2026) и 3 (02.10.2026),
+  образцы протоколов ФК и заключения по замечаниям.
+
+  Что здесь:
+    • сотрудники и роли (ROLE_NNCRZ_*, ROLE_FK_*), текущий пользователь АРМ — переключатель ролей
+      в шапке АРМ (localStorage['mp-arm-user-nn' | 'mp-arm-user-fk']);
+    • внутренний процесс ННЦРЗ на заявке (app.nn, v:2): «Назначено на», решения эксперта (app.nn.d),
+      маршрут согласования (НачУпр → ДирДеп → ЗПП → ПП), возврат на доработку, подтверждение оплаты,
+      замечания к полям; публичные переходы — через ACT из EdData после финальной подписи;
+    • хронология заявки (app.log) — сотрудники пишут строки при каждом действии;
+    • push-уведомления сотрудникам (UC01.13.3.2 и UC01.13.4.4, табл. 2) — localStorage['mp-arm-notifs'],
+      одно уведомление на сочетание «заявка/комиссия + событие + получатель»;
+    • Формулярная комиссия — localStorage['mp-fk-db']: комиссии, состав, таймеры ознакомления
+      и голосования, голоса, решение секретаря, подпись председательствующего, итог по объектам.
+
+  Демо: при первом запуске (и после «Сбросить данные») достраивает внутреннюю историю демо-заявок EdData
+  (кто назначен, кто решал, кто согласовал), заявки на согласовании и шесть комиссий во всех статусах.
+-->
+<x-dc>
+<div style="display:none;"></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:40}}">
+const ARM = (() => {
+  const UKEY = 'mp-arm-user-', NKEY = 'mp-arm-notifs', FKEY = 'mp-fk-db', SEEDKEY = 'mp-arm-seeded';
+  const FV = 2;
+  const HOUR = 36e5, MIN = 6e4;
+  const E = () => window.mpEd;
+
+  // ───────────────────────── сотрудники и роли ─────────────────────────
+  const ROLE = {
+    expert: { label:'Эксперт',                               code:'ROLE_NNCRZ_EXPERT',          arm:'nn', icon:'ri-user-search-line' },
+    prof:   { label:'Эксперт проф. экспертизы',               code:'ROLE_NNCRZ_PROF_EXPERT',     arm:'nn', icon:'ri-microscope-line' },
+    chief:  { label:'Начальник управления',                   code:'ROLE_NNCRZ_CHIEF',           arm:'nn', icon:'ri-user-star-line' },
+    dir:    { label:'Директор департамента',                  code:'ROLE_NNCRZ_DIRECTOR',        arm:'nn', icon:'ri-briefcase-line' },
+    dep:    { label:'Заместитель Председателя Правления',     code:'ROLE_NNCRZ_DEPUTY_CHAIRMAN', arm:'nn', icon:'ri-government-line', short:'ЗПП' },
+    chair:  { label:'Председатель Правления',                 code:'ROLE_NNCRZ_CHAIRMAN',        arm:'nn', icon:'ri-vip-crown-line', short:'ПП' },
+    sec:    { label:'Секретарь ФК',                           code:'ROLE_FK_COMMISSION_SECRETARY', arm:'fk', icon:'ri-file-edit-line' },
+    fkchair:{ label:'Председатель ФК',                        code:'CHAIR',                      arm:'fk', icon:'ri-vip-crown-line', short:'ПП ФК' },
+    fkdep:  { label:'Заместитель председателя ФК',            code:'DEPUTY',                     arm:'fk', icon:'ri-government-line', short:'ЗПФК' },
+    member: { label:'Член комиссии',                          code:'ROLE_FK_COMMISSION_MEMBER',  arm:'fk', icon:'ri-user-line' },
+  };
+  const STAFF = [
+    { id:'nn-exp1',  role:'expert', last:'Сагинов',     first:'Арман',   middle:'Ерланович',   iin:'880412300217' },
+    { id:'nn-exp2',  role:'expert', last:'Жумабекова',  first:'Динара',  middle:'Сериковна',   iin:'910825401336' },
+    { id:'nn-prof1', role:'prof',   last:'Касенова',    first:'Гульнара',middle:'Маратовна',   iin:'850207450128' },
+    { id:'nn-prof2', role:'prof',   last:'Нурланов',    first:'Тимур',   middle:'Бахытович',   iin:'870914301744' },
+    { id:'nn-chief', role:'chief',  last:'Омаров',      first:'Ерлан',   middle:'Болатович',   iin:'790318300512' },
+    { id:'nn-dir',   role:'dir',    last:'Касымова',    first:'Айгуль',  middle:'Нурлановна',  iin:'760521400925' },
+    { id:'nn-dep',   role:'dep',    last:'Бекова',      first:'Сауле',   middle:'Ахметовна',   iin:'740110401273' },
+    { id:'nn-chair', role:'chair',  last:'Ахметов',     first:'Нурлан',  middle:'Серикович',   iin:'690704300381' },
+    { id:'fk-sec',   role:'sec',    last:'Абдрахманова',first:'Жанна',   middle:'Сериковна',   iin:'900613401852' },
+    { id:'fk-chair', role:'fkchair',last:'Тулегенова',  first:'Алия',    middle:'Маратовна',   iin:'710930400466' },
+    { id:'fk-dep',   role:'fkdep',  last:'Ибраев',      first:'Данияр',  middle:'Кайратович',  iin:'750402300137' },
+    { id:'fk-m1',    role:'member', last:'Сериков',     first:'Аслан',   middle:'Бауыржанович',iin:'820115300654' },
+    { id:'fk-m2',    role:'member', last:'Мукашева',    first:'Лаура',   middle:'Ериковна',    iin:'860726400318' },
+    { id:'fk-m3',    role:'member', last:'Ким',         first:'Виктор',  middle:'Алексеевич',  iin:'780209300947' },
+    { id:'fk-m4',    role:'member', last:'Оспанова',    first:'Айнур',   middle:'Талгатовна',  iin:'890318401125' },
+    { id:'fk-m5',    role:'member', last:'Беркимбаев',  first:'Ержан',   middle:'Саматович',   iin:'930504300263' },
+  ].map(u => ({ ...u, arm: ROLE[u.role].arm }));
+  const byId = {}; STAFF.forEach(u => { byId[u.id] = u; });
+  const user = (id) => byId[id] || null;
+  const shortName = (id) => { const u = user(id); return u ? u.last + ' ' + u.first[0] + '. ' + (u.middle ? u.middle[0] + '.' : '') : ''; };
+  const fullName = (id) => { const u = user(id); return u ? [u.last, u.first, u.middle].join(' ') : ''; };
+  const initials = (id) => { const u = user(id); return u ? (u.last[0] + u.first[0]).toUpperCase() : ''; };
+  const roleKey = (id) => { const u = user(id); return u ? u.role : ''; };
+  const roleLabel = (id) => { const u = user(id); return u ? ROLE[u.role].label : ''; };
+  const ofRole = (r) => STAFF.filter(u => u.role === r).map(u => u.id);
+  const CHIEF = 'nn-chief', DIR = 'nn-dir', DEP = 'nn-dep', CHAIR = 'nn-chair', SEC = 'fk-sec';
+  // ПФК / ЗПФК в списках ФК — «Тулегенова А. М. (ПП ФК)» (UC01.13.4.3.1)
+  const fkLabel = (id) => { const u = user(id); if(!u) return ''; const r = ROLE[u.role]; return shortName(id) + (r.short ? ' (' + r.short + ')' : ''); };
+  const AVA = { expert:['#EEF2FF','#4D42E9'], prof:['#EBFAFF','#164564'], chief:['#EEEBFF','#6E3FF3'], dir:['#FEF3EB','#C2540A'], dep:['#EFFAF6','#176448'], chair:['#FDEDF0','#AF1D38'], sec:['#EEF2FF','#4D42E9'], fkchair:['#FDEDF0','#AF1D38'], fkdep:['#EEEBFF','#6E3FF3'], member:['#F6F8FA','#525866'] };
+  const avatar = (id) => { const u = user(id); return u ? AVA[u.role] : AVA.member; };
+
+  // текущий пользователь АРМ (по АРМ отдельно: ННЦРЗ и ФК)
+  const DEF = { nn:CHIEF, fk:SEC };
+  const current = (arm) => { let id = null; try { id = localStorage.getItem(UKEY + arm); } catch(e){} const u = user(id); return u && u.arm === arm ? id : DEF[arm]; };
+  const setCurrent = (id) => { const u = user(id); if(!u) return; try { localStorage.setItem(UKEY + u.arm, id); } catch(e){} emit(); };
+
+  // ───────────────────────── события ─────────────────────────
+  const emit = () => { try { window.dispatchEvent(new CustomEvent('mp-arm-change')); } catch(e){} };
+
+  // ───────────────────────── уведомления ─────────────────────────
+  const readNs = () => { try { const v = JSON.parse(localStorage.getItem(NKEY) || 'null'); if(Array.isArray(v)) return v; } catch(e){} return []; };
+  const writeNs = (l) => { try { localStorage.setItem(NKEY, JSON.stringify(l)); } catch(e){} emit(); };
+  let nBuf = null;
+  const batch = (fn) => { const own = !nBuf; if(own) nBuf = readNs(); try { fn(); } finally { if(own){ const l = nBuf; nBuf = null; writeNs(l); } } };
+  const NT = {
+    NEW:    { tone:'blue',   text:(r) => 'Поступило новое заявление № ' + r + '. Необходимо назначить эксперта.' },
+    ASSIGN: { tone:'blue',   text:(r) => 'Вам назначено заявление № ' + r + '. Необходимо приступить к рассмотрению.' },
+    APPROVE:{ tone:'blue',   text:(r) => 'Заявление № ' + r + ' ожидает согласования.' },
+    SIGN:   { tone:'green',  text:(r) => 'Заявление № ' + r + ' ожидает подписания.' },
+    PAY:    { tone:'green',  text:(r) => 'По заявлению № ' + r + ' поступил документ об оплате. Необходимо подтвердить.' },
+    FIXED:  { tone:'blue',   text:(r) => 'Заявление № ' + r + ' поступило после доработки.' },
+    ACT:    { tone:'blue',   text:(r) => 'По заявлению № ' + r + ' поступил подписанный акт.' },
+    OBJECT: { tone:'blue',   text:(r) => 'По заявлению № ' + r + ' поступило мотивированное возражение заявителя.' },
+    TIMEOUT:{ tone:'red',    text:(r) => 'По заявлению № ' + r + ' истёк срок отработки замечаний.' },
+    REWORK: { tone:'yellow', text:(r) => 'Заявление № ' + r + ' возвращено на доработку.' },
+    FK_NEW: { tone:'blue',   text:(r, o) => 'Создана комиссия № ' + r + ' на ' + o.when + '. Необходимо ознакомиться с досье в течение ' + o.left + '.' },
+    FK_ADD: { tone:'blue',   text:(r, o) => 'Вы были добавлены в комиссию № ' + r + ' на ' + o.when + '. Необходимо ознакомиться с досье в течение ' + o.left + '.' },
+    FK_DEL: { tone:'blue',   text:(r) => 'Вы были удалены из комиссии № ' + r + '. Вам больше недоступен просмотр этой комиссии.' },
+    FK_VOTE:{ tone:'blue',   text:(r) => 'Начато голосование по комиссии № ' + r + '. На голосование дается 1 час.' },
+    FK_COUNT:{ tone:'blue',  text:(r) => 'По комиссии № ' + r + ' проводится подсчет голосов и принимается решение.' },
+    FK_SIGN:{ tone:'blue',   text:(r) => 'Решение по комиссии № ' + r + ' принято. Подпишите комиссию.' },
+    FK_HELD:{ tone:'blue',   text:(r) => 'Комиссия № ' + r + ' состоялась.' },
+    FK_FAIL:{ tone:'blue',   text:(r) => 'Комиссия № ' + r + ' не состоялась.' },
+  };
+  // o: { kind:'app'|'fk', ref, label, code, status, at, dk, read, when, left }
+  const notify = (to, o) => {
+    if(!to || !user(to) || !NT[o.code]) return;
+    const own = !nBuf;
+    const l = nBuf || readNs();
+    const kind = o.kind || 'app';
+    const key = kind + ':' + o.ref + ':' + o.code + ':' + (o.dk || '') + ':' + to;
+    if(l.some(x => x.key === key)) return;                      // Alt 1 — дубликат не создаётся
+    const n = l.reduce((m, x) => Math.max(m, x.n || 0), 1000) + 1;
+    const label = o.label || o.ref;
+    l.unshift({ id:'an' + n, n, key, to, kind, ref:o.ref, label, code:o.code, status:o.status || '', text: NT[o.code].text(label, o), tone: NT[o.code].tone,
+      at: o.at || Date.now(), read: !!o.read, readAt: o.read ? (o.at || Date.now()) : null });
+    if(own) writeNs(l);
+  };
+  const notifsFor = (uid) => readNs().filter(x => x.to === uid).sort((a, b) => b.at - a.at || b.n - a.n);
+  const unreadFor = (uid) => readNs().filter(x => x.to === uid && !x.read).length;
+  const readNotif = (id) => { const l = readNs(); const x = l.find(y => y.id === id); if(x && !x.read){ x.read = true; x.readAt = Date.now(); writeNs(l); } };
+
+  // ───────────────────────── внутренние статусы ННЦРЗ ─────────────────────────
+  const NN_FILTER = ['Новая','В работе','На согласовании у начальника управления','На согласовании у директора департамента','На согласовании у ЗПП','На подписи у ЗПП','На подписи у ПП','На доработке','Проверка доработки','Подготовка документов','Ожидает оплаты 20%','Подтверждение оплаты 20%','Ожидает оплаты 80%','Подтверждение оплаты 80%','Выставлены замечания','Направлен акт','Отказано','Отказ от решения','Оплата не произведена','Формулярная комиссия','Решение принято','Рассмотрение заблокировано','Завершено'];
+  const NN_STAGES = ['Нулевая экспертиза','Первичная экспертиза','Профессиональная экспертиза','Рассмотрение формулярной комиссией'];
+  const NN_TONE = {
+    'Новая':'teal', 'Подтверждение оплаты 20%':'teal', 'Подтверждение оплаты 80%':'teal',
+    'В работе':'blue', 'Проверка доработки':'blue', 'Подготовка документов':'blue', 'Отказ от решения':'blue',
+    'На согласовании у начальника управления':'purple', 'На согласовании у директора департамента':'purple', 'На согласовании у ЗПП':'purple', 'На подписи у ЗПП':'purple', 'На подписи у ПП':'purple', 'Формулярная комиссия':'purple',
+    'На доработке':'orange',
+    'Ожидает оплаты 20%':'gray', 'Ожидает оплаты 80%':'gray', 'Выставлены замечания':'gray', 'Направлен акт':'gray', 'Завершено':'gray',
+    'Отказано':'red', 'Оплата не произведена':'red', 'Рассмотрение заблокировано':'red', 'Решение принято':'green',
+  };
+  const FINAL = ['Завершено','Отказано','Оплата не произведена','Рассмотрение заблокировано','Решение принято'];
+  const WAIT_APPLICANT = ['Ожидает оплаты 20%','Ожидает оплаты 80%','Выставлены замечания','Направлен акт'];
+  const nnStatus = (app) => (app && app.nn && app.nn.status) || 'Новая';
+  const nnStage = (app) => (app && app.nn && app.nn.stage) || 'Нулевая экспертиза';
+  const nnTone = (app) => {
+    const s = nnStatus(app);
+    if(s === 'Решение принято') return app.include === false ? 'red' : 'green';
+    if(s === 'Завершено' && app.result === 'p7') return 'green';
+    return NN_TONE[s] || 'gray';
+  };
+  const nnBadge = (app, size) => {
+    const ED = E(), t = ED.TONE[nnTone(app)], sm = size === 'sm', label = nnStatus(app);
+    return { label, style:`display:inline-flex;align-items:center;gap:6px;height:${sm ? 22 : 24}px;padding:0 ${sm ? 8 : 10}px 0 ${sm ? 7 : 8}px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`, dot:`width:6px;height:6px;border-radius:50%;background:${t.dot};flex:0 0 auto;` };
+  };
+  // «Назначено на» (UC01.13.3 §4)
+  const assigneeOf = (app) => {
+    const n = app && app.nn || {};
+    if(nnStage(app) === 'Рассмотрение формулярной комиссией') return { kind:'none', label:'—' };
+    if(n.assignee === 'applicant') return { kind:'applicant', label:'У заявителя в обработке' };
+    if(n.assignee && user(n.assignee)) return { kind:'staff', id:n.assignee, label:shortName(n.assignee), role:roleLabel(n.assignee) };
+    if(FINAL.indexOf(nnStatus(app)) !== -1) return { kind:'none', label:'—' };
+    if(nnStatus(app) === 'Новая') return { kind:'staff', id:CHIEF, label:shortName(CHIEF), role:roleLabel(CHIEF) };
+    return { kind:'none', label:'—' };
+  };
+  const APPROVAL = { 'chief:agree':'На согласовании у начальника управления', 'dir:agree':'На согласовании у директора департамента', 'dir:sign':'На согласовании у директора департамента', 'dep:agree':'На согласовании у ЗПП', 'dep:sign':'На подписи у ЗПП', 'chair:sign':'На подписи у ПП' };
+  const apprStatus = (next) => APPROVAL[roleKey(next.user) + ':' + next.mode] || 'На согласовании у начальника управления';
+  const isApproval = (status) => /^На (согласовании|подписи) у /.test(status || '');
+
+  // ───────────────────────── процесс ННЦРЗ на заявке ─────────────────────────
+  let rseq = 0;
+  const rid = () => 'r' + Date.now().toString(36) + (rseq++).toString(36);
+  const ensureNn = (app) => {
+    const n = app.nn = app.nn || {};
+    if(!Array.isArray(n.d)) n.d = [];
+    if(!n.rem) n.rem = { fields:{}, concl:null, saved:false, issued:false };
+    return n;
+  };
+  const setAssignee = (n, who, at) => { n.assignee = who; n.since = at; };
+  const chronoRole = (uid) => roleLabel(uid);
+  const logStaff = (app, H, uid, status, comment, at) => H.logPush(app, { role: chronoRole(uid), fio: fullName(uid), start: app.nn.since || at, end: at, status, comment: comment || '' });
+
+  // обёртка действия: техсбой, поиск заявки, одна запись в хранилище
+  const wf = (num, at, fn) => {
+    const ED = E();
+    at = at || Date.now();
+    if(ED.fail()) return { ok:false, err:ED.FAIL_MSG };
+    let err = '';
+    const r = ED.mutate(num, (app, ACT, H) => {
+      const n = ensureNn(app);
+      const e = fn(app, n, H, ACT, at);
+      if(typeof e === 'string'){ err = e; return false; }
+    }, at);
+    if(r) emit();
+    return r ? { ok:true, app:r } : { ok:false, err: err || 'Заявка не найдена' };
+  };
+
+  // Кто может что сделать с заявкой сейчас (UC01.13.3.3.*, UC01.13.3.4.*)
+  const perm = (app, uid) => {
+    const n = app && app.nn || {}, st = nnStatus(app), stg = nnStage(app), r = roleKey(uid);
+    const P = {};
+    if(!app || app.status === 'Черновик') return P;
+    const mine = n.assignee === uid;
+    const ret = n.ret ? (n.d || []).find(x => x.id === n.ret.rec) : null;
+    P.assign = st === 'Новая' && stg === 'Нулевая экспертиза' && r === 'chief';
+    P.assignProf = st === 'Новая' && stg === 'Профессиональная экспертиза' && r === 'chief';
+    P.reassign = r === 'chief' && ((stg === 'Первичная экспертиза' && (st === 'В работе' || st === 'Проверка доработки')) || (stg === 'Профессиональная экспертиза' && (st === 'В работе' || st === 'Подготовка документов')));
+    P.p7 = mine && stg === 'Нулевая экспертиза' && (st === 'В работе' || (st === 'На доработке' && ret && ret.kind === 'p7'));
+    P.pay20 = mine && st === 'Подтверждение оплаты 20%';
+    P.pay80 = mine && st === 'Подтверждение оплаты 80%';
+    P.primary = mine && stg === 'Первичная экспертиза' && (st === 'В работе' || st === 'Проверка доработки' || st === 'Отказ от решения' || (st === 'На доработке' && ret && ret.kind === 'primary'));
+    P.remarks = mine && stg === 'Первичная экспертиза' && !n.rem.issued && (st === 'В работе' || (st === 'На доработке' && ret && ret.kind === 'remarks'));
+    // проф. экспертиза: «Завершено» (новый срок 5 рабочих дней) — в первом раунде и во втором, после «Отказа от решения»
+    P.profComplete = mine && stg === 'Профессиональная экспертиза' && (st === 'В работе' || st === 'Отказ от решения');
+    P.prof = mine && stg === 'Профессиональная экспертиза' && (st === 'Подготовка документов' || (st === 'На доработке' && ret && ret.kind === 'prof'));
+    P.approve = isApproval(st) && !!n.next && n.next.user === uid;
+    P.signer = P.approve && n.next.mode === 'sign';
+    P.ret = P.approve;
+    P.any = Object.keys(P).some(k => k !== 'signer' && P[k]);
+    return P;
+  };
+  // Выбор следующего согласующего (UC01.13.3.3.2–3.3.5): эксперт → НачУпр (НачУпр-эксперт → ДирДеп) →
+  // ДирДеп → ЗПП (согласует / подписывает) или ПП (подписывает); ЗПП-согласующий → ПП.
+  // Счёт 20% («Не соответствует пункту 7») подписывает ДирДеп — до ПП заявка не идёт (табл. §5 UC01.13.3.3).
+  const pendingRec = (app) => { const n = app && app.nn; return n && n.pend ? (n.d || []).find(x => x.id === n.pend) : null; };
+  const nextOptions = (app, uid, rec) => {
+    rec = rec || pendingRec(app);
+    const r = roleKey(uid);
+    const p7no = rec && rec.kind === 'p7' && rec.val === 'no';
+    const O = (id, mode, label) => ({ user:id, mode, label: label || roleLabel(id), name: shortName(id) });
+    if(r === 'expert' || r === 'prof') return [ O(CHIEF, 'agree') ];
+    if(r === 'chief') return [ O(DIR, p7no ? 'sign' : 'agree') ];
+    if(r === 'dir') return p7no ? [] : [ O(DEP, 'agree', 'Заместитель Председателя Правления — согласующий'), O(DEP, 'sign', 'Заместитель Председателя Правления — подписывающий'), O(CHAIR, 'sign', 'Председатель Правления — подписывающий') ];
+    if(r === 'dep') return [ O(CHAIR, 'sign', 'Председатель Правления — подписывающий') ];
+    return [];
+  };
+
+  // ── назначение ──
+  const assign = (num, uid, target, at) => wf(num, at, (app, n, H, ACT, at) => {
+    if(nnStatus(app) !== 'Новая') return 'Заявка уже назначена';
+    const prof = nnStage(app) === 'Профессиональная экспертиза';
+    if(prof) n.prof = target; else n.expert = target;
+    H.nn(app, nnStage(app), 'В работе');
+    logStaff(app, H, uid, 'В работе', 'Назначен ответственный: ' + fullName(target), at);
+    setAssignee(n, target, at);
+    if(target !== uid) notify(target, { ref:app.num, code:'ASSIGN', status:'В работе', at, dk:at });
+  });
+  const reassign = (num, uid, target, at) => wf(num, at, (app, n, H, ACT, at) => {
+    const prof = nnStage(app) === 'Профессиональная экспертиза';
+    const old = prof ? n.prof : n.expert;
+    if(old === target) return 'Этот эксперт уже назначен';
+    if(prof) n.prof = target; else n.expert = target;
+    logStaff(app, H, uid, nnStatus(app), 'Переназначен ответственный: ' + (old ? fullName(old) + ' → ' : '') + fullName(target), at);
+    if(n.assignee === old) setAssignee(n, target, at);
+    if(target !== uid) notify(target, { ref:app.num, code:'ASSIGN', status:nnStatus(app), at, dk:at });
+  });
+
+  // ── решение эксперта (подписано ЭЦП) ──
+  // rec: { kind:'p7'|'primary'|'remarks'|'prof', round, val, comment, files:[{ title, name, size }], num, date, items, concl }
+  const submit = (num, uid, rec, next, at) => wf(num, at, (app, n, H, ACT, at) => {
+    const r = { id:rid(), ...rec, by:uid, at, chain:[ { user:uid, act:'exec', at } ], state:'approval', fin:null };
+    n.ret = null;
+    n.d.push(r);
+    if(rec.kind === 'primary' && rec.val === 'recommend'){
+      // «Рекомендовано» — счёт 80% уходит заявителю сразу (UC01.13.3.4.2.1), согласования нет
+      r.state = 'done'; r.fin = at;
+      const docs = (rec.files || []).map(f => ({ title:'Счёт на оплату 80%', id:'', name:f.name, size:f.size, amount: E().PRICE * 0.8 }));
+      if(nnStatus(app) === 'Отказ от решения') ACT.disputeAccept(app, at, { docs }); else ACT.recommend(app, at, { docs });
+      logStaff(app, H, uid, 'Ожидает оплаты 80%', 'Рекомендовано. Счёт на оплату 80% направлен заявителю', at);
+      setAssignee(n, 'applicant', at);
+      return;
+    }
+    if(!next || !next.user) return 'Выберите согласующего пользователя';
+    if(rec.kind === 'remarks') n.rem.saved = true;
+    n.pend = r.id; n.next = { user:next.user, mode:next.mode };
+    const st = apprStatus(n.next);
+    H.nn(app, nnStage(app), st);
+    const label = { p7: rec.val === 'yes' ? 'Соответствует пункту 7' : 'Не соответствует пункту 7. Приложен счёт на оплату 20%', primary:'Отказано. ' + (rec.comment || ''), remarks:'Сформированы замечания к заявке', prof:'Сформировано заключение профессиональной экспертизы' + (rec.num ? ' № ' + rec.num : '') }[rec.kind] || '';
+    logStaff(app, H, uid, st, label.trim(), at);
+    setAssignee(n, n.next.user, at);
+    notify(n.next.user, { ref:app.num, code: n.next.mode === 'sign' ? 'SIGN' : 'APPROVE', status:st, at, dk:r.id });
+  });
+
+  // финальная подпись маршрута — публичный переход через ACT из EdData
+  const finalize = (app, n, r, ACT, H, uid, at) => {
+    const ED = E();
+    const docs = (r.files || []).map(f => ({ title:f.title, id:'', name:f.name, size:f.size, amount:f.amount }));
+    let st = '';
+    if(r.kind === 'p7'){
+      if(r.val === 'yes'){ ACT.p7Yes(app, at); st = 'Завершено'; setAssignee(n, null, at); }
+      else { ACT.p7No(app, at, { docs: docs.map(d => ({ ...d, title:'Счёт на оплату 20%', amount: ED.PRICE * 0.2 })) }); st = 'Ожидает оплаты 20%'; setAssignee(n, 'applicant', at); }
+    } else if(r.kind === 'primary'){
+      if(r.round === 2) ACT.disputeReject(app, at, { docs, comment:r.comment }); else ACT.refuse(app, at, { docs, comment:r.comment });
+      st = 'Направлен акт'; setAssignee(n, 'applicant', at);
+    } else if(r.kind === 'remarks'){
+      ACT.remarks(app, at, { items:r.items, docs }); st = 'Выставлены замечания'; n.rem.issued = true; setAssignee(n, 'applicant', at);
+    } else if(r.kind === 'prof'){
+      if(r.round === 2) ACT.disputeReject(app, at, { docs }); else ACT.profDone(app, at, { docs });
+      st = 'Направлен акт'; setAssignee(n, 'applicant', at);
+    }
+    H.logPush(app, { role:chronoRole(uid), fio:fullName(uid), start: n.since0 || at, end:at, status:st, comment:'Подписано ЭЦП' });
+  };
+
+  // ── согласование / подпись руководством ──
+  const approve = (num, uid, choice, at) => wf(num, at, (app, n, H, ACT, at) => {
+    const r = pendingRec(app);
+    if(!r || !n.next || n.next.user !== uid) return 'Действие недоступно другой роли';
+    const mode = n.next.mode;
+    r.chain.push({ user:uid, act: mode === 'sign' ? 'sign' : 'agree', at });
+    if(mode === 'sign'){
+      r.state = 'done'; r.fin = at; n.pend = null; n.next = null; n.since0 = n.since;
+      finalize(app, n, r, ACT, H, uid, at);
+      return;
+    }
+    if(!choice || !choice.user) return 'Выберите следующего согласующего';
+    n.next = { user:choice.user, mode:choice.mode };
+    const st = apprStatus(n.next);
+    H.nn(app, nnStage(app), st);
+    logStaff(app, H, uid, st, 'Согласовано', at);
+    setAssignee(n, n.next.user, at);
+    notify(n.next.user, { ref:app.num, code: n.next.mode === 'sign' ? 'SIGN' : 'APPROVE', status:st, at, dk:r.id + ':' + n.next.user });
+  });
+  // ── возврат эксперту на доработку (UC01.13.3.3.6, Alt 3 в UC01.13.3.3.2–3.3.5) ──
+  const returnTo = (num, uid, comment, at) => wf(num, at, (app, n, H, ACT, at) => {
+    const r = pendingRec(app);
+    if(!r || !n.next || n.next.user !== uid) return 'Действие недоступно другой роли';
+    if(!String(comment || '').trim()) return 'Необходимо указать причину направления на доработку';
+    r.state = 'returned'; r.chain.push({ user:uid, act:'return', at, comment });
+    n.pend = null; n.next = null; n.ret = { by:uid, at, comment, rec:r.id };
+    if(r.kind === 'remarks') n.rem.saved = false;
+    H.nn(app, nnStage(app), 'На доработке');
+    logStaff(app, H, uid, 'На доработке', comment, at);
+    setAssignee(n, r.by, at);
+    notify(r.by, { ref:app.num, code:'REWORK', status:'На доработке', at, dk:r.id });
+  });
+
+  // ── подтверждение оплаты 20% / 80% ──
+  const confirmPay = (num, uid, pct, yes, comment, file, at) => wf(num, at, (app, n, H, ACT, at) => {
+    const kind = 'pay' + pct, since0 = n.since;
+    if(nnStatus(app) !== 'Подтверждение оплаты ' + pct + '%') return 'Оплата уже обработана';
+    const round = n.d.filter(x => x.kind === kind).length + 1;
+    n.d.push({ id:rid(), kind, round, val: yes ? 'yes' : 'no', comment: comment || '', files: file ? [file] : [], by:uid, at, state:'done', fin:at, chain:[ { user:uid, act:'exec', at } ] });
+    let st;
+    if(yes){
+      if(pct === 20){ ACT.confirm20(app, at); st = 'В работе'; setAssignee(n, n.expert || uid, at); }
+      else { ACT.confirm80(app, at); st = 'Новая'; n.prof = null; setAssignee(n, CHIEF, at); }
+    } else {
+      ACT.payNo(app, at, { pct, comment, file });
+      st = nnStatus(app);
+      setAssignee(n, st === 'Оплата не произведена' ? null : 'applicant', at);
+    }
+    H.logPush(app, { role:chronoRole(uid), fio:fullName(uid), start:since0 || at, end:at, status:st, comment: yes ? 'Оплата ' + pct + '% подтверждена' : 'Оплата ' + pct + '% не подтверждена: ' + comment });
+  });
+
+  // ── проф. экспертиза: «Завершено» — новый срок 5 рабочих дней на документы ──
+  const profComplete = (num, uid, at) => wf(num, at, (app, n, H, ACT, at) => {
+    if((nnStatus(app) !== 'В работе' && nnStatus(app) !== 'Отказ от решения') || nnStage(app) !== 'Профессиональная экспертиза') return 'Действие недоступно';
+    ACT.profFinish(app, at);
+    logStaff(app, H, uid, 'Подготовка документов', 'Профессиональная экспертиза завершена. Срок подготовки документов — 5 рабочих дней', at);
+    n.since = at;
+  });
+
+  // ── замечания к полям (черновик до отправки, UC01.13.3.4.2.3) ──
+  const remarkSet = (num, key, label, text, at) => wf(num, at, (app, n) => {
+    if(String(text || '').trim()) n.rem.fields[key] = { label, text:String(text).trim(), at: at || Date.now() };
+    else delete n.rem.fields[key];
+  });
+  const conclSave = (num, concl, at) => wf(num, at, (app, n) => { n.rem.concl = { ...concl }; n.rem.saved = true; });
+  const conclEdit = (num, at) => wf(num, at, (app, n) => { n.rem.saved = false; });
+
+  // ───────────────────────── Формулярная комиссия ─────────────────────────
+  const FK_LABEL = { open:'Открытая', voting:'Голосование', decision:'Принятие решения', approval:'На согласовании', held:'Состоялась', failed:'Не состоялась' };
+  const FK_TONE = { open:'teal', voting:'blue', decision:'orange', approval:'purple', held:'green', failed:'gray' };
+  const FK_ACTIVE = ['open','voting','decision','approval'];
+  let fcache = null;
+  const readF = () => {
+    if(fcache) return fcache;
+    try { const v = JSON.parse(localStorage.getItem(FKEY) || 'null'); if(v && v.v === FV && Array.isArray(v.list)){ fcache = v; return v; } } catch(e){}
+    fcache = { v:FV, seq:0, sid:'', list:[] };
+    return fcache;
+  };
+  const writeF = (db, silent) => { fcache = db; try { localStorage.setItem(FKEY, JSON.stringify(db)); } catch(e){} if(!silent) emit(); };
+  const fkStatus = (c, now) => {
+    now = now || Date.now();
+    if(c.signed) return 'held';
+    if(c.dec) return c.dec.held ? 'approval' : 'failed';
+    if(now < c.reviewEnd) return 'open';
+    if(now < c.voteEnd) return 'voting';
+    return 'decision';
+  };
+  const fkNum = (c) => c.signed && c.dec && c.dec.protocol ? c.dec.protocol : c.num;   // после «Состоялась» — № протокола
+  const fkList = () => readF().list.slice().sort((a, b) => b.created - a.created);
+  const fkGet = (id) => readF().list.find(c => c.id === id) || null;
+  const fkComp = (c) => [c.chair].concat(c.members);
+  const fkVoted = (c, uid) => !!(c.votes && c.votes[uid]);
+  const fkVoteCount = (c) => fkComp(c).filter(u => fkVoted(c, u)).length;
+  // статус голосования участника (UC01.13.4.2, табл. 1, п. 2.7)
+  const fkMemberState = (c, uid, now) => {
+    if(fkVoted(c, uid)) return 'Проголосовал';
+    const s = fkStatus(c, now);
+    return s === 'open' || s === 'voting' ? 'Ожидает голоса' : 'Не проголосовал';
+  };
+  // итог по объектам; при равенстве голос председательствующего усиливается на 1 (UC01.13.4.3.4 п. 11)
+  const fkResults = (c) => {
+    const out = {};
+    c.objects.forEach(num => {
+      let f = 0, a = 0, none = 0;
+      fkComp(c).forEach(u => { const v = c.votes && c.votes[u] && c.votes[u].v[num]; if(v === 'for') f++; else if(v === 'against') a++; else none++; });
+      let F = f, A = a, tie = false;
+      if(f === a){ tie = true; const cv = c.votes && c.votes[c.chair] && c.votes[c.chair].v[num]; if(cv === 'for') F++; else if(cv === 'against') A++; }
+      out[num] = { for:f, against:a, none, include: F > A, tie };
+    });
+    return out;
+  };
+  const busyObjects = () => { const s = {}; readF().list.forEach(c => { const st = fkStatus(c); if(FK_ACTIVE.indexOf(st) !== -1 || st === 'held') c.objects.forEach(n => { s[n] = c.id; }); }); return s; };
+  // свободные объекты: этап ФК, статус «Формулярная комиссия», не заняты активной комиссией и не обработаны состоявшейся
+  const freeObjects = () => { const busy = busyObjects(); return E().listAll().filter(a => a.status === 'Формулярная комиссия' && !busy[a.num]); };
+  const commissionOf = (num) => { const l = fkList().filter(c => c.objects.indexOf(num) !== -1); return l.length ? l[0] : null; };
+  const fkWhen = (c) => E().fmtDT(c.start);
+  const fkLeft = (c, now) => E().fmtRemain(Math.max(0, c.reviewEnd - (now || Date.now())));
+
+  const fkCreate = (o, at) => {
+    const ED = E();
+    if(ED.fail()) return { ok:false, err:ED.FAIL_MSG };
+    at = at || Date.now();
+    const db = readF();
+    db.seq = (db.seq || 0) + 1;
+    const fast = ED.fast();
+    const c = { id:'c' + db.seq + '-' + at.toString(36), num:String(db.seq).padStart(7, '0'), svc:'ЕД', created:at, by:o.by, start:o.start, dur:1,
+      chair:o.chair, members:o.members.filter(u => u !== o.chair), objects:o.objects.slice(),
+      reviewEnd: fast ? at + 3 * MIN : o.start, voteEnd: fast ? at + 5 * MIN : o.start + HOUR, fast,
+      votes:{}, dec:null, signed:null, results:null, notified:{}, changes:[] };
+    if(fast) c.start = c.reviewEnd;
+    db.list.push(c);
+    writeF(db, true);
+    batch(() => fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_NEW', status:FK_LABEL.open, at, when:fkWhen(c), left:fkLeft(c, at) })));
+    emit();
+    return { ok:true, c };
+  };
+  const fkMutate = (id, fn) => {
+    const ED = E();
+    if(ED.fail()) return { ok:false, err:ED.FAIL_MSG };
+    const db = readF(); const c = db.list.find(x => x.id === id);
+    if(!c) return { ok:false, err:'Комиссия не найдена' };
+    let err = '';
+    const e = fn(c);
+    if(typeof e === 'string') return { ok:false, err:e };
+    writeF(db);
+    return { ok:true, c };
+  };
+  const fkSetMembers = (id, uid, members, reason, at) => fkMutate(id, (c) => {
+    at = at || Date.now();
+    if(fkStatus(c, at) !== 'open') return 'Состав можно изменить только в статусе «Открытая»';
+    const next = members.filter(u => u !== c.chair);
+    if(!next.length) return 'Выберите хотя бы одного участника';
+    const added = next.filter(u => c.members.indexOf(u) === -1), removed = c.members.filter(u => next.indexOf(u) === -1);
+    c.members = next;
+    c.changes.push({ at, by:uid, added, removed, reason: reason || '' });
+    batch(() => {
+      added.forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_ADD', status:FK_LABEL.open, at, dk:at, when:fkWhen(c), left:fkLeft(c, at) }));
+      removed.forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_DEL', status:FK_LABEL.open, at, dk:at }));
+    });
+  });
+  const fkVote = (id, uid, votes, at) => fkMutate(id, (c) => {
+    at = at || Date.now();
+    if(fkStatus(c, at) !== 'voting') return 'Голосование сейчас недоступно';
+    if(fkComp(c).indexOf(uid) === -1) return 'Участник не включен в комиссию';
+    if(fkVoted(c, uid)) return 'Голос уже подписан ЭЦП';
+    if(c.objects.some(n => votes[n] !== 'for' && votes[n] !== 'against')) return 'Проголосуйте по каждому объекту';
+    c.votes[uid] = { at, v:{ ...votes } };
+  });
+  const fkDecide = (id, uid, held, protocol, at) => {
+    at = at || Date.now();
+    const r = fkMutate(id, (c) => {
+      if(fkStatus(c, at) !== 'decision') return 'Решение доступно только в статусе «Принятие решения»';
+      if(held && !String(protocol || '').trim()) return 'Укажите № протокола';
+      c.dec = { held:!!held, at, by:uid, protocol: held ? String(protocol).trim() : '' };
+      batch(() => {
+        if(held) notify(c.chair, { kind:'fk', ref:c.id, label:c.num, code:'FK_SIGN', status:FK_LABEL.approval, at });
+        else fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_FAIL', status:FK_LABEL.failed, at }));
+      });
+    });
+    if(r.ok && !held){
+      // «Не состоялась» — объекты возвращаются в список для новой комиссии, заявки остаются «Формулярная комиссия»
+      const c = r.c;
+      E().mutateAll((apps, ACT, H) => { apps.forEach(app => { if(c.objects.indexOf(app.num) !== -1){ ACT.fkFailed(app, at, { comm:c.num }); H.logPush(app, { role:'Секретарь ФК', fio:fullName(uid), start:c.created, end:at, status:'Формулярная комиссия', comment:'Комиссия № ' + c.num + ' не состоялась' }); app.updated = at; } }); });
+    }
+    return r;
+  };
+  const fkSign = (id, uid, at) => {
+    at = at || Date.now();
+    const r = fkMutate(id, (c) => {
+      if(fkStatus(c, at) !== 'approval') return 'Подпись доступна только в статусе «На согласовании»';
+      if(c.chair !== uid) return 'Подписывает председательствующий комиссии';
+      c.results = fkResults(c);
+      c.signed = { at, by:uid };
+      batch(() => fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:fkNum(c), code:'FK_HELD', status:FK_LABEL.held, at })));
+    });
+    if(r.ok){
+      const c = r.c;
+      E().mutateAll((apps, ACT, H) => {
+        apps.forEach(app => {
+          if(c.objects.indexOf(app.num) === -1) return;
+          const res = c.results[app.num];
+          ACT.fkDecide(app, at, { include:res.include, protocol:c.dec.protocol, comm:c.num });
+          const n = ensureNn(app);
+          n.fk = { comm:c.num, id:c.id, protocol:c.dec.protocol, at, include:res.include, tally:res };
+          setAssignee(n, null, at);
+          H.logPush(app, { role:'Председательствующий ФК', fio:fullName(uid), start:c.dec.at, end:at, status:'Решение принято', comment:(res.include ? 'Включить в перечень ЕД' : 'Не включать в перечень ЕД') + '. Протокол № ' + c.dec.protocol });
+          app.updated = at;
+        });
+      });
+    }
+    return r;
+  };
+  // системные переходы комиссии: начало голосования и подсчёт голосов — уведомления (табл. 2, п. 4–5)
+  const fkTick = () => {
+    const db = readF(); const now = Date.now(); let ch = false;
+    db.list.forEach(c => {
+      const st = fkStatus(c, now);
+      c.notified = c.notified || {};
+      if((st === 'voting' || st === 'decision' || c.dec) && !c.notified.vote && now >= c.reviewEnd){
+        c.notified.vote = true; ch = true;
+        batch(() => fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_VOTE', status:FK_LABEL.voting, at:c.reviewEnd })));
+      }
+      if((st === 'decision' || c.dec) && !c.notified.count && now >= c.voteEnd){
+        c.notified.count = true; ch = true;
+        batch(() => fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_COUNT', status:FK_LABEL.decision, at:c.voteEnd })));
+      }
+    });
+    if(ch) writeF(db);
+  };
+  // прототип: сдвинуть таймеры комиссии
+  const fkSkip = (id, what) => fkMutate(id, (c) => {
+    const now = Date.now();
+    if(what === 'review'){ if(fkStatus(c, now) !== 'open') return 'Ознакомление уже завершено'; const d = c.voteEnd - c.reviewEnd; c.reviewEnd = now + 2000; c.voteEnd = c.reviewEnd + Math.min(d, 2 * MIN); c.start = c.reviewEnd; }
+    if(what === 'vote'){ if(fkStatus(c, now) !== 'voting') return 'Голосование сейчас не идёт'; c.voteEnd = now + 2000; }
+  });
+
+  // ───────────────────────── задачи пользователя ─────────────────────────
+  const nnTasks = (uid) => E().listAll().filter(a => a.status !== 'Черновик' && a.nn && a.nn.assignee === uid && FINAL.indexOf(nnStatus(a)) === -1);
+  const fkTasks = (uid) => {
+    const now = Date.now(), r = roleKey(uid);
+    return readF().list.filter(c => {
+      const st = fkStatus(c, now);
+      if(r === 'sec') return st === 'decision';
+      if(st === 'approval' && c.chair === uid) return true;
+      return st === 'voting' && fkComp(c).indexOf(uid) !== -1 && !fkVoted(c, uid);
+    });
+  };
+  const taskCount = (uid) => { const u = user(uid); if(!u) return 0; return u.arm === 'nn' ? nnTasks(uid).length : fkTasks(uid).length; };
+
+  // ───────────────────────── демо: внутренняя история заявок EdData ─────────────────────────
+  // Для демо-заявок EdData восстанавливает, кто назначал, решал и согласовывал, и строит хронологию.
+  const derive = (app, H) => {
+    const ED = E();
+    const n = ensureNn(app);
+    if(n.v === 2) return;
+    n.v = 2;
+    if(!app.steps || !app.steps.length) return;
+    const odd = parseInt(app.num, 10) % 2 === 1;
+    const exp = odd ? 'nn-exp1' : 'nn-exp2', prof = odd ? 'nn-prof1' : 'nn-prof2';
+    const st = nnStatus(app), stg = nnStage(app);
+    const L = [];
+    const org = H.orgOf(app);
+    const applicantFio = (app.signer && app.signer.fio) || [org.last, org.first, org.middle].join(' ');
+    const A = (start, end, status, comment) => L.push({ role:'Заявитель (' + org.org + ')', fio:applicantFio, start, end, status, comment });
+    const S = (uid, start, end, status, comment) => L.push({ role:chronoRole(uid), fio:fullName(uid), start, end, status, comment: comment || '' });
+    const Y = (start, end, status, comment) => L.push({ role:'Система', fio:'', start, end, status, comment });
+    const mkRec = (o) => { const r = { id:rid(), state:'done', ...o }; n.d.push(r); return r; };
+    // маршрут: эксперт (t0) → НачУпр → ДирДеп → [ПП] (tEnd)
+    const route = (by, t0, tEnd, toChair) => {
+      const t1 = t0 + (tEnd - t0) * 0.35, t2 = t0 + (tEnd - t0) * (toChair ? 0.7 : 1);
+      const chain = [ { user:by, act:'exec', at:t0 }, { user:CHIEF, act:'agree', at:t1 }, { user:DIR, act: toChair ? 'agree' : 'sign', at:t2 } ];
+      if(toChair) chain.push({ user:CHAIR, act:'sign', at:tEnd });
+      return chain;
+    };
+    const routeLog = (by, chain, finalStatus, comment) => {
+      S(by, chain[0].at - 6 * HOUR, chain[0].at, 'На согласовании у начальника управления', comment);
+      S(CHIEF, chain[0].at, chain[1].at, 'На согласовании у директора департамента', 'Согласовано');
+      if(chain.length === 4){ S(DIR, chain[1].at, chain[2].at, 'На подписи у ПП', 'Согласовано'); S(CHAIR, chain[2].at, chain[3].at, finalStatus, 'Подписано ЭЦП'); }
+      else S(DIR, chain[1].at, chain[2].at, finalStatus, 'Подписано ЭЦП');
+    };
+    const f = (title, d) => d ? { title, name:d.name, size:d.size, amount:d.amount } : null;
+    const sentAt = app.sentAt || app.created;
+    A(app.created, sentAt, 'Новая', 'Заявление подписано ЭЦП и отправлено');
+    const assigned = st !== 'Новая' || stg !== 'Нулевая экспертиза';
+    const tAssign = sentAt + Math.min(2 * HOUR, Math.max(MIN, ((app.steps[1] && (app.steps[1].issued || app.steps[1].at)) || Date.now()) - sentAt) * 0.1);
+    if(assigned){ n.expert = exp; S(CHIEF, sentAt, tAssign, 'В работе', 'Назначен ответственный: ' + fullName(exp)); }
+    let profAssigned = false;
+    app.steps.forEach((s, i) => {
+      const prev = app.steps[i - 1];
+      if(s.kind === 'pay20' && s.round !== 2){
+        const tEnd = s.issued, t0 = Math.max(tAssign + 10 * MIN, tEnd - 20 * HOUR);
+        const chain = route(exp, t0, tEnd, false);
+        mkRec({ kind:'p7', round:1, val:'no', files:[ f('Счёт на оплату 20%', s.docs[0]) ].filter(Boolean), by:exp, at:t0, chain, fin:tEnd });
+        routeLog(exp, chain, 'Ожидает оплаты 20%', 'Не соответствует пункту 7. Приложен счёт на оплату 20%');
+      }
+      if((s.kind === 'pay20' || s.kind === 'pay80') && s.file) A(s.issued, s.at, 'Подтверждение оплаты ' + (s.kind === 'pay20' ? 20 : 80) + '%', 'Загружено платёжное поручение');
+      if(s.kind === 'done' && s.variant === 'p7'){
+        const tEnd = s.at, t0 = Math.max(tAssign + 10 * MIN, tEnd - 30 * HOUR);
+        const chain = route(exp, t0, tEnd, true);
+        mkRec({ kind:'p7', round:1, val:'yes', files:[], by:exp, at:t0, chain, fin:tEnd });
+        routeLog(exp, chain, 'Завершено', 'Соответствует пункту 7');
+      }
+      if(s.kind === 'wait' && s.phase === 'primary' && s.st !== 'Подтверждение оплаты 20%' && prev && prev.kind === 'pay20' && s.timer){
+        mkRec({ kind:'pay20', round:1, val:'yes', comment:'', files:[], by:exp, at:s.timer.start, chain:[ { user:exp, act:'exec', at:s.timer.start } ], fin:s.timer.start });
+        S(exp, s.at, s.timer.start, 'В работе', 'Оплата 20% подтверждена');
+      }
+      if(s.kind === 'remarks'){
+        const tEnd = s.issued, t0 = tEnd - 26 * HOUR;
+        const chain = route(exp, t0, tEnd, true);
+        const fields = {};
+        (s.items || []).forEach((t, k) => { const m = /^([^:]{3,120}):\s*(.+)$/.exec(t); fields['seed' + k] = m ? { label:m[1], text:m[2], at:t0 } : { label:'Заявление', text:t, at:t0 }; });
+        const concl = { num:'ЗПЭ-' + app.num, date:ED.fmtD(t0), text:'По результатам проверки на полноту и правильность оформления представленных документов выявлены замечания, указанные в разделе 4 настоящего заключения.', letter:null };
+        mkRec({ kind:'remarks', round:1, items:s.items || [], fields, concl, files:s.docs.map(d => f(d.title, d)), by:exp, at:t0, chain, fin:tEnd });
+        n.rem = { fields, concl, saved:true, issued:true };
+        routeLog(exp, chain, 'Выставлены замечания', 'Сформированы замечания к заявке');
+        if(s.reply) A(tEnd, s.at, 'Проверка доработки', s.reply.text || 'Направлены исправления по замечаниям');
+      }
+      if(s.kind === 'refuse'){
+        const tEnd = s.issued, t0 = tEnd - 28 * HOUR;
+        const chain = route(exp, t0, tEnd, true);
+        mkRec({ kind:'primary', round:s.round || 1, val:'refuse', comment:s.comment || 'Мотивированный отказ в проведении профессиональной экспертизы.', files:s.docs.map(d => f(d.title, d)), by:exp, at:t0, chain, fin:tEnd });
+        routeLog(exp, chain, 'Направлен акт', 'Отказано');
+        if(s.reply) A(tEnd, s.at, s.round === 2 || s.reply.agree ? 'Отказано' : 'Отказ от решения', s.round === 2 ? 'Загружен документ по повторному решению' : s.reply.agree ? 'Согласен — загружен подписанный акт' : 'Не согласен — загружено мотивированное возражение');
+      }
+      if(s.kind === 'pay80' && s.round !== 2){
+        const r2 = prev && prev.kind === 'wait' && prev.phase === 'dispute1';
+        mkRec({ kind:'primary', round: r2 ? 2 : 1, val:'recommend', files:[ f('Счёт на оплату 80%', s.docs[0]) ].filter(Boolean), by:exp, at:s.issued, chain:[ { user:exp, act:'exec', at:s.issued } ], fin:s.issued });
+        S(exp, s.issued - 20 * HOUR, s.issued, 'Ожидает оплаты 80%', 'Рекомендовано. Счёт на оплату 80% направлен заявителю');
+      }
+      if(s.kind === 'wait' && s.phase === 'prof' && prev && prev.kind === 'pay80' && (s.timer || s.timer30)){
+        const t = (s.timer30 || s.timer).start;
+        mkRec({ kind:'pay80', round:1, val:'yes', comment:'', files:[], by:exp, at:t, chain:[ { user:exp, act:'exec', at:t } ], fin:t });
+        S(exp, s.at, t, 'Новая', 'Оплата 80% подтверждена');
+        const later = s.timer30 || s.st === 'Завершено' || app.steps.length > i + 1 || st !== 'Новая';
+        if(later){
+          n.prof = prof; profAssigned = true;
+          const ta = t + Math.min(3 * HOUR, Math.max(MIN, Date.now() - t) * 0.05);
+          S(CHIEF, t, ta, 'В работе', 'Назначен ответственный: ' + fullName(prof));
+        }
+        if(s.timer30) S(prof, t, s.timer.start, 'Подготовка документов', 'Профессиональная экспертиза завершена');
+      }
+      if(s.kind === 'avr'){
+        const tEnd = s.issued, t0 = tEnd - 30 * HOUR;
+        const chain = route(prof, t0, tEnd, true);
+        mkRec({ kind:'prof', round:s.round || 1, val:'done', num:'ПЭ-' + app.num + (s.round === 2 ? '/2' : ''), date:ED.fmtD(t0), files:s.docs.map(d => f(d.title, d)), by:prof, at:t0, chain, fin:tEnd });
+        routeLog(prof, chain, 'Направлен акт', 'Сформировано заключение профессиональной экспертизы');
+        if(s.reply) A(tEnd, s.at, s.round === 2 || s.reply.agree ? 'Формулярная комиссия' : 'Отказ от решения', s.round === 2 ? 'Загружен документ по повторному решению' : s.reply.agree ? 'Согласен — загружен подписанный акт выполненных работ' : 'Не согласен — загружено мотивированное возражение');
+      }
+      if(s.kind === 'fk'){
+        (s.sessions || []).forEach(x => L.push({ role: x.held ? 'Председательствующий ФК' : 'Секретарь ФК', fio: fullName(x.held ? 'fk-chair' : SEC), start:x.at - 24 * HOUR, end:x.at, status: x.held ? 'Решение принято' : 'Формулярная комиссия', comment: x.held ? 'Комиссия состоялась' : 'Комиссия № ' + (x.comm || '') + ' не состоялась' }));
+      }
+      if(s.kind === 'done' && (s.variant === 'unpaid20' || s.variant === 'unpaid80')) Y(s.at, s.at, 'Оплата не произведена', 'Не оплачен счёт в установленный срок');
+      if(s.kind === 'done' && s.variant === 'unfixed') Y(s.at, s.at, 'Завершено', 'Истёк срок отработки замечаний');
+      if(s.kind === 'blocked') Y(s.at, s.at, 'Рассмотрение заблокировано', 'Документ не загружен в установленный срок');
+    });
+    if(stg === 'Рассмотрение формулярной комиссией' || FINAL.indexOf(st) !== -1){ if(stg === 'Профессиональная экспертиза' || stg === 'Рассмотрение формулярной комиссией') { if(!n.prof) n.prof = prof; } }
+    // «Назначено на»
+    let who = null;
+    if(st === 'Новая') who = CHIEF;
+    else if(WAIT_APPLICANT.indexOf(st) !== -1) who = 'applicant';
+    else if(st === 'Подтверждение оплаты 20%' || st === 'Подтверждение оплаты 80%' || st === 'Проверка доработки') who = exp;
+    else if(st === 'В работе' || st === 'Отказ от решения') who = stg === 'Профессиональная экспертиза' ? prof : exp;
+    else if(st === 'Подготовка документов') who = prof;
+    if(stg === 'Профессиональная экспертиза' && st !== 'Новая' && !n.prof){ n.prof = prof; }
+    n.assignee = who; n.since = app.updated;
+    if(!app.log || !app.log.length){ app.log = []; L.sort((a, b) => a.end - b.end).forEach(e => H.logPush(app, e)); }
+    // уведомление о текущей задаче сотрудника (табл. 2)
+    const last = app.steps[app.steps.length - 1];
+    const code = st === 'Новая' && stg === 'Нулевая экспертиза' ? 'NEW' : (st === 'Подтверждение оплаты 20%' || st === 'Подтверждение оплаты 80%') ? 'PAY' : st === 'Проверка доработки' ? 'FIXED' : st === 'Отказ от решения' ? 'OBJECT' : (st === 'В работе' && who && who !== CHIEF) ? 'ASSIGN' : null;
+    if(code && who && who !== 'applicant') notify(who, { ref:app.num, code, status:st, at: last ? (last.at || last.issued || app.updated) : app.updated, dk:'seed' });
+  };
+
+  // разбор действий заявителя / системы из app.outbox в «Назначено на» и уведомления (UC01.13.3.2)
+  const drainApp = (app, H) => {
+    const n = ensureNn(app);
+    const box = app.outbox || [];
+    if(n.v !== 2 && !box.some(e => e.ev === 'submit')) derive(app, H);
+    box.forEach(e => {
+      const st = nnStatus(app), stg = nnStage(app);
+      if(e.ev === 'submit'){ n.v = 2; setAssignee(n, CHIEF, e.at); notify(CHIEF, { ref:app.num, code:'NEW', status:'Новая', at:e.at }); return; }
+      if(e.ev === 'pay20' || e.ev === 'pay80'){ const who = n.expert || CHIEF; setAssignee(n, who, e.at); notify(who, { ref:app.num, code:'PAY', status:st, at:e.at, dk:e.at }); return; }
+      if(e.ev === 'remarksReply'){ const who = n.expert || CHIEF; setAssignee(n, who, e.at); notify(who, { ref:app.num, code:'FIXED', status:st, at:e.at, dk:e.at }); return; }
+      if(e.ev === 'actReply'){
+        const who = (stg === 'Профессиональная экспертиза' || stg === 'Рассмотрение формулярной комиссией') ? (n.prof || n.expert) : n.expert;
+        if(st === 'Отказ от решения'){ setAssignee(n, who || CHIEF, e.at); notify(who || CHIEF, { ref:app.num, code:'OBJECT', status:st, at:e.at, dk:e.at }); }
+        else { setAssignee(n, null, e.at); if(who) notify(who, { ref:app.num, code:'ACT', status:st, at:e.at, dk:e.at }); }
+        return;
+      }
+      if(e.ev === 'timeout'){ if(e.p && e.p.kind === 'remarks' && n.expert) notify(n.expert, { ref:app.num, code:'TIMEOUT', status:st, at:e.at }); setAssignee(n, null, e.at); }
+    });
+    app.outbox = [];
+  };
+  const drain = () => {
+    const ED = E(); if(!ED) return;
+    const need = ED.listAll().some(a => (a.outbox && a.outbox.length) || (a.status !== 'Черновик' && (!a.nn || a.nn.v !== 2)));
+    if(!need) return;
+    batch(() => ED.mutateAll((apps, ACT, H) => { apps.forEach(app => { if(app.status === 'Черновик') return; if((app.outbox && app.outbox.length) || !app.nn || app.nn.v !== 2) drainApp(app, H); }); }));
+  };
+
+  // внутренние шаги демо-заявок, которых нет в EdData (назначение, решение, согласование)
+  const SEED_PLAN = [
+    ['0000150', [ ['assign', CHIEF, 'EXP', 46], ['submit', 'EXP', { kind:'p7', round:1, val:'no', files:[ { title:'Счёт на оплату 20%', name:'Счёт на оплату 20% № 0000150.pdf', size:96 * 1024 } ] }, 'CHIEF', 6] ]],
+    ['0000151', [ ['assign', CHIEF, 'EXP', 20] ]],
+    ['0000152', [ ['assign', CHIEF, 'EXP', 90], ['submit', 'EXP', { kind:'p7', round:1, val:'yes', files:[] }, 'CHIEF', 30], ['approve', CHIEF, { user:DIR, mode:'agree' }, 8] ]],
+    ['0000153', [ ['assign', CHIEF, 'EXP', 140], ['submit', 'EXP', { kind:'p7', round:1, val:'yes', files:[] }, 'CHIEF', 60], ['approve', CHIEF, { user:DIR, mode:'agree' }, 40], ['approve', DIR, { user:CHAIR, mode:'sign' }, 5] ]],
+    ['0000155', [ ['submit', 'EXP', { kind:'primary', round:1, val:'refuse', comment:'Сведения о клинико-экономическом преимуществе (раздел досье 5) не подтверждены сравнительными исследованиями с препаратами, включёнными в перечень.', files:[ { title:'Сопроводительное письмо', name:'Сопроводительное письмо № 0000155.pdf', size:88 * 1024 }, { title:'Акт мотивированного отказа', name:'Акт мотивированного отказа № 0000155.pdf', size:142 * 1024 } ] }, 'CHIEF', 20], ['return', CHIEF, 'Уточните в комментарии ссылки на конкретные исследования, которые не были учтены, и приложите письмо на фирменном бланке.', 4] ]],
+    ['0000118', [ ['assign', CHIEF, 'PROF', 299] ]],
+    ['0000160', [ ['assign', CHIEF, 'PROF', 398], ['profComplete', 'PROF', 60], ['submit', 'PROF', { kind:'prof', round:1, val:'done', num:'ПЭ-0000160', date:'', files:[ { title:'Заключение профессиональной экспертизы', name:'Заключение ПЭ № 0000160.pdf', size:1240 * 1024 }, { title:'Сопроводительное письмо', name:'Сопроводительное письмо № 0000160.pdf', size:91 * 1024 }, { title:'Акт выполненных работ', name:'АВР № 0000160.pdf', size:142 * 1024 } ] }, 'CHIEF', 20], ['approve', CHIEF, { user:DIR, mode:'agree' }, 10], ['approve', DIR, { user:CHAIR, mode:'sign' }, 3] ]],
+  ];
+  const runPlan = (now) => {
+    const ED = E();
+    SEED_PLAN.forEach(([num, steps]) => {
+      steps.forEach(st => {
+        const app = ED.get(num); if(!app) return;
+        const n = app.nn || {};
+        const R = (x) => x === 'EXP' ? (n.expert || (parseInt(num, 10) % 2 ? 'nn-exp1' : 'nn-exp2')) : x === 'PROF' ? (n.prof || (parseInt(num, 10) % 2 ? 'nn-prof1' : 'nn-prof2')) : x === 'CHIEF' ? CHIEF : x;
+        const h = st[st.length - 1], at = now - h * HOUR;
+        if(st[0] === 'assign') assign(num, st[1], R(st[2]), at);
+        if(st[0] === 'submit'){ const rec = { ...st[2] }; if(rec.kind === 'prof') rec.date = ED.fmtD(at); const by = R(st[1]); submit(num, by, rec, nextOptions(app, by, rec)[0], at); }
+        if(st[0] === 'approve') approve(num, st[1], st[2], at);
+        if(st[0] === 'return') returnTo(num, st[1], st[2], at);
+        if(st[0] === 'profComplete') profComplete(num, R(st[1]), at);
+      });
+    });
+  };
+  const seedFk = (now) => {
+    const H = (h) => now - h * HOUR;
+    const all = ['fk-dep','fk-m1','fk-m2','fk-m3','fk-m4','fk-m5'];
+    const V = (map) => { const o = {}; Object.keys(map).forEach(u => { o[u] = { at:map[u].at, v:map[u].v }; }); return o; };
+    const sid = E().meta();
+    const at6 = (d) => { const x = new Date(E().addWDEnd(d, 6)); x.setHours(10, 0, 0, 0); return x.getTime(); };
+    const list = [
+      { id:'c3', num:'0000003', created:H(200), start:H(26), chair:'fk-chair', members:all, objects:['0000110','0000107'],
+        votes:V({ 'fk-chair':{ at:H(25.8), v:{ '0000110':'for', '0000107':'against' } }, 'fk-dep':{ at:H(25.7), v:{ '0000110':'for', '0000107':'against' } }, 'fk-m1':{ at:H(25.6), v:{ '0000110':'for', '0000107':'for' } }, 'fk-m2':{ at:H(25.5), v:{ '0000110':'against', '0000107':'against' } }, 'fk-m4':{ at:H(25.4), v:{ '0000110':'for', '0000107':'against' } } }),
+        dec:{ held:true, at:H(20), by:SEC, protocol:'ФК-12/2026' }, signed:{ at:H(2), by:'fk-chair' } },
+      { id:'c4', num:'0000004', created:H(480), start:H(310), chair:'fk-dep', members:['fk-chair','fk-m1','fk-m3'], objects:['0000113'], votes:{}, dec:{ held:false, at:H(300), by:SEC, protocol:'' } },
+      { id:'c5', num:'0000005', created:H(20), start:at6(H(20)), chair:'fk-chair', members:all, objects:['0000164','0000165'], votes:{} },
+      { id:'c6', num:'0000006', created:H(170), start:now - 12 * MIN, chair:'fk-chair', members:all, objects:['0000166','0000167'],
+        votes:V({ 'fk-m1':{ at:now - 9 * MIN, v:{ '0000166':'for', '0000167':'for' } }, 'fk-dep':{ at:now - 7 * MIN, v:{ '0000166':'for', '0000167':'against' } } }) },
+      { id:'c7', num:'0000007', created:H(200), start:H(30), chair:'fk-chair', members:['fk-dep','fk-m1','fk-m3','fk-m5'], objects:['0000168'],
+        votes:V({ 'fk-chair':{ at:H(29.8), v:{ '0000168':'for' } }, 'fk-m1':{ at:H(29.7), v:{ '0000168':'for' } }, 'fk-m3':{ at:H(29.5), v:{ '0000168':'against' } } }) },
+      { id:'c8', num:'0000008', created:H(220), start:H(50), chair:'fk-dep', members:['fk-chair','fk-m2','fk-m4','fk-m5'], objects:['0000169','0000170'],
+        votes:V({ 'fk-dep':{ at:H(49.9), v:{ '0000169':'for', '0000170':'for' } }, 'fk-chair':{ at:H(49.8), v:{ '0000169':'for', '0000170':'against' } }, 'fk-m2':{ at:H(49.6), v:{ '0000169':'against', '0000170':'for' } }, 'fk-m4':{ at:H(49.4), v:{ '0000169':'for', '0000170':'against' } } }),
+        dec:{ held:true, at:H(6), by:SEC, protocol:'ФК-13/2026' } },
+    ].map(c => ({ svc:'ЕД', by:SEC, dur:1, dec:null, signed:null, results:null, fast:false, changes:[], ...c, reviewEnd:c.start, voteEnd:c.start + HOUR, notified:{} }));
+    list.forEach(c => { if(c.signed) c.results = fkResults(c); });
+    writeF({ v:FV, seq:8, sid, list }, true);
+    // уведомления по комиссиям: свежие — непрочитанные
+    list.forEach(c => {
+      const st = fkStatus(c, now);
+      fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_NEW', status:FK_LABEL.open, at:c.created, when:fkWhen(c), left:E().fmtRemain(Math.max(0, c.reviewEnd - c.created)), read: st !== 'open' }));
+    });
+    fkTick();
+    readNs();
+    list.forEach(c => { const st = fkStatus(c, now);
+      if(st === 'approval') notify(c.chair, { kind:'fk', ref:c.id, label:c.num, code:'FK_SIGN', status:FK_LABEL.approval, at:c.dec.at });
+      if(st === 'held') fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.dec.protocol, code:'FK_HELD', status:FK_LABEL.held, at:c.signed.at }));
+      if(st === 'failed') fkComp(c).forEach(u => notify(u, { kind:'fk', ref:c.id, label:c.num, code:'FK_FAIL', status:FK_LABEL.failed, at:c.dec.at, read:true }));
+    });
+  };
+  // прочитанность демо-уведомлений: непрочитанным остаётся только последнее по текущей задаче
+  const tidySeedNotifs = (now) => {
+    const ED = E();
+    const l = readNs();
+    const apps = {}; ED.listAll().forEach(a => { apps[a.num] = a; });
+    const seen = {};
+    l.sort((a, b) => b.at - a.at).forEach(x => {
+      if(x.kind === 'app'){
+        const a = apps[x.ref];
+        const cur = a && a.nn && a.nn.assignee === x.to && FINAL.indexOf(nnStatus(a)) === -1;
+        const k = x.to + ':' + x.ref;
+        x.read = !(cur && !seen[k]); seen[k] = true;
+      } else {
+        const c = fkGet(x.ref); const st = c ? fkStatus(c, now) : '';
+        const k = x.to + ':' + x.ref;
+        const cur = (st === 'open' && x.code === 'FK_NEW') || (st === 'voting' && x.code === 'FK_VOTE') || (st === 'decision' && x.code === 'FK_COUNT') || (st === 'approval' && x.code === 'FK_SIGN') || (x.code === 'FK_HELD' && now - x.at < 6 * HOUR);
+        x.read = !(cur && !seen[k]); seen[k] = true;
+      }
+      if(x.read && !x.readAt) x.readAt = x.at;
+    });
+    writeNs(l);
+  };
+  let seedingNow = false;
+  const ensureSeed = () => {
+    const ED = E(); if(!ED || seedingNow) return;
+    const sid = ED.meta();
+    let done = '';
+    try { done = localStorage.getItem(SEEDKEY) || ''; } catch(e){}
+    if(done === sid && readF().sid === sid) return;
+    seedingNow = true;
+    try {
+      const now = Date.now();
+      try { localStorage.removeItem(NKEY); } catch(e){}
+      batch(() => {
+        ED.mutateAll((apps, ACT, H) => { apps.forEach(app => { if(app.status !== 'Черновик'){ app.outbox = []; derive(app, H); } }); });
+        runPlan(now);
+        seedFk(now);
+      });
+      tidySeedNotifs(now);
+      try { localStorage.setItem(SEEDKEY, sid); } catch(e){}
+    } finally { seedingNow = false; }
+    emit();
+  };
+  const resetAll = () => {
+    const ED = E();
+    try { localStorage.removeItem(SEEDKEY); localStorage.removeItem(FKEY); localStorage.removeItem(NKEY); } catch(e){}
+    fcache = null;
+    ED.reset();
+    ensureSeed();
+  };
+  const invalidate = () => { fcache = null; };
+
+  return {
+    ROLE, STAFF, user, shortName, fullName, initials, roleKey, roleLabel, ofRole, fkLabel, avatar, CHIEF, DIR, DEP, CHAIR, SEC,
+    current, setCurrent, emit,
+    notifsFor, unreadFor, readNotif,
+    NN_FILTER, NN_STAGES, FINAL, nnStatus, nnStage, nnTone, nnBadge, assigneeOf, isApproval, apprStatus, pendingRec,
+    perm, nextOptions, assign, reassign, submit, approve, returnTo, confirmPay, profComplete, remarkSet, conclSave, conclEdit,
+    FK_LABEL, FK_TONE, FK_ACTIVE, fkStatus, fkNum, fkList, fkGet, fkComp, fkVoted, fkVoteCount, fkMemberState, fkResults, freeObjects, commissionOf,
+    fkCreate, fkSetMembers, fkVote, fkDecide, fkSign, fkTick, fkSkip,
+    nnTasks, fkTasks, taskCount,
+    drain, ensureSeed, resetAll, invalidate, ready:false,
+  };
+})();
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    window.mpArm = ARM;
+  }
+  componentDidMount(){
+    window.mpArm = ARM;
+    const init = () => {
+      if(!window.mpEd) return;
+      try { ARM.ensureSeed(); ARM.drain(); ARM.fkTick(); } catch(e){ try { console.error(e); } catch(x){} }
+      ARM.ready = true;
+      try { window.dispatchEvent(new CustomEvent('mp-arm-ready')); } catch(e){}
+    };
+    this._onEd = () => init();
+    window.addEventListener('mp-ed-ready', this._onEd);
+    // данные EdData изменились (сброс, действие заявителя в другой вкладке) — досеять и разобрать события
+    this._onChange = () => { if(!ARM.ready) return; try { ARM.ensureSeed(); ARM.drain(); } catch(e){} };
+    window.addEventListener('mp-ed-change', this._onChange);
+    if(window.mpEd) init();
+    this._t = setInterval(() => { if(ARM.ready) try { ARM.fkTick(); } catch(e){} }, 1000);
+    this._st = (e) => { if(e.key === 'mp-fk-db' || e.key === 'mp-arm-notifs' || (e.key && e.key.indexOf('mp-arm-user-') === 0)){ ARM.invalidate(); ARM.emit(); } };
+    window.addEventListener('storage', this._st);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-ed-ready', this._onEd); window.removeEventListener('mp-ed-change', this._onChange);
+    window.removeEventListener('storage', this._st); clearInterval(this._t);
+  }
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>

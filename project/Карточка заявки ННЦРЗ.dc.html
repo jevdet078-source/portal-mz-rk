@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  АРМ ННЦРЗ → карточка заявки ЕД (UC01.13.3.3 «Руководство», UC01.13.3.4 «Эксперт», UC01.13.3.5 «Хронология»).
+
+  Навигатор слева: «Данные заявки» (сведения об услуге, о заявителе, заявление, досье — только просмотр)
+  и «Проверка ННЦРЗ»: «Отработка замечаний» (появляется над «Принятием решения», когда эксперт
+  добавил замечание к полю, UC01.13.3.4.2.3) и «Принятие решения» — всегда один подшаг, справа меняется
+  заголовок раздела (UC01.13.3.4 §4). Решения идут блоками сверху вниз; второй раунд — новым блоком ниже,
+  первый заблокирован, справа от решения — дата подписи ПП синим в скобках.
+
+  Роли (кто что видит — по полю «Назначено на»):
+    • Начальник управления — «Назначить ответственного» (нулевая, статус «Новая», сразу в реестр),
+      «Назначить» (проф. экспертиза, статус «Новая», с ЭЦП), «Переназначить» (BPMN 2.2–2.3);
+    • Эксперт (или НачУпр, назначивший себя) — п. 7 + счёт 20 %; подтверждение оплаты 20 % / 80 % (Да — модалка
+      «Подтвердить», Нет — комментарий, файл, ЭЦП); первичная: «Рекомендовано» + счёт 80 % («Отправить счет на оплату
+      заявителю» → ЭЦП) или «Отказано» (причина, сопроводительное письмо, акт); замечания к полям и заключение
+      с PDF; проф. экспертиза: «Завершено» (новый срок 5 рабочих дней), № и дата заключения, три файла;
+    • Руководство (НачУпр → ДирДеп → ЗПП → ПП) — «Согласовать» / «Подписать» (модалка «Выберите следующего
+      согласующего» → ЭЦП) и «На доработку» (комментарий, UC01.13.3.3.6). Счёт 20 % подписывает ДирДеп.
+  «Подписать и отправить» включается только после решения и обязательных файлов; рядом — чего не хватает.
+  Хронология — кнопка в панели действий (UC01.13.3.5): строки только добавляются.
+  Срок: «Срок реализации» — дата и время конца окна, «Осталось дней» — живой таймер, иначе «—».
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-l:#CBF5E5;--green-ll:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-dk:#C2540A;--orange-l:#FFDAC2;--orange-ll:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-dk:#AF1D38;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes mp-shimmer{0%{background-position:-240px 0}100%{background-position:calc(240px + 100%) 0}}
+  @keyframes mp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(77,66,233,.35)}50%{box-shadow:0 0 0 5px rgba(77,66,233,0)}}
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn-w{border:1px solid var(--orange-l);background:#fff;color:var(--orange-dk);}
+  .btn-w:hover{background:var(--orange-ll);border-color:var(--orange);}
+  .btn-sm{height:32px;padding:0 10px;border-radius:8px;font-size:13px;}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .btn-g:disabled{background:transparent;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .ib-d:hover{background:var(--red-ll);color:var(--red);}
+  .rm{width:28px;height:28px;border-radius:7px;}
+  .rm:hover{background:var(--orange-ll);color:var(--orange-dk);}
+  .inp{width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;resize:vertical;display:block;}
+  .inp::placeholder{color:var(--n400);}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp:disabled{background:var(--n50);color:var(--n500);cursor:default;}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .inp-err:focus{border-color:var(--red);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-l);}
+  .nav-it{transition:background .15s,border-color .15s;}
+  .nav-it:hover{background:var(--n100);}
+  .opt-c{transition:border-color .15s,background .15s;}
+  .opt-c:hover{border-color:var(--primary-light) !important;}
+  .opt-c:disabled{cursor:not-allowed;}
+  .opt-c:disabled:hover{border-color:var(--stroke) !important;}
+  .drop{transition:border-color .15s,background .15s;cursor:pointer;}
+  .drop:hover{border-color:var(--primary-light) !important;background:var(--n50) !important;}
+  .lnk{border:none;background:none;padding:0;font:inherit;font-size:13px;line-height:18px;font-weight:500;color:var(--primary);cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;text-decoration:none;}
+  .lnk:hover{text-decoration:underline;text-underline-offset:3px;}
+  .crumb{color:var(--n500);text-decoration:none;border-radius:4px;}
+  .crumb:hover{color:var(--n900);}
+  .tab{transition:color .15s,border-color .15s;}
+  .tab:hover{color:var(--n900) !important;}
+  .tip{position:relative;display:inline-flex;}
+  .tip .tip-b{display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:300px;padding:8px 10px;border-radius:8px;background:#0A0D14;color:#fff;font-size:12px;line-height:16px;font-weight:400;text-align:left;white-space:normal;z-index:60;transition:opacity .12s;pointer-events:none;box-shadow:0 8px 16px -6px rgba(10,13,20,.3);}
+  .tip:hover .tip-b,.tip:focus-within .tip-b{display:block;}
+  .tip-r .tip-b{left:auto;right:0;transform:none;}
+  .pp-b{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;text-decoration:none;}
+  .pp-b:hover{background:var(--n50);border-color:var(--n300);}
+  .btn:focus-visible,.ib:focus-visible,.nav-it:focus-visible,.opt-c:focus-visible,.drop:focus-visible,.lnk:focus-visible,.crumb:focus-visible,.pp-b:focus-visible,.tab:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tnum{font-variant-numeric:tabular-nums;}
+  .pre{white-space:pre-wrap;word-break:break-word;}
+  /* адаптив: АРМ рассчитан на десктоп, на планшете и телефоне раскладка складывается в колонку */
+  @media (max-width:1100px){ .nn-body{flex-direction:column !important;} .nn-body > div{width:100%;} .nn-nav{position:static !important;width:100% !important;flex-direction:row !important;overflow-x:auto;gap:12px !important;} .nn-nav > div{flex:0 0 auto;} }
+  @media (max-width:900px){ .nn-sum{grid-template-columns:1fr 1fr !important;} .nn-sum > div{border-right:none !important;} .nn-grid{grid-template-columns:1fr !important;} .nn-grid > div{grid-column:1 / -1 !important;} }
+  @media (max-width:640px){ .arm-main{padding:16px 16px 120px !important;} .nn-sum{grid-template-columns:1fr !important;} .nn-docs{grid-template-columns:1fr !important;} .nn-ban{flex-wrap:wrap;} .nn-nav{flex-direction:column !important;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdArm" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdSign" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdDocView" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="ArmHeader" arm="nn" hint-size="100%,73px"></dc-import></div>
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="ArmNav" arm="nn" active="registry" collapsed="1" style="height:100%;" hint-size="80px,827px"></dc-import>
+    </div>
+
+    <main class="arm-main" style="flex:1;min-width:0;padding:20px 32px 120px;">
+      <div style="max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <span class="sk" style="width:200px;height:14px;"></span><span class="sk" style="width:320px;height:24px;"></span>
+            <div style="background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:20px;display:flex;gap:16px;"><span class="sk" style="flex:1;height:44px;"></span><span class="sk" style="flex:1;height:44px;"></span><span class="sk" style="flex:1;height:44px;"></span><span class="sk" style="flex:1;height:44px;"></span></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ missing }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:64px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-file-search-line" style="font-size:28px;color:var(--n400);"></i></div>
+            <h1 style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Заявка не найдена</h1>
+            <div style="font-size:14px;line-height:20px;color:var(--n500);">В реестре ННЦРЗ только поданные заявки — черновики заявителя здесь не показываются.</div>
+            <a class="btn btn-s" href="АРМ ННЦРЗ.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>К реестру заявок</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ ok }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+            <!-- шапка карточки -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+                <a class="crumb" href="АРМ ННЦРЗ.dc.html" style="display:inline-flex;align-items:center;gap:6px;"><i class="ri-apps-2-line" style="font-size:18px;"></i>Услуги</a>
+                <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+                <span aria-current="page" style="color:var(--n900);" class="tnum">№ {{ num }}</span>
+              </nav>
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.015em;" class="tnum">Заявка № {{ num }}</h1>
+                <span style="{{ badge.style }}"><span style="{{ badge.dot }}"></span>{{ badge.label }}</span>
+                <div style="flex:1;"></div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-s" onClick="{{ openChrono }}"><i class="ri-history-line" style="font-size:18px;"></i>Хронология заявки</button>
+                  <sc-for list="{{ headActs }}" as="a" hint-placeholder-count="2">
+                    <button class="{{ a.cls }}" onClick="{{ a.onClick }}" disabled="{{ a.disabled }}"><i class="{{ a.icon }}" style="font-size:18px;"></i>{{ a.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;line-height:18px;color:var(--n500);">
+                <span style="{{ catStyle }}"><i class="{{ catIcon }}" style="font-size:14px;"></i>{{ catLabel }}</span>
+                <span style="font-weight:500;color:var(--n900);">{{ trade }}</span>
+                <span aria-hidden="true">·</span><span>{{ orgName }}</span>
+                <span aria-hidden="true">·</span><span class="tnum">Подана {{ sent }}</span>
+              </div>
+            </div>
+
+            <!-- ключевые сведения -->
+            <dl class="nn-sum" style="margin:0;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);display:grid;grid-template-columns:1.1fr 1.3fr 1.2fr 1fr;">
+              <div style="padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-width:0;border-right:1px solid var(--stroke);">
+                <dt style="font-size:12px;line-height:16px;color:var(--n500);">Этап экспертизы</dt>
+                <dd style="margin:0;font-size:14px;line-height:20px;font-weight:500;">{{ stage }}</dd>
+                <dd style="margin:0;display:flex;gap:3px;padding-top:2px;" aria-hidden="true"><sc-for list="{{ stageBar }}" as="sb" hint-placeholder-count="4"><span style="{{ sb }}"></span></sc-for></dd>
+              </div>
+              <div style="padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-width:0;border-right:1px solid var(--stroke);">
+                <dt style="font-size:12px;line-height:16px;color:var(--n500);">Назначено на</dt>
+                <dd style="margin:0;display:flex;align-items:center;gap:8px;min-width:0;">
+                  <sc-if value="{{ asStaff }}" hint-placeholder-val="{{ true }}"><span style="{{ asAva }}">{{ asIni }}</span></sc-if>
+                  <span style="display:flex;flex-direction:column;min-width:0;">
+                    <span class="clamp1" style="{{ asNameStyle }}">{{ asName }}</span>
+                    <sc-if value="{{ asStaff }}" hint-placeholder-val="{{ true }}"><span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ asRole }}</span></sc-if>
+                  </span>
+                </dd>
+              </div>
+              <div style="padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-width:0;border-right:1px solid var(--stroke);">
+                <dt style="font-size:12px;line-height:16px;color:var(--n500);">Срок реализации</dt>
+                <dd style="{{ dlStyle }}" class="tnum">{{ deadline }}</dd>
+                <sc-if value="{{ hasDeadlineNote }}" hint-placeholder-val="{{ true }}"><dd style="margin:0;font-size:12px;line-height:16px;color:var(--n500);">{{ deadlineNote }}</dd></sc-if>
+              </div>
+              <div style="padding:14px 20px;display:flex;flex-direction:column;gap:4px;min-width:0;">
+                <dt style="font-size:12px;line-height:16px;color:var(--n500);">Осталось дней</dt>
+                <dd style="margin:0;"><span title="{{ remainTitle }}" style="{{ remainStyle }}">{{ remain }}</span></dd>
+              </div>
+            </dl>
+
+            <div class="nn-body" style="display:flex;gap:24px;align-items:flex-start;">
+              <!-- навигатор -->
+              <nav class="nn-nav" aria-label="Разделы заявки" style="width:248px;flex:0 0 auto;position:sticky;top:93px;display:flex;flex-direction:column;gap:16px;">
+                <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+                  <div style="display:flex;flex-direction:column;gap:4px;">
+                    <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 10px 4px;">{{ g.title }}</div>
+                    <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+                      <button class="nav-it" onClick="{{ it.onClick }}" aria-current="{{ it.cur }}" style="{{ it.style }}">
+                        <span style="{{ it.dot }}"><i class="{{ it.icon }}" style="font-size:14px;"></i></span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;">
+                          <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ it.label }}</span>
+                          <sc-if value="{{ it.hasSub }}" hint-placeholder-val="{{ false }}"><span class="clamp1" style="{{ it.subStyle }}">{{ it.sub }}</span></sc-if>
+                        </span>
+                        <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span title="{{ it.countTitle }}" style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#FEF3EB;color:#C2540A;font-size:12px;line-height:20px;font-weight:600;text-align:center;">{{ it.count }}</span></sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </nav>
+
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;">
+                <!-- плашки контекста -->
+                <sc-for list="{{ banners }}" as="bn" hint-placeholder-count="0">
+                  <div class="nn-ban" role="status" style="{{ bn.box }}">
+                    <i class="{{ bn.icon }}" style="{{ bn.iconStyle }}"></i>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                      <div style="font-size:14px;line-height:20px;font-weight:600;">{{ bn.title }}</div>
+                      <sc-if value="{{ bn.hasText }}" hint-placeholder-val="{{ true }}"><div class="pre" style="font-size:14px;line-height:20px;color:var(--n600);">{{ bn.text }}</div></sc-if>
+                    </div>
+                    <sc-if value="{{ bn.hasBtn }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ bn.act }}">{{ bn.btn }}<i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button></sc-if>
+                  </div>
+                </sc-for>
+
+                <sc-if value="{{ hasPageTitle }}" hint-placeholder-val="{{ true }}">
+                  <h2 style="margin:4px 0 -4px;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ pageTitle }}</h2>
+                </sc-if>
+
+                <!-- данные заявки (просмотр, замечания к полям) -->
+                <sc-for list="{{ dataCards }}" as="c" hint-placeholder-count="0">
+                  <section aria-labelledby="{{ c.hid }}" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                      <h3 id="{{ c.hid }}" style="margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.011em;">{{ c.title }}</h3>
+                      <sc-if value="{{ c.hasDesc }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;line-height:18px;color:var(--n500);">{{ c.desc }}</div></sc-if>
+                    </div>
+                    <sc-for list="{{ c.groups }}" as="g" hint-placeholder-count="1">
+                      <div style="{{ g.wrap }}">
+                        <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:8px 14px;background:var(--n50);border-bottom:1px solid var(--stroke);"><span style="padding:2px 8px;border-radius:6px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:600;">{{ g.head }}</span></div></sc-if>
+                        <dl style="{{ g.grid }}">
+                          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                            <div id="{{ r.anchor }}" style="{{ r.wrap }}">
+                              <dt style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:12px;line-height:16px;color:var(--n500);min-height:16px;">
+                                <span style="padding-top:2px;">{{ r.label }}</span>
+                                <sc-if value="{{ r.canRemark }}" hint-placeholder-val="{{ false }}">
+                                  <span class="tip tip-r"><button class="ib rm" onClick="{{ r.remark }}" aria-label="{{ r.remarkAria }}" style="{{ r.remarkBtn }}"><i class="{{ r.remarkIcon }}" style="font-size:16px;"></i></button><span class="tip-b" role="tooltip">{{ r.remarkTip }}</span></span>
+                                </sc-if>
+                              </dt>
+                              <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}"><dd class="pre" style="{{ r.style }}">{{ r.value }}</dd></sc-if>
+                              <sc-if value="{{ r.isFile }}" hint-placeholder-val="{{ false }}">
+                                <dd style="margin:0;display:flex;flex-direction:column;gap:6px;">
+                                  <sc-for list="{{ r.files }}" as="fl" hint-placeholder-count="1">
+                                    <span style="display:inline-flex;align-items:center;gap:8px;align-self:flex-start;padding:6px 10px 6px 6px;border:1px solid var(--stroke);border-radius:10px;font-size:13px;line-height:18px;max-width:100%;">
+                                      <span style="{{ fl.badge }}">{{ fl.ext }}</span><span class="clamp1" style="font-weight:500;">{{ fl.name }}</span><span style="color:var(--n400);white-space:nowrap;">{{ fl.size }}</span>
+                                      <button class="lnk" onClick="{{ fl.onOpen }}" aria-label="{{ fl.openAria }}"><i class="ri-eye-line" style="font-size:16px;"></i></button>
+                                    </span>
+                                  </sc-for>
+                                </dd>
+                              </sc-if>
+                              <sc-if value="{{ r.hasRemark }}" hint-placeholder-val="{{ false }}">
+                                <div style="{{ r.remBox }}"><i class="ri-chat-1-fill" style="font-size:16px;color:#F17B2C;flex:0 0 auto;margin-top:1px;"></i><span class="pre" style="flex:1;min-width:0;">{{ r.remText }}</span></div>
+                              </sc-if>
+                            </div>
+                          </sc-for>
+                        </dl>
+                      </div>
+                    </sc-for>
+                  </section>
+                </sc-for>
+
+                <!-- история решений (только просмотр) -->
+                <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="0">
+                  <section aria-labelledby="{{ b.hid }}" style="{{ b.box }}">
+                    <div onClick="{{ b.toggle }}" style="{{ b.headStyle }}">
+                      <sc-if value="{{ b.canToggle }}" hint-placeholder-val="{{ false }}"><button class="ib" aria-expanded="{{ b.expanded }}" aria-controls="{{ b.bodyId }}" aria-label="{{ b.toggleAria }}" style="width:24px;height:24px;margin-left:-4px;"><i class="{{ b.chev }}" style="font-size:18px;"></i></button></sc-if>
+                      <h3 id="{{ b.hid }}" style="margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.011em;">{{ b.title }}</h3>
+                      <sc-if value="{{ b.hasRound }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:6px;background:var(--n100);color:var(--n600);font-size:12px;line-height:22px;font-weight:500;">{{ b.round }}</span></sc-if>
+                      <div style="flex:1;"></div>
+                      <sc-if value="{{ b.showSum }}" hint-placeholder-val="{{ false }}"><span class="clamp1" style="font-size:13px;line-height:18px;color:var(--n500);max-width:340px;">{{ b.sum }}</span></sc-if>
+                      <span style="{{ b.chip.style }}"><i class="{{ b.chip.icon }}" style="font-size:14px;"></i>{{ b.chip.label }}</span>
+                    </div>
+                    <sc-if value="{{ b.expanded }}" hint-placeholder-val="{{ true }}"><div id="{{ b.bodyId }}">
+                    <div class="nn-grid" style="padding:16px 20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;">
+                      <sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="2">
+                        <div style="{{ r.wrap }}">
+                          <div style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.label }}</div>
+                          <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}"><div class="pre" style="font-size:14px;line-height:20px;color:var(--n900);">{{ r.value }}<sc-if value="{{ r.hasPp }}" hint-placeholder-val="{{ false }}"><span class="tnum" title="Дата и время подписания решения Председателем Правления" style="margin-left:6px;color:#4D42E9;font-weight:500;">({{ r.pp }})</span></sc-if></div></sc-if>
+                          <sc-if value="{{ r.isNote }}" hint-placeholder-val="{{ false }}"><div class="pre" style="padding:10px 12px;border-radius:10px;background:var(--n50);border:1px solid var(--stroke);font-size:14px;line-height:20px;color:var(--n600);">{{ r.value }}</div></sc-if>
+                          <sc-if value="{{ r.isFiles }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                              <sc-for list="{{ r.files }}" as="fl" hint-placeholder-count="1">
+                                <div style="display:flex;align-items:center;gap:10px;padding:8px 6px 8px 8px;border:1px solid var(--stroke);border-radius:10px;min-width:0;">
+                                  <span style="{{ fl.badge }}">{{ fl.ext }}</span>
+                                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                                    <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;">{{ fl.title }}</span>
+                                    <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ fl.meta }}</span>
+                                  </span>
+                                  <button class="ib" onClick="{{ fl.onOpen }}" aria-label="{{ fl.openAria }}" title="Открыть"><i class="ri-eye-line" style="font-size:18px;"></i></button>
+                                  <button class="ib" onClick="{{ fl.onDl }}" aria-label="{{ fl.dlAria }}" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                                </div>
+                              </sc-for>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ b.hasRoute }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:0 20px 16px;">
+                        <div style="font-size:12px;line-height:16px;color:var(--n500);margin-bottom:8px;">Маршрут согласования</div>
+                        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;">
+                          <sc-for list="{{ b.route }}" as="rt" hint-placeholder-count="3">
+                            <li style="{{ rt.box }}">
+                              <span style="{{ rt.ava }}">{{ rt.ini }}</span>
+                              <span style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                                <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;color:var(--n900);">{{ rt.name }}</span>
+                                <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ rt.role }}</span>
+                                <span class="tnum" style="{{ rt.actStyle }}"><i class="{{ rt.actIcon }}" style="font-size:13px;"></i>{{ rt.act }}</span>
+                              </span>
+                            </li>
+                          </sc-for>
+                        </ol>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ b.hasBtns }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;gap:8px;padding:0 20px 16px;"><sc-for list="{{ b.btns }}" as="bt" hint-placeholder-count="1"><button class="btn btn-s btn-sm" onClick="{{ bt.onClick }}"><i class="{{ bt.icon }}" style="font-size:16px;"></i>{{ bt.label }}</button></sc-for></div>
+                    </sc-if>
+                    </div></sc-if>
+                  </section>
+                </sc-for>
+
+                <!-- формы текущего шага -->
+                <sc-for list="{{ forms }}" as="fm" hint-placeholder-count="0">
+                  <section id="cur-form" aria-labelledby="{{ fm.hid }}" style="background:#fff;border:1px solid #C6D0FF;border-radius:16px;box-shadow:0 0 0 4px #EEF2FF,var(--sh-xs);overflow:hidden;">
+                    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--stroke);flex-wrap:wrap;">
+                      <h3 id="{{ fm.hid }}" style="margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.011em;">{{ fm.title }}</h3>
+                      <sc-if value="{{ fm.hasRound }}" hint-placeholder-val="{{ false }}"><span style="height:22px;padding:0 8px;border-radius:6px;background:var(--n100);color:var(--n600);font-size:12px;line-height:22px;font-weight:500;">{{ fm.round }}</span></sc-if>
+                      <sc-if value="{{ fm.hasTip }}" hint-placeholder-val="{{ false }}"><span class="tip" tabIndex="0" aria-label="{{ fm.tip }}"><i class="ri-information-line" style="font-size:18px;color:var(--n400);cursor:help;"></i><span class="tip-b" role="tooltip">{{ fm.tip }}</span></span></sc-if>
+                      <div style="flex:1;"></div>
+                      <span style="height:24px;padding:0 10px;border-radius:999px;background:#EEF2FF;color:#312D86;font-size:12px;line-height:24px;font-weight:500;display:inline-flex;align-items:center;gap:6px;"><i class="ri-edit-2-line" style="font-size:14px;"></i>{{ fm.chip }}</span>
+                    </div>
+                    <div class="nn-grid" style="padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;">
+                      <sc-for list="{{ fm.fields }}" as="f" hint-placeholder-count="2">
+                        <div style="{{ f.wrap }}">
+                          <sc-if value="{{ f.isInfo }}" hint-placeholder-val="{{ false }}">
+                            <div style="{{ f.box }}"><i class="{{ f.icon }}" style="{{ f.iconStyle }}"></i><div class="pre" style="flex:1;min-width:0;font-size:14px;line-height:20px;">{{ f.text }}</div><sc-if value="{{ f.hasBtn }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ f.btnAct }}">{{ f.btn }}</button></sc-if></div>
+                          </sc-if>
+                          <sc-if value="{{ f.isDocs }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                              <div style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</div>
+                              <div class="nn-docs" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+                                <sc-for list="{{ f.files }}" as="fl" hint-placeholder-count="2">
+                                  <div style="display:flex;align-items:center;gap:10px;padding:8px 6px 8px 8px;border:1px solid var(--stroke);border-radius:10px;min-width:0;">
+                                    <span style="{{ fl.badge }}">{{ fl.ext }}</span>
+                                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                                      <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;">{{ fl.title }}</span>
+                                      <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ fl.meta }}</span>
+                                    </span>
+                                    <button class="ib" onClick="{{ fl.onOpen }}" aria-label="{{ fl.openAria }}" title="Открыть"><i class="ri-eye-line" style="font-size:18px;"></i></button>
+                                    <button class="ib" onClick="{{ fl.onDl }}" aria-label="{{ fl.dlAria }}" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                                  </div>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ f.isRadio }}" hint-placeholder-val="{{ false }}">
+                            <div role="radiogroup" aria-label="{{ f.label }}" style="display:flex;flex-direction:column;gap:8px;">
+                              <div style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}<span aria-hidden="true" style="color:var(--primary);"> *</span></div>
+                              <div style="{{ f.grid }}">
+                                <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="2">
+                                  <button class="opt-c" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" disabled="{{ o.disabled }}" title="{{ o.tip }}" style="{{ o.style }}">
+                                    <span style="{{ o.radio }}"></span>
+                                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
+                                      <span style="{{ o.labelStyle }}">{{ o.label }}</span>
+                                      <sc-if value="{{ o.hasDesc }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.desc }}</span></sc-if>
+                                    </span>
+                                  </button>
+                                </sc-for>
+                              </div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                              <label for="{{ f.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}<sc-if value="{{ f.req }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="color:var(--primary);"> *</span></sc-if></label>
+                              <textarea id="{{ f.id }}" class="{{ f.cls }}" rows="{{ f.rows }}" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.ph }}" maxLength="{{ f.max }}" disabled="{{ f.disabled }}" aria-invalid="{{ f.invalid }}"></textarea>
+                              <div style="display:flex;justify-content:space-between;gap:8px;min-height:16px;">
+                                <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ f.hasErr }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>{{ f.err }}</sc-if></span>
+                                <span class="tnum" style="font-size:12px;line-height:16px;color:var(--n400);">{{ f.count }}</span>
+                              </div>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ f.isInput }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:6px;">
+                              <label for="{{ f.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}<span aria-hidden="true" style="color:var(--primary);"> *</span></label>
+                              <div style="position:relative;">
+                                <input id="{{ f.id }}" class="{{ f.cls }}" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.ph }}" maxLength="{{ f.max }}" disabled="{{ f.disabled }}" inputMode="{{ f.mode }}" autoComplete="off" aria-invalid="{{ f.invalid }}" style="{{ f.inpStyle }}" />
+                                <sc-if value="{{ f.isDate }}" hint-placeholder-val="{{ false }}">
+                                  <button type="button" class="ib" onClick="{{ f.pick }}" disabled="{{ f.disabled }}" aria-label="Выбрать дату в календаре" style="position:absolute;right:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
+                                  <input id="{{ f.nid }}" type="date" tabIndex="-1" aria-hidden="true" onChange="{{ f.onNative }}" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;" />
+                                </sc-if>
+                              </div>
+                              <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);min-height:0;"><sc-if value="{{ f.hasErr }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>{{ f.err }}</sc-if></span>
+                            </div>
+                          </sc-if>
+                          <sc-if value="{{ f.isFile }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                              <div style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}<sc-if value="{{ f.req }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="color:var(--primary);"> *</span></sc-if></div>
+                              <sc-if value="{{ f.empty }}" hint-placeholder-val="{{ true }}">
+                                <div onClick="{{ f.pick }}" onKeyDown="{{ f.pickKey }}" onDragOver="{{ f.onDragOver }}" onDragLeave="{{ f.onDragLeave }}" onDrop="{{ f.onDrop }}" role="button" tabIndex="0" class="drop" aria-label="{{ f.aria }}" style="{{ f.zone }}">
+                                  <i class="ri-upload-cloud-2-line" style="font-size:22px;color:var(--n400);flex:0 0 auto;"></i>
+                                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                    <span style="font-size:13px;line-height:18px;font-weight:500;">Выберите файл или перетащите его сюда</span>
+                                    <span style="font-size:12px;line-height:16px;color:var(--n400);">JPEG, PNG, PDF, DOC, XLS · до 300 МБ</span>
+                                  </span>
+                                  <span class="btn btn-s btn-sm" style="pointer-events:none;">Загрузить</span>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{ f.has }}" hint-placeholder-val="{{ false }}">
+                                <div style="display:flex;align-items:center;gap:10px;padding:8px 6px 8px 10px;border:1px solid var(--stroke);border-radius:12px;background:#fff;">
+                                  <span style="{{ f.fBadge }}">{{ f.fExt }}</span>
+                                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                                    <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;">{{ f.fName }}</span>
+                                    <span style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n500);">{{ f.fSize }}<span>·</span><i class="ri-checkbox-circle-fill" style="font-size:14px;color:var(--green);"></i>Загружен</span>
+                                  </span>
+                                  <sc-if value="{{ f.editable }}" hint-placeholder-val="{{ true }}">
+                                    <button class="ib" onClick="{{ f.pick }}" aria-label="Заменить файл" title="Заменить"><i class="ri-refresh-line" style="font-size:18px;"></i></button>
+                                    <button class="ib ib-d" onClick="{{ f.unpick }}" aria-label="Удалить файл" title="Удалить"><i class="ri-delete-bin-line" style="font-size:18px;"></i></button>
+                                  </sc-if>
+                                </div>
+                              </sc-if>
+                              <input id="{{ f.inputId }}" type="file" onChange="{{ f.onFile }}" style="display:none;" />
+                              <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ f.hasErr }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ f.err }}</sc-if></span>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--stroke);background:var(--n50);flex-wrap:wrap;">
+                      <span style="flex:1;min-width:200px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n500);"><i class="{{ fm.hintIcon }}" style="font-size:15px;flex:0 0 auto;"></i>{{ fm.hint }}</span>
+                      <sc-for list="{{ fm.btns }}" as="bt" hint-placeholder-count="2">
+                        <button class="{{ bt.cls }}" onClick="{{ bt.onClick }}" disabled="{{ bt.disabled }}"><i class="{{ bt.icon }}" style="font-size:18px;"></i>{{ bt.label }}</button>
+                      </sc-for>
+                    </div>
+                  </section>
+                </sc-for>
+
+                <!-- документы по заявке -->
+                <sc-if value="{{ hasDocs }}" hint-placeholder-val="{{ false }}">
+                  <section aria-labelledby="h-docs" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;">
+                    <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:10px;">
+                      <h3 id="h-docs" style="margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.011em;">Документы по заявке</h3>
+                      <div role="tablist" aria-label="Этапы" style="display:flex;gap:20px;border-bottom:1px solid var(--stroke);overflow-x:auto;">
+                        <sc-for list="{{ docTabs }}" as="t" hint-placeholder-count="4">
+                          <button class="tab" role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.nStyle }}">{{ t.n }}</span></button>
+                        </sc-for>
+                      </div>
+                    </div>
+                    <div class="nn-docs" style="padding:14px 20px 18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+                      <sc-for list="{{ docList }}" as="fl" hint-placeholder-count="2">
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 6px 8px 8px;border:1px solid var(--stroke);border-radius:10px;min-width:0;">
+                          <span style="{{ fl.badge }}">{{ fl.ext }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                            <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;">{{ fl.title }}</span>
+                            <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ fl.meta }}</span>
+                          </span>
+                          <button class="ib" onClick="{{ fl.onOpen }}" aria-label="{{ fl.openAria }}" title="Открыть"><i class="ri-eye-line" style="font-size:18px;"></i></button>
+                          <button class="ib" onClick="{{ fl.onDl }}" aria-label="{{ fl.dlAria }}" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ docEmpty }}" hint-placeholder-val="{{ false }}"><div style="grid-column:1 / -1;padding:12px 0;font-size:13px;line-height:18px;color:var(--n400);">На этом этапе документов нет</div></sc-if>
+                    </div>
+                  </section>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── модальное окно ── -->
+  <sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ modalKey }}" style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div onClick="{{ closeModal }}" style="position:absolute;inset:0;background:rgba(10,13,20,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:mp-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="m-title" style="{{ mBox }}">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px;border-bottom:1px solid var(--stroke);">
+          <div style="{{ mIconWrap }}"><i class="{{ mIcon }}" style="{{ mIconStyle }}"></i></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+            <h2 id="m-title" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ mTitle }}</h2>
+            <sc-if value="{{ mHasText }}" hint-placeholder-val="{{ true }}"><div style="font-size:14px;line-height:20px;color:var(--n500);">{{ mText }}</div></sc-if>
+          </div>
+          <button class="ib" onClick="{{ closeModal }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+        <div style="{{ mBody }}">
+          <!-- выбор сотрудника -->
+          <sc-if value="{{ mIsPick }}" hint-placeholder-val="{{ false }}">
+            <div role="radiogroup" aria-label="{{ mTitle }}" style="display:flex;flex-direction:column;gap:8px;">
+              <sc-for list="{{ mOpts }}" as="o" hint-placeholder-count="3">
+                <button class="opt-c" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
+                  <span style="{{ o.radio }}"></span>
+                  <span style="{{ o.ava }}">{{ o.ini }}</span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;">
+                    <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ o.name }}</span>
+                    <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.role }}</span>
+                  </span>
+                  <sc-if value="{{ o.hasLoad }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);white-space:nowrap;" class="tnum">{{ o.load }}</span></sc-if>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+          <!-- комментарий -->
+          <sc-if value="{{ mIsText }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <sc-if value="{{ mHasFieldLabel }}" hint-placeholder-val="{{ true }}"><label for="m-text" style="font-size:14px;line-height:20px;font-weight:500;">{{ mFieldLabel }}<span aria-hidden="true" style="color:var(--primary);"> *</span></label></sc-if>
+              <textarea id="m-text" class="{{ mTextCls }}" rows="5" value="{{ mTextVal }}" onChange="{{ onMText }}" placeholder="{{ mPh }}" maxLength="{{ mMax }}" aria-invalid="{{ mHasErr }}"></textarea>
+              <div style="display:flex;justify-content:space-between;gap:8px;">
+                <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ mHasErr }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>{{ mErr }}</sc-if></span>
+                <span class="tnum" style="font-size:12px;line-height:16px;color:var(--n400);">{{ mCount }}</span>
+              </div>
+            </div>
+          </sc-if>
+          <!-- хронология -->
+          <sc-if value="{{ mIsChrono }}" hint-placeholder-val="{{ false }}">
+            <div role="table" aria-label="Хронология заявки" style="border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
+              <div role="row" style="display:grid;grid-template-columns:44px 1.2fr 1.3fr 118px 118px 1.3fr 1.6fr;background:var(--n100);font-size:12px;line-height:16px;font-weight:500;color:var(--n500);">
+                <span role="columnheader" style="padding:8px 10px;">№</span><span role="columnheader" style="padding:8px 10px;">Роль</span><span role="columnheader" style="padding:8px 10px;">ФИО</span><span role="columnheader" style="padding:8px 10px;">Дата начала</span><span role="columnheader" style="padding:8px 10px;">Дата завершения</span><span role="columnheader" style="padding:8px 10px;">Решение / Статус</span><span role="columnheader" style="padding:8px 10px;">Комментарий</span>
+              </div>
+              <sc-for list="{{ chrono }}" as="h" hint-placeholder-count="5">
+                <div role="row" style="display:grid;grid-template-columns:44px 1.2fr 1.3fr 118px 118px 1.3fr 1.6fr;border-top:1px solid var(--stroke);font-size:13px;line-height:18px;">
+                  <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n500);">{{ h.n }}</span>
+                  <span role="cell" style="padding:9px 10px;">{{ h.role }}</span>
+                  <span role="cell" style="padding:9px 10px;color:var(--n600);">{{ h.fio }}</span>
+                  <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n600);">{{ h.start }}</span>
+                  <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n600);">{{ h.end }}</span>
+                  <span role="cell" style="padding:9px 10px;"><span style="{{ h.badge }}">{{ h.status }}</span></span>
+                  <span role="cell" class="pre" style="padding:9px 10px;color:var(--n600);">{{ h.comment }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ mHasErrBox }}" hint-placeholder-val="{{ false }}">
+            <div role="alert" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--red-ll);font-size:13px;line-height:18px;color:var(--red-d);margin-top:12px;"><i class="ri-error-warning-fill" style="font-size:18px;color:var(--red);flex:0 0 auto;"></i><span>{{ mErrBox }}</span></div>
+          </sc-if>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--stroke);">
+          <sc-for list="{{ mBtns }}" as="bt" hint-placeholder-count="2">
+            <button class="{{ bt.cls }}" onClick="{{ bt.onClick }}" disabled="{{ bt.disabled }}">{{ bt.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- тост -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;top:89px;right:24px;z-index:120;width:380px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;line-height:20px;font-weight:500;">{{ toastTitle }}</div><sc-if value="{{ hasToastText }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:2px;">{{ toastText }}</div></sc-if></div>
+      <button class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;margin:-2px -4px 0 0;"><i class="ri-close-line" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+
+  <!-- панель прототипа -->
+  <sc-if value="{{ ok }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ ppBox }}">
+      <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
+        <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+        <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+        <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
+      </button>
+      <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--stroke);">
+          <sc-if value="{{ ppHasWho }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="flex:1;min-width:0;font-size:12px;line-height:16px;color:var(--n500);">Ход у: <b style="color:var(--n900);font-weight:500;">{{ ppWho }}</b></span>
+              <sc-if value="{{ ppCanSwitch }}" hint-placeholder-val="{{ true }}"><button class="pp-b" onClick="{{ ppSwitch }}"><i class="ri-user-shared-line" style="font-size:14px;"></i>Войти как</button></sc-if>
+            </div>
+          </sc-if>
+          <a class="pp-b" href="{{ ppApplicant }}"><i class="ri-briefcase-4-line" style="font-size:14px;"></i>Открыть у заявителя</a>
+          <sc-if value="{{ ppCanExpire }}" hint-placeholder-val="{{ false }}"><button class="pp-b" onClick="{{ ppExpire }}"><i class="ri-timer-flash-line" style="font-size:14px;color:#C2540A;"></i>Истечь срок заявителя</button></sc-if>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--stroke);">
+            <button class="pp-b" onClick="{{ ppFast }}" aria-pressed="{{ fastOn }}" style="{{ ppFastStyle }}"><i class="ri-speed-up-line" style="font-size:14px;"></i>Сжатые сроки</button>
+            <button class="pp-b" onClick="{{ ppFail }}" aria-pressed="{{ failOn }}" style="{{ ppFailStyle }}"><i class="ri-wifi-off-line" style="font-size:14px;"></i>Техсбой</button>
+            <button class="pp-b" onClick="{{ ppReset }}"><i class="ri-refresh-line" style="font-size:14px;"></i>Сбросить данные</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const DATA_ITEMS = [ ['d0', 'Сведения об услуге', 'ri-file-info-line'], ['d1', 'Сведения о заявителе', 'ri-building-line'], ['d2', 'Заявление', 'ri-file-list-3-line'], ['d3', 'Досье', 'ri-folder-3-line'] ];
+const FILE_EXT = ['jpeg','jpg','png','pdf','doc','xls'];
+const STAGES = ['Нулевая экспертиза','Первичная экспертиза','Профессиональная экспертиза','Рассмотрение формулярной комиссией'];
+const EMPTY_FORM = { p7:null, pay:null, payComment:'', prim:null, refComment:'', pDone:null, profNum:'', profDate:'', cNum:'', cDate:'', cText:'' };
+
+class Component extends DCLogic {
+  state = { ready:false, missing:false, app:null, sel:null, now:Date.now(), f:{ ...EMPTY_FORM }, files:{}, ferr:{}, errs:{}, drag:null,
+    modal:null, mPick:null, mText:'', mErr:'', mErrBox:'', toast:null, ppOpen:false, docTab:null, formKey:'', openB:{} };
+
+  componentDidMount(){
+    this._load = () => this.load();
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
+    if(window.mpArm && window.mpArm.ready) this.load();
+    this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
+    this._signed = (e) => this.signed(e && e.detail || {});
+    window.addEventListener('mp-sign-done', this._signed);
+  }
+  componentWillUnmount(){
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load));
+    window.removeEventListener('mp-sign-done', this._signed);
+    clearInterval(this._tick); clearTimeout(this._tt);
+  }
+  me(){ return window.mpArm.current('nn'); }
+  load(){
+    const ED = window.mpEd, A = window.mpArm; if(!ED || !A || !A.ready) return;
+    const num = new URLSearchParams(location.search).get('n');
+    const app = num ? ED.get(num) : null;
+    if(!app || app.status === 'Черновик'){ this.setState({ ready:true, missing:true, app:null }); return; }
+    const n = app.nn || {};
+    const key = A.nnStatus(app) + '|' + (n.pend || '') + '|' + (n.d || []).length + '|' + (n.assignee || '') + '|' + this.me() + '|' + (n.rem && n.rem.saved ? 1 : 0);
+    const patch = { ready:true, missing:false, app };
+    if(key !== this.state.formKey){
+      patch.formKey = key; patch.f = { ...EMPTY_FORM }; patch.files = {}; patch.ferr = {}; patch.errs = {};
+      const c = n.rem && n.rem.concl;
+      if(c){ patch.f.cNum = c.num || ''; patch.f.cDate = c.date || ''; patch.f.cText = c.text || ''; if(c.letter) patch.files.cLetter = c.letter; }
+      if(n.ret){ const r = (n.d || []).find(x => x.id === n.ret.rec); if(r) this.prefill(r, patch); }
+    }
+    if(!this.state.sel) patch.sel = 'decision';
+    this.setState(patch);
+  }
+  // после возврата на доработку — форма открывается с прежним решением эксперта
+  prefill(r, patch){
+    const F = (t) => { const x = (r.files || []).find(y => y.title === t); return x ? { name:x.name, size:x.size } : null; };
+    if(r.kind === 'p7'){ patch.f.p7 = r.val; if(r.val === 'no') patch.files.inv20 = F('Счёт на оплату 20%'); }
+    if(r.kind === 'primary'){ patch.f.prim = r.val; patch.f.refComment = r.comment || ''; patch.files.letter = F('Сопроводительное письмо'); patch.files.act = F('Акт мотивированного отказа'); }
+    if(r.kind === 'prof'){ patch.f.profNum = r.num || ''; patch.f.profDate = r.date || ''; patch.files.pConcl = F('Заключение профессиональной экспертизы'); patch.files.pLetter = F('Сопроводительное письмо'); patch.files.pAvr = F('Акт выполненных работ'); }
+  }
+  toast(kind, title, text){ clearTimeout(this._tt); this.setState({ toast:{ kind, title, text } }); this._tt = setTimeout(() => this.setState({ toast:null }), 5000); }
+  go(title, text){ location.href = 'АРМ ННЦРЗ.dc.html?done=' + encodeURIComponent(title + '|' + (text || '')) + '#registry'; }
+  extBadge(name, px){
+    const ED = window.mpEd, e = ED.ext(name);
+    const c = { pdf:['#FDEDF0','#DF1C41'], doc:['#EEF2FF','#4D42E9'], docx:['#EEF2FF','#4D42E9'], xls:['#EFFAF6','#2D9F75'], xlsx:['#EFFAF6','#2D9F75'], jpg:['#EEEBFF','#6E3FF3'], jpeg:['#EEEBFF','#6E3FF3'], png:['#EEEBFF','#6E3FF3'], zip:['#FEF3EB','#C2540A'] }[e] || ['#F6F8FA','#525866'];
+    px = px || 36;
+    return { ext:(e || 'файл').toUpperCase().slice(0, 4), badge:`width:${px}px;height:${px}px;border-radius:${px > 28 ? 8 : 6}px;background:${c[0]};color:${c[1]};font-size:${px > 28 ? 10 : 9}px;line-height:12px;font-weight:700;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;` };
+  }
+  openDoc(d){ try { window.dispatchEvent(new CustomEvent('mp-doc-open', { detail:d })); } catch(e){} }
+  fileRow(f, meta, title){
+    const ED = window.mpEd;
+    return { title: title || f.title || f.name, name:f.name, meta: meta || (f.name + ' · ' + ED.fileSize(f.size)), ...this.extBadge(f.name),
+      openAria:'Открыть: ' + (title || f.title || f.name), dlAria:'Скачать: ' + (title || f.title || f.name),
+      onOpen: () => f.doc ? this.openDoc(f.doc) : this.openDoc({ type:'file', name:f.name, size:f.size, title: title || f.title }),
+      onDl: () => this.toast('ok', 'Файл скачан', f.name) };
+  }
+
+  // ── загрузка файлов: JPEG, PNG, PDF, DOC, XLS до 300 МБ (UC01.13.3.4.1 Alt 6) ──
+  takeFile(key, list){
+    const arr = Array.from(list || []); if(!arr.length) return;
+    const f = arr[0], e = window.mpEd.ext(f.name);
+    let err = '';
+    if(FILE_EXT.indexOf(e) === -1) err = 'Загрузите файл формата JPEG, PNG, PDF, DOC или XLS до 300 МБ';
+    else if(f.size > 300 * 1048576) err = 'Размер файла больше 300 МБ!';
+    if(err){ this.setState({ ferr:{ ...this.state.ferr, [key]:err } }); return; }
+    this.setState({ files:{ ...this.state.files, [key]:{ name:f.name, size:f.size } }, ferr:{ ...this.state.ferr, [key]:'' } });
+  }
+  upField(key, label, req, editable, wrap){
+    const s = this.state, file = s.files[key], err = s.ferr[key] || '';
+    const ED = window.mpEd;
+    const inputId = 'up-' + key;
+    const pick = () => { const el = document.getElementById(inputId); if(el){ el.value = ''; el.click(); } };
+    return { isFile:true, label, req, empty:!file && editable !== false, has:!!file, editable: editable !== false, inputId, aria:label + ': загрузить файл',
+      fName: file ? file.name : '', fSize: file ? ED.fileSize(file.size) : '', ...(file ? (() => { const b = this.extBadge(file.name, 32); return { fBadge:b.badge, fExt:b.ext }; })() : { fBadge:'', fExt:'' }),
+      pick, pickKey:(e) => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } },
+      unpick: () => this.setState({ files:{ ...this.state.files, [key]:null } }),
+      onFile: (e) => this.takeFile(key, e.target.files),
+      onDragOver: (e) => { e.preventDefault(); if(s.drag !== key) this.setState({ drag:key }); },
+      onDragLeave: () => this.setState({ drag:null }),
+      onDrop: (e) => { e.preventDefault(); this.setState({ drag:null }); this.takeFile(key, e.dataTransfer && e.dataTransfer.files); },
+      zone:`display:flex;align-items:center;gap:12px;padding:14px;border:1px dashed ${s.drag === key ? '#4D42E9' : err ? '#DF1C41' : '#CDD0D5'};border-radius:12px;background:${s.drag === key ? '#EEF2FF' : '#fff'};`,
+      err, hasErr:!!err, wrap: wrap || 'grid-column:span 1;min-width:0;' };
+  }
+  radioField(label, opts, value, onPick, cols){
+    const radio = (on, dis) => `width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;background:${dis ? '#F6F8FA' : '#fff'};${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`;
+    return { isRadio:true, label, wrap:'grid-column:1 / -1;min-width:0;', grid:`display:grid;grid-template-columns:repeat(${cols || 2},minmax(0,1fr));gap:10px;`,
+      opts: opts.map(o => { const on = value === o.id; return { label:o.label, desc:o.desc || '', hasDesc:!!o.desc, on, disabled:!!o.disabled, tip:o.tip || '',
+        pick: () => { if(!o.disabled) onPick(o.id); }, radio: radio(on, o.disabled),
+        labelStyle:`font-size:14px;line-height:20px;font-weight:500;color:${o.disabled ? '#868C98' : '#0A0D14'};`,
+        style:`display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${o.disabled ? '#FBFCFD' : on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:${o.disabled ? 'not-allowed' : 'pointer'};text-align:left;` }; }) };
+  }
+  areaField(key, label, ph, max, req, disabled, rows){
+    const s = this.state, v = s.f[key] || '', err = s.errs[key] || '';
+    return { isArea:true, id:'fa-' + key, label, ph, max:String(max), req:req !== false, disabled:!!disabled, rows:String(rows || 4), value:v, count: v.length + ' / ' + max,
+      cls:'inp' + (err ? ' inp-err' : ''), err, hasErr:!!err, invalid:!!err, wrap:'grid-column:1 / -1;min-width:0;',
+      onChange: (e) => this.setState({ f:{ ...this.state.f, [key]:e.target.value }, errs:{ ...this.state.errs, [key]:'' } }) };
+  }
+  inputField(key, label, ph, max, disabled, date){
+    const s = this.state, v = s.f[key] || '', err = s.errs[key] || '';
+    const mask = (x) => { const d = String(x || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '.' + d.slice(2) : d; };
+    const nid = 'fd-' + key;
+    return { isInput:true, isDate:!!date, id:'fi-' + key, nid, label, ph, max:String(date ? 10 : max), disabled:!!disabled, value:v, mode: date ? 'numeric' : 'text',
+      cls:'inp tnum' + (err ? ' inp-err' : ''), inpStyle: date ? 'padding-right:40px;height:40px;' : 'height:40px;', err, hasErr:!!err, invalid:!!err, wrap:'grid-column:span 1;min-width:0;',
+      onChange: (e) => this.setState({ f:{ ...this.state.f, [key]: date ? mask(e.target.value) : e.target.value }, errs:{ ...this.state.errs, [key]:'' } }),
+      pick: () => { const el = document.getElementById(nid); if(el){ try { el.showPicker(); } catch(x){ el.click(); } } },
+      onNative: (e) => { const val = e.target.value; if(val){ const [y, m, d] = val.split('-'); this.setState({ f:{ ...this.state.f, [key]: d + '.' + m + '.' + y }, errs:{ ...this.state.errs, [key]:'' } }); } } };
+  }
+  info(tone, icon, text, btn, act){
+    const T = { blue:['#EEF2FF','#C6D0FF','#4D42E9'], orange:['#FEF3EB','#FFDAC2','#F17B2C'], gray:['#F6F8FA','#E2E4E9','#868C98'], green:['#EFFAF6','#CBF5E5','#38C793'], red:['#FDEDF0','#F8C9D2','#DF1C41'] }[tone];
+    return { isInfo:true, wrap:'grid-column:1 / -1;min-width:0;', text, icon, hasBtn:!!btn, btn:btn || '', btnAct:act || null,
+      box:`display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;background:${T[0]};border:1px solid ${T[1]};color:#31353F;`, iconStyle:`font-size:20px;color:${T[2]};flex:0 0 auto;` };
+  }
+  docsField(label, rows){ return { isDocs:true, label, files:rows, wrap:'grid-column:1 / -1;min-width:0;' }; }
+
+  // ── подпись ЭЦП ──
+  certs(){
+    const A = window.mpArm, me = this.me(), u = A.user(me);
+    return [ { id:'staff', fio:A.fullName(me), iin:u.iin, org:'РГП на ПХВ «ННЦРЗ» МЗ РК', bin:'990340005977', usage:'Ключ подписи GOSTKNCA', from:'02.02.2026', to:'02.02.2028' } ];
+  }
+  sign(action, title){
+    const ED = window.mpEd;
+    if(ED.fail()){ this.toast('err', ED.FAIL_MSG, ''); return; }
+    this.pending = action;
+    try { window.dispatchEvent(new CustomEvent('mp-sign-open', { detail:{ ctx:'nn:' + this.state.app.num, title, doc:'Заявка № ' + this.state.app.num, certs:this.certs() } })); } catch(e){}
+  }
+  signed(d){
+    if(!d.ctx || d.ctx !== 'nn:' + (this.state.app && this.state.app.num) || !this.pending) return;
+    const act = this.pending; this.pending = null;
+    act(d.at || Date.now());
+  }
+  done(r, title, text, stay){
+    if(!r || !r.ok){ this.toast('err', (r && r.err) || 'Система недоступна, просим обратиться в службу поддержки', ''); return; }
+    if(stay){ this.toast('ok', title, text); window.scrollTo({ top:0, behavior:'smooth' }); return; }
+    this.go(title, text);
+  }
+
+  // ── модальные окна ──
+  openModal(m){ this.setState({ modal:m, mPick: m.preset != null ? m.preset : null, mText: m.text0 || '', mErr:'', mErrBox:'' }); }
+  closeModal(){ this.setState({ modal:null }); }
+  // выбор следующего согласующего → ЭЦП → действие
+  askNext(opts, title, then, signTitle){
+    if(opts.length === 0){ this.sign((at) => then(null, at), signTitle); return; }
+    this.openModal({ type:'next', title, opts, preset: opts.length === 1 ? 0 : null, then, signTitle });
+  }
+
+  // ── действия ──
+  doP7(){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    const rec = { kind:'p7', round:1, val:s.f.p7, files: s.f.p7 === 'no' ? [ { title:'Счёт на оплату 20%', name:s.files.inv20.name, size:s.files.inv20.size } ] : [] };
+    this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
+      const r = A.submit(num, me, rec, next, at);
+      this.done(r, 'Решение подписано и направлено', 'Заявка № ' + num + ' — ' + (r.app ? A.nnStatus(r.app).toLowerCase() : ''));
+    }, 'Подписание решения по пункту 7');
+  }
+  doPay(pct){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    if(s.f.pay === 'yes'){
+      this.openModal({ type:'confirm', icon:'ri-bank-line', tone:'green', title:'Подтвердить поступление оплаты ' + pct + '%?', text: pct === 20 ? 'Заявка перейдёт на этап «Первичная экспертиза».' : 'Заявка перейдёт на этап «Профессиональная экспертиза» со статусом «Новая».', ok:'Подтвердить',
+        then: () => { const r = A.confirmPay(num, me, pct, true); this.done(r, 'Оплата ' + pct + '% подтверждена', pct === 20 ? 'Можно приступать к первичной экспертизе.' : 'Начальник управления назначит эксперта профессиональной экспертизы.', pct === 20); } });
+      return;
+    }
+    const comment = s.f.payComment.trim(), file = s.files.payFile || null;
+    this.sign((at) => { const r = A.confirmPay(num, me, pct, false, comment, file, at); this.done(r, 'Замечание по оплате отправлено заявителю', r.app && A.nnStatus(r.app) === 'Оплата не произведена' ? 'Статус — «Оплата не произведена», обработка остановлена.' : 'К сроку оплаты добавлен 1 рабочий день.'); }, 'Подписание замечания по оплате ' + pct + '%');
+  }
+  doPrimary(round){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    if(s.f.prim === 'recommend'){
+      const rec = { kind:'primary', round, val:'recommend', files:[ { title:'Счёт на оплату 80%', name:s.files.inv80.name, size:s.files.inv80.size } ] };
+      this.openModal({ type:'confirm', icon:'ri-send-plane-line', tone:'blue', title:'Отправить счет на оплату заявителю', text:'Счёт на оплату 80% будет подписан ЭЦП и направлен заявителю. Срок оплаты — 5 рабочих дней.', ok:'Да, отправить',
+        then: () => this.sign((at) => { const r = A.submit(num, me, rec, null, at); this.done(r, 'Счёт на оплату 80% отправлен заявителю', 'Статус — «Ожидает оплаты 80%».'); }, 'Подписание счёта на оплату 80%') });
+      return;
+    }
+    const rec = { kind:'primary', round, val:'refuse', comment:s.f.refComment.trim(), files:[ { title:'Сопроводительное письмо', name:s.files.letter.name, size:s.files.letter.size }, { title:'Акт мотивированного отказа', name:s.files.act.name, size:s.files.act.size } ] };
+    this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
+      const r = A.submit(num, me, rec, next, at);
+      this.done(r, 'Мотивированный отказ направлен на согласование', r.app ? A.nnStatus(r.app) : '');
+    }, 'Подписание мотивированного отказа');
+  }
+  doProfComplete(){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    this.openModal({ type:'confirm', icon:'ri-check-double-line', tone:'blue', title:'Профессиональная экспертиза завершена?', text:'Начнётся срок 5 рабочих дней на подготовку заключения, сопроводительного письма и акта выполненных работ. Прежний срок сохранится в хронологии.', ok:'Подтвердить',
+      then: () => { const r = A.profComplete(num, me); this.done(r, 'Экспертиза отмечена завершённой', 'Подготовьте документы в течение 5 рабочих дней.', true); } });
+  }
+  doProf(round){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    const F = (k, t) => ({ title:t, name:s.files[k].name, size:s.files[k].size });
+    const rec = { kind:'prof', round, val:'done', num:s.f.profNum.trim(), date:s.f.profDate, files:[ F('pConcl', 'Заключение профессиональной экспертизы'), F('pLetter', 'Сопроводительное письмо'), F('pAvr', 'Акт выполненных работ') ] };
+    this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
+      const r = A.submit(num, me, rec, next, at);
+      this.done(r, 'Заключение направлено на согласование', r.app ? A.nnStatus(r.app) : '');
+    }, 'Подписание заключения профессиональной экспертизы');
+  }
+  doRemarksSend(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd, num = s.app.num, me = this.me(), n = s.app.nn;
+    const fields = n.rem.fields || {};
+    const items = Object.keys(fields).map(k => fields[k].label + ': ' + fields[k].text);
+    const files = [ { title:'Заключение по первичной экспертизе (замечания)', name:'Заключение_замечания_№' + num + '.pdf', size:182 * 1024, doc:{ type:'remarks', num } } ];
+    if(n.rem.concl && n.rem.concl.letter) files.push({ title:'Сопроводительное письмо', name:n.rem.concl.letter.name, size:n.rem.concl.letter.size });
+    const rec = { kind:'remarks', round:1, items, fields, concl:n.rem.concl, files };
+    this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
+      const r = A.submit(num, me, rec, next, at);
+      this.done(r, 'Замечания направлены на согласование', 'После подписи Председателя Правления заявитель получит 10 рабочих дней на исправление.');
+    }, 'Подписание замечаний к заявке');
+  }
+  doApprove(){
+    const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
+    const P = A.perm(s.app, me);
+    if(P.signer){ this.sign((at) => { const r = A.approve(num, me, null, at); this.done(r, 'Документ подписан', r.app ? 'Заявка № ' + num + ' — ' + A.nnStatus(r.app).toLowerCase() : ''); }, 'Подписание документа'); return; }
+    this.askNext(A.nextOptions(s.app, me), 'Выберите следующего согласующего', (next, at) => {
+      const r = A.approve(num, me, next, at);
+      this.done(r, 'Согласовано', r.app ? 'Заявка № ' + num + ' — ' + A.nnStatus(r.app).toLowerCase() : '');
+    }, 'Согласование документа');
+  }
+  doReturn(){
+    this.openModal({ type:'return', title:'Вернуть на доработку', text:'Заявка вернётся эксперту — ' + window.mpArm.shortName((window.mpArm.pendingRec(this.state.app) || {}).by) + '. Комментарий увидит эксперт, он попадёт в хронологию.', max:1500 });
+  }
+  doAssign(kind){
+    const s = this.state, A = window.mpArm, me = this.me();
+    const prof = kind === 'assignProf', re = kind === 'reassign';
+    const isProfStage = A.nnStage(s.app) === 'Профессиональная экспертиза';
+    const pool = (prof || (re && isProfStage) ? A.ofRole('prof') : A.ofRole('expert')).concat([ A.CHIEF ]);
+    const cur = re ? (isProfStage ? s.app.nn.prof : s.app.nn.expert) : null;
+    const opts = pool.filter(id => id !== cur).map(id => ({ user:id, name: id === me ? A.shortName(id) + ' — назначить себя' : A.shortName(id), label:A.roleLabel(id), load:'В работе: ' + A.nnTasks(id).length }));
+    this.openModal({ type: prof ? 'assignProf' : re ? 'reassign' : 'assign', title: prof ? 'Назначить эксперта профессиональной экспертизы' : re ? 'Переназначить ответственного' : 'Назначить ответственного',
+      text: re && cur ? 'Сейчас: ' + A.fullName(cur) + '. Срок рассмотрения не изменится.' : prof ? 'Срок профессиональной экспертизы — 30 рабочих дней с подтверждения оплаты 80%; назначение его не меняет.' : 'Назначенный сотрудник проверит заявку на соответствие пункту 7.',
+      opts, ok: prof ? 'Подтвердить' : re ? 'Переназначить' : 'Назначить ответственного' });
+  }
+  modalOk(){
+    const s = this.state, m = s.modal, A = window.mpArm, num = s.app && s.app.num, me = this.me();
+    if(!m) return;
+    if(m.type === 'confirm'){ this.closeModal(); m.then(); return; }
+    if(m.type === 'next'){
+      if(s.mPick == null){ this.setState({ mErr:'Выберите следующего согласующего' }); return; }
+      const o = m.opts[s.mPick]; this.closeModal();
+      this.sign((at) => m.then({ user:o.user, mode:o.mode }, at), m.signTitle);
+      return;
+    }
+    if(m.type === 'assign' || m.type === 'reassign' || m.type === 'assignProf'){
+      if(s.mPick == null){ this.setState({ mErr:'Выберите ответственного' }); return; }
+      const o = m.opts[s.mPick];
+      if(window.mpEd.fail()){ this.setState({ mErrBox:window.mpEd.FAIL_MSG }); return; }
+      this.closeModal();
+      if(m.type === 'assign'){ const r = A.assign(num, me, o.user); this.done(r, 'Ответственный назначен', 'Заявка № ' + num + ' — ' + A.fullName(o.user) + '. Статус «В работе».'); return; }
+      if(m.type === 'reassign'){ const r = A.reassign(num, me, o.user); this.done(r, 'Ответственный переназначен', A.fullName(o.user), true); return; }
+      this.sign((at) => { const r = A.assign(num, me, o.user, at); this.done(r, 'Эксперт назначен', 'Заявка № ' + num + ' — ' + A.fullName(o.user) + '. Статус «В работе».'); }, 'Подписание назначения эксперта');
+      return;
+    }
+    if(m.type === 'return'){
+      const t = s.mText.trim();
+      if(!t){ this.setState({ mErr:'Для отправления на доработку необходимо ввести сообщение' }); return; }
+      const r = A.returnTo(num, me, t);
+      if(!r.ok){ this.setState({ mErrBox:r.err }); return; }
+      this.closeModal(); this.done(r, 'Заявка возвращена эксперту на доработку', 'Заявка № ' + num + ' — статус «На доработке».');
+      return;
+    }
+    if(m.type === 'remark'){
+      const t = s.mText.trim();
+      if(!t){ this.setState({ mErr:'Введите текст замечания' }); return; }
+      const r = A.remarkSet(num, m.key, m.label, t);
+      if(!r.ok){ this.setState({ mErrBox:r.err }); return; }
+      this.closeModal(); this.toast('ok', 'Замечание сохранено', m.label);
+    }
+  }
+
+  // ── данные заявки ──
+  dataView(app, key, canRem){
+    const ED = window.mpEd, f = app.form, P = app.org || ED.PROFILE, cat = f.cat, A = window.mpArm;
+    const rem = (app.nn && app.nn.rem && app.nn.rem.fields) || {};
+    const issued = (app.nn && app.nn.rem && app.nn.rem.issued);
+    const T = (k, label, value, full, section) => {
+      const r = rem[k];
+      const hasRemark = !!r;
+      return { anchor:'f-' + k.replace(/[^a-z0-9]/gi, '-'), label, value: value || '—', isText:true, isFile:false,
+        wrap:`display:flex;flex-direction:column;gap:4px;min-width:0;${full ? 'grid-column:1 / -1;' : ''}${hasRemark ? 'padding:8px;margin:-8px;border-radius:10px;background:#FFFBF7;' : ''}`,
+        style:`margin:0;font-size:14px;line-height:20px;color:${value ? '#0A0D14' : '#868C98'};`,
+        canRemark: !!canRem, remarkIcon: hasRemark ? 'ri-chat-1-fill' : 'ri-chat-1-line', remarkAria:(hasRemark ? 'Изменить замечание к полю ' : 'Добавить замечание к полю ') + label,
+        remarkTip: hasRemark ? 'Изменить замечание' : 'Добавить замечание к полю',
+        remarkBtn: hasRemark ? 'color:#F17B2C;' : 'color:#868C98;',
+        remark: () => this.openModal({ type:'remark', key:k, label: section ? section + ': ' + label : label, title: hasRemark ? 'Изменить замечание' : 'Замечание к полю', text:(section ? section + ' · ' : '') + label, text0: hasRemark ? r.text : '', max:1000, canDelete:hasRemark }),
+        hasRemark, remText: hasRemark ? (issued ? 'Замечание эксперта: ' : 'Ваше замечание: ') + r.text : '',
+        remBox:'display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:8px 10px;border-radius:8px;background:#FEF3EB;border:1px solid #FFDAC2;font-size:13px;line-height:18px;color:#6E330C;' };
+    };
+    const Fl = (k, label, files, full) => { const r = T(k, label, '', full); return { ...r, isText:false, isFile:true, files: files.map(x => ({ name:x.name, size:ED.fileSize(x.size), ...this.extBadge(x.name, 24), openAria:'Открыть файл ' + x.name, onOpen: () => this.openDoc({ type:'file', name:x.name, size:x.size, title:label }) })) }; };
+    const G = (rows, cols, head) => ({ rows, hasHead:!!head, head:head || '', wrap: head ? 'border:1px solid #E2E4E9;border-radius:12px;overflow:hidden;' : '',
+      grid:`margin:0;display:grid;grid-template-columns:repeat(${cols || 2},minmax(0,1fr));gap:16px 24px;${head ? 'padding:14px;' : ''}` });
+    const C = (id, title, groups, desc) => ({ hid:'dv-' + id, title, groups, desc:desc || '', hasDesc:!!desc });
+    if(key === 'd0'){
+      const sm = ED.summary(app);
+      return [ C('svc', 'Сведения об услуге', [ G([ T('svc.bin', 'БИН Заявителя', P.bin), T('svc.num', '№ заявки', app.num), T('svc.sent', 'Дата и время отправки', ED.fmtDT(app.sentAt)), T('svc.pub', 'Статус у заявителя', app.status), T('svc.cat', 'Категория', cat === 'mi' ? 'Медицинские изделия (МИ)' : 'Лекарственные средства (ЛС)'), T('svc.type', 'Тип услуги', ED.SERVICE_TYPE, true) ].map(r => ({ ...r, canRemark:false })), 3) ]) ];
+    }
+    if(key === 'd1'){
+      const a = f.a, poa = a.poaNum || a.poaIssued || a.poaValid || a.poaText || a.poaFiles.length;
+      const out = [
+        C('org', 'Информация об услугополучателе', [ G([ T('a.org', 'Наименование организации', P.org, true, 'Сведения о заявителе'), T('a.legal', 'Юридический адрес', P.legal, false, 'Сведения о заявителе'), T('a.actual', 'Фактический адрес', P.actual, false, 'Сведения о заявителе') ]) ]),
+        C('contact', 'Контактное лицо', [ G([ T('a.last', 'Фамилия', P.last, false, 'Контактное лицо'), T('a.first', 'Имя', P.first, false, 'Контактное лицо'), T('a.middle', 'Отчество', P.middle, false, 'Контактное лицо'), T('a.position', 'Должность', a.position, false, 'Контактное лицо'), T('a.phone', 'Телефон', a.phone, false, 'Контактное лицо'), T('a.fax', 'Факс', a.fax, false, 'Контактное лицо'), T('a.email', 'Email', P.email, false, 'Контактное лицо') ], 3) ]),
+        C('bank', 'Банковские реквизиты', [ G([ T('a.bin', 'БИН', P.bin, false, 'Банковские реквизиты'), T('a.bank', 'Название банка', P.bank, false, 'Банковские реквизиты'), T('a.iik', 'ИИК', P.iik, false, 'Банковские реквизиты'), T('a.bik', 'БИК', P.bik, false, 'Банковские реквизиты'), T('a.kbe', 'КБе', P.kbe, false, 'Банковские реквизиты') ], 3) ]),
+      ];
+      out.push(poa
+        ? C('poa', 'Данные о доверенности', [ G([ T('a.poaNum', '№ доверенности', a.poaNum, false, 'Доверенность'), T('a.poaIssued', 'Дата выдачи', a.poaIssued, false, 'Доверенность'), T('a.poaValid', 'Срок действия', a.poaValid, false, 'Доверенность'), T('a.poaText', 'Текст доверенности', a.poaText, true, 'Доверенность') ].concat(a.poaFiles.length ? [ Fl('a.poaFiles', 'Файлы доверенности', a.poaFiles, true) ] : []), 3) ])
+        : C('poa', 'Данные о доверенности', [ G([ { ...T('a.poa', 'Доверенность', 'Не заполнялась — заявление подано без доверенности', true), canRemark:false } ]) ]));
+      return out;
+    }
+    if(key === 'd2'){
+      const st = f.s[cat] || {};
+      return ED.SCHEMA[cat].map(sec => {
+        if(sec.regs) return C(sec.id, sec.title, f.regs.map((r, i) => {
+          const sp = 'Рег. номер ' + (i + 1);
+          const rows = [ T('r.' + r.id + '.num', 'Регистрационный номер', r.num, false, sp), T('r.' + r.id + '.country', 'Производитель / Страна', r.country, false, sp), T('r.' + r.id + '.regDate', 'Дата регистрации', r.regDate, false, sp), T('r.' + r.id + '.expDate', 'Дата истечения', r.perpetual ? 'Бессрочно' : r.expDate, false, sp) ];
+          if(cat === 'ls'){ if(r.dose != null) rows.push(T('r.' + r.id + '.dose', 'Дозировка', r.dose, false, sp)); if(r.conc){ rows.push(T('r.' + r.id + '.conc', 'Концентрация', r.conc.val, false, sp)); rows.push(T('r.' + r.id + '.qty', 'Количество во вторичной (потребительской) упаковке', r.conc.qty, false, sp)); } }
+          return G(rows, 2, sp);
+        }));
+        return C(sec.id, sec.title, [ G(sec.fields.map(fd => T('s.' + fd.k, fd.label, st[fd.k], fd.full, 'Заявление'))) ], sec.desc);
+      });
+    }
+    return [ C('dossier', 'Досье', ED.dossier(cat).map(d => {
+      const v = f.d[d.k] || {};
+      const rows = [];
+      if(v.text || !v.file) rows.push(T('d.' + d.k, 'Сведения', v.text || (d.req ? '' : 'Не заполнялся'), true, 'Досье, раздел ' + d.n));
+      if(v.file) rows.push(Fl('d.' + d.k + '.file', 'Файл', [v.file], true));
+      return G(rows, 1, d.n + '. ' + d.title);
+    })) ];
+  }
+  remarkCounts(app){
+    const rem = (app.nn && app.nn.rem && app.nn.rem.fields) || {};
+    const c = { d1:0, d2:0, d3:0 };
+    Object.keys(rem).forEach(k => { if(k.indexOf('a.') === 0) c.d1++; else if(k.indexOf('d.') === 0) c.d3++; else if(k.indexOf('seed') === 0) {} else c.d2++; });
+    return c;
+  }
+
+  // ── блок истории решения ──
+  recBlock(app, r, i){
+    const ED = window.mpEd, A = window.mpArm;
+    const ppAt = (() => { const c = (r.chain || []).find(x => x.act === 'sign' && A.roleKey(x.user) === 'chair'); return c ? ED.fmtDT(c.at) : ''; })();
+    const signer = (r.chain || []).find(x => x.act === 'sign');
+    const TITLES = { p7:'Принятие решения · Нулевая экспертиза', pay20:'Подтверждение оплаты 20%', pay80:'Подтверждение оплаты 80%', primary:'Принятие решения первичной экспертизы', remarks:'Отработка замечаний · Заключение по первичной экспертизе', prof:'Формирование заключения на профессиональную экспертизу' };
+    const VAL = { p7:{ yes:'Соответствует пункту 7', no:'Не соответствует пункту 7' }, pay20:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, pay80:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, primary:{ recommend:'Рекомендовано', refuse:'Отказано' }, prof:{ done:'Завершено' } };
+    const T = (label, value, o) => ({ isText:true, isNote:false, isFiles:false, label, value, hasPp:false, pp:'', wrap:'min-width:0;', ...(o || {}) });
+    const rows = [];
+    if(r.kind === 'remarks'){
+      rows.push(T('№ заключения первичной экспертизы', (r.concl && r.concl.num) || '—'), T('Дата заключения', (r.concl && r.concl.date) || '—'));
+      rows.push(T('Заключение по результатам проверки', (r.concl && r.concl.text) || '—', { isText:false, isNote:true, wrap:'grid-column:1 / -1;min-width:0;' }));
+      rows.push(T('Замечания (' + (r.items || []).length + ')', (r.items || []).map((x, k) => (k + 1) + ') ' + x).join('\n'), { isText:false, isNote:true, wrap:'grid-column:1 / -1;min-width:0;' }));
+    } else {
+      const v = (VAL[r.kind] || {})[r.val] || r.val;
+      rows.push(T(r.kind === 'prof' ? 'Статус экспертизы' : 'Решение', v, { hasPp: !!ppAt && (r.kind === 'primary' && r.val === 'refuse'), pp:ppAt }));
+      if(r.kind === 'prof'){ rows.push(T('№ заключения профессиональной экспертизы', r.num || '—', { hasPp:!!ppAt, pp:ppAt }), T('Дата заключения', r.date || '—')); }
+      if(r.comment) rows.push(T(r.kind === 'primary' ? 'Причина отказа' : 'Комментарий для заявителя', r.comment, { isText:false, isNote:true, wrap:'grid-column:1 / -1;min-width:0;' }));
+    }
+    // документы шага (для оплаты — счёт и платёжное поручение заявителя)
+    let files = (r.files || []).map(f => this.fileRow(f));
+    if(r.kind === 'pay20' || r.kind === 'pay80'){
+      const steps = app.steps.filter(x => x.kind === r.kind);
+      const st = steps[(r.round || 1) - 1] || steps[steps.length - 1];
+      const fl = [];
+      if(st && st.docs && st.docs[0]) fl.push(this.fileRow(st.docs[0], st.docs[0].name + ' · ' + ED.money(st.docs[0].amount || ED.PRICE * (r.kind === 'pay20' ? .2 : .8)), 'Счёт на оплату ' + (r.kind === 'pay20' ? 20 : 80) + '%'));
+      if(st && st.file) fl.push(this.fileRow(st.file, st.file.name + ' · загружено ' + ED.fmtDT(st.at), 'Платёжное поручение заявителя'));
+      files = fl.concat(files.map(x => ({ ...x, title:'Документ эксперта' })));
+    }
+    if(files.length) rows.push({ isText:false, isNote:false, isFiles:true, label:'Документы', files, wrap:'grid-column:1 / -1;min-width:0;' });
+    // маршрут согласования
+    const ACT = { exec:['Исполнено', 'ri-check-line', '#2D9F75'], agree:['Согласовано', 'ri-check-double-line', '#2D9F75'], sign:['Подписано ЭЦП', 'ri-quill-pen-line', '#2D9F75'], return:['На доработку', 'ri-arrow-go-back-line', '#C2540A'] };
+    const route = (r.chain || []).map(c => { const a = ACT[c.act] || ACT.exec, av = A.avatar(c.user); return { ini:A.initials(c.user), name:A.shortName(c.user), role:A.roleLabel(c.user), act:a[0] + ' · ' + ED.fmtDT(c.at), actIcon:a[1],
+      actStyle:`display:inline-flex;align-items:center;gap:3px;font-size:11.5px;line-height:16px;color:${a[2]};`,
+      ava:`width:30px;height:30px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+      box:'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border:1px solid #E2E4E9;border-radius:12px;background:#fff;min-width:0;max-width:260px;' }; });
+    const n = app.nn || {};
+    if(r.state === 'approval' && n.next){
+      const av = A.avatar(n.next.user);
+      route.push({ ini:A.initials(n.next.user), name:A.shortName(n.next.user), role:A.roleLabel(n.next.user), act: n.next.mode === 'sign' ? 'Ожидает подписи' : 'Ожидает согласования', actIcon:'ri-time-line',
+        actStyle:'display:inline-flex;align-items:center;gap:3px;font-size:11.5px;line-height:16px;color:#4D42E9;font-weight:500;',
+        ava:`width:30px;height:30px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;animation:mp-pulse 2s ease infinite;`,
+        box:'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border:1px dashed #C6D0FF;border-radius:12px;background:#FBFCFD;min-width:0;max-width:260px;' });
+    }
+    const multiStep = route.length > 1 || r.state === 'approval';
+    const pendingMine = r.state === 'approval' && n.next && n.next.user === this.me();
+    const chip = r.state === 'approval' ? { label: pendingMine ? (n.next.mode === 'sign' ? 'Ждёт вашей подписи' : 'Ждёт вашего согласования') : 'На согласовании', icon:'ri-time-line', tone:'purple' }
+      : r.state === 'returned' ? { label:'Возвращено на доработку', icon:'ri-arrow-go-back-line', tone:'orange' }
+      : { label: signer ? 'Подписано ' + ED.fmtD(signer.at) : 'Выполнено ' + ED.fmtD(r.at), icon:'ri-checkbox-circle-line', tone:'green' };
+    const TN = { purple:['#EEEBFF','#2B1664'], orange:['#FEF3EB','#6E330C'], green:['#EFFAF6','#176448'] }[chip.tone];
+    const btns = [];
+    if(r.kind === 'remarks') btns.push({ label:'Сформировать PDF-файл', icon:'ri-file-pdf-2-line', onClick: () => this.openDoc({ type:'remarks', num:app.num }) });
+    const sumVal = r.kind === 'remarks' ? 'Замечаний: ' + (r.items || []).length : r.kind === 'prof' ? 'Завершено' + (r.num ? ' · № ' + r.num : '') : ((VAL[r.kind] || {})[r.val] || '');
+    return { collapsible: r.state === 'done', sum: sumVal, hid:'rb-' + i, title:TITLES[r.kind] || 'Решение', hasRound: (r.round || 1) > 1 || ['primary','prof','pay20','pay80'].indexOf(r.kind) !== -1 && this.roundsOf(app, r.kind) > 1, round:(r.round || 1) + '-й раунд',
+      rows, route, hasRoute: multiStep, chip:{ ...chip, style:`display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:${TN[0]};color:${TN[1]};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;` },
+      btns, hasBtns: btns.length > 0,
+      box:`background:#fff;border:1px solid ${pendingMine ? '#C6D0FF' : '#E2E4E9'};border-radius:16px;box-shadow:${pendingMine ? '0 0 0 4px #EEF2FF,' : ''}0 1px 2px rgba(10,13,20,.03);overflow:hidden;` };
+  }
+  roundsOf(app, kind){ return ((app.nn && app.nn.d) || []).filter(x => x.kind === kind && x.state !== 'returned').length; }
+
+  // ── форма текущего шага ──
+  buildForm(app, P){
+    const s = this.state, ED = window.mpEd, A = window.mpArm, f = s.f, n = app.nn || {};
+    const st = A.nnStatus(app), back = { label:'Назад', icon:'ri-arrow-left-line', cls:'btn btn-g', onClick: () => { location.href = 'АРМ ННЦРЗ.dc.html#registry'; }, disabled:false };
+    const send = (ok, label, act, icon) => ({ label: label || 'Подписать и отправить', icon: icon || 'ri-quill-pen-line', cls:'btn btn-p', disabled:!ok, onClick:act });
+    const hintOf = (miss) => miss.length ? { hint:'Чтобы продолжить: ' + miss.join(', ').toLowerCase(), hintIcon:'ri-information-line' } : { hint:'Документ подписывается ЭЦП', hintIcon:'ri-quill-pen-line' };
+    const F = { hid:'form-h', hasRound:false, round:'', hasTip:false, tip:'', chip:'Ваше действие', fields:[], btns:[] };
+
+    if(P.p7){
+      F.title = 'Принятие решения'; F.hasTip = true; F.tip = 'Проверьте, есть ли в перечне Единого дистрибьютора ЛС / МИ с идентичными параметрами (пункт 7 Правил). «Не соответствует» — заявителю выставляется счёт на оплату 20%.';
+      F.fields.push(this.radioField('Соответствие пункту 7 Правил', [ { id:'yes', label:'Соответствует пункту 7', desc:'Заявка будет завершена после подписи Председателя Правления' }, { id:'no', label:'Не соответствует пункту 7', desc:'Приложите счёт на оплату 20% стоимости экспертизы' } ], f.p7, (v) => this.setState({ f:{ ...this.state.f, p7:v } })));
+      if(f.p7 === 'no') F.fields.push(this.upField('inv20', 'Счёт на оплату 20%', true, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
+      const miss = []; if(!f.p7) miss.push('Выберите решение'); if(f.p7 === 'no' && !s.files.inv20) miss.push('Прикрепите счёт на оплату 20%');
+      Object.assign(F, hintOf(miss)); F.btns = [ back, send(!miss.length, null, () => this.doP7()) ];
+      return F;
+    }
+    if(P.pay20 || P.pay80){
+      const pct = P.pay20 ? 20 : 80, kind = 'pay' + pct;
+      const round = this.roundsOf(app, kind) + 1;
+      const stp = ED.lastOf(app, kind);
+      F.title = 'Подтверждение оплаты ' + pct + '%'; F.hasRound = round > 1; F.round = round + '-й раунд';
+      const docs = [];
+      if(stp && stp.docs && stp.docs[0]) docs.push(this.fileRow(stp.docs[0], ED.money(stp.docs[0].amount || ED.PRICE * pct / 100) + ' · ' + stp.docs[0].name, 'Счёт на оплату ' + pct + '%'));
+      if(stp && stp.file) docs.push(this.fileRow(stp.file, 'Загружено ' + ED.fmtDT(stp.at), 'Платёжное поручение заявителя'));
+      F.fields.push(this.docsField('Документы', docs));
+      if(round > 1) F.fields.push(this.info('orange', 'ri-error-warning-line', 'Повторная проверка. Если оплата снова не поступила, заявка получит статус «Оплата не произведена» и обработка будет остановлена.'));
+      F.fields.push(this.radioField('Оплата поступила?', [ { id:'yes', label:'Да' }, { id:'no', label:'Нет' } ], f.pay, (v) => this.setState({ f:{ ...this.state.f, pay:v } })));
+      if(f.pay === 'no'){
+        F.fields.push(this.areaField('payComment', 'Введите комментарий для Заявителя', 'Например: платёж на сумму ' + ED.money(ED.PRICE * pct / 100) + ' не поступил на расчётный счёт ННЦРЗ', 1500, true, false, 3));
+        F.fields.push(this.upField('payFile', 'Прикрепите документ при необходимости', false, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
+      }
+      const miss = []; if(!f.pay) miss.push('Выберите «Да» или «Нет»'); if(f.pay === 'no' && !f.payComment.trim()) miss.push('Введите комментарий для Заявителя');
+      Object.assign(F, f.pay === 'yes' ? { hint:'Подтверждение без подписи ЭЦП', hintIcon:'ri-information-line' } : hintOf(miss));
+      F.btns = [ back, f.pay === 'yes' ? send(true, 'Подтвердить', () => this.doPay(pct), 'ri-check-line') : send(!miss.length, null, () => this.doPay(pct)) ];
+      return F;
+    }
+    if(P.primary){
+      const round = this.roundsOf(app, 'primary') + (st === 'На доработке' ? 0 : 1);
+      F.title = 'Принятие решения первичной экспертизы'; F.hasRound = round > 1; F.round = round + '-й раунд';
+      F.hasTip = true; F.tip = 'Замечания к полям заявки добавляются в разделах «Данные заявки» — значок комментария справа от поля. Замечания выставляются один раз за цикл экспертизы.';
+      const remN = Object.keys((n.rem && n.rem.fields) || {}).length;
+      if(remN && !n.rem.issued && P.remarks) F.fields.push(this.info('orange', 'ri-chat-1-line', 'К заявке добавлено замечаний: ' + remN + '. Чтобы вернуть заявку заявителю на доработку, отправьте их из раздела «Отработка замечаний».', 'Перейти', () => { this.setState({ sel:'remarks' }); window.scrollTo({ top:0, behavior:'smooth' }); }));
+      if(st === 'Проверка доработки'){
+        const rs = ED.lastOf(app, 'remarks');
+        if(rs && rs.reply){
+          F.fields.push(this.info('blue', 'ri-reply-line', 'Ответ заявителя на замечания' + (rs.reply.text ? ': ' + rs.reply.text : '')));
+          if(rs.reply.files && rs.reply.files.length) F.fields.push(this.docsField('Исправленные документы заявителя', rs.reply.files.map(x => this.fileRow(x, 'Загружено ' + ED.fmtDT(rs.at), 'Исправленные документы'))));
+        }
+      }
+      if(round > 1 || st === 'Отказ от решения'){
+        const rf = app.steps.filter(x => x.kind === 'refuse' && x.reply && x.reply.agree === false).slice(-1)[0];
+        if(rf) F.fields.push(this.docsField('Мотивированное возражение заявителя', [ this.fileRow(rf.reply.file, 'Загружено ' + ED.fmtDT(rf.at), 'Мотивированное возражение') ]));
+      }
+      F.fields.push(this.radioField('Решение', [ { id:'recommend', label:'Рекомендовано', desc:'Заявителю — счёт на оплату 80%, затем профессиональная экспертиза' }, { id:'refuse', label:'Отказано', desc:'Мотивированный отказ — на согласование руководству' } ], f.prim, (v) => this.setState({ f:{ ...this.state.f, prim:v } })));
+      if(f.prim === 'recommend') F.fields.push(this.upField('inv80', 'Счёт на оплату 80%', true, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
+      if(f.prim === 'refuse'){
+        F.fields.push(this.areaField('refComment', 'Причина отказа', 'Опишите, почему заявка не рекомендована к профессиональной экспертизе', 1500, true, false, 4));
+        F.fields.push(this.upField('letter', 'Сопроводительное письмо', true, true));
+        F.fields.push(this.upField('act', 'Акт мотивированного отказа', true, true));
+      }
+      const miss = []; if(!f.prim) miss.push('Выберите решение');
+      if(f.prim === 'recommend' && !s.files.inv80) miss.push('Прикрепите счёт на оплату 80%');
+      if(f.prim === 'refuse'){ if(!f.refComment.trim()) miss.push('Введите причину отказа'); if(!s.files.letter || !s.files.act) miss.push('Прикрепите сопроводительное письмо и акт'); }
+      Object.assign(F, hintOf(miss)); F.btns = [ back, send(!miss.length, null, () => this.doPrimary(round)) ];
+      return F;
+    }
+    if(P.profComplete){
+      const round = this.roundsOf(app, 'prof') + 1;
+      F.title = 'Формирование заключения на профессиональную экспертизу'; F.hasRound = round > 1; F.round = round + '-й раунд';
+      if(st === 'Отказ от решения'){
+        const av = app.steps.filter(x => x.kind === 'avr' && x.reply && x.reply.agree === false).slice(-1)[0];
+        if(av) F.fields.push(this.docsField('Мотивированное возражение заявителя', [ this.fileRow(av.reply.file, 'Загружено ' + ED.fmtDT(av.at), 'Мотивированное возражение') ]));
+      }
+      F.fields.push(this.radioField('Статус экспертизы', [ { id:'done', label:'Завершено', desc:'Начнётся срок 5 рабочих дней на подготовку документов' }, { id:'fm', label:'Не завершено', desc:'Ситуация форс-мажора', disabled:true, tip:'Порядок действий при форс-мажоре будет описан в следующих доработках' } ], f.pDone, (v) => this.setState({ f:{ ...this.state.f, pDone:v } })));
+      Object.assign(F, f.pDone ? { hint:'Изменить статус после подтверждения нельзя', hintIcon:'ri-information-line' } : { hint:'Чтобы продолжить: выберите статус экспертизы', hintIcon:'ri-information-line' });
+      F.btns = [ back, send(!!f.pDone, 'Подтвердить', () => this.doProfComplete(), 'ri-check-line') ];
+      return F;
+    }
+    if(P.prof){
+      const round = this.roundsOf(app, 'prof') + (st === 'На доработке' ? 0 : 1);
+      F.title = 'Формирование заключения на профессиональную экспертизу'; F.hasRound = round > 1; F.round = round + '-й раунд';
+      F.fields.push(this.info('green', 'ri-checkbox-circle-line', 'Статус экспертизы: Завершено. Подготовьте и подпишите документы заключения.'));
+      F.fields.push(this.inputField('profNum', '№ заключения профессиональной экспертизы', 'Например: ПЭ-' + app.num, 30));
+      F.fields.push(this.inputField('profDate', 'Дата заключения', 'дд.мм.гггг', 10, false, true));
+      F.fields.push(this.upField('pConcl', 'Заключение профессиональной экспертизы', true, true, 'grid-column:1 / -1;min-width:0;'));
+      F.fields.push(this.upField('pLetter', 'Сопроводительное письмо', true, true));
+      F.fields.push(this.upField('pAvr', 'Акт выполненных работ', true, true));
+      const dOk = !!ED.parseD(f.profDate);
+      const miss = []; if(!f.profNum.trim() || !dOk) miss.push('Заполните заключение'); if(!s.files.pConcl || !s.files.pLetter || !s.files.pAvr) miss.push('Прикрепите заключение, сопроводительное письмо и акт выполненных работ');
+      Object.assign(F, hintOf(miss)); F.btns = [ back, send(!miss.length, null, () => { if(!ED.parseD(f.profDate)){ this.setState({ errs:{ profDate:'Укажите дату в формате дд.мм.гггг' } }); return; } this.doProf(round); }) ];
+      return F;
+    }
+    return null;
+  }
+  // ── «Отработка замечаний»: заключение по первичной экспертизе ──
+  buildRemarksForm(app, P){
+    const s = this.state, ED = window.mpEd, A = window.mpArm, f = s.f, n = app.nn || {};
+    const fields = (n.rem && n.rem.fields) || {};
+    const remN = Object.keys(fields).length;
+    const editable = P.remarks && !n.rem.saved;
+    const saved = P.remarks && n.rem.saved;
+    const F = { hid:'rem-h', title:'Заключение по первичной экспертизе', hasRound:false, round:'', hasTip:false, tip:'', chip: editable ? 'Заполнение' : 'Сохранено', fields:[], btns:[] };
+    F.fields.push(this.inputField('cNum', '№ заключения первичной экспертизы', 'До 30 символов', 30, !editable));
+    F.fields.push(this.inputField('cDate', 'Дата заключения первичной экспертизы', 'дд.мм.гггг', 10, !editable, true));
+    F.fields.push(this.areaField('cText', 'Заключение по результатам проверки на полноту и правильность оформления предоставленных документов:', 'Изложите результат проверки', 1000, true, !editable, 4));
+    F.fields.push(this.upField('cLetter', 'Загрузите сопроводительное письмо', false, editable, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
+    const dOk = !!ED.parseD(f.cDate);
+    const ready = remN > 0 && f.cNum.trim() && dOk && f.cText.trim();
+    if(editable){
+      const miss = []; if(!remN) miss.push('Добавьте замечание хотя бы к одному полю'); if(!f.cNum.trim() || !dOk || !f.cText.trim()) miss.push('Заполните обязательные поля');
+      F.hint = miss.length ? 'Чтобы сохранить: ' + miss.join(', ').toLowerCase() : 'После сохранения сформируется PDF-файл заключения'; F.hintIcon = 'ri-information-line';
+      F.btns = [ { label:'Назад', icon:'ri-arrow-left-line', cls:'btn btn-g', disabled:false, onClick: () => { location.href = 'АРМ ННЦРЗ.dc.html#registry'; } },
+        { label:'Сохранить', icon:'ri-save-3-line', cls:'btn btn-p', disabled:!ready, onClick: () => { const r = A.conclSave(app.num, { num:f.cNum.trim(), date:f.cDate, text:f.cText.trim(), letter:s.files.cLetter || null }); if(r.ok) this.toast('ok', 'Заключение сохранено', 'PDF-файл сформирован — проверьте его перед отправкой.'); else this.toast('err', r.err, ''); } } ];
+    } else if(saved){
+      F.hint = 'Документ подписывается ЭЦП'; F.hintIcon = 'ri-quill-pen-line';
+      F.btns = [ { label:'Сформировать PDF-файл', icon:'ri-file-pdf-2-line', cls:'btn btn-s', disabled:false, onClick: () => this.openDoc({ type:'remarks', num:app.num }) },
+        { label:'Редактировать', icon:'ri-edit-line', cls:'btn btn-s', disabled:false, onClick: () => { A.conclEdit(app.num); } },
+        { label:'Подписать и отправить', icon:'ri-quill-pen-line', cls:'btn btn-p', disabled:!remN, onClick: () => this.doRemarksSend() } ];
+    } else {
+      F.chip = 'Только просмотр'; F.hint = n.rem && n.rem.issued ? 'Замечания направлены заявителю' : 'Заключение готовит эксперт'; F.hintIcon = 'ri-information-line';
+      F.btns = n.rem && (n.rem.saved || n.rem.issued) ? [ { label:'Сформировать PDF-файл', icon:'ri-file-pdf-2-line', cls:'btn btn-s', disabled:false, onClick: () => this.openDoc({ type:'remarks', num:app.num }) } ] : [];
+    }
+    return F;
+  }
+
+  // ── документы по заявке, по этапам ──
+  docsByStage(app){
+    const ED = window.mpEd, A = window.mpArm, n = app.nn || {};
+    const out = { 0:[], 1:[], 2:[], 3:[] };
+    const recs = (n.d || []).filter(r => r.state !== 'returned');
+    const add = (st, f, meta, title) => { if(f) out[st].push(this.fileRow(f, meta, title)); };
+    add(0, { name:'Заявление_№' + app.num + '.pdf', size:412 * 1024 }, 'Подписано ЭЦП заявителя · ' + ED.fmtDT(app.sentAt), 'Заявление на включение в перечень ЕД');
+    recs.forEach(r => {
+      const stage = r.kind === 'p7' ? 0 : r.kind === 'prof' ? 2 : r.kind === 'pay80' ? 2 : 1;
+      (r.files || []).forEach(f => add(r.kind === 'p7' || r.kind === 'pay20' ? (r.kind === 'pay20' ? 0 : 0) : stage, f, A.shortName(r.by) + ' · ' + ED.fmtD(r.at) + ((r.round || 1) > 1 ? ' · ' + r.round + '-й раунд' : ''), f.title));
+    });
+    app.steps.forEach(s => {
+      if(s.kind === 'pay20' && s.file) add(0, s.file, 'Заявитель · ' + ED.fmtDT(s.at), 'Платёжное поручение 20%');
+      if(s.kind === 'pay80' && s.file) add(1, s.file, 'Заявитель · ' + ED.fmtDT(s.at), 'Платёжное поручение 80%');
+      if(s.kind === 'remarks' && s.reply) (s.reply.files || []).forEach(f => add(1, f, 'Заявитель · ' + ED.fmtDT(s.at), 'Исправленные документы'));
+      if(s.kind === 'refuse' && s.reply && s.reply.file) add(1, s.reply.file, 'Заявитель · ' + ED.fmtDT(s.at), s.reply.agree === false ? 'Мотивированное возражение' : 'Подписанный акт');
+      if(s.kind === 'avr' && s.reply && s.reply.file) add(2, s.reply.file, 'Заявитель · ' + ED.fmtDT(s.at), s.reply.agree === false ? 'Мотивированное возражение' : 'Подписанный акт выполненных работ');
+    });
+    if(n.fk && n.fk.protocol){
+      const c = A.fkList().find(x => x.num === n.fk.comm);
+      out[3].push({ ...this.fileRow({ name:'protocol_№' + n.fk.protocol + '_1.pdf', size:236 * 1024 }, 'Именной · ' + ED.fmtDT(n.fk.at), 'Протокол заседания ФК № ' + n.fk.protocol), onOpen: () => c && this.openDoc({ type:'protocol', id:c.id, variant:1 }) });
+    }
+    return out;
+  }
+
+  renderVals(){
+    const s = this.state, ED = window.mpEd, A = window.mpArm;
+    const T = s.toast;
+    const base = {
+      hasToast:!!T, toastTitle: T ? T.title : '', toastText: T ? T.text : '', hasToastText: !!(T && T.text),
+      toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : '#38C793'};`,
+      closeToast: () => this.setState({ toast:null }),
+      hasModal:false, mOpts:[], mBtns:[], chrono:[], banners:[], blocks:[], forms:[], dataCards:[], groups:[], headActs:[], docTabs:[], docList:[], stageBar:[],
+    };
+    if(!s.ready || !ED || !A || s.missing || !s.app) return { ...base, loading: !s.missing, missing: !!s.missing, ok:false };
+
+    const app = s.app, now = s.now, me = this.me(), n = app.nn || {};
+    const P = A.perm(app, me);
+    const sm = ED.summary(app);
+    const st = A.nnStatus(app), stg = A.nnStage(app);
+    const stIdx = Math.max(0, STAGES.indexOf(stg));
+
+    // ── ключевые сведения ──
+    const as = A.assigneeOf(app);
+    const t = ED.activeTimer(app, now);
+    const fkStage = stg === 'Рассмотрение формулярной комиссией';
+    const running = t && !t.frozen && !fkStage;
+    const av = as.kind === 'staff' ? A.avatar(as.id) : ['#F6F8FA','#525866'];
+
+    // ── навигатор ──
+    const remN = Object.keys((n.rem && n.rem.fields) || {}).length;
+    const showRemarks = remN > 0 || (n.rem && (n.rem.saved || n.rem.issued));
+    const cnt = this.remarkCounts(app);
+    const sel = s.sel || 'decision';
+    const itemStyle = (on) => `width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-family:inherit;cursor:pointer;border:1px solid ${on ? '#C6D0FF' : 'transparent'};background:${on ? '#EEF2FF' : 'transparent'};`;
+    const pick = (id) => { this.setState({ sel:id }); window.scrollTo({ top:0, behavior:'smooth' }); };
+    const dataItems = DATA_ITEMS.map(([id, label, icon]) => ({ label, icon, sub:'', hasSub:false, cur: sel === id ? 'page' : 'false', count:String(cnt[id] || 0), hasCount: !!cnt[id], countTitle:'Замечаний: ' + (cnt[id] || 0),
+      dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${sel === id ? '#fff' : '#F6F8FA'};color:${sel === id ? '#4D42E9' : '#868C98'};`,
+      subStyle:'', style:itemStyle(sel === id), onClick: () => pick(id) }));
+    const myTurn = P.any;
+    const checkItems = [];
+    if(showRemarks) checkItems.push({ id:'remarks', label:'Отработка замечаний', icon:'ri-chat-1-line', sub: n.rem && n.rem.issued ? 'Направлены заявителю' : P.remarks ? 'Замечаний: ' + remN : 'Замечаний: ' + remN, action: P.remarks });
+    checkItems.push({ id:'decision', label:'Принятие решения', icon:'ri-checkbox-circle-line', sub: myTurn ? 'Нужно ваше действие' : st, action: myTurn });
+    const checkNav = checkItems.map(it => ({ label:it.label, icon:it.icon, sub:it.sub, hasSub:true, cur: sel === it.id ? 'page' : 'false', count:'', hasCount:false, countTitle:'',
+      dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${it.action ? '#4D42E9' : sel === it.id ? '#fff' : '#F6F8FA'};color:${it.action ? '#fff' : sel === it.id ? '#4D42E9' : '#868C98'};`,
+      subStyle:`font-size:12px;line-height:16px;color:${it.action ? '#4D42E9' : '#868C98'};${it.action ? 'font-weight:500;' : ''}`, style:itemStyle(sel === it.id), onClick: () => pick(it.id) }));
+    const groups = [ { title:'Данные заявки', items:dataItems }, { title:'Проверка ННЦРЗ', items:checkNav } ];
+
+    // ── действия в шапке ──
+    const headActs = [];
+    if(P.reassign) headActs.push({ label:'Переназначить', icon:'ri-user-shared-line', cls:'btn btn-s', onClick: () => this.doAssign('reassign'), disabled:false });
+    if(P.ret) headActs.push({ label:'На доработку', icon:'ri-arrow-go-back-line', cls:'btn btn-w', onClick: () => this.doReturn(), disabled:false });
+    if(P.approve) headActs.push({ label: P.signer ? 'Подписать' : 'Согласовать', icon: P.signer ? 'ri-quill-pen-line' : 'ri-check-double-line', cls:'btn btn-p', onClick: () => this.doApprove(), disabled:false });
+    if(P.assign) headActs.push({ label:'Назначить ответственного', icon:'ri-user-add-line', cls:'btn btn-p', onClick: () => this.doAssign('assign'), disabled:false });
+    if(P.assignProf) headActs.push({ label:'Назначить', icon:'ri-user-add-line', cls:'btn btn-p', onClick: () => this.doAssign('assignProf'), disabled:false });
+
+    // ── плашки ──
+    const banners = [];
+    const BX = (tone) => { const c = { orange:['#FEF3EB','#FFDAC2','#F17B2C'], blue:['#EEF2FF','#C6D0FF','#4D42E9'], purple:['#EEEBFF','#CAC2FF','#6E3FF3'], gray:['#F6F8FA','#E2E4E9','#868C98'], red:['#FDEDF0','#F8C9D2','#DF1C41'], green:['#EFFAF6','#CBF5E5','#38C793'] }[tone]; return { box:`display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid ${c[1]};border-radius:14px;background:${c[0]};`, iconStyle:`font-size:22px;color:${c[2]};flex:0 0 auto;` }; };
+    if(n.ret && st === 'На доработке') banners.push({ ...BX('orange'), icon:'ri-arrow-go-back-line', title:'Возвращено на доработку · ' + A.shortName(n.ret.by) + ', ' + A.roleLabel(n.ret.by).toLowerCase() + ' · ' + ED.fmtDT(n.ret.at), text:n.ret.comment, hasText:true, hasBtn:false });
+    if(P.assign || P.assignProf) banners.push({ ...BX('blue'), icon:'ri-user-add-line', title: P.assignProf ? 'Назначьте эксперта профессиональной экспертизы' : 'Назначьте ответственного за заявку', text: P.assignProf ? 'Срок — 30 рабочих дней с подтверждения оплаты 80%, назначение его не меняет.' : 'Эксперт проверит соответствие пункту 7. Назначение не запускает срок.', hasText:true, hasBtn:true, btn: P.assignProf ? 'Назначить' : 'Назначить ответственного', act: () => this.doAssign(P.assignProf ? 'assignProf' : 'assign') });
+    if(P.approve && sel !== 'decision') banners.push({ ...BX('purple'), icon:'ri-quill-pen-line', title: P.signer ? 'Документ ждёт вашей подписи' : 'Документ ждёт вашего согласования', text:'', hasText:false, hasBtn:true, btn:'К решению', act: () => pick('decision') });
+    if(P.any && !P.approve && !P.assign && !P.assignProf && !P.reassign && sel !== 'decision' && sel !== 'remarks') banners.push({ ...BX('blue'), icon:'ri-edit-2-line', title:'Заявка ждёт вашего решения', text:'', hasText:false, hasBtn:true, btn:'К решению', act: () => pick('decision') });
+
+    // ── содержимое раздела ──
+    let pageTitle = '', dataCards = [], blocks = [], forms = [], hasDocs = false;
+    const recs = (n.d || []).filter(r => r.state !== 'returned');
+    if(sel.indexOf('d') === 0 && sel !== 'decision'){
+      dataCards = this.dataView(app, sel, P.remarks && !(n.rem && n.rem.saved));
+    } else if(sel === 'remarks'){
+      pageTitle = 'Отработка замечаний';
+      const fields = (n.rem && n.rem.fields) || {};
+      const editable = P.remarks && !(n.rem && n.rem.saved);
+      // замечания — сводным блоком
+      const items = Object.keys(fields).map((k, i) => (i + 1) + ') ' + fields[k].label + ': ' + fields[k].text);
+      blocks.push({ hid:'rem-list', title:'Замечания к заявке', hasRound:false, round:'', chip:{ label:'Замечаний: ' + items.length, icon:'ri-chat-1-line', style:'display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:#FEF3EB;color:#6E330C;font-size:12px;line-height:16px;font-weight:500;' },
+        rows: items.length ? [ { isText:false, isNote:true, isFiles:false, label: editable ? 'Изменить или удалить замечание можно у поля в разделах «Данные заявки»' : 'Текст замечаний', value:items.join('\n'), wrap:'grid-column:1 / -1;min-width:0;' } ]
+          : [ { isText:true, isNote:false, isFiles:false, label:'', value:'Замечаний пока нет. Добавьте их у полей в разделах «Данные заявки».', hasPp:false, pp:'', wrap:'grid-column:1 / -1;min-width:0;' } ],
+        route:[], hasRoute:false, btns:[], hasBtns:false, box:'background:#fff;border:1px solid #E2E4E9;border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;' });
+      const pendRemarks = recs.filter(r => r.kind === 'remarks');
+      if(pendRemarks.length && (n.rem.issued || A.isApproval(st))) blocks = blocks.concat(pendRemarks.map((r, i) => this.recBlock(app, r, 100 + i)));
+      else forms.push(this.buildRemarksForm(app, P));
+    } else {
+      // заголовок справа — у каждого блока свой (UC01.13.3.4 §4), отдельный заголовок страницы не нужен
+      blocks = recs.filter(r => r.kind !== 'remarks' || true).map((r, i) => this.recBlock(app, r, i));
+      const F = this.buildForm(app, P);
+      if(F) forms.push(F);
+      // ожидание: кто сейчас работает с заявкой
+      if(!F && !P.approve){
+        const BXg = BX('gray');
+        let wait = null;
+        if(as.kind === 'applicant') wait = { icon:'ri-user-received-2-line', title:'У заявителя в обработке', text: running && t.owner === 'applicant' ? 'Срок заявителя — до ' + ED.fmtDT(t.deadline) + '.' : '' };
+        else if(as.kind === 'staff' && as.id !== me) wait = { icon:'ri-user-follow-line', title:'Сейчас у сотрудника: ' + as.label + ' · ' + as.role, text:'' };
+        else if(A.FINAL.indexOf(st) !== -1) wait = { icon: st === 'Решение принято' || (st === 'Завершено' && app.result === 'p7') ? 'ri-checkbox-circle-line' : 'ri-forbid-line', title:'Обработка заявки завершена · ' + st, text:'' };
+        if(fkStage && !n.fk){
+          const c = A.commissionOf(app.num);
+          const cs = c ? A.fkStatus(c, now) : null;
+          wait = c && A.FK_ACTIVE.indexOf(cs) !== -1 ? { icon:'ri-team-line', title:'Формулярная комиссия № ' + c.num + ' · ' + A.FK_LABEL[cs], text:'Голосование ' + ED.fmtDT(c.start) + '. Сроки рассмотрения в АРМ Формулярной комиссии не установлены.' }
+            : { icon:'ri-team-line', title:'Ожидает рассмотрения Формулярной комиссией', text:'Секретарь включит заявку в ближайшую комиссию.' };
+        }
+        if(wait) banners.push({ ...BXg, ...wait, hasText:!!wait.text, hasBtn:false });
+      }
+      if(n.fk){
+        const c = A.fkList().find(x => x.num === n.fk.comm);
+        const tl = n.fk.tally || {};
+        blocks.push({ hid:'fk-res', title:'Решение Формулярной комиссии', hasRound:false, round:'',
+          chip:{ label: n.fk.include ? 'Включить в перечень ЕД' : 'Не включать в перечень ЕД', icon: n.fk.include ? 'ri-checkbox-circle-line' : 'ri-close-circle-line', style:`display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:${n.fk.include ? '#EFFAF6' : '#FDEDF0'};color:${n.fk.include ? '#176448' : '#710E21'};font-size:12px;line-height:16px;font-weight:500;` },
+          rows:[ { isText:true, isNote:false, isFiles:false, label:'Комиссия', value:'№ ' + n.fk.comm + ' · протокол № ' + n.fk.protocol, hasPp:false, pp:'', wrap:'min-width:0;' },
+            { isText:true, isNote:false, isFiles:false, label:'Итоги голосования', value:'«За» — ' + (tl.for || 0) + ', «Против» — ' + (tl.against || 0) + ', «Не голосовал» — ' + (tl.none || 0) + (tl.tie ? ' · при равенстве учтён голос председательствующего' : ''), hasPp:false, pp:'', wrap:'min-width:0;' },
+            { isText:false, isNote:false, isFiles:true, label:'Документы', files:[ { ...this.fileRow({ name:'protocol_№' + n.fk.protocol + '_1.pdf', size:236 * 1024 }, 'Именной протокол · ' + ED.fmtDT(n.fk.at), 'Протокол заседания ФК № ' + n.fk.protocol), onOpen: () => c && this.openDoc({ type:'protocol', id:c.id, variant:1 }) } ], wrap:'grid-column:1 / -1;min-width:0;' } ],
+          route:[], hasRoute:false, btns:[], hasBtns:false, box:'background:#fff;border:1px solid #E2E4E9;border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;' });
+      }
+      hasDocs = true;
+    }
+
+    // ── завершённые решения свёрнуты в строку (раскрываются по клику); открыты текущее и последнее, если действия нет ──
+    const lastI = blocks.length - 1;
+    blocks = blocks.map((b, i) => {
+      const coll = !!b.collapsible && !(i === lastI && !forms.length);
+      const open = !coll || !!s.openB[b.hid];
+      return { ...b, canToggle: coll, expanded: open, showSum: coll && !open && !!b.sum, sum: b.sum || '', bodyId: b.hid + '-body', chev: open ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line',
+        toggleAria: (open ? 'Свернуть: ' : 'Развернуть: ') + b.title,
+        toggle: coll ? () => this.setState({ openB:{ ...this.state.openB, [b.hid]: !this.state.openB[b.hid] } }) : null,
+        headStyle:`display:flex;align-items:center;gap:10px;padding:14px 20px;flex-wrap:wrap;${open ? 'border-bottom:1px solid #E2E4E9;' : ''}${coll ? 'cursor:pointer;' : ''}` };
+    });
+
+    // ── документы по этапам ──
+    const docsAll = hasDocs ? this.docsByStage(app) : { 0:[], 1:[], 2:[], 3:[] };
+    const docTab = s.docTab != null ? s.docTab : stIdx;
+    const docTabs = ['Нулевая экспертиза', 'Первичная экспертиза', 'Профессиональная экспертиза', 'Формулярная комиссия'].map((label, i) => ({ label, on: docTab === i, n:String(docsAll[i].length),
+      pick: () => this.setState({ docTab:i }),
+      nStyle:`margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;display:inline-block;${docTab === i ? 'background:#EEF2FF;color:#4D42E9;' : 'background:#F6F8FA;color:#868C98;'}`,
+      style:`height:38px;padding:0;border:none;border-bottom:2px solid ${docTab === i ? '#4D42E9' : 'transparent'};margin-bottom:-1px;background:none;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;color:${docTab === i ? '#0A0D14' : '#525866'};white-space:nowrap;` }));
+
+    // ── модальное окно ──
+    const m = s.modal;
+    let modalVals = { hasModal:false };
+    if(m){
+      const radio = (on) => `width:18px;height:18px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;background:#fff;${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`;
+      const isPick = m.type === 'next' || m.type === 'assign' || m.type === 'reassign' || m.type === 'assignProf';
+      const isText = m.type === 'return' || m.type === 'remark';
+      const isChrono = m.type === 'chrono';
+      const ICON = { next:['ri-route-line','blue'], assign:['ri-user-add-line','blue'], reassign:['ri-user-shared-line','blue'], assignProf:['ri-user-add-line','blue'], return:['ri-arrow-go-back-line','orange'], remark:['ri-chat-1-line','orange'], chrono:['ri-history-line','blue'], confirm:[m.icon || 'ri-question-line', m.tone || 'blue'] }[m.type];
+      const TC = { blue:['#EEF2FF','#4D42E9'], orange:['#FEF3EB','#F17B2C'], green:['#EFFAF6','#38C793'] }[ICON[1]];
+      const mOpts = isPick ? m.opts.map((o, i) => { const on = s.mPick === i, a = A.avatar(o.user); return { name:o.name, role:o.label, ini:A.initials(o.user), on, load:o.load || '', hasLoad:!!o.load,
+        pick: () => this.setState({ mPick:i, mErr:'' }), radio: radio(on),
+        ava:`width:32px;height:32px;border-radius:8px;background:${a[0]};color:${a[1]};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+        style:`display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;width:100%;` }; }) : [];
+      const chrono = isChrono ? (app.log || []).map(h => {
+        const tone = A.NN_FILTER.indexOf(h.status) !== -1 ? A.nnTone({ nn:{ status:h.status }, include:app.include, result:app.result }) : 'gray';
+        const c = ED.TONE[tone] || ED.TONE.gray;
+        return { n:String(h.n), role:h.role, fio:h.fio || '—', start:ED.fmtDT(h.start), end:ED.fmtDT(h.end), status:h.status || '—', comment:h.comment || '–',
+          badge:`display:inline-block;padding:2px 8px;border-radius:999px;background:${c.bg};color:${c.fg};font-size:12px;line-height:16px;font-weight:500;` };
+      }) : [];
+      const btns = [];
+      if(isChrono) btns.push({ label:'Закрыть', cls:'btn btn-s', onClick: () => this.closeModal(), disabled:false });
+      else {
+        if(m.type === 'remark' && m.canDelete) btns.push({ label:'Удалить замечание', cls:'btn btn-g', disabled:false, onClick: () => { A.remarkSet(app.num, m.key, m.label, ''); this.closeModal(); this.toast('ok', 'Замечание удалено', m.label); } });
+        btns.push({ label: m.type === 'next' || m.type === 'assign' || m.type === 'reassign' || m.type === 'assignProf' ? 'Отмена' : 'Отменить', cls:'btn btn-s', onClick: () => this.closeModal(), disabled:false });
+        const okLabel = m.type === 'next' ? 'Сохранить' : m.type === 'return' ? 'Отправить' : m.type === 'remark' ? 'Сохранить' : m.ok || 'Подтвердить';
+        btns.push({ label:okLabel, cls:'btn btn-p', onClick: () => this.modalOk(), disabled: isPick && s.mPick == null });
+      }
+      const v = s.mText || '';
+      modalVals = {
+        hasModal:true, mTitle: isChrono ? 'Хронология заявки № ' + app.num : m.title, mText: isChrono ? 'Маршрут заявки по всем этапам, включая возвраты на доработку. Записи не изменяются и не удаляются.' : (m.text || ''),
+        mHasText: isChrono || !!m.text, mIcon:ICON[0],
+        mIconWrap:`width:40px;height:40px;border-radius:10px;background:${TC[0]};display:flex;align-items:center;justify-content:center;flex:0 0 auto;`, mIconStyle:`font-size:20px;color:${TC[1]};`,
+        mBox:`position:relative;width:100%;max-width:${isChrono ? 1080 : 520}px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:mp-pop .18s ease;overflow:hidden;`,
+        mBody:`padding:${m.type === 'confirm' ? '0' : '16px 20px'};overflow-y:auto;flex:1;min-height:0;`,
+        mIsPick:isPick, mOpts, mIsText:isText, mIsChrono:isChrono, chrono,
+        mHasFieldLabel: m.type === 'return', mFieldLabel:'Комментарий',
+        mTextVal:v, onMText:(e) => this.setState({ mText:e.target.value, mErr:'' }), mPh: m.type === 'return' ? 'Опишите, что нужно исправить' : 'Опишите, что не так с этим полем', mMax:String(m.max || 1500), mCount: v.length + ' / ' + (m.max || 1500),
+        mTextCls:'inp' + (s.mErr ? ' inp-err' : ''), mHasErr:!!s.mErr && (isText || isPick), mErr:s.mErr,
+        mHasErrBox:!!s.mErrBox, mErrBox:s.mErrBox, mBtns:btns,
+        closeModal: () => this.closeModal(), modalKey:(e) => { if(e.key === 'Escape') this.closeModal(); },
+      };
+      if(isPick && s.mErr){ modalVals.mHasErrBox = true; modalVals.mErrBox = s.mErr; }
+    }
+
+    // ── панель прототипа ──
+    const failOn = ED.fail(), fastOn = ED.fast();
+    const ppWhoId = as.kind === 'staff' ? as.id : null;
+    const appT = t && t.owner === 'applicant' && !t.frozen;
+
+    return {
+      ...base, loading:false, missing:false, ok:true,
+      num: app.num, badge: A.nnBadge(app),
+      catLabel: sm.catLong, catIcon: sm.cat === 'mi' ? 'ri-stethoscope-line' : 'ri-capsule-line',
+      catStyle:`display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${sm.cat === 'mi' ? 'background:#EBFAFF;color:#164564;' : 'background:#EEF2FF;color:#312D86;'}`,
+      trade: sm.trade || '—', orgName:(app.org || ED.PROFILE).org, sent: ED.fmtDT(app.sentAt),
+      openChrono: () => this.openModal({ type:'chrono' }),
+      headActs,
+      stage: stg,
+      stageBar: STAGES.map((x, i) => `height:4px;flex:1;border-radius:2px;background:${i < stIdx ? '#38C793' : i === stIdx ? (A.FINAL.indexOf(st) !== -1 ? (A.nnTone(app) === 'red' ? '#DF1C41' : A.nnTone(app) === 'green' ? '#38C793' : '#868C98') : '#4D42E9') : '#E2E4E9'};`),
+      asStaff: as.kind === 'staff', asIni: as.kind === 'staff' ? A.initials(as.id) : '', asName: as.label, asRole: as.role || '',
+      asAva:`width:32px;height:32px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+      asNameStyle:`font-size:14px;line-height:20px;font-weight:500;color:${as.kind === 'none' ? '#868C98' : '#0A0D14'};`,
+      deadline: running ? ED.fmtDT(t.deadline) : '—',
+      dlStyle:`margin:0;font-size:14px;line-height:20px;font-weight:500;color:${running ? '#0A0D14' : '#868C98'};`,
+      hasDeadlineNote: !!running, deadlineNote: running ? '(' + (t.step && t.step.timer && t.step.timer.note ? t.step.timer.note : t.wd + ' ' + ED.wdWord(t.wd)) + (t.owner === 'applicant' ? ', срок заявителя' : ', срок ННЦРЗ') + ')' : '',
+      remain: running ? ED.fmtRemain(t.remaining) : '—', remainTitle: running ? (t.owner === 'applicant' ? 'Срок заявителя' : 'Срок ННЦРЗ') : 'Таймер не идёт',
+      remainStyle: running ? `display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:7px;border:1px solid ${t.remaining <= 0 ? '#DF1C41' : '#38C793'};color:${t.remaining <= 0 ? '#AF1D38' : '#176448'};font-size:13px;line-height:18px;font-weight:600;font-variant-numeric:tabular-nums;` : 'font-size:14px;line-height:20px;color:#868C98;',
+      groups, banners, hasPageTitle: !!pageTitle, pageTitle, dataCards, blocks, forms,
+      hasDocs, docTabs, docList: docsAll[docTab] || [], docEmpty: hasDocs && !(docsAll[docTab] || []).length,
+      ...modalVals,
+      ppOpen: s.ppOpen, ppToggle: () => this.setState({ ppOpen:!s.ppOpen }), ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppBox:`position:fixed;left:104px;bottom:20px;z-index:50;width:${s.ppOpen ? 300 : 200}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
+      ppHasWho: !!ppWhoId || as.kind === 'applicant', ppWho: ppWhoId ? A.shortName(ppWhoId) + ' · ' + A.roleLabel(ppWhoId) : 'заявителя',
+      ppCanSwitch: !!ppWhoId && ppWhoId !== me, ppSwitch: () => { A.setCurrent(ppWhoId); this.toast('ok', 'Вы работаете как ' + A.shortName(ppWhoId), A.roleLabel(ppWhoId)); },
+      ppApplicant: 'Карточка заявки ЕД.dc.html?n=' + app.num,
+      ppCanExpire: !!appT, ppExpire: () => { ED.expireSoon(app.num); this.toast('ok', 'Срок заявителя истечёт через 3 секунды', ''); },
+      fastOn, ppFastStyle: fastOn ? 'background:#EEF2FF;border-color:#C6D0FF;color:#312D86;' : '', ppFast: () => { ED.setFast(!fastOn); this.toast('ok', !fastOn ? 'Сжатые сроки включены' : 'Сроки — по рабочим дням', !fastOn ? 'Новые сроки — 2 минуты.' : ''); },
+      failOn, ppFailStyle: failOn ? 'background:#FDEDF0;border-color:#F8C9D2;color:#710E21;' : '', ppFail: () => ED.setFail(!failOn),
+      ppReset: () => { A.resetAll(); location.href = 'АРМ ННЦРЗ.dc.html'; },
+    };
+  }
+}
+</script>
+</body>
+</html>

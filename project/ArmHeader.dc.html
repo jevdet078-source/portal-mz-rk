@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Шапка АРМ экспертов услуги ЕД (АРМ ННЦРЗ и АРМ Формулярной комиссии).
+  Та же высота (73px) и визуальный язык, что у шапки кабинетов портала (Header, layout="app").
+
+  Пропсы: arm — nn | fk.
+  • Колокольчик — push-уведомления текущего сотрудника (UC01.13.3.2, UC01.13.4.4): счётчик непрочитанных,
+    последние пять, «Все уведомления» — раздел «Уведомления» реестра АРМ.
+  • Сотрудник и роль — переключатель «Работать от имени»: все сотрудники ННЦРЗ и Формулярной комиссии
+    с числом задач у каждого, чтобы пройти процесс за разные роли. Выбор сотрудника другого АРМ
+    открывает реестр этого АРМ. На бою роль приходит из учётной записи — переключателя нет.
+  Данные — window.mpArm (EdArm.dc.html), события 'mp-arm-change', 'mp-ed-change'.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  @keyframes ah-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .ah-b{transition:background .15s,border-color .15s,color .15s;}
+  .ah-b:hover{background:#F6F8FA !important;border-color:#CDD0D5 !important;}
+  .ah-b:focus-visible,.ah-it:focus-visible,.ah-l:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .ah-it{transition:background .12s;}
+  .ah-it:hover{background:#F6F8FA !important;}
+  .ah-l:hover{color:#4D42E9 !important;}
+  @media (max-width:1100px){ .ah-sub{display:none !important;} }
+  @media (max-width:860px){ .ah-user-txt,.ah-brand-txt{display:none !important;} }
+</style>
+</helmet>
+<header style="background:#fff;border-bottom:1px solid #E2E4E9;font-family:'Inter',sans-serif;">
+  <div style="height:72px;padding:0 32px 0 16px;display:flex;align-items:center;gap:20px;">
+    <a href="Портал Минздрава - Главная.dc.html" class="ah-l" title="Портал Министерства здравоохранения" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;border-radius:10px;color:inherit;">
+      <img src="uploads/images.jpg" alt="Герб Республики Казахстан" style="width:48px;height:48px;object-fit:contain;flex:0 0 auto;" />
+      <span class="ah-brand-txt" style="display:flex;flex-direction:column;gap:1px;line-height:1.2;">
+        <span style="font-size:14px;font-weight:600;color:#0A0D14;letter-spacing:-.01em;white-space:nowrap;">{{ title }}</span>
+        <span class="ah-sub" style="font-size:12px;font-weight:500;color:#868C98;white-space:nowrap;">{{ sub }}</span>
+      </span>
+    </a>
+    <div style="flex:1;"></div>
+
+    <div style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
+      <!-- уведомления -->
+      <div style="position:relative;">
+        <button class="ah-b" onClick="{{ toggleBell }}" aria-label="{{ bellLabel }}" aria-expanded="{{ bellOpen }}" aria-haspopup="dialog" title="Уведомления" style="{{ bellStyle }}">
+          <i class="ri-notification-3-line" style="font-size:20px;"></i>
+          <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
+            <span style="position:absolute;top:-7px;right:-7px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:#4D42E9;color:#fff;font-size:10px;line-height:16px;font-weight:600;text-align:center;border:2px solid #fff;box-sizing:content-box;">{{ unread }}</span>
+          </sc-if>
+        </button>
+        <sc-if value="{{ bellOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:44;"></div>
+          <div role="dialog" aria-label="Уведомления" style="position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:380px;background:#fff;border:1px solid #E2E4E9;border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);overflow:hidden;animation:ah-drop .15s ease;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 12px 14px 16px;border-bottom:1px solid #E2E4E9;">
+              <span style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:#0A0D14;">Уведомления</span>
+              <button onClick="{{ closeAll }}" aria-label="Закрыть" style="width:28px;height:28px;border:none;border-radius:8px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#525866;"><i class="ri-close-line" style="font-size:20px;"></i></button>
+            </div>
+            <sc-if value="{{ noNotes }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:28px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;">
+                <i class="ri-notification-off-line" style="font-size:24px;color:#CDD0D5;"></i>
+                <span style="font-size:13px;line-height:18px;color:#868C98;">Новых уведомлений нет</span>
+              </div>
+            </sc-if>
+            <div style="max-height:380px;overflow-y:auto;">
+              <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
+                <a href="{{ n.href }}" onClick="{{ n.onClick }}" class="ah-it" style="{{ n.style }}">
+                  <span style="{{ n.dot }}"></span>
+                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+                    <span style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:#868C98;"><span style="{{ n.toneDot }}"></span>{{ n.meta }}</span>
+                    <span style="{{ n.textStyle }}">{{ n.text }}</span>
+                  </span>
+                </a>
+              </sc-for>
+            </div>
+            <div style="padding:12px 16px;border-top:1px solid #E2E4E9;">
+              <a href="{{ allHref }}" onClick="{{ closeAll }}" style="display:flex;align-items:center;justify-content:center;height:36px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;text-decoration:none;">Все уведомления</a>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- сотрудник и роль -->
+      <div style="position:relative;">
+        <button class="ah-b" onClick="{{ toggleUser }}" aria-haspopup="menu" aria-expanded="{{ userOpen }}" title="Сотрудник и роль" style="{{ userBtnStyle }}">
+          <span style="{{ meAva }}">{{ meIni }}</span>
+          <span class="ah-user-txt" style="display:flex;flex-direction:column;gap:1px;line-height:1.2;text-align:left;min-width:0;">
+            <span style="font-size:13px;font-weight:600;color:#0A0D14;white-space:nowrap;">{{ meName }}</span>
+            <span style="font-size:12px;color:#868C98;white-space:nowrap;">{{ meRole }}</span>
+          </span>
+          <i class="{{ userChev }}" style="font-size:18px;color:#868C98;flex:0 0 auto;"></i>
+        </button>
+        <sc-if value="{{ userOpen }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:44;"></div>
+          <div role="menu" aria-label="Работать от имени" style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:392px;max-height:calc(100vh - 96px);display:flex;flex-direction:column;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:ah-drop .15s ease;">
+            <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#868C98;">Работать от имени</span>
+              <span style="font-size:12px;line-height:16px;color:#868C98;">Задачи</span>
+            </div>
+            <div style="overflow-y:auto;padding:0 8px 8px;">
+              <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
+                <div style="padding:10px 8px 4px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;font-weight:600;color:#525866;"><i class="{{ g.icon }}" style="font-size:15px;color:#868C98;"></i>{{ g.title }}</div>
+                <sc-for list="{{ g.items }}" as="u" hint-placeholder-count="4">
+                  <button class="ah-it" role="menuitemradio" aria-checked="{{ u.on }}" onClick="{{ u.pick }}" style="{{ u.style }}">
+                    <span style="{{ u.ava }}">{{ u.ini }}</span>
+                    <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;text-align:left;">
+                      <span style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.name }}</span>
+                      <span style="font-size:12px;line-height:16px;color:#868C98;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ u.role }}</span>
+                    </span>
+                    <sc-if value="{{ u.hasTasks }}" hint-placeholder-val="{{ false }}"><span title="{{ u.tasksTitle }}" style="min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:#EEF2FF;color:#312D86;font-size:12px;line-height:20px;font-weight:600;text-align:center;flex:0 0 auto;">{{ u.tasks }}</span></sc-if>
+                    <i class="{{ u.check }}" style="font-size:18px;color:#4D42E9;flex:0 0 auto;width:18px;"></i>
+                  </button>
+                </sc-for>
+              </sc-for>
+            </div>
+            <a href="Прочие услуги.dc.html" class="ah-it" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid #E2E4E9;text-decoration:none;color:#31353F;">
+              <span style="width:32px;height:32px;border-radius:8px;background:#FEF3EB;color:#F17B2C;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:17px;"></i></span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+                <span style="font-size:14px;line-height:20px;font-weight:500;color:#0A0D14;">Кабинет заявителя</span>
+                <span style="font-size:12px;line-height:16px;color:#868C98;">ТОО «Астана Групп» · Прочие услуги</span>
+              </span>
+              <i class="ri-arrow-right-up-line" style="font-size:18px;color:#868C98;"></i>
+            </a>
+            <div style="padding:8px 16px 10px;background:#FBFCFD;border-top:1px solid #E2E4E9;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:#868C98;"><i class="ri-flask-line" style="font-size:14px;"></i>Переключение ролей есть только в прототипе</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <a href="Портал Минздрава - Главная.dc.html" class="ah-b" title="На главную портала" aria-label="На главную портала" style="width:40px;height:40px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#525866;display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box;"><i class="ri-home-4-line" style="font-size:18px;"></i></a>
+    </div>
+  </div>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:73}}">
+class Component extends DCLogic {
+  state = { bellOpen:false, userOpen:false, v:0 };
+  componentDidMount(){
+    this._re = () => this.setState({ v:this.state.v + 1 });
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._re));
+    // компоненты страницы грузятся асинхронно: событие готовности данных могло прийти раньше подписки
+    this._t1 = setTimeout(this._re, 600); this._t2 = setTimeout(this._re, 2000);
+    this._st = (e) => { if(e.key === 'mp-arm-notifs') this._re(); };
+    window.addEventListener('storage', this._st);
+    this._esc = (e) => { if(e.key === 'Escape' && (this.state.bellOpen || this.state.userOpen)) this.setState({ bellOpen:false, userOpen:false }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount(){
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._re));
+    window.removeEventListener('keydown', this._esc); window.removeEventListener('storage', this._st);
+    clearTimeout(this._t1); clearTimeout(this._t2);
+  }
+  renderVals(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd;
+    const arm = this.props.arm === 'fk' ? 'fk' : 'nn';
+    const ready = !!(A && ED && A.ready);
+    const me = ready ? A.current(arm) : '';
+    const reg = arm === 'fk' ? 'АРМ ФК.dc.html' : 'АРМ ННЦРЗ.dc.html';
+    const ava = (id, px) => { const c = A ? A.avatar(id) : ['#F6F8FA','#525866']; return `width:${px}px;height:${px}px;border-radius:${px >= 32 ? 8 : 7}px;background:${c[0]};color:${c[1]};font-size:${px >= 32 ? 12 : 11}px;line-height:1;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`; };
+
+    // уведомления
+    const TONE = { blue:'#4D42E9', green:'#38C793', red:'#DF1C41', yellow:'#F17B2C' };
+    const list = ready ? A.notifsFor(me) : [];
+    const unread = list.filter(x => !x.read).length;
+    const notes = list.slice(0, 5).map((x, i) => {
+      const href = x.kind === 'fk' ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(x.ref) : 'Карточка заявки ННЦРЗ.dc.html?n=' + x.ref;
+      return { href, text:x.text, meta:(x.kind === 'fk' ? 'Комиссия № ' : 'Заявка № ') + x.label + ' · ' + ED.fmtD(x.at) + ', ' + ED.fmtT(x.at),
+        onClick: () => { A.readNotif(x.id); this.setState({ bellOpen:false }); },
+        style:`display:flex;gap:10px;padding:12px 16px;text-decoration:none;color:inherit;${i < Math.min(5, list.length) - 1 ? 'border-bottom:1px solid #E2E4E9;' : ''}`,
+        dot:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${x.read ? 'transparent' : '#4D42E9'};`,
+        toneDot:`width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:${TONE[x.tone] || '#4D42E9'};`,
+        textStyle:`font-size:14px;line-height:20px;font-weight:${x.read ? 400 : 600};color:#0A0D14;` };
+    });
+
+    // сотрудники
+    const groups = !ready ? [] : [ ['nn', 'ННЦРЗ', 'ri-hospital-line'], ['fk', 'Формулярная комиссия МЗ РК', 'ri-team-line'] ].map(([g, title, icon]) => ({ title, icon,
+      items: A.STAFF.filter(u => u.arm === g).map(u => {
+        const on = A.current(g) === u.id && g === arm;
+        const t = A.taskCount(u.id);
+        return { name:A.shortName(u.id), role:A.roleLabel(u.id), ini:A.initials(u.id), ava:ava(u.id, 32), on, check: on ? 'ri-check-line' : '',
+          tasks:String(t), hasTasks: t > 0, tasksTitle:'Задач в работе: ' + t,
+          pick: () => {
+            A.setCurrent(u.id);
+            this.setState({ userOpen:false });
+            if(u.arm !== arm) location.href = u.arm === 'fk' ? 'АРМ ФК.dc.html' : 'АРМ ННЦРЗ.dc.html';
+          },
+          style:`width:100%;display:flex;align-items:center;gap:10px;padding:8px;border:none;border-radius:10px;font-family:inherit;cursor:pointer;text-align:left;background:${on ? '#FBFCFD' : 'transparent'};` };
+      }) }));
+
+    return {
+      title: arm === 'fk' ? 'АРМ Формулярной комиссии' : 'АРМ ННЦРЗ',
+      sub: arm === 'fk' ? 'Министерство здравоохранения Республики Казахстан' : 'Национальный научный центр развития здравоохранения',
+      bellOpen:s.bellOpen, unread:String(unread > 99 ? '99+' : unread), hasUnread: unread > 0,
+      bellLabel: unread ? 'Уведомления, непрочитанных: ' + unread : 'Уведомления',
+      bellStyle:`position:relative;width:40px;height:40px;border:1px solid ${s.bellOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:${s.bellOpen ? '#EEF2FF' : '#fff'};color:${s.bellOpen ? '#4D42E9' : '#525866'};display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit;`,
+      toggleBell: () => this.setState({ bellOpen:!s.bellOpen, userOpen:false }),
+      notes, noNotes: ready && notes.length === 0, allHref: reg + '#notifications',
+      userOpen:s.userOpen, toggleUser: () => this.setState({ userOpen:!s.userOpen, bellOpen:false }),
+      userChev: s.userOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+      userBtnStyle:`display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 4px;border:1px solid ${s.userOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:#fff;font-family:inherit;cursor:pointer;max-width:300px;`,
+      meIni: ready ? A.initials(me) : '', meAva: ava(me, 32), meName: ready ? A.shortName(me) : '…', meRole: ready ? A.roleLabel(me) : '',
+      groups,
+      closeAll: () => this.setState({ bellOpen:false, userOpen:false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

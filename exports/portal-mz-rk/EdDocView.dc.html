@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Просмотр документов услуги ЕД в АРМ экспертов — окно с листом А4.
+
+  Протокол (событие window 'mp-doc-open', detail):
+    { type:'remarks', num }                 — «Заключение по первичной экспертизе» с замечаниями эксперта
+                                              (UC01.13.3.4.2.3.1; образец «Образец заключения замечаний.pdf»):
+                                              шапка ННЦРЗ, сведения о заявителе и ЛС / МИ (в таблице регистрации —
+                                              концентрация и упаковка), заключение, замечания, блок «Решения» и QR-код;
+    { type:'protocol', id, variant, num? }  — протокол заседания Формулярной комиссии (UC01.13.4.3.4, образцы
+                                              protocol_№…_1 / _2): variant 1 — именной, все объекты комиссии (АРМ ННЦРЗ, ФК);
+                                              variant 2 — обезличенный, без ФИО в «Голосовании», только объекты заявителя num;
+    { type:'file', name, size, title }      — файл без предпросмотра: карточка и «Скачать».
+  Данные — window.mpEd, window.mpArm.
+-->
+<x-dc>
+<helmet>
+<style>
+  @keyframes dv-fade{from{opacity:0}to{opacity:1}}
+  @keyframes dv-pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .dv-b{height:36px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s,border-color .15s;}
+  .dv-p{border:none;background:#4D42E9;color:#fff;}
+  .dv-p:hover{background:#362DA6;}
+  .dv-s{border:1px solid #E2E4E9;background:#fff;color:#31353F;}
+  .dv-s:hover{background:#FBFCFD;border-color:#CDD0D5;}
+  .dv-b:focus-visible,.dv-x:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .dv-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:#525866;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .dv-x:hover{background:#F6F8FA;color:#0A0D14;}
+  .dv-paper{font-family:'Times New Roman',Times,serif;color:#000;font-size:14px;line-height:1.45;}
+  .dv-paper table{border-collapse:collapse;width:100%;}
+  .dv-paper td,.dv-paper th{border:1px solid #000;padding:4px 6px;vertical-align:middle;}
+</style>
+</helmet>
+<div>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ onKey }}" style="position:fixed;inset:0;z-index:110;display:flex;flex-direction:column;font-family:'Inter',sans-serif;">
+      <div onClick="{{ close }}" style="position:absolute;inset:0;background:rgba(10,13,20,.48);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:dv-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-label="{{ title }}" style="position:relative;margin:24px auto;width:calc(100% - 48px);max-width:900px;height:calc(100vh - 48px);display:flex;flex-direction:column;background:#F6F8FA;border-radius:16px;box-shadow:0 24px 48px -12px rgba(14,18,27,.32);overflow:hidden;animation:dv-pop .18s ease;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 12px 12px 20px;background:#fff;border-bottom:1px solid #E2E4E9;">
+          <span style="width:36px;height:36px;border-radius:9px;background:#FDEDF0;color:#DF1C41;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">PDF</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
+            <span style="font-size:15px;line-height:22px;font-weight:500;color:#0A0D14;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ title }}</span>
+            <span style="font-size:12px;line-height:16px;color:#868C98;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ fileName }}</span>
+          </div>
+          <button class="dv-b dv-s" onClick="{{ download }}"><i class="ri-download-2-line" style="font-size:18px;"></i>Скачать</button>
+          <button class="dv-x" onClick="{{ close }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:22px;"></i></button>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:24px;">
+          <sc-if value="{{ isPaper }}" hint-placeholder-val="{{ true }}">
+            <div class="dv-paper" style="background:#fff;max-width:794px;margin:0 auto;padding:48px 56px 56px;box-shadow:0 1px 3px rgba(10,13,20,.08),0 8px 24px -8px rgba(10,13,20,.12);border-radius:4px;">
+              <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="6">
+                <sc-if value="{{ b.isHead }}" hint-placeholder-val="{{ false }}">
+                  <table style="margin-bottom:24px;font-size:12.5px;">
+                    <tr>
+                      <td style="width:34%;font-family:'Inter',sans-serif;"><div style="display:flex;align-items:center;gap:8px;"><span style="width:34px;height:34px;border-radius:50%;background:#1E5BA8;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">ННЦРЗ</span><span style="font-size:8.5px;line-height:1.25;font-weight:600;color:#1E3A5F;text-transform:uppercase;">Национальный научный центр развития здравоохранения имени Салидат Каирбековой</span></div></td>
+                      <td colspan="2" style="text-align:center;font-weight:700;">РГП на ПХВ «Национальный научный центр развития здравоохранения имени Салидат Каирбековой» Министерства здравоохранения Республики Казахстан</td>
+                    </tr>
+                    <tr><td colspan="3" style="text-align:center;font-weight:700;">Департамент совершенствования лекарственной политики</td></tr>
+                    <tr>
+                      <td rowspan="2" style="text-align:center;font-weight:700;">Управление развития формулярной системы и профессиональной экспертизы лекарственных средств и медицинских изделий</td>
+                      <td style="text-align:center;font-weight:700;width:30%;">№ и дата заключения первичной экспертизы</td>
+                      <td style="text-align:center;font-weight:700;width:14%;">Страница</td>
+                    </tr>
+                    <tr><td style="text-align:center;font-style:italic;font-weight:700;">{{ b.num }}</td><td style="text-align:center;font-style:italic;font-weight:700;">1 из 1</td></tr>
+                  </table>
+                </sc-if>
+                <sc-if value="{{ b.isTitle }}" hint-placeholder-val="{{ false }}"><div style="{{ b.style }}">{{ b.text }}</div></sc-if>
+                <sc-if value="{{ b.isH }}" hint-placeholder-val="{{ false }}"><div style="font-weight:700;margin:16px 0 6px;">{{ b.text }}</div></sc-if>
+                <sc-if value="{{ b.isP }}" hint-placeholder-val="{{ false }}"><div style="{{ b.style }}">{{ b.text }}</div></sc-if>
+                <sc-if value="{{ b.isKv }}" hint-placeholder-val="{{ false }}"><div style="{{ b.style }}"><b>{{ b.k }}</b> {{ b.v }}</div></sc-if>
+                <sc-if value="{{ b.isRule }}" hint-placeholder-val="{{ false }}"><div style="height:0;border-top:1.5px solid #000;margin:14px 0;"></div></sc-if>
+                <sc-if value="{{ b.isLR }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;gap:16px;margin:10px 0;"><span>{{ b.l }}</span><span>{{ b.r }}</span></div></sc-if>
+                <sc-if value="{{ b.isTable }}" hint-placeholder-val="{{ false }}">
+                  <div style="{{ b.grid }}"><sc-for list="{{ b.cells }}" as="c" hint-placeholder-count="8"><div style="{{ c.style }}">{{ c.text }}</div></sc-for></div>
+                </sc-if>
+                <sc-if value="{{ b.isSigns }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:24px;display:flex;flex-direction:column;gap:18px;">
+                    <sc-for list="{{ b.rows }}" as="r" hint-placeholder-count="3">
+                      <div style="display:flex;align-items:center;gap:16px;">
+                        <div style="flex:1;font-weight:700;font-size:12.5px;line-height:1.35;">{{ r.role }}</div>
+                        <div style="width:96px;display:flex;flex-direction:column;align-items:center;gap:2px;flex:0 0 auto;">
+                          <sc-if value="{{ r.hasQr }}" hint-placeholder-val="{{ true }}"><i class="ri-qr-code-line" style="font-size:56px;line-height:1;color:#000;"></i></sc-if>
+                          <sc-if value="{{ r.noQr }}" hint-placeholder-val="{{ false }}"><span style="width:96px;border-bottom:1px solid #000;height:40px;"></span></sc-if>
+                          <span style="font-size:9px;color:#444;">подпись</span>
+                        </div>
+                        <div style="width:220px;text-align:right;font-size:12.5px;flex:0 0 auto;">{{ r.who }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ b.isDecisions }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-weight:700;margin:22px 0 6px;">Решения</div>
+                  <div style="{{ b.grid }}"><sc-for list="{{ b.cells }}" as="c" hint-placeholder-count="10"><div style="{{ c.style }}">{{ c.text }}</div></sc-for></div>
+                </sc-if>
+                <sc-if value="{{ b.isQrFoot }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:32px;padding-top:12px;border-top:1px solid #ccc;display:flex;align-items:center;gap:12px;font-size:10px;color:#444;"><i class="ri-qr-code-line" style="font-size:64px;line-height:1;color:#000;"></i><span>Подлинность документа можно проверить,<br>отсканировав QR-код и открыв оригинал.</span></div>
+                </sc-if>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isFile }}" hint-placeholder-val="{{ false }}">
+            <div style="max-width:520px;margin:48px auto;background:#fff;border:1px solid #E2E4E9;border-radius:16px;padding:32px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+              <span style="{{ fBadge }}">{{ fExt }}</span>
+              <div style="font-size:16px;line-height:24px;font-weight:500;color:#0A0D14;">{{ fTitle }}</div>
+              <div style="font-size:13px;line-height:18px;color:#525866;word-break:break-all;">{{ fileName }} · {{ fSize }}</div>
+              <div style="font-size:13px;line-height:18px;color:#868C98;">Документ подписан ЭЦП. Предпросмотр файлов в прототипе не показывается — скачайте файл.</div>
+              <button class="dv-b dv-p" onClick="{{ download }}" style="margin-top:4px;"><i class="ri-download-2-line" style="font-size:18px;"></i>Скачать</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:130;display:flex;align-items:center;gap:8px;padding:10px 14px;background:#0A0D14;color:#fff;border-radius:10px;font-family:'Inter',sans-serif;font-size:13px;box-shadow:0 12px 24px -8px rgba(10,13,20,.4);"><i class="ri-checkbox-circle-fill" style="font-size:18px;color:#38C793;"></i>{{ toast }}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:700}}">
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+class Component extends DCLogic {
+  state = { open:false, d:null, toast:'' };
+  componentDidMount(){
+    this._open = (e) => { const d = (e && e.detail) || {}; this.setState({ open:true, d }); };
+    window.addEventListener('mp-doc-open', this._open);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-doc-open', this._open); clearTimeout(this._t); }
+  close(){ this.setState({ open:false }); }
+  flash(t){ clearTimeout(this._t); this.setState({ toast:t }); this._t = setTimeout(() => this.setState({ toast:'' }), 2200); }
+
+  // ── заключение по замечаниям ──
+  remarksDoc(num){
+    const ED = window.mpEd, A = window.mpArm;
+    const app = ED.get(num); if(!app) return null;
+    const n = app.nn || {};
+    const rec = (n.d || []).filter(r => r.kind === 'remarks' && r.state !== 'returned').slice(-1)[0] || null;
+    const fields = rec ? rec.fields : (n.rem && n.rem.fields) || {};
+    const concl = (rec && rec.concl) || (n.rem && n.rem.concl) || {};
+    const o = app.org || ED.PROFILE, f = app.form, cat = f.cat, s = f.s[cat] || {};
+    const ls = cat !== 'mi';
+    const B = [];
+    B.push({ isHead:true, num:'№' + (concl.num || '—') + ' от ' + (concl.date || '—') });
+    B.push({ isTitle:true, text:'Заключение проверки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' в перечень Единого дистрибьютора', style:'text-align:center;font-weight:700;font-size:15px;margin:8px 40px 18px;' });
+    // «помощь.;» → «помощь;», «помощь..» → «помощь.»
+    const kv = (k, v, indent) => B.push({ isKv:true, k, v: v ? String(v).replace(/\.([.;])$/, '$1') : '—', style:`margin:2px 0 2px ${indent ? 36 : 18}px;` });
+    B.push({ isH:true, text:'1. Информация о заявителе:' });
+    kv('1) наименование организации:', o.org + ';');
+    kv('2) Ф.И.О. ответственного лица, должность:', [o.last, o.first, o.middle].join(' ') + (f.a.position ? ', ' + f.a.position : ''));
+    kv('3) место нахождения организации-заявителя:', '');
+    B.push({ isP:true, text:'Юридический адрес: ' + o.legal, style:'margin:0 0 0 36px;' });
+    B.push({ isP:true, text:'Фактический адрес: ' + o.actual, style:'margin:0 0 0 36px;' });
+    kv('4) БИН, банковские реквизиты:', '');
+    [['БИН', o.bin], ['Банк', o.bank], ['ИИК', o.iik], ['БИК', o.bik], ['Код бенефициара (КБе)', o.kbe]].forEach(([k, v]) => B.push({ isP:true, text:k + ': ' + v, style:'margin:0 0 0 36px;' }));
+    kv('5) номер телефона и (или) факса:', f.a.phone + (f.a.fax ? ', ' + f.a.fax : ''));
+    kv('6) e-mail:', o.email);
+    B.push({ isH:true, text:'2. Данные по заявленному ' + (ls ? 'лекарственному средству (ЛС):' : 'изделию медицинского назначения (ИМН):') });
+    if(ls){
+      kv('1) торговое наименование ЛС:', s.trade + ';'); kv('2) международное непатентованное наименование:', s.inn + ';');
+      kv('3) состав ЛС (действующие и вспомогательные вещества), предлагаемого для включения:', s.comp + ';'); kv('4) лекарственная форма:', s.form + ';');
+    } else {
+      kv('1) торговое наименование ИМН:', s.trade + ';'); kv('2) техническая характеристика ИМН:', s.tech + ';');
+      kv('3) комплектация ИМН, предлагаемого для включения:', s.kit + ';'); kv('4) эксплуатационные характеристики ИМН:', s.oper + ';');
+    }
+    kv('5) сведения о государственной регистрации заявленного ' + (ls ? 'ЛС' : 'ИМН') + ' в Республике Казахстан:', '');
+    B.push({ isTable:true, head:['Рег. номер','Торговое название','Дата регистрации / Дата истечения','Производитель / Страна', ls ? 'Лекарственная форма' : 'Эксплуатационные характеристики','Дозировка','Концентрация','Упаковка'],
+      rows: f.regs.map(r => [ r.num || '—', s.trade || '—', (r.regDate || '—') + ' – ' + (r.perpetual ? 'бессрочно' : r.expDate || '—'), r.country || '—', ls ? s.form || '—' : s.oper || '—', r.dose || '—', (r.conc && r.conc.val) || '—', (r.conc && r.conc.qty) || '—' ]) });
+    if(ls){
+      kv('6) фармакологическое действие ЛС:', s.action + ';'); kv('7) фармакологическая группа ЛС и АТХ код:', s.group + '; Код АТХ: ' + String(s.atc || '').split(' — ')[0]);
+      kv('8) показания к применению согласно инструкции по применению лекарственного средства:', s.indic + ';'); kv('9) способ применения:', s.route + '.');
+    } else {
+      kv('6) функциональное назначение ИМН:', s.fn + ';'); kv('7) вид ИМН в соответствии с GMDN:', s.gmdn + ';');
+      kv('8) показания к применению согласно инструкции по применению ИМН:', s.indic + ';'); kv('9) условия применения ИМН:', s.cond + '.');
+    }
+    B.push({ isH:true, text:'3. Заключение по результатам проверки на полноту и правильность оформления представленных документов:' });
+    B.push({ isP:true, text: concl.text || '—', style:'margin:0 0 4px;white-space:pre-wrap;' });
+    B.push({ isH:true, text:'4. Замечания:' });
+    B.push({ isP:true, text:'Таким образом, по результатам первичной оценки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' «' + s.trade + (ls && s.form ? ', ' + s.form : '') + '» в перечень Единого дистрибьютора имеются следующие замечания:', style:'text-align:justify;margin:0 0 6px;' });
+    Object.keys(fields).forEach((k, i) => B.push({ isKv:true, k:(i + 1) + ') ' + fields[k].label + ':', v:fields[k].text, style:'margin:2px 0 2px 18px;' }));
+    if(!Object.keys(fields).length) B.push({ isP:true, text:'—', style:'margin:0 0 0 18px;' });
+    B.push({ isP:true, text:'Просим внести изменения в заявление и досье по вышеуказанным замечаниям в течение 10 рабочих дней со дня получения настоящего заключения.', style:'text-align:justify;margin:10px 0 0;' });
+    // подписи и блок «Решения» (табл. 1 UC01.13.3.4.2.3.1)
+    const chain = rec ? rec.chain.filter(c => c.act !== 'return') : [];
+    const ACT = { exec:'Исполнено', agree:'Согласовано', sign:'Подписано' };
+    const POS = { expert:'Главный специалист управления развития формулярной системы и профессиональной экспертизы лекарственных средств и медицинских изделий', chief:'Начальник управления развития формулярной системы и профессиональной экспертизы лекарственных средств и медицинских изделий', dir:'Директор Департамента совершенствования лекарственной политики', dep:'Заместитель Председателя Правления по регуляторной деятельности', chair:'Председатель Правления' };
+    const signRows = chain.map(c => ({ role: POS[A.roleKey(c.user)] || A.roleLabel(c.user), who: A.shortName(c.user) + ' ' + A.roleLabel(c.user), hasQr:true, noQr:false }));
+    const draftBy = n.expert || (rec && rec.by) || '';
+    if(!rec) signRows.push({ role:POS.expert, who: draftBy ? A.shortName(draftBy) + ' ' + A.roleLabel(draftBy) : '', hasQr:false, noQr:true });
+    B.push({ isSigns:true, rows:signRows });
+    const decRows = chain.map((c, i) => ({ n:String(i + 1), role:A.roleLabel(c.user), fio:A.fullName(c.user), at:ED.fmtDT(c.at), act:ACT[c.act] || '' }));
+    if(!decRows.length && draftBy) decRows.push({ n:'1', role:A.roleLabel(draftBy), fio:A.fullName(draftBy), at:'—', act:'Проект, не подписан' });
+    B.push({ isDecisions:true, rows: decRows });
+    B.push({ isQrFoot:true });
+    return { title:'Заключение по первичной экспертизе', file:'Заключение_замечания_№' + app.num + '.pdf', blocks:B };
+  }
+
+  // ── протокол заседания ФК ──
+  protocolDoc(id, variant, num){
+    const ED = window.mpEd, A = window.mpArm;
+    const c = A.fkGet(id); if(!c || !c.dec) return null;
+    const res = c.results || A.fkResults(c);
+    const comp = A.fkComp(c);
+    const voted = comp.filter(u => A.fkVoted(c, u)), absent = comp.filter(u => !A.fkVoted(c, u));
+    const POS = { fkchair:'Председатель Формулярной комиссии МЗ РК', fkdep:'Заместитель председателя Формулярной комиссии МЗ РК', member:'член Формулярной комиссии', sec:'Секретарь Формулярной комиссии МЗ РК' };
+    const who = (u) => A.shortName(u) + (POS[A.roleKey(u)] && A.roleKey(u) !== 'member' ? ' – ' + POS[A.roleKey(u)] : '');
+    const d = new Date(c.signed ? c.signed.at : c.dec.at);
+    const plural = (k) => k % 10 >= 2 && k % 10 <= 4 && (k % 100 < 12 || k % 100 > 14) ? 'человека' : 'человек';
+    const objs = variant === 2 && num ? c.objects.filter(x => x === num) : c.objects;
+    const B = [];
+    B.push({ isTitle:true, text:'ПРОТОКОЛ № ' + c.dec.protocol, style:'text-align:center;font-weight:700;font-size:16px;margin:0 0 4px;font-family:Inter,sans-serif;' });
+    B.push({ isP:true, text:'заседания Формулярной комиссии', style:'text-align:center;font-family:Inter,sans-serif;' });
+    B.push({ isP:true, text:'Министерства здравоохранения Республики Казахстан', style:'text-align:center;font-family:Inter,sans-serif;margin-bottom:12px;' });
+    B.push({ isLR:true, l:'г. Астана', r:'«' + d.getDate() + '» ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ' года' });
+    B.push({ isRule:true });
+    B.push({ isKv:true, k:'Председательствовал:', v:who(c.chair), style:'margin:6px 0;' });
+    B.push({ isKv:true, k:'Участвовали:', v: voted.length ? voted.map(who).join(', ') : '—', style:'margin:6px 0;' });
+    B.push({ isKv:true, k:'Отсутствовали:', v: absent.length ? absent.map(u => A.shortName(u)).join(', ') : '—', style:'margin:6px 0;' });
+    B.push({ isKv:true, k:'Секретарь:', v:A.shortName(c.by) + ' – ' + POS.sec, style:'margin:6px 0;' });
+    B.push({ isKv:true, k:'Кворум:', v:'участвует ' + voted.length + ' ' + plural(voted.length) + ', отсутствует ' + absent.length + ' ' + plural(absent.length), style:'margin:6px 0;' });
+    B.push({ isRule:true });
+    B.push({ isH:true, text:'ПОВЕСТКА ДНЯ:' });
+    const apps = {}; objs.forEach(x => { const a = ED.get(x); apps[x] = a; });
+    objs.forEach((x, i) => B.push({ isP:true, text:(i + 1) + '. ' + (ED.summary(apps[x]).trade || x), style:'margin:2px 0 2px 18px;' }));
+    B.push({ isRule:true });
+    B.push({ isH:true, text:'ГОЛОСОВАНИЕ:' });
+    objs.forEach((x, i) => {
+      const sm = ED.summary(apps[x]), r = res[x];
+      B.push({ isP:true, text:(i + 1) + '. Голосование по включению ' + sm.catShort + ' «' + sm.trade + '» в ЕД:', style:'margin:8px 0 2px;' });
+      if(variant !== 2) comp.forEach(u => { const v = c.votes[u] && c.votes[u].v[x]; B.push({ isP:true, text:A.fkLabel(u) + ' – Голос «' + (v === 'for' ? 'За' : v === 'against' ? 'Против' : 'Не голосовал') + '»' + (v ? ', подписано ЭЦП' : ''), style:'margin:0 0 0 36px;font-size:13px;' }); });
+      B.push({ isP:true, text:'Итого: «За» — ' + r.for + ', «Против» — ' + r.against + ', «Не голосовал» — ' + r.none + (r.tie ? ' (при равенстве учтён голос председательствующего)' : ''), style:'margin:2px 0 0 18px;' });
+      B.push({ isP:true, text:'По результатам голосования рекомендовано: ' + (r.include ? 'Включить' : 'Не включать') + ' «' + sm.trade + '»', style:'margin:0 0 0 18px;' });
+    });
+    B.push({ isRule:true });
+    B.push({ isLR:true, l:POS[A.roleKey(c.chair)] || 'Председательствующий', r: c.signed ? 'подписано ЭЦП ' + A.shortName(c.chair) : 'ожидает подписи' });
+    B.push({ isLR:true, l:POS.sec, r:'подписано ЭЦП ' + A.shortName(c.by) });
+    return { title:'Протокол заседания ФК № ' + c.dec.protocol + (variant === 2 ? ' (обезличенный)' : ' (именной)'), file:'protocol_№' + c.dec.protocol + '_' + (variant === 2 ? 2 : 1) + '.pdf', blocks:B };
+  }
+
+  // таблица → CSS-сетка (циклы внутри <table> HTML-парсер выносит из таблицы)
+  gridify(b){
+    if(!b.isTable && !b.isDecisions) return b;
+    const head = b.isDecisions ? ['№','Роль','ФИО','Дата подписания','Решение'] : b.head;
+    const rows = b.isDecisions ? b.rows.map(r => [r.n, r.role, r.fio, r.at, r.act]) : b.rows;
+    const cols = b.isDecisions ? '32px 1.3fr 1.6fr 1fr 0.9fr' : 'repeat(' + head.length + ',minmax(0,1fr))';
+    const cell = (text, h) => ({ text, style:'border-right:1px solid #000;border-bottom:1px solid #000;padding:4px 6px;font-size:12px;line-height:1.3;display:flex;align-items:center;justify-content:center;text-align:center;word-break:break-word;' + (h ? 'font-weight:700;' : '') });
+    const cells = head.map(h => cell(h, true)).concat([].concat(...rows.map(r => r.map(c => cell(c, false)))));
+    return { ...b, grid:'display:grid;grid-template-columns:' + cols + ';border-left:1px solid #000;border-top:1px solid #000;margin:6px 0 10px;', cells };
+  }
+
+  renderVals(){
+    const s = this.state, d = s.d || {};
+    let doc = null;
+    try {
+      if(s.open && window.mpEd && window.mpArm){
+        if(d.type === 'remarks') doc = this.remarksDoc(d.num);
+        if(d.type === 'protocol') doc = this.protocolDoc(d.id, d.variant === 2 ? 2 : 1, d.num);
+      }
+    } catch(e){ doc = null; }
+    const isFile = s.open && (d.type === 'file' || !doc);
+    const ED = window.mpEd;
+    const e = ED ? ED.ext(d.name || '') : '';
+    const C = { pdf:['#FDEDF0','#DF1C41'], doc:['#EEF2FF','#4D42E9'], docx:['#EEF2FF','#4D42E9'], xls:['#EFFAF6','#2D9F75'], xlsx:['#EFFAF6','#2D9F75'], jpg:['#EEEBFF','#6E3FF3'], jpeg:['#EEEBFF','#6E3FF3'], png:['#EEEBFF','#6E3FF3'], zip:['#FEF3EB','#C2540A'] }[e] || ['#F6F8FA','#525866'];
+    return {
+      open: s.open, isPaper: !!doc && !isFile, isFile,
+      title: doc ? doc.title : (d.title || d.name || 'Документ'), fileName: doc ? doc.file : (d.name || ''),
+      blocks: doc ? doc.blocks.map(b => this.gridify(b)).map(b => ({ isHead:false, isTitle:false, isH:false, isP:false, isKv:false, isRule:false, isLR:false, isTable:false, isSigns:false, isDecisions:false, isQrFoot:false, ...b })) : [],
+      fTitle: d.title || 'Документ', fSize: ED && d.size ? ED.fileSize(d.size) : '', fExt:(e || 'файл').toUpperCase().slice(0, 4),
+      fBadge:`width:56px;height:56px;border-radius:12px;background:${C[0]};color:${C[1]};font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;`,
+      download: () => this.flash('Файл скачан: ' + (doc ? doc.file : d.name || 'документ')),
+      close: () => this.close(),
+      onKey: (ev) => { if(ev.key === 'Escape') this.close(); },
+      hasToast: !!s.toast, toast: s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

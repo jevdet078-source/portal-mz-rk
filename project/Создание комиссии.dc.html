@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  АРМ Формулярной комиссии → «Создать комиссию» (UC01.13.4.3.1, секретарь ФК).
+  По постановке:
+    • «Сведения о комиссии» → «Выбор услуги»: КНФ / ЕД / АЛО, после выбора услуга не меняется; раздел объектов
+      скрыт, пока услуга не выбрана (в прототипе подключена только ЕД);
+    • объекты — только заявки ЕД со статусом «Формулярная комиссия», не занятые активной комиссией и не
+      обработанные состоявшейся; таблица: выбор, №, ЛС/МИ, торговое наименование, заявитель, «Страница 1/N»;
+    • «Укажите дату проведения» — три равные колонки: дата (доступны только 6-й, 7-й и 8-й рабочий день от сегодня,
+      календарь текущего месяца с переходом на следующий), время начала 09:00–20:00, длительность «1 час»
+      (не редактируется, 2 и 3 часа — задел);
+    • «Председательствует» (только ПФК и ЗПФК) — над «Участниками»; выбранный председательствующий
+      не дублируется среди участников;
+    • «Сохранить» → проверки с текстами постановки, комиссия «Открытая», таймер ознакомления;
+      «Отмена» — в реестр, комиссия не создаётся.
+  Создавать комиссию может только секретарь («Действие недоступно» для остальных).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --red:#DF1C41;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;--stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .ib:disabled{color:var(--n300);cursor:not-allowed;background:transparent;}
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp:disabled{background:var(--n50);color:var(--n500);cursor:not-allowed;}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .sel{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;}
+  .opt{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .opt:hover,.opt:focus-visible{background:var(--n100);outline:none;}
+  .card-o{transition:border-color .15s,background .15s;}
+  .card-o:hover{border-color:var(--primary-light) !important;}
+  .card-o:disabled{cursor:not-allowed;}
+  .card-o:disabled:hover{border-color:var(--stroke) !important;}
+  .row{transition:background .12s;cursor:pointer;}
+  .row:hover{background:var(--n50);}
+  .day{width:36px;height:36px;border:none;border-radius:9px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;color:var(--n900);}
+  .day:disabled{color:var(--n300);cursor:not-allowed;}
+  .day:not(:disabled):hover{background:var(--primary-lighter);color:var(--primary);}
+  .crumb{color:var(--n500);text-decoration:none;border-radius:4px;}
+  .crumb:hover{color:var(--n900);}
+  .tip{position:relative;display:inline-flex;}
+  .tip .tip-b{display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:8px 10px;border-radius:8px;background:#0A0D14;color:#fff;font-size:12px;line-height:16px;font-weight:400;text-align:left;z-index:60;pointer-events:none;}
+  .tip:hover .tip-b,.tip:focus-within .tip-b{display:block;}
+  .chipx{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 4px 0 4px;border:1px solid var(--stroke);border-radius:999px;background:#fff;font-size:13px;line-height:18px;}
+  .btn:focus-visible,.ib:focus-visible,.card-o:focus-visible,.day:focus-visible,.crumb:focus-visible,.row:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tnum{font-variant-numeric:tabular-nums;}
+  @media (max-width:900px){ .fk-3{grid-template-columns:1fr !important;} .fk-scroll{overflow-x:auto;} .fk-scroll > div{min-width:640px;} }
+  @media (max-width:640px){ .arm-main{padding:16px 16px 120px !important;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdArm" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="ArmHeader" arm="fk" hint-size="100%,73px"></dc-import></div>
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="ArmNav" arm="fk" active="active" collapsed="1" style="height:100%;" hint-size="80px,827px"></dc-import>
+    </div>
+    <main class="arm-main" style="flex:1;min-width:0;padding:20px 32px 120px;">
+      <div style="max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+        <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+          <a class="crumb" href="АРМ ФК.dc.html#active" style="display:inline-flex;align-items:center;gap:6px;"><i class="ri-team-line" style="font-size:18px;"></i>Комиссии</a>
+          <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+          <a class="crumb" href="АРМ ФК.dc.html#active">Активные</a>
+          <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+          <span aria-current="page" style="color:var(--n900);">Создание комиссии</span>
+        </nav>
+        <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.015em;">Создание комиссии</h1>
+
+        <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid var(--stroke);border-radius:16px;padding:48px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-lock-2-line" style="font-size:28px;color:var(--n400);"></i></div>
+            <div style="font-size:16px;line-height:24px;font-weight:500;">Действие недоступно</div>
+            <div style="font-size:14px;line-height:20px;color:var(--n500);">Комиссию создаёт секретарь Формулярной комиссии.</div>
+            <a class="btn btn-s" href="АРМ ФК.dc.html#active"><i class="ri-arrow-left-line" style="font-size:18px;"></i>К комиссиям</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+          <!-- 1. Сведения о комиссии -->
+          <section id="sec-svc" aria-labelledby="h-svc" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+            <h2 id="h-svc" style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Сведения о комиссии</h2>
+            <div style="display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:500;">Выбор услуги<span aria-hidden="true" style="color:var(--primary);">*</span>
+              <span class="tip" tabIndex="0" aria-label="В списке выберите услугу, по которой будет создана комиссия"><i class="ri-information-line" style="font-size:17px;color:var(--n400);cursor:help;"></i><span class="tip-b" role="tooltip">В списке выберите услугу, по которой будет создана комиссия</span></span>
+              <sc-if value="{{ svcLocked }}" hint-placeholder-val="{{ false }}"><span style="margin-left:6px;display:inline-flex;align-items:center;gap:4px;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);"><i class="ri-lock-line" style="font-size:14px;"></i>Услугу после выбора изменить нельзя</span></sc-if>
+            </div>
+            <div class="fk-3" role="radiogroup" aria-label="Выбор услуги" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+              <sc-for list="{{ svcs }}" as="o" hint-placeholder-count="3">
+                <button class="card-o" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" disabled="{{ o.disabled }}" title="{{ o.tip }}" style="{{ o.style }}">
+                  <span style="{{ o.radio }}"></span>
+                  <span style="display:flex;flex-direction:column;gap:2px;text-align:left;min-width:0;">
+                    <span style="{{ o.labelStyle }}">{{ o.label }}</span>
+                    <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.desc }}</span>
+                  </span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+
+          <sc-if value="{{ hasSvc }}" hint-placeholder-val="{{ true }}">
+            <!-- 2. Объекты -->
+            <section id="sec-obj" aria-labelledby="h-obj" style="{{ objBox }}">
+              <div style="padding:20px 24px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <h2 id="h-obj" style="flex:1;min-width:0;margin:0;font-size:16px;line-height:24px;font-weight:500;">Выберите лекарственное средство или медицинское изделие<span aria-hidden="true" style="color:var(--primary);"> *</span></h2>
+                <span style="{{ selCountStyle }}" class="tnum">{{ selCount }}</span>
+              </div>
+              <div class="fk-scroll" style="border-top:1px solid var(--stroke);"><div role="table" aria-label="Свободные объекты ЕД">
+                <div role="row" style="display:flex;align-items:center;background:var(--n100);font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+                  <div role="columnheader" style="width:56px;flex:0 0 auto;padding:8px 0 8px 24px;"><button onClick="{{ toggleAll }}" role="checkbox" aria-checked="{{ allOn }}" aria-label="Выбрать все на странице" style="{{ allBox }}"><i class="{{ allIcon }}" style="font-size:14px;"></i></button></div>
+                  <div role="columnheader" style="width:110px;flex:0 0 auto;padding:8px 10px;">№</div>
+                  <div role="columnheader" style="width:80px;flex:0 0 auto;padding:8px 10px;">ЛС/МИ</div>
+                  <div role="columnheader" style="flex:1;min-width:0;padding:8px 10px;">Торговое наименование</div>
+                  <div role="columnheader" style="flex:1;min-width:0;padding:8px 24px 8px 10px;">Заявитель</div>
+                </div>
+                <sc-for list="{{ objs }}" as="o" hint-placeholder-count="4">
+                  <div role="row" class="row" onClick="{{ o.toggle }}" style="{{ o.rowStyle }}">
+                    <div role="cell" style="width:56px;flex:0 0 auto;padding:12px 0 12px 24px;"><span role="checkbox" aria-checked="{{ o.on }}" aria-label="{{ o.aria }}" style="{{ o.box }}"><i class="{{ o.icon }}" style="font-size:14px;"></i></span></div>
+                    <div role="cell" style="width:110px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;font-weight:500;" class="tnum">{{ o.num }}</div>
+                    <div role="cell" style="width:80px;flex:0 0 auto;padding:12px 10px;"><span style="{{ o.catStyle }}">{{ o.cat }}</span></div>
+                    <div role="cell" style="flex:1;min-width:0;padding:12px 10px;font-size:14px;line-height:20px;font-weight:500;" class="clamp1">{{ o.trade }}</div>
+                    <div role="cell" style="flex:1;min-width:0;padding:12px 24px 12px 10px;font-size:14px;line-height:20px;color:var(--n600);" class="clamp1">{{ o.org }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noObjs }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:36px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;border-top:1px solid var(--stroke);">
+                    <i class="ri-inbox-line" style="font-size:28px;color:var(--n300);"></i>
+                    <div style="font-size:14px;line-height:20px;font-weight:500;">Свободных объектов нет</div>
+                    <div style="font-size:13px;line-height:18px;color:var(--n500);max-width:420px;">Все заявки этапа «Рассмотрение формулярной комиссией» уже включены в активные комиссии или рассмотрены.</div>
+                  </div>
+                </sc-if>
+              </div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 24px 14px;border-top:1px solid var(--stroke);">
+                <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ errObj }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Выберите хотя бы одно лекарственное средство или изделие</sc-if></span>
+                <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--n500);">
+                  <button class="ib" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                  <span class="tnum">Страница {{ page }}/{{ pages }}</span>
+                  <button class="ib" onClick="{{ next }}" disabled="{{ noNext }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. Дата проведения -->
+            <section id="sec-date" aria-labelledby="h-date" style="{{ dateBox }}">
+              <h2 id="h-date" style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Укажите дату проведения</h2>
+              <div class="fk-3" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;">
+                <div style="display:flex;flex-direction:column;gap:6px;position:relative;">
+                  <div id="lbl-date" style="font-size:14px;line-height:20px;font-weight:500;">Дата проведения<span aria-hidden="true" style="color:var(--primary);"> *</span></div>
+                  <button type="button" class="inp sel" onClick="{{ toggleCal }}" aria-haspopup="dialog" aria-expanded="{{ calOpen }}" aria-labelledby="lbl-date" style="{{ dateBtnStyle }}">
+                    <span class="clamp1 tnum" style="{{ dateValStyle }}">{{ dateDisplay }}</span>
+                    <i class="ri-calendar-2-line" style="position:absolute;right:12px;top:10px;font-size:18px;color:var(--n400);"></i>
+                  </button>
+                  <sc-if value="{{ calOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                    <div role="dialog" aria-label="Выберите дату" style="position:absolute;left:0;top:calc(100% + 4px);z-index:25;width:300px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);padding:12px;animation:mp-drop .12s ease;">
+                      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <button class="ib" onClick="{{ calPrev }}" disabled="{{ calNoPrev }}" aria-label="Предыдущий месяц"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                        <span style="font-size:14px;line-height:20px;font-weight:600;">{{ calTitle }}</span>
+                        <button class="ib" onClick="{{ calNext }}" disabled="{{ calNoNext }}" aria-label="Следующий месяц"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+                      </div>
+                      <div style="display:grid;grid-template-columns:repeat(7,36px);gap:4px;justify-content:center;">
+                        <sc-for list="{{ calHead }}" as="h" hint-placeholder-count="7"><span style="height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--n400);">{{ h }}</span></sc-for>
+                        <sc-for list="{{ calDays }}" as="d" hint-placeholder-count="30"><button class="day tnum" onClick="{{ d.pick }}" disabled="{{ d.disabled }}" aria-label="{{ d.aria }}" aria-pressed="{{ d.on }}" style="{{ d.style }}">{{ d.n }}</button></sc-for>
+                      </div>
+                      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--stroke);font-size:12px;line-height:16px;color:var(--n500);">Доступны 6-й, 7-й и 8-й рабочие дни от сегодня</div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;position:relative;">
+                  <div id="lbl-time" style="font-size:14px;line-height:20px;font-weight:500;">Время начала<span aria-hidden="true" style="color:var(--primary);"> *</span></div>
+                  <button type="button" class="inp sel" onClick="{{ toggleTime }}" aria-haspopup="listbox" aria-expanded="{{ timeOpen }}" aria-labelledby="lbl-time" style="{{ timeBtnStyle }}">
+                    <span class="tnum" style="{{ timeValStyle }}">{{ timeDisplay }}</span>
+                    <i class="ri-arrow-down-s-line" style="position:absolute;right:10px;top:10px;font-size:20px;color:var(--n400);"></i>
+                  </button>
+                  <sc-if value="{{ timeOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                    <div role="listbox" aria-labelledby="lbl-time" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:25;max-height:260px;overflow-y:auto;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
+                      <sc-for list="{{ times }}" as="t" hint-placeholder-count="6"><button type="button" role="option" aria-selected="{{ t.on }}" class="opt tnum" onClick="{{ t.pick }}"><span style="flex:1;">{{ t.label }}</span><sc-if value="{{ t.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);"></i></sc-if></button></sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:500;">Длительность
+                    <span class="tip" tabIndex="0" aria-label="Длительность голосования — 1 час, поле не редактируется"><i class="ri-information-line" style="font-size:17px;color:var(--n400);cursor:help;"></i><span class="tip-b" role="tooltip">Длительность голосования — 1 час, поле не редактируется</span></span>
+                  </div>
+                  <button type="button" class="inp sel" disabled="{{ true }}" style="position:relative;"><span>1 час</span><i class="ri-lock-line" style="position:absolute;right:12px;top:10px;font-size:18px;color:var(--n300);"></i></button>
+                </div>
+              </div>
+              <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);margin-top:-4px;"><sc-if value="{{ errDate }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Укажите дату проведения и время начала</sc-if></span>
+            </section>
+
+            <!-- 4. Участники -->
+            <section id="sec-mem" aria-labelledby="h-mem" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px 24px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <h2 id="h-mem" style="flex:1;margin:0;font-size:16px;line-height:24px;font-weight:500;">Выберите участников комиссии</h2>
+                <sc-if value="{{ hasComp }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;line-height:18px;color:var(--n500);" class="tnum">{{ compText }}</span></sc-if>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;position:relative;max-width:480px;">
+                <div id="lbl-chair" style="font-size:14px;line-height:20px;font-weight:500;">Председательствует<span aria-hidden="true" style="color:var(--primary);"> *</span></div>
+                <button type="button" class="inp sel" onClick="{{ toggleChair }}" aria-haspopup="listbox" aria-expanded="{{ chairOpen }}" aria-labelledby="lbl-chair" style="{{ chairBtnStyle }}">
+                  <span class="clamp1" style="{{ chairValStyle }}">{{ chairDisplay }}</span>
+                  <i class="ri-arrow-down-s-line" style="position:absolute;right:10px;top:10px;font-size:20px;color:var(--n400);"></i>
+                </button>
+                <sc-if value="{{ chairOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                  <div role="listbox" aria-labelledby="lbl-chair" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:25;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
+                    <sc-for list="{{ chairs }}" as="c" hint-placeholder-count="2"><button type="button" role="option" aria-selected="{{ c.on }}" class="opt" onClick="{{ c.pick }}"><span style="{{ c.ava }}">{{ c.ini }}</span><span style="flex:1;display:flex;flex-direction:column;"><span>{{ c.label }}</span><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ c.role }}</span></span><sc-if value="{{ c.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);"></i></sc-if></button></sc-for>
+                  </div>
+                </sc-if>
+                <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ errChair }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Выберите, кто председательствует</sc-if></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;position:relative;max-width:480px;">
+                <div id="lbl-mem" style="font-size:14px;line-height:20px;font-weight:500;">Участники<span aria-hidden="true" style="color:var(--primary);"> *</span></div>
+                <button type="button" class="inp sel" onClick="{{ toggleMem }}" aria-haspopup="listbox" aria-expanded="{{ memOpen }}" aria-labelledby="lbl-mem" style="{{ memBtnStyle }}">
+                  <span class="clamp1" style="{{ memValStyle }}">{{ memDisplay }}</span>
+                  <i class="ri-arrow-down-s-line" style="position:absolute;right:10px;top:10px;font-size:20px;color:var(--n400);"></i>
+                </button>
+                <sc-if value="{{ memOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                  <div role="listbox" aria-multiselectable="true" aria-labelledby="lbl-mem" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:25;max-height:320px;overflow-y:auto;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;">
+                    <sc-for list="{{ mems }}" as="m" hint-placeholder-count="5"><button type="button" role="option" aria-selected="{{ m.on }}" class="opt" onClick="{{ m.pick }}"><span style="{{ m.box }}"><i class="{{ m.icon }}" style="font-size:13px;"></i></span><span style="{{ m.ava }}">{{ m.ini }}</span><span style="flex:1;display:flex;flex-direction:column;"><span>{{ m.label }}</span><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ m.role }}</span></span></button></sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ hasMemChips }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:4px;">
+                    <sc-for list="{{ memChips }}" as="c" hint-placeholder-count="3"><span class="chipx"><span style="{{ c.ava }}">{{ c.ini }}</span>{{ c.label }}<button class="ib" onClick="{{ c.remove }}" aria-label="{{ c.aria }}" style="width:22px;height:22px;border-radius:50%;"><i class="ri-close-line" style="font-size:14px;"></i></button></span></sc-for>
+                  </div>
+                </sc-if>
+                <span aria-live="polite" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><sc-if value="{{ errMem }}" hint-placeholder-val="{{ false }}"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Выберите хотя бы одного участника</sc-if></span>
+              </div>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ hasFail }}" hint-placeholder-val="{{ false }}">
+            <div role="alert" style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:12px;background:var(--red-ll);border:1px solid var(--red-l);font-size:14px;line-height:20px;color:var(--red-d);"><i class="ri-error-warning-fill" style="font-size:20px;color:var(--red);"></i>Система недоступна, просим обратиться в службу поддержки</div>
+          </sc-if>
+
+          <div style="position:sticky;bottom:16px;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);">
+            <span style="flex:1;min-width:0;font-size:13px;line-height:18px;color:var(--n500);">{{ summary }}</span>
+            <a class="btn btn-s" href="АРМ ФК.dc.html#active">Отмена</a>
+            <button class="btn btn-p" onClick="{{ save }}"><i class="ri-save-3-line" style="font-size:18px;"></i>Сохранить</button>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+class Component extends DCLogic {
+  state = { ready:false, svc:null, sel:[], page:1, date:null, time:null, chair:null, members:[], pop:null, calOff:0, errs:{}, fail:false, v:0 };
+  componentDidMount(){
+    this._load = () => this.setState({ ready: !!(window.mpArm && window.mpArm.ready), v:this.state.v + 1 });
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
+    if(window.mpArm && window.mpArm.ready) this._load();
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount(){ ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load)); window.removeEventListener('keydown', this._esc); }
+  allowedDates(){
+    const ED = window.mpEd;
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    return [6, 7, 8].map(k => { const d = new Date(ED.addWD(t.getTime(), k)); d.setHours(0, 0, 0, 0); return d.getTime(); });
+  }
+  save(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd;
+    const errs = {};
+    if(!s.sel.length) errs.obj = true;
+    if(!s.date || !s.time) errs.date = true;
+    if(!s.chair) errs.chair = true;
+    if(!s.members.filter(u => u !== s.chair).length) errs.mem = true;
+    this.setState({ errs, fail:false });
+    if(Object.keys(errs).length){
+      const first = errs.obj ? 'sec-obj' : errs.date ? 'sec-date' : 'sec-mem';
+      const el = document.getElementById(first); if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      return;
+    }
+    const [hh, mm] = s.time.split(':').map(Number);
+    const start = new Date(s.date); start.setHours(hh, mm, 0, 0);
+    const r = A.fkCreate({ by:A.current('fk'), objects:s.sel, start:start.getTime(), chair:s.chair, members:s.members.filter(u => u !== s.chair) });
+    if(!r.ok){ this.setState({ fail:true }); return; }
+    location.href = 'Комиссия ФК.dc.html?id=' + encodeURIComponent(r.c.id) + '&from=active&created=1';
+  }
+  renderVals(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd;
+    const ready = s.ready && !!A && !!ED && A.ready;
+    const me = ready ? A.current('fk') : '';
+    const allowed = ready && A.roleKey(me) === 'sec';
+    const radio = (on, dis) => `width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;background:${dis ? '#F6F8FA' : '#fff'};${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`;
+    const ava = (id, px) => { const c = A ? A.avatar(id) : ['#F6F8FA','#525866']; return `width:${px}px;height:${px}px;border-radius:50%;background:${c[0]};color:${c[1]};font-size:${px > 24 ? 11 : 10}px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;`; };
+    const check = (on) => `width:18px;height:18px;border-radius:5px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;${on ? 'background:#4D42E9;color:#fff;border:none;' : 'background:#fff;color:transparent;border:1.5px solid #CDD0D5;'}`;
+    // 1. услуга
+    const svcs = [ ['КНФ', 'Казахстанский национальный лекарственный формуляр'], ['ЕД', 'Включение ЛС / МИ в перечень Единого дистрибьютора'], ['АЛО', 'Амбулаторное лекарственное обеспечение'] ].map(([id, desc]) => {
+      const on = s.svc === id, dis = id !== 'ЕД' || (!!s.svc && !on);
+      return { label:id, desc, on, disabled:dis, tip: id !== 'ЕД' ? 'В прототипе комиссии создаются только по услуге ЕД' : '',
+        pick: () => { if(dis || s.svc) return; this.setState({ svc:id }); }, radio: radio(on, dis),
+        labelStyle:`font-size:15px;line-height:20px;font-weight:600;color:${dis && !on ? '#868C98' : '#0A0D14'};`,
+        style:`display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : dis ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:${dis ? 'not-allowed' : 'pointer'};text-align:left;` };
+    });
+    // 2. объекты
+    const free = ready ? A.freeObjects() : [];
+    const per = 6, pages = Math.max(1, Math.ceil(free.length / per)), page = Math.min(s.page, pages);
+    const pageItems = free.slice((page - 1) * per, page * per);
+    const objs = pageItems.map(a => { const sm = ED.summary(a), on = s.sel.indexOf(a.num) !== -1; return { num:a.num, cat:sm.catShort, trade:sm.trade, org:(a.org || ED.PROFILE).org, on, aria:'Выбрать ' + sm.trade,
+      catStyle:`display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:${sm.cat === 'mi' ? '#EBFAFF' : '#EEF2FF'};color:${sm.cat === 'mi' ? '#164564' : '#312D86'};font-size:11px;line-height:16px;font-weight:600;`,
+      toggle: () => { const cur = this.state.sel, has = cur.indexOf(a.num) !== -1; this.setState({ sel: has ? cur.filter(x => x !== a.num) : cur.concat([a.num]), errs:{ ...this.state.errs, obj:false } }); },
+      box: check(on), icon: on ? 'ri-check-line' : '', rowStyle:`display:flex;align-items:center;border-top:1px solid #E2E4E9;${on ? 'background:#FBFCFD;' : ''}` }; });
+    const allOn = pageItems.length > 0 && pageItems.every(a => s.sel.indexOf(a.num) !== -1);
+    // 3. дата
+    const allowedD = ready ? this.allowedDates() : [];
+    const base = new Date(); base.setDate(1); base.setHours(0, 0, 0, 0); base.setMonth(base.getMonth() + s.calOff);
+    const first = (base.getDay() + 6) % 7, dim = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    const today0 = (() => { const t = new Date(); t.setHours(0, 0, 0, 0); return t.getTime(); })();
+    const calDays = [];
+    for(let i = 0; i < first; i++) calDays.push({ n:'', disabled:true, aria:'', on:false, pick:null, style:'visibility:hidden;' });
+    for(let d = 1; d <= dim; d++){
+      const ts = new Date(base.getFullYear(), base.getMonth(), d).getTime();
+      const ok = allowedD.indexOf(ts) !== -1, on = s.date === ts;
+      calDays.push({ n:String(d), disabled:!ok, on, aria: ED ? ED.fmtD(ts) + (ok ? '' : ', недоступно') : '', pick: () => { if(ok) this.setState({ date:ts, pop:null, errs:{ ...s.errs, date:false } }); },
+        style: on ? 'background:#4D42E9;color:#fff;' : ok ? 'background:#EEF2FF;color:#312D86;' : ts === today0 ? 'box-shadow:inset 0 0 0 1px #CDD0D5;' : '' });
+    }
+    const times = Array.from({ length:12 }, (_, i) => { const t = String(9 + i).padStart(2, '0') + ':00'; return { label:t, on: s.time === t, pick: () => this.setState({ time:t, pop:null, errs:{ ...s.errs, date:false } }) }; });
+    // 4. участники
+    const chairIds = A ? A.ofRole('fkchair').concat(A.ofRole('fkdep')) : [];
+    const memberIds = A ? A.ofRole('member').concat(chairIds).filter(u => u !== s.chair) : [];
+    const members = s.members.filter(u => u !== s.chair);
+    const err = (k) => !!s.errs[k];
+    const selStyle = (bad) => `position:relative;padding-right:36px;${bad ? 'border-color:#DF1C41;' : ''}`;
+    const compN = (s.chair ? 1 : 0) + members.length;
+    const plural = (n, a, b, c) => { const x = n % 10, y = n % 100; return x === 1 && y !== 11 ? a : x >= 2 && x <= 4 && (y < 12 || y > 14) ? b : c; };
+    return {
+      denied: ready && !allowed, allowed,
+      svcs, svcLocked: !!s.svc, hasSvc: !!s.svc,
+      objBox:`background:#fff;border:1px solid ${err('obj') ? '#F8C9D2' : '#E2E4E9'};border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;`,
+      selCount: 'Выбрано: ' + s.sel.length, selCountStyle:`height:24px;padding:0 10px;border-radius:999px;font-size:12px;line-height:24px;font-weight:500;${s.sel.length ? 'background:#EEF2FF;color:#312D86;' : 'background:#F6F8FA;color:#525866;'}`,
+      objs, noObjs: ready && free.length === 0, allOn, allIcon: allOn ? 'ri-check-line' : '', allBox: check(allOn) + 'cursor:pointer;padding:0;',
+      toggleAll: () => { const ids = pageItems.map(a => a.num), cur = this.state.sel; this.setState({ sel: allOn ? cur.filter(x => ids.indexOf(x) === -1) : Array.from(new Set(cur.concat(ids))), errs:{ ...this.state.errs, obj:false } }); },
+      errObj: err('obj'), page:String(page), pages:String(pages), noPrev: page <= 1, noNext: page >= pages,
+      prev: () => this.setState({ page:Math.max(1, page - 1) }), next: () => this.setState({ page:Math.min(pages, page + 1) }),
+      dateBox:`background:#fff;border:1px solid ${err('date') ? '#F8C9D2' : '#E2E4E9'};border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);padding:20px 24px;display:flex;flex-direction:column;gap:14px;`,
+      calOpen: s.pop === 'cal', toggleCal: () => this.setState({ pop: s.pop === 'cal' ? null : 'cal' }),
+      dateDisplay: s.date && ED ? ED.fmtD(s.date) : 'Выберите дату', dateValStyle:`flex:1;color:${s.date ? '#0A0D14' : '#868C98'};`, dateBtnStyle: selStyle(err('date') && !s.date),
+      calTitle: MONTHS[base.getMonth()] + ' ' + base.getFullYear(), calHead:['Пн','Вт','Ср','Чт','Пт','Сб','Вс'], calDays,
+      calNoPrev: s.calOff <= 0, calNoNext: s.calOff >= 1, calPrev: () => this.setState({ calOff:Math.max(0, s.calOff - 1) }), calNext: () => this.setState({ calOff:Math.min(1, s.calOff + 1) }),
+      timeOpen: s.pop === 'time', toggleTime: () => this.setState({ pop: s.pop === 'time' ? null : 'time' }), times,
+      timeDisplay: s.time || 'Выберите время', timeValStyle:`flex:1;color:${s.time ? '#0A0D14' : '#868C98'};`, timeBtnStyle: selStyle(err('date') && !s.time),
+      errDate: err('date'),
+      chairOpen: s.pop === 'chair', toggleChair: () => this.setState({ pop: s.pop === 'chair' ? null : 'chair' }),
+      chairDisplay: s.chair && A ? A.fkLabel(s.chair) : 'Не выбрано', chairValStyle:`flex:1;color:${s.chair ? '#0A0D14' : '#868C98'};`, chairBtnStyle: selStyle(err('chair')),
+      chairs: chairIds.map(id => ({ label:A.fkLabel(id), role:A.roleLabel(id), ini:A.initials(id), ava:ava(id, 28), on: s.chair === id, pick: () => this.setState({ chair:id, members: s.members.filter(u => u !== id), pop:null, errs:{ ...s.errs, chair:false } }) })),
+      errChair: err('chair'),
+      memOpen: s.pop === 'mem', toggleMem: () => this.setState({ pop: s.pop === 'mem' ? null : 'mem' }),
+      memDisplay: members.length ? 'Выбрано: ' + members.length : 'Выберите из списка', memValStyle:`flex:1;color:${members.length ? '#0A0D14' : '#868C98'};`, memBtnStyle: selStyle(err('mem')),
+      mems: memberIds.map(id => { const on = members.indexOf(id) !== -1; return { label:A.fkLabel(id), role:A.roleLabel(id), ini:A.initials(id), ava:ava(id, 28), on, box:check(on), icon: on ? 'ri-check-line' : '',
+        pick: () => { const cur = this.state.members, has = cur.indexOf(id) !== -1; this.setState({ members: has ? cur.filter(u => u !== id) : cur.concat([id]), errs:{ ...this.state.errs, mem:false } }); } }; }),
+      hasMemChips: members.length > 0, memChips: members.map(id => ({ label:A.fkLabel(id), ini:A.initials(id), ava:ava(id, 22), aria:'Убрать ' + A.shortName(id), remove: () => this.setState({ members: this.state.members.filter(u => u !== id) }) })),
+      errMem: err('mem'),
+      hasComp: compN > 0, compText: 'Состав комиссии: ' + compN + ' ' + plural(compN, 'человек', 'человека', 'человек'),
+      closePop: () => this.setState({ pop:null }),
+      hasFail: s.fail,
+      summary: !s.svc ? 'Выберите услугу' : [ s.sel.length ? 'Объектов: ' + s.sel.length : null, s.date && ED ? 'Голосование ' + ED.fmtD(s.date) + (s.time ? ' в ' + s.time : '') : null, compN ? 'состав: ' + compN + ' ' + plural(compN, 'человек', 'человека', 'человек') : null ].filter(Boolean).join(' · ') || 'Заполните сведения о комиссии',
+      save: () => this.save(),
+    };
+  }
+}
+</script>
+</body>
+</html>

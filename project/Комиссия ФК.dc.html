@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  АРМ Формулярной комиссии → карточка комиссии (?id=…&from=active|done|approval|notifications).
+  Постановки: UC01.13.4.3.1 (табл. 2 — карточка), UC01.13.4.3.2 (ознакомление и голосование), UC01.13.4.3.3 (решение
+  секретаря), UC01.13.4.3.4 (подпись председательствующего, протоколы), UC01.13.4.5 §4 (поля под таймерами).
+  Кто что видит:
+    • секретарь — «Сведения о комиссии», «Участники и явка» (в статусе «Открытая» — «Изменить»: слева состав,
+      справа невыбранные, «>» убирает, «<» добавляет), «Голоса по каждому ЛС/МИ», «Решение комиссии»
+      (радиокнопки активны только в «Принятие решения», при «Состоялась» — № протокола, кнопка «Подписать»
+      неактивна, пока идёт голосование); после подписи председательствующего — два протокола;
+    • участник, ПФК, ЗПФК — «Голосование за ЛС и МИ»: заключение (открыть / скачать), голос «За» / «Против» по каждому
+      объекту, «Завершить» — когда проголосовано по всем, затем ЭЦП; в «Открытая» вместо кнопок прочерк;
+    • председательствующий — то же, что секретарь (без кнопки решения) и «Подписать» справа сверху.
+  Подсказки (табл. 1): «Голосование еще не началось…», «Ваш голос подписан ЭЦП и отправлен…».
+  Удалённый из состава участник видит «Участник не включен в комиссию» (BR-42-05).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-ll:#EFFAF6;--green-d:#176448;--red:#DF1C41;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --orange:#F17B2C;--orange-ll:#FEF3EB;--stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn-sm{height:32px;padding:0 10px;border-radius:8px;font-size:13px;}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .btn-g:disabled{background:transparent;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .inp{width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;resize:vertical;}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp-err{border-color:var(--red);}
+  .opt-c{transition:border-color .15s,background .15s;}
+  .opt-c:hover{border-color:var(--primary-light) !important;}
+  .opt-c:disabled{cursor:not-allowed;}
+  .opt-c:disabled:hover{border-color:var(--stroke) !important;}
+  .vb{height:32px;padding:0 12px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:13px;font-weight:500;color:var(--n600);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background .12s,border-color .12s,color .12s;}
+  .vb:hover{background:var(--n50);}
+  .pcard{transition:border-color .15s,background .15s;}
+  .pcard:hover{border-color:var(--primary-light) !important;}
+  .crumb{color:var(--n500);text-decoration:none;border-radius:4px;}
+  .crumb:hover{color:var(--n900);}
+  .lnk{border:none;background:none;padding:0;font:inherit;font-size:13px;font-weight:500;color:var(--primary);cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;}
+  .lnk:hover{text-decoration:underline;text-underline-offset:3px;}
+  .tip{position:relative;display:inline-flex;}
+  .tip .tip-b{display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:8px 10px;border-radius:8px;background:#0A0D14;color:#fff;font-size:12px;line-height:16px;font-weight:400;z-index:60;pointer-events:none;}
+  .tip:hover .tip-b,.tip:focus-within .tip-b{display:block;}
+  .pp-b{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;font-weight:500;color:var(--n600);cursor:pointer;display:flex;align-items:center;gap:6px;}
+  .pp-b:hover{background:var(--n50);border-color:var(--n300);}
+  .btn:focus-visible,.ib:focus-visible,.opt-c:focus-visible,.vb:focus-visible,.pcard:focus-visible,.crumb:focus-visible,.lnk:focus-visible,.pp-b:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tnum{font-variant-numeric:tabular-nums;}
+  @media (max-width:900px){ .fk-info{grid-template-columns:1fr 1fr !important;} .fk-two{grid-template-columns:1fr !important;} .fk-scroll{overflow-x:auto;} .fk-scroll > div{min-width:720px;} }
+  @media (max-width:640px){ .arm-main{padding:16px 16px 120px !important;} .fk-info{grid-template-columns:1fr !important;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdArm" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdSign" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdDocView" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="ArmHeader" arm="fk" hint-size="100%,73px"></dc-import></div>
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="ArmNav" arm="fk" active="{{ navActive }}" collapsed="1" style="height:100%;" hint-size="80px,827px"></dc-import>
+    </div>
+    <main class="arm-main" style="flex:1;min-width:0;padding:20px 32px 120px;">
+      <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">
+
+        <sc-if value="{{ missing }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:64px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="{{ missIcon }}" style="font-size:28px;color:var(--n400);"></i></div>
+            <h1 style="margin:0;font-size:16px;line-height:24px;font-weight:500;">{{ missTitle }}</h1>
+            <div style="font-size:14px;line-height:20px;color:var(--n500);">{{ missText }}</div>
+            <a class="btn btn-s" href="АРМ ФК.dc.html#active"><i class="ri-arrow-left-line" style="font-size:18px;"></i>К комиссиям</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ ok }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+            <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+              <a class="crumb" href="АРМ ФК.dc.html#active" style="display:inline-flex;align-items:center;gap:6px;"><i class="ri-team-line" style="font-size:18px;"></i>Комиссии</a>
+              <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+              <a class="crumb" href="{{ backHref }}">{{ backLabel }}</a>
+              <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+              <span aria-current="page" style="color:var(--n900);" class="tnum">Комиссия № {{ num }}</span>
+            </nav>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.015em;" class="tnum">Комиссия № {{ num }}</h1>
+              <span style="{{ badge.style }}"><span style="{{ badge.dot }}"></span>{{ badge.label }}</span>
+              <div style="flex:1;"></div>
+              <a class="btn btn-s" href="{{ backHref }}"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Назад</a>
+              <sc-if value="{{ canSign }}" hint-placeholder-val="{{ false }}"><button class="btn btn-p" onClick="{{ sign }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i>Подписать</button></sc-if>
+            </div>
+
+            <sc-for list="{{ hints }}" as="h" hint-placeholder-count="0">
+              <div role="status" style="{{ h.box }}"><i class="{{ h.icon }}" style="{{ h.iconStyle }}"></i><div style="flex:1;min-width:0;font-size:14px;line-height:20px;">{{ h.text }}</div></div>
+            </sc-for>
+
+            <!-- сведения о комиссии -->
+            <section aria-labelledby="h-info" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;">
+              <div style="padding:14px 20px;border-bottom:1px solid var(--stroke);"><h2 id="h-info" style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Сведения о комиссии</h2></div>
+              <div class="fk-two" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 20px 0;">
+                <sc-for list="{{ timers }}" as="t" hint-placeholder-count="2">
+                  <div style="{{ t.box }}">
+                    <i class="{{ t.icon }}" style="{{ t.iconStyle }}"></i>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                      <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ t.label }}</span>
+                      <span class="tnum" style="{{ t.valStyle }}">{{ t.value }}</span>
+                    </div>
+                    <sc-if value="{{ t.hasChip }}" hint-placeholder-val="{{ false }}"><span style="{{ t.chipStyle }}">{{ t.chip }}</span></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+              <dl class="fk-info" style="margin:0;padding:16px 20px 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 24px;">
+                <sc-for list="{{ info }}" as="r" hint-placeholder-count="8">
+                  <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
+                    <dt style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.label }}</dt>
+                    <dd class="tnum" style="{{ r.style }}">{{ r.value }}</dd>
+                  </div>
+                </sc-for>
+              </dl>
+            </section>
+
+            <!-- участники и явка -->
+            <sc-if value="{{ showPeople }}" hint-placeholder-val="{{ true }}">
+              <section aria-labelledby="h-people" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--stroke);">
+                  <h2 id="h-people" style="flex:1;margin:0;font-size:16px;line-height:24px;font-weight:500;">Участники и явка</h2>
+                  <span style="font-size:13px;line-height:18px;color:var(--n500);" class="tnum">{{ turnout }}</span>
+                  <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ openEdit }}"><i class="ri-user-settings-line" style="font-size:16px;"></i>Изменить</button></sc-if>
+                </div>
+                <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;">
+                  <sc-for list="{{ people }}" as="p" hint-placeholder-count="4">
+                    <button class="pcard" onClick="{{ p.pick }}" aria-pressed="{{ p.on }}" style="{{ p.style }}">
+                      <span style="{{ p.ava }}">{{ p.iin2 }}</span>
+                      <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
+                        <span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ p.name }}</span>
+                        <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ p.role }}</span>
+                        <span style="display:flex;align-items:center;gap:6px;margin-top:2px;"><span style="{{ p.chip }}">{{ p.state }}</span><span class="tnum" style="font-size:12px;line-height:16px;color:var(--n500);" title="Проголосовал по объектам">{{ p.nm }}</span></span>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section aria-labelledby="h-votes" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--stroke);">
+                  <h2 id="h-votes" style="flex:1;margin:0;font-size:16px;line-height:24px;font-weight:500;">Голоса по каждому ЛС/МИ</h2>
+                  <sc-if value="{{ hasFocus }}" hint-placeholder-val="{{ false }}"><button class="lnk" onClick="{{ clearFocus }}"><i class="ri-close-line" style="font-size:16px;"></i>{{ focusLabel }}</button></sc-if>
+                </div>
+                <div class="fk-scroll"><div role="table" aria-label="Голоса по объектам">
+                  <div role="row" style="display:flex;background:var(--n100);font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+                    <div role="columnheader" style="width:56px;flex:0 0 auto;padding:8px 10px 8px 20px;">№</div>
+                    <div role="columnheader" style="flex:1;min-width:0;padding:8px 10px;">Торговое наименование</div>
+                    <div role="columnheader" style="flex:1.2;min-width:0;padding:8px 10px;">Голоса участников</div>
+                    <div role="columnheader" style="width:200px;flex:0 0 auto;padding:8px 20px 8px 10px;">Итог</div>
+                  </div>
+                  <sc-for list="{{ tally }}" as="o" hint-placeholder-count="2">
+                    <div role="row" style="display:flex;align-items:center;border-top:1px solid var(--stroke);min-height:60px;">
+                      <div role="cell" style="width:56px;flex:0 0 auto;padding:10px 10px 10px 20px;font-size:14px;color:var(--n500);" class="tnum">{{ o.n }}</div>
+                      <div role="cell" style="flex:1;min-width:0;padding:10px;display:flex;flex-direction:column;gap:2px;">
+                        <span style="display:flex;align-items:center;gap:6px;min-width:0;"><span style="{{ o.catStyle }}">{{ o.cat }}</span><span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;">{{ o.trade }}</span></span>
+                        <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.org }} · заявка № {{ o.num }}</span>
+                      </div>
+                      <div role="cell" style="flex:1.2;min-width:0;padding:10px;display:flex;flex-wrap:wrap;gap:4px;">
+                        <sc-for list="{{ o.votes }}" as="v" hint-placeholder-count="4"><span title="{{ v.tip }}" style="{{ v.style }}"><i class="{{ v.icon }}" style="font-size:11px;"></i>{{ v.iin2 }}</span></sc-for>
+                      </div>
+                      <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 20px 10px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span class="tnum" style="font-size:13px;line-height:18px;color:var(--n600);">{{ o.sum }}</span>
+                        <sc-if value="{{ o.hasRes }}" hint-placeholder-val="{{ false }}"><span style="{{ o.resStyle }}">{{ o.res }}</span></sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div></div>
+              </section>
+            </sc-if>
+
+            <!-- голосование участника -->
+            <sc-if value="{{ showVote }}" hint-placeholder-val="{{ false }}">
+              <section aria-labelledby="h-vote" style="{{ voteBox }}">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--stroke);">
+                  <h2 id="h-vote" style="flex:1;margin:0;font-size:16px;line-height:24px;font-weight:500;">Голосование за лекарственные средства и медицинские изделия</h2>
+                  <sc-if value="{{ voteProgressShow }}" hint-placeholder-val="{{ false }}"><span class="tnum" style="font-size:13px;line-height:18px;color:var(--n500);">{{ voteProgress }}</span></sc-if>
+                </div>
+                <div class="fk-scroll"><div role="table" aria-label="Голосование">
+                  <div role="row" style="display:flex;background:var(--n100);font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
+                    <div role="columnheader" style="width:56px;flex:0 0 auto;padding:8px 10px 8px 20px;">№</div>
+                    <div role="columnheader" style="flex:1;min-width:0;padding:8px 10px;">Торговое наименование</div>
+                    <div role="columnheader" style="flex:1;min-width:0;padding:8px 10px;">Заявитель</div>
+                    <div role="columnheader" style="width:150px;flex:0 0 auto;padding:8px 10px;">Заключение</div>
+                    <div role="columnheader" style="width:200px;flex:0 0 auto;padding:8px 20px 8px 10px;">Ваш голос</div>
+                  </div>
+                  <sc-for list="{{ ballot }}" as="o" hint-placeholder-count="2">
+                    <div role="row" style="display:flex;align-items:center;border-top:1px solid var(--stroke);min-height:60px;">
+                      <div role="cell" style="width:56px;flex:0 0 auto;padding:10px 10px 10px 20px;font-size:14px;color:var(--n500);" class="tnum">{{ o.n }}</div>
+                      <div role="cell" style="flex:1;min-width:0;padding:10px;display:flex;align-items:center;gap:6px;"><span style="{{ o.catStyle }}">{{ o.cat }}</span><span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;">{{ o.trade }}</span></div>
+                      <div role="cell" style="flex:1;min-width:0;padding:10px;font-size:14px;line-height:20px;color:var(--n600);" class="clamp1">{{ o.org }}</div>
+                      <div role="cell" style="width:150px;flex:0 0 auto;padding:10px;display:flex;align-items:center;gap:4px;">
+                        <button class="btn btn-s btn-sm" onClick="{{ o.open }}" aria-label="{{ o.openAria }}">Открыть</button>
+                        <button class="ib" onClick="{{ o.dl }}" aria-label="{{ o.dlAria }}" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                      </div>
+                      <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 20px 10px 10px;">
+                        <sc-if value="{{ o.isDash }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:var(--n400);">—</span></sc-if>
+                        <sc-if value="{{ o.isButtons }}" hint-placeholder-val="{{ true }}">
+                          <div role="radiogroup" aria-label="{{ o.groupAria }}" style="display:inline-flex;">
+                            <button class="vb" role="radio" aria-checked="{{ o.forOn }}" onClick="{{ o.pickFor }}" style="{{ o.forStyle }}"><i class="ri-thumb-up-line" style="font-size:14px;"></i>За</button>
+                            <button class="vb" role="radio" aria-checked="{{ o.agOn }}" onClick="{{ o.pickAg }}" style="{{ o.agStyle }}"><i class="ri-thumb-down-line" style="font-size:14px;"></i>Против</button>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ o.isBadge }}" hint-placeholder-val="{{ false }}"><span style="{{ o.badgeStyle }}"><i class="{{ o.badgeIcon }}" style="font-size:13px;"></i>{{ o.badge }}</span></sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div></div>
+                <sc-if value="{{ showFinish }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--stroke);background:var(--n50);">
+                    <span style="flex:1;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n500);"><i class="{{ finishHintIcon }}" style="font-size:15px;"></i>{{ finishHint }}</span>
+                    <a class="btn btn-g" href="{{ backHref }}">Отмена</a>
+                    <button class="btn btn-p" onClick="{{ finish }}" disabled="{{ finishDisabled }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i>Завершить</button>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-if>
+
+            <!-- решение комиссии -->
+            <sc-if value="{{ showDecision }}" hint-placeholder-val="{{ false }}">
+              <section aria-labelledby="h-dec" style="{{ decBox }}">
+                <div style="display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid var(--stroke);">
+                  <h2 id="h-dec" style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Решение комиссии</h2>
+                  <span class="tip" tabIndex="0" aria-label="Зафиксируйте итог комиссии и сформируйте протокол голосования"><i class="ri-information-line" style="font-size:17px;color:var(--n400);cursor:help;"></i><span class="tip-b" role="tooltip">Зафиксируйте итог комиссии и сформируйте протокол голосования</span></span>
+                </div>
+                <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+                  <sc-if value="{{ decEditable }}" hint-placeholder-val="{{ true }}">
+                    <div role="radiogroup" aria-label="Решение комиссии" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:680px;">
+                      <sc-for list="{{ decOpts }}" as="o" hint-placeholder-count="2">
+                        <button class="opt-c" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" disabled="{{ o.disabled }}" style="{{ o.style }}">
+                          <span style="{{ o.radio }}"></span>
+                          <span style="display:flex;flex-direction:column;gap:2px;text-align:left;">
+                            <span style="{{ o.labelStyle }}">{{ o.label }}</span>
+                            <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ o.desc }}</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ needProtocol }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;flex-direction:column;gap:6px;max-width:330px;">
+                        <label for="fk-prot" style="font-size:14px;line-height:20px;font-weight:500;">№ протокола<span aria-hidden="true" style="color:var(--primary);"> *</span></label>
+                        <input id="fk-prot" class="{{ protCls }}" value="{{ prot }}" onChange="{{ onProt }}" placeholder="Например: ФК-14/2026" maxLength="30" autoComplete="off" style="height:40px;" />
+                        <sc-if value="{{ protErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Укажите № протокола</span></sc-if>
+                      </div>
+                    </sc-if>
+                  </sc-if>
+                  <sc-if value="{{ decDone }}" hint-placeholder-val="{{ false }}">
+                    <div style="{{ decDoneBox }}"><i class="{{ decDoneIcon }}" style="{{ decDoneIconStyle }}"></i><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;line-height:20px;font-weight:600;">{{ decDoneTitle }}</span><span style="font-size:13px;line-height:18px;color:var(--n600);">{{ decDoneText }}</span></div></div>
+                  </sc-if>
+                  <sc-if value="{{ hasProtocols }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+                      <sc-for list="{{ protocols }}" as="p" hint-placeholder-count="2">
+                        <div style="display:flex;align-items:center;gap:10px;padding:8px 6px 8px 8px;border:1px solid var(--stroke);border-radius:10px;min-width:0;">
+                          <span style="width:36px;height:36px;border-radius:8px;background:#FDEDF0;color:#DF1C41;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">PDF</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;"><span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;">{{ p.title }}</span><span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ p.meta }}</span></span>
+                          <button class="ib" onClick="{{ p.open }}" aria-label="{{ p.aria }}" title="Открыть"><i class="ri-eye-line" style="font-size:18px;"></i></button>
+                          <button class="ib" onClick="{{ p.dl }}" aria-label="Скачать протокол" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ decEditable }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--stroke);background:var(--n50);">
+                    <span style="flex:1;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n500);"><i class="ri-information-line" style="font-size:15px;"></i>{{ decHint }}</span>
+                    <button class="btn btn-g" onClick="{{ decCancel }}" disabled="{{ decCancelDisabled }}">Отмена</button>
+                    <button class="btn btn-p" onClick="{{ decSign }}" disabled="{{ decSignDisabled }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i>Подписать</button>
+                  </div>
+                </sc-if>
+              </section>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <!-- изменение состава -->
+  <sc-if value="{{ editOpen }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ editKey }}" style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div onClick="{{ closeEdit }}" style="position:absolute;inset:0;background:rgba(10,13,20,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:mp-fade .15s ease;"></div>
+      <div role="dialog" aria-modal="true" aria-labelledby="ed-title" style="position:relative;width:100%;max-width:760px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:mp-pop .18s ease;overflow:hidden;">
+        <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px;border-bottom:1px solid var(--stroke);">
+          <div style="width:40px;height:40px;border-radius:10px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-user-settings-line" style="font-size:20px;color:#4D42E9;"></i></div>
+          <div style="flex:1;min-width:0;"><h2 id="ed-title" style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Изменить состав комиссии</h2><div style="font-size:14px;line-height:20px;color:var(--n500);">Председательствует: {{ chairName }}. Новые участники получат уведомление.</div></div>
+          <button class="ib" onClick="{{ closeEdit }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+        <div style="padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div style="border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--n100);font-size:13px;font-weight:600;color:var(--n600);" class="tnum">Состав комиссии · {{ inCount }}</div>
+              <sc-for list="{{ inList }}" as="u" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-top:1px solid var(--stroke);">
+                  <span style="{{ u.ava }}">{{ u.iin2 }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;"><span class="clamp1" style="font-size:14px;line-height:20px;">{{ u.name }}</span><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ u.role }}</span></span>
+                  <button class="ib" onClick="{{ u.move }}" aria-label="{{ u.aria }}" title="Убрать из комиссии"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ inEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 12px;font-size:13px;color:var(--red);">Выберите хотя бы одного участника</div></sc-if>
+            </div>
+            <div style="border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
+              <div style="padding:10px 12px;background:var(--n100);font-size:13px;font-weight:600;color:var(--n600);" class="tnum">Не выбраны · {{ outCount }}</div>
+              <sc-for list="{{ outList }}" as="u" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-top:1px solid var(--stroke);">
+                  <button class="ib" onClick="{{ u.move }}" aria-label="{{ u.aria }}" title="Добавить в комиссию"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i></button>
+                  <span style="{{ u.ava }}">{{ u.iin2 }}</span><span style="flex:1;min-width:0;display:flex;flex-direction:column;"><span class="clamp1" style="font-size:14px;line-height:20px;">{{ u.name }}</span><span style="font-size:12px;line-height:16px;color:var(--n500);">{{ u.role }}</span></span>
+                </div>
+              </sc-for>
+              <sc-if value="{{ outEmpty }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 12px;font-size:13px;color:var(--n400);">Все сотрудники уже в составе</div></sc-if>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <label for="ed-reason" style="font-size:14px;line-height:20px;font-weight:500;">Причина изменения состава</label>
+            <textarea id="ed-reason" class="inp" rows="2" value="{{ reason }}" onChange="{{ onReason }}" placeholder="Необязательно" maxLength="500"></textarea>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--stroke);">
+          <button class="btn btn-s" onClick="{{ closeEdit }}">Отмена</button>
+          <button class="btn btn-p" onClick="{{ saveEdit }}" disabled="{{ saveEditDisabled }}">Сохранить изменения</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;top:89px;right:24px;z-index:120;width:380px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;line-height:20px;font-weight:500;">{{ toastTitle }}</div><sc-if value="{{ hasToastText }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:2px;">{{ toastText }}</div></sc-if></div>
+      <button class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;margin:-2px -4px 0 0;"><i class="ri-close-line" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ ok }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ ppBox }}">
+      <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
+        <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+        <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+        <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
+      </button>
+      <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);">
+          <sc-for list="{{ ppActs }}" as="a" hint-placeholder-count="3"><button class="pp-b" onClick="{{ a.onClick }}"><i class="{{ a.icon }}" style="font-size:14px;"></i>{{ a.label }}</button></sc-for>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--stroke);">
+            <button class="pp-b" onClick="{{ ppFail }}" aria-pressed="{{ failOn }}" style="{{ ppFailStyle }}"><i class="ri-wifi-off-line" style="font-size:14px;"></i>Техсбой</button>
+            <button class="pp-b" onClick="{{ ppReset }}"><i class="ri-refresh-line" style="font-size:14px;"></i>Сбросить данные</button>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const FROM = { active:['Активные', 'АРМ ФК.dc.html#active'], done:['Завершены', 'АРМ ФК.dc.html#done'], approval:['Согласование', 'АРМ ФК.dc.html#approval'], notifications:['Уведомления', 'АРМ ФК.dc.html#notifications'] };
+class Component extends DCLogic {
+  state = { ready:false, now:Date.now(), votes:{}, dec:null, prot:'', protErr:false, focus:null, edit:null, reason:'', toast:null, ppOpen:false, v:0, vKey:'' };
+  componentDidMount(){
+    this._load = () => this.setState({ ready: !!(window.mpArm && window.mpArm.ready), v:this.state.v + 1 });
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
+    if(window.mpArm && window.mpArm.ready) this._load();
+    this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
+    this._signed = (e) => this.signed(e && e.detail || {});
+    window.addEventListener('mp-sign-done', this._signed);
+    const q = new URLSearchParams(location.search);
+    if(q.get('created')){ this.toast('ok', 'Комиссия создана', 'Статус «Открытая». Участники получили уведомление и могут знакомиться с досье.'); try { history.replaceState(null, '', location.pathname + '?id=' + encodeURIComponent(q.get('id')) + '&from=' + (q.get('from') || 'active')); } catch(e){} }
+  }
+  componentWillUnmount(){
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load));
+    window.removeEventListener('mp-sign-done', this._signed); clearInterval(this._tick); clearTimeout(this._tt);
+  }
+  id(){ return new URLSearchParams(location.search).get('id'); }
+  toast(kind, title, text){ clearTimeout(this._tt); this.setState({ toast:{ kind, title, text } }); this._tt = setTimeout(() => this.setState({ toast:null }), 5000); }
+  certs(){ const A = window.mpArm, me = A.current('fk'), u = A.user(me); return [ { id:'staff', fio:A.fullName(me), iin:u.iin, org:'Министерство здравоохранения РК', bin:'960440000220', usage:'Ключ подписи GOSTKNCA', from:'10.01.2026', to:'10.01.2028' } ]; }
+  askSign(kind, title){
+    const ED = window.mpEd;
+    if(ED.fail()){ this.toast('err', 'Система недоступна, просим обратиться в службу поддержки', ''); return; }
+    this.pending = kind;
+    try { window.dispatchEvent(new CustomEvent('mp-sign-open', { detail:{ ctx:'fk:' + this.id(), title, doc:'Комиссия № ' + (window.mpArm.fkGet(this.id()) || {}).num, certs:this.certs() } })); } catch(e){}
+  }
+  signed(d){
+    if(d.ctx !== 'fk:' + this.id() || !this.pending) return;
+    const A = window.mpArm, kind = this.pending, me = A.current('fk'), at = d.at || Date.now(), s = this.state;
+    this.pending = null;
+    let r;
+    if(kind === 'vote'){ r = A.fkVote(this.id(), me, s.votes, at); if(r.ok) this.toast('ok', 'Голос подписан и отправлен', 'Изменить голос больше нельзя.'); }
+    if(kind === 'decide'){ r = A.fkDecide(this.id(), me, s.dec === 'held', s.prot, at); if(r.ok) location.href = 'АРМ ФК.dc.html?done=' + encodeURIComponent((s.dec === 'held' ? 'Решение подписано|Комиссия № ' + r.c.num + ' направлена председательствующему на подпись.' : 'Комиссия не состоялась|Объекты возвращены в список для новой комиссии.')) + (s.dec === 'held' ? '#active' : '#done'); }
+    if(kind === 'sign'){ r = A.fkSign(this.id(), me, at); if(r.ok) this.toast('ok', 'Протокол подписан', 'Комиссия состоялась. Заявкам присвоен статус «Решение принято», протоколы сформированы.'); }
+    if(r && !r.ok) this.toast('err', r.err, '');
+  }
+  renderVals(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd;
+    const ready = s.ready && !!A && !!ED && A.ready;
+    const from = new URLSearchParams(location.search).get('from') || 'active';
+    const F = FROM[from] || FROM.active;
+    const T = s.toast;
+    const base = { navActive: from === 'notifications' ? 'notifications' : from, backHref:F[1], backLabel:F[0],
+      hasToast:!!T, toastTitle: T ? T.title : '', toastText: T ? T.text : '', hasToastText: !!(T && T.text),
+      toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill', toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : '#38C793'};`,
+      closeToast: () => this.setState({ toast:null }), hints:[], timers:[], info:[], people:[], tally:[], ballot:[], decOpts:[], protocols:[], inList:[], outList:[], ppActs:[], editOpen:false };
+    if(!ready) return { ...base, ok:false, missing:false };
+    const c = A.fkGet(this.id());
+    const me = A.current('fk'), role = A.roleKey(me);
+    const comp = c ? A.fkComp(c) : [];
+    const inComp = comp.indexOf(me) !== -1;
+    if(!c) return { ...base, ok:false, missing:true, missIcon:'ri-file-search-line', missTitle:'Комиссия не найдена', missText:'Возможно, данные прототипа были сброшены.' };
+    if(role !== 'sec' && !inComp) return { ...base, ok:false, missing:true, missIcon:'ri-user-unfollow-line', missTitle:'Участник не включен в комиссию', missText:'Вы не входите в состав комиссии № ' + c.num + ' — просмотр и голосование недоступны.' };
+    const now = s.now, st = A.fkStatus(c, now);
+    const tone = ED.TONE[A.FK_TONE[st]];
+    const isSec = role === 'sec', isChair = c.chair === me;
+    const voted = A.fkVoted(c, me);
+    const res = c.results || (c.signed ? A.fkResults(c) : null);
+
+    // ── подсказки (табл. 1 UC01.13.4.3.2) ──
+    const HB = (tn) => { const x = { blue:['#EEF2FF','#C6D0FF','#4D42E9'], green:['#EFFAF6','#CBF5E5','#38C793'], gray:['#F6F8FA','#E2E4E9','#868C98'], purple:['#EEEBFF','#CAC2FF','#6E3FF3'], orange:['#FEF3EB','#FFDAC2','#F17B2C'] }[tn]; return { box:`display:flex;gap:10px;align-items:center;padding:12px 14px;border:1px solid ${x[1]};border-radius:12px;background:${x[0]};`, iconStyle:`font-size:20px;color:${x[2]};flex:0 0 auto;` }; };
+    const hints = [];
+    if(inComp && st === 'open') hints.push({ ...HB('blue'), icon:'ri-time-line', text:'Голосование еще не началось. Дождитесь окончания времени на ознакомление.' });
+    if(inComp && voted) hints.push({ ...HB('green'), icon:'ri-shield-check-line', text:'Ваш голос подписан ЭЦП и отправлен. Изменить голос больше нельзя.' });
+    if(inComp && st === 'voting' && !voted) hints.push({ ...HB('purple'), icon:'ri-checkbox-multiple-line', text:'Идёт голосование. Проголосуйте «За» или «Против» по каждому объекту и нажмите «Завершить».' });
+    if(isSec && st === 'decision') hints.push({ ...HB('orange'), icon:'ri-gavel-line', text:'Голосование завершено. Зафиксируйте решение комиссии и подпишите его.' });
+    if(isChair && st === 'approval') hints.push({ ...HB('purple'), icon:'ri-quill-pen-line', text:'Секретарь зафиксировал, что комиссия состоялась. Проверьте состав, голоса и подпишите решение — система сформирует протоколы.' });
+
+    // ── таймеры ──
+    const revLeft = Math.max(0, c.reviewEnd - now), voteLeft = Math.max(0, c.voteEnd - now);
+    const voteStarted = now >= c.reviewEnd;
+    const mmss = (ms) => { const m = Math.floor(ms / 60000), x = Math.floor(ms % 60000 / 1000); return String(m).padStart(2, '0') + 'м:' + String(x).padStart(2, '0') + 'с'; };
+    const tile = (label, value, active, expired, icon) => ({ label, value, icon, hasChip:active || expired, chip: expired ? 'Истекло' : 'Идёт', chipStyle:`height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:22px;font-weight:500;${expired ? 'background:#FDEDF0;color:#AF1D38;' : 'background:#EEF2FF;color:#312D86;'}`,
+      box:`display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid ${active ? '#C6D0FF' : '#E2E4E9'};background:${active ? '#FBFCFD' : '#fff'};`,
+      iconStyle:`font-size:22px;color:${active ? '#4D42E9' : expired ? '#DF1C41' : '#868C98'};flex:0 0 auto;`,
+      valStyle:`font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;color:${expired ? '#AF1D38' : value === '—' ? '#868C98' : '#0A0D14'};` });
+    const timers = [
+      tile('Осталось времени на ознакомление', ED.fmtRemain(revLeft), st === 'open', revLeft === 0, 'ri-book-open-line'),
+      tile('Осталось времени на голосование', voteStarted ? mmss(voteLeft) : '—', st === 'voting', voteStarted && voteLeft === 0, 'ri-timer-line'),
+    ];
+    const myState = A.fkMemberState(c, me, now);
+    const voteState = isSec || (isChair && (st === 'approval' || st === 'held')) ? A.fkVoteCount(c) + '/' + comp.length : inComp ? myState : A.fkVoteCount(c) + '/' + comp.length;
+    const R = (label, value, strong) => ({ label, value, style:`margin:0;font-size:14px;line-height:20px;font-weight:${strong ? 500 : 400};color:${value === '—' ? '#868C98' : '#0A0D14'};` });
+    const info = [ R('Услуга', 'ЕД', true), R('№ комиссии', c.num, true), R('Дата и время создания', ED.fmtDT(c.created)), R('Председательствует', A.fkLabel(c.chair), true),
+      R('Статус', A.FK_LABEL[st], true), R('Статус голосования', voteState, true), R('Дата голосования', ED.fmtDT(c.start)), R('Дата принятия решения', c.signed ? ED.fmtDT(c.signed.at) : '—') ];
+
+    // ── участники и явка, голоса (секретарь; председательствующий — с «Принятия решения») ──
+    const showPeople = isSec || (isChair && ['decision','approval','held','failed'].indexOf(st) !== -1);
+    const people = comp.map(u => {
+      const sv = A.fkVoted(c, u), stt = A.fkMemberState(c, u, now), on = s.focus === u;
+      const chip = stt === 'Проголосовал' ? ['#EFFAF6','#176448'] : stt === 'Не проголосовал' ? ['#FDEDF0','#710E21'] : ['#F6F8FA','#525866'];
+      const av = A.avatar(u);
+      return { iin2:A.user(u).iin.slice(0, 2), name:A.shortName(u), role:(u === c.chair ? 'Председательствует · ' : '') + A.roleLabel(u), state:stt, nm:(sv ? c.objects.length : 0) + '/' + c.objects.length, on,
+        chip:`height:20px;padding:0 7px;border-radius:999px;background:${chip[0]};color:${chip[1]};font-size:11.5px;line-height:20px;font-weight:500;`,
+        ava:`width:40px;height:40px;border-radius:50%;background:${u === c.chair ? '#312D86' : av[0]};color:${u === c.chair ? '#fff' : av[1]};font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;${sv ? 'box-shadow:0 0 0 2px #fff,0 0 0 4px #38C793;' : ''}`,
+        pick: () => this.setState({ focus: on ? null : u }),
+        style:`display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;text-align:left;width:100%;` };
+    });
+    const apps = {}; c.objects.forEach(n => { apps[n] = ED.get(n); });
+    const catStyle = (cat) => `display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;flex:0 0 auto;background:${cat === 'mi' ? '#EBFAFF' : '#EEF2FF'};color:${cat === 'mi' ? '#164564' : '#312D86'};font-size:11px;line-height:16px;font-weight:600;`;
+    const tally = c.objects.map((num, i) => {
+      const a = apps[num], sm = a ? ED.summary(a) : { trade:num, catShort:'', cat:'ls' };
+      const list = comp.filter(u => !s.focus || u === s.focus);
+      const votes = list.map(u => { const v = c.votes[u] && c.votes[u].v[num]; const col = v === 'for' ? ['#EFFAF6','#176448','ri-thumb-up-fill'] : v === 'against' ? ['#FDEDF0','#710E21','ri-thumb-down-fill'] : ['#F6F8FA','#868C98','ri-subtract-line'];
+        return { iin2:A.user(u).iin.slice(0, 2), icon:col[2], tip:A.fkLabel(u) + ' — ' + (v === 'for' ? 'За' : v === 'against' ? 'Против' : st === 'open' || st === 'voting' ? 'ещё не голосовал' : 'Не голосовал'),
+          style:`display:inline-flex;align-items:center;gap:3px;height:24px;padding:0 7px;border-radius:999px;background:${col[0]};color:${col[1]};font-size:12px;line-height:16px;font-weight:600;${u === c.chair ? 'outline:1.5px solid #312D86;outline-offset:1px;' : ''}` }; });
+      const r = A.fkResults(c)[num];
+      const showRes = !!res;
+      return { n:String(i + 1), num, trade:sm.trade, cat:sm.catShort, catStyle:catStyle(sm.cat), org:a ? (a.org || ED.PROFILE).org : '', votes,
+        sum:'За ' + r.for + ' · Против ' + r.against + ' · Не голосовал ' + r.none, hasRes:showRes, res: showRes ? (res[num].include ? 'Включить в ЕД' : 'Не включать в ЕД') + (res[num].tie ? ' · голос председательствующего' : '') : '',
+        resStyle: showRes ? `height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:22px;font-weight:500;${res[num].include ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` : '' };
+    });
+
+    // ── голосование участника ──
+    const showVote = inComp;
+    const draft = s.votes;
+    const myVotes = voted ? c.votes[me].v : null;
+    const ballot = c.objects.map((num, i) => {
+      const a = apps[num], sm = a ? ED.summary(a) : { trade:num, catShort:'', cat:'ls' };
+      const avr = a ? a.steps.filter(x => x.kind === 'avr').slice(-1)[0] : null;
+      const doc = avr && avr.docs && avr.docs[0] ? avr.docs[0] : { name:'Заключение ПЭ № ' + num + '.pdf', size:1240 * 1024, title:'Заключение профессиональной экспертизы' };
+      const v = myVotes ? myVotes[num] : draft[num];
+      const canVote = st === 'voting' && !voted;
+      const isDash = st === 'open' || (!voted && st !== 'voting');
+      const seg = (on, kind, l) => `${l ? 'border-radius:8px 0 0 8px;' : 'border-radius:0 8px 8px 0;margin-left:-1px;'}${on ? (kind === 'for' ? 'background:#EFFAF6;border-color:#38C793;color:#176448;z-index:1;position:relative;' : 'background:#FDEDF0;border-color:#DF1C41;color:#710E21;z-index:1;position:relative;') : ''}`;
+      return { n:String(i + 1), trade:sm.trade, cat:sm.catShort, catStyle:catStyle(sm.cat), org:a ? (a.org || ED.PROFILE).org : '',
+        open: () => { try { window.dispatchEvent(new CustomEvent('mp-doc-open', { detail:{ type:'file', name:doc.name, size:doc.size, title:'Заключение профессиональной экспертизы · ' + sm.trade } })); } catch(e){} },
+        dl: () => this.toast('ok', 'Файл скачан', doc.name), openAria:'Открыть заключение: ' + sm.trade, dlAria:'Скачать заключение: ' + sm.trade, groupAria:'Голос по ' + sm.trade,
+        isDash, isButtons: canVote, isBadge: !!myVotes || (!isDash && !canVote && !!v),
+        forOn: v === 'for', agOn: v === 'against', forStyle: seg(v === 'for', 'for', true), agStyle: seg(v === 'against', 'against', false),
+        pickFor: () => this.setState({ votes:{ ...this.state.votes, [num]:'for' } }), pickAg: () => this.setState({ votes:{ ...this.state.votes, [num]:'against' } }),
+        badge: v === 'for' ? 'За' : v === 'against' ? 'Против' : '—', badgeIcon: v === 'for' ? 'ri-thumb-up-fill' : 'ri-thumb-down-fill',
+        badgeStyle:`display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;${v === 'for' ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` };
+    });
+    const doneCount = c.objects.filter(n => draft[n]).length;
+    const allSet = doneCount === c.objects.length;
+    if(inComp && !voted && ['decision','approval','held','failed'].indexOf(st) !== -1) ballot.forEach(b => { b.isDash = true; b.isButtons = false; b.isBadge = false; });
+
+    // ── решение комиссии ──
+    const showDecision = isSec || (isChair && (st === 'approval' || st === 'held' || st === 'failed')) || (inComp && (st === 'held' || st === 'failed'));
+    const decEditable = isSec && !c.dec;
+    const radio = (on, dis) => `width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;background:${dis ? '#F6F8FA' : '#fff'};${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`;
+    const decDis = st !== 'decision';
+    const decOpts = [ ['held', 'Комиссия состоялась', 'Решение уйдёт на подпись председательствующему'], ['failed', 'Комиссия не состоялась', 'Объекты вернутся в список для новой комиссии'] ].map(([id, label, desc]) => { const on = s.dec === id; return { label, desc, on, disabled:decDis,
+      pick: () => { if(!decDis) this.setState({ dec:id, protErr:false }); }, radio: radio(on, decDis),
+      labelStyle:`font-size:14px;line-height:20px;font-weight:500;color:${decDis ? '#868C98' : '#0A0D14'};`,
+      style:`display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on || decDis ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:${decDis ? 'not-allowed' : 'pointer'};text-align:left;` }; });
+    const decHint = st === 'open' ? 'Решение доступно после голосования' : st === 'voting' ? 'Решение доступно, когда закончится время на голосование' : !s.dec ? 'Выберите решение комиссии' : s.dec === 'held' && !s.prot.trim() ? 'Укажите № протокола' : 'Решение подписывается ЭЦП';
+    let decDone = false, decDoneTitle = '', decDoneText = '', decDoneIcon = '', decDoneBox = '', decDoneIconStyle = '';
+    if(c.dec){
+      decDone = true;
+      const held = c.dec.held, signed = !!c.signed;
+      const hb = HB(held ? (signed ? 'green' : 'purple') : 'gray');
+      decDoneBox = hb.box; decDoneIconStyle = hb.iconStyle;
+      decDoneIcon = held ? (signed ? 'ri-checkbox-circle-line' : 'ri-quill-pen-line') : 'ri-close-circle-line';
+      decDoneTitle = held ? (signed ? 'Комиссия состоялась · протокол № ' + c.dec.protocol : 'Комиссия состоялась · ожидает подписи председательствующего') : 'Комиссия не состоялась';
+      decDoneText = 'Решение секретаря ' + A.shortName(c.dec.by) + ' подписано ЭЦП ' + ED.fmtDT(c.dec.at) + (signed ? '. Председательствующий ' + A.shortName(c.signed.by) + ' подписал ' + ED.fmtDT(c.signed.at) + '.' : held ? '. Протоколы будут сформированы после подписи ' + A.shortName(c.chair) + '.' : '. Протоколы не формируются.');
+    }
+    const protocols = c.signed ? [ [1, 'Именной — со всеми ФИО и голосами'], [2, 'Обезличенный — без ФИО в разделе «Голосование»'] ].map(([v, meta]) => ({ title:'protocol_№' + c.dec.protocol + '_' + v + '.pdf', meta, aria:'Открыть протокол ' + v,
+      open: () => { try { window.dispatchEvent(new CustomEvent('mp-doc-open', { detail:{ type:'protocol', id:c.id, variant:v } })); } catch(e){} }, dl: () => this.toast('ok', 'Протокол скачан', 'protocol_№' + c.dec.protocol + '_' + v + '.pdf') })) : [];
+
+    // ── изменение состава ──
+    const E = s.edit;
+    const pool = A.ofRole('member').concat(A.ofRole('fkchair'), A.ofRole('fkdep')).filter(u => u !== c.chair);
+    const mk = (u, dir) => { const av = A.avatar(u); return { iin2:A.user(u).iin.slice(0, 2), name:A.shortName(u), role:A.roleLabel(u), aria:(dir === 'out' ? 'Убрать ' : 'Добавить ') + A.shortName(u),
+      ava:`width:32px;height:32px;border-radius:50%;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+      move: () => { const cur = this.state.edit || []; this.setState({ edit: dir === 'out' ? cur.filter(x => x !== u) : cur.concat([u]) }); } }; };
+    const inList = E ? E.map(u => mk(u, 'out')) : [], outList = E ? pool.filter(u => E.indexOf(u) === -1).map(u => mk(u, 'in')) : [];
+
+    const failOn = ED.fail();
+    const ppActs = [];
+    if(st === 'open') ppActs.push({ label:'Завершить ознакомление', icon:'ri-skip-forward-line', onClick: () => { const r = A.fkSkip(c.id, 'review'); this.toast(r.ok ? 'ok' : 'err', r.ok ? 'Ознакомление завершится через 2 секунды' : r.err, r.ok ? 'Начнётся голосование.' : ''); } });
+    if(st === 'voting') ppActs.push({ label:'Проголосовать за остальных', icon:'ri-group-line', onClick: () => { comp.filter(u => u !== me && !A.fkVoted(c, u)).forEach((u, k) => { const v = {}; c.objects.forEach((n, j) => { v[n] = (k + j) % 3 === 2 ? 'against' : 'for'; }); A.fkVote(c.id, u, v); }); this.toast('ok', 'Голоса участников проставлены', 'Случайные голоса за всех, кроме вас.'); } });
+    if(st === 'voting') ppActs.push({ label:'Завершить голосование', icon:'ri-stop-circle-line', onClick: () => { const r = A.fkSkip(c.id, 'vote'); this.toast(r.ok ? 'ok' : 'err', r.ok ? 'Голосование завершится через 2 секунды' : r.err, ''); } });
+    const roleSwitch = (uid, label) => ({ label, icon:'ri-user-shared-line', onClick: () => { A.setCurrent(uid); this.toast('ok', 'Вы работаете как ' + A.shortName(uid), A.roleLabel(uid)); } });
+    if(st === 'decision' && !isSec) ppActs.push(roleSwitch(A.SEC, 'Войти как секретарь'));
+    if(st === 'approval' && !isChair) ppActs.push(roleSwitch(c.chair, 'Войти как председательствующий'));
+    if(st === 'voting' && !inComp) ppActs.push(roleSwitch(comp.find(u => !A.fkVoted(c, u)) || comp[0], 'Войти как участник'));
+
+    return {
+      ...base, ok:true, missing:false,
+      num:A.fkNum(c), badge:{ label:A.FK_LABEL[st], style:`display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:${tone.bg};color:${tone.fg};font-size:12px;line-height:16px;font-weight:500;`, dot:`width:6px;height:6px;border-radius:50%;background:${tone.dot};` },
+      canSign: isChair && st === 'approval', sign: () => this.askSign('sign', 'Подписание протокола заседания'),
+      hints, timers, info,
+      showPeople, people, turnout:'Проголосовали: ' + A.fkVoteCount(c) + ' из ' + comp.length, canEdit: isSec && st === 'open',
+      openEdit: () => this.setState({ edit:c.members.slice(), reason:'' }),
+      tally, hasFocus:!!s.focus, focusLabel: s.focus ? 'Только ' + A.shortName(s.focus) : '', clearFocus: () => this.setState({ focus:null }),
+      showVote, ballot, voteBox:`background:#fff;border:1px solid ${st === 'voting' && !voted ? '#C6D0FF' : '#E2E4E9'};border-radius:16px;box-shadow:${st === 'voting' && !voted ? '0 0 0 4px #EEF2FF,' : ''}0 1px 2px rgba(10,13,20,.03);overflow:hidden;`,
+      voteProgressShow: st === 'voting' && !voted, voteProgress:'Отмечено ' + doneCount + ' из ' + c.objects.length,
+      showFinish: inComp && st === 'voting' && !voted, finishDisabled: !allSet, finishHint: allSet ? 'Голос подписывается ЭЦП, изменить его будет нельзя' : 'Проголосуйте по каждому объекту', finishHintIcon: allSet ? 'ri-quill-pen-line' : 'ri-information-line',
+      finish: () => { if(allSet) this.askSign('vote', 'Подписание голоса'); },
+      showDecision, decEditable, decOpts, needProtocol: s.dec === 'held' && !decDis, prot:s.prot, protErr:s.protErr, protCls:'inp' + (s.protErr ? ' inp-err' : ''),
+      onProt: (e) => this.setState({ prot:e.target.value, protErr:false }),
+      decHint, decCancel: () => this.setState({ dec:null, prot:'', protErr:false }), decCancelDisabled: !s.dec,
+      decSignDisabled: decDis || !s.dec || voteLeft > 0,
+      decSign: () => { if(s.dec === 'held' && !s.prot.trim()){ this.setState({ protErr:true }); return; } this.askSign('decide', s.dec === 'held' ? 'Подписание решения «Комиссия состоялась»' : 'Подписание решения «Комиссия не состоялась»'); },
+      decBox:`background:#fff;border:1px solid ${decEditable && st === 'decision' ? '#C6D0FF' : '#E2E4E9'};border-radius:16px;box-shadow:${decEditable && st === 'decision' ? '0 0 0 4px #EEF2FF,' : ''}0 1px 2px rgba(10,13,20,.03);overflow:hidden;`,
+      decDone, decDoneTitle, decDoneText, decDoneIcon, decDoneBox, decDoneIconStyle, hasProtocols: protocols.length > 0, protocols,
+      editOpen: !!E, chairName:A.fkLabel(c.chair), inList, outList, inCount:String(inList.length), outCount:String(outList.length), inEmpty: !!E && !inList.length, outEmpty: !!E && !outList.length,
+      reason:s.reason, onReason:(e) => this.setState({ reason:e.target.value }),
+      closeEdit: () => this.setState({ edit:null }), editKey:(e) => { if(e.key === 'Escape') this.setState({ edit:null }); },
+      saveEditDisabled: !E || !E.length || (E.length === c.members.length && E.every(u => c.members.indexOf(u) !== -1)),
+      saveEdit: () => { const r = A.fkSetMembers(c.id, me, E, s.reason.trim()); if(r.ok){ this.setState({ edit:null }); this.toast('ok', 'Состав комиссии изменён', 'Добавленные участники получили уведомление, удалённые — потеряли доступ.'); } else this.toast('err', r.err, ''); },
+      ppOpen:s.ppOpen, ppToggle: () => this.setState({ ppOpen:!s.ppOpen }), ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppBox:`position:fixed;left:104px;bottom:20px;z-index:50;width:${s.ppOpen ? 280 : 180}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
+      ppActs, failOn, ppFailStyle: failOn ? 'background:#FDEDF0;border-color:#F8C9D2;color:#710E21;' : '', ppFail: () => ED.setFail(!failOn),
+      ppReset: () => { A.resetAll(); location.href = 'АРМ ФК.dc.html'; },
+    };
+  }
+}
+</script>
+</body>
+</html>
