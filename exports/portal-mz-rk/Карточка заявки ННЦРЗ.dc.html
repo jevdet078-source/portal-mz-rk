@@ -90,7 +90,12 @@
   .crumb{color:var(--n500);text-decoration:none;border-radius:4px;}
   .crumb:hover{color:var(--n900);}
   .tab{transition:color .15s,border-color .15s;}
-  .tab:hover{color:var(--n900) !important;}
+  .tab[aria-selected="false"]:hover{color:var(--n900) !important;border-bottom-color:var(--n300) !important;}
+  /* горизонтальная прокрутка без полосы: на узком экране табы листаются, на десктопе полосы нет */
+  .noscroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;}
+  .noscroll::-webkit-scrollbar{display:none;}
+  /* кнопка замечания не меняет высоту подписи поля — расстояние «подпись → значение» одинаковое у всех полей */
+  .rm-dt .tip{margin:-6px -6px -6px 0;}
   .tip{position:relative;display:inline-flex;}
   .tip .tip-b{display:none;position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:300px;padding:8px 10px;border-radius:8px;background:#0A0D14;color:#fff;font-size:12px;line-height:16px;font-weight:400;text-align:left;white-space:normal;z-index:60;transition:opacity .12s;pointer-events:none;box-shadow:0 8px 16px -6px rgba(10,13,20,.3);}
   .tip:hover .tip-b,.tip:focus-within .tip-b{display:block;}
@@ -103,7 +108,7 @@
   .tnum{font-variant-numeric:tabular-nums;}
   .pre{white-space:pre-wrap;word-break:break-word;}
   /* адаптив: АРМ рассчитан на десктоп, на планшете и телефоне раскладка складывается в колонку */
-  @media (max-width:1100px){ .nn-body{flex-direction:column !important;} .nn-body > div{width:100%;} .nn-nav{position:static !important;width:100% !important;flex-direction:row !important;overflow-x:auto;gap:12px !important;} .nn-nav > div{flex:0 0 auto;} }
+  @media (max-width:1100px){ .nn-body{flex-direction:column !important;} .nn-body > div{width:100%;} .nn-nav{position:static !important;width:100% !important;flex-direction:row !important;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;gap:12px !important;} .nn-nav > div{flex:0 0 auto;} }
   @media (max-width:900px){ .nn-sum{grid-template-columns:1fr 1fr !important;} .nn-sum > div{border-right:none !important;} .nn-grid{grid-template-columns:1fr !important;} .nn-grid > div{grid-column:1 / -1 !important;} }
   @media (max-width:640px){ .arm-main{padding:16px 16px 120px !important;} .nn-sum{grid-template-columns:1fr !important;} .nn-docs{grid-template-columns:1fr !important;} .nn-ban{flex-wrap:wrap;} .nn-nav{flex-direction:column !important;} }
 </style>
@@ -244,8 +249,8 @@
                         <dl style="{{ g.grid }}">
                           <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
                             <div id="{{ r.anchor }}" style="{{ r.wrap }}">
-                              <dt style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;font-size:12px;line-height:16px;color:var(--n500);min-height:16px;">
-                                <span style="padding-top:2px;">{{ r.label }}</span>
+                              <dt class="rm-dt" style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;line-height:16px;color:var(--n500);min-height:16px;">
+                                <span>{{ r.label }}</span>
                                 <sc-if value="{{ r.canRemark }}" hint-placeholder-val="{{ false }}">
                                   <span class="tip tip-r"><button class="ib rm" onClick="{{ r.remark }}" aria-label="{{ r.remarkAria }}" style="{{ r.remarkBtn }}"><i class="{{ r.remarkIcon }}" style="font-size:16px;"></i></button><span class="tip-b" role="tooltip">{{ r.remarkTip }}</span></span>
                                 </sc-if>
@@ -311,15 +316,16 @@
                     <sc-if value="{{ b.hasRoute }}" hint-placeholder-val="{{ false }}">
                       <div style="padding:0 20px 16px;">
                         <div style="font-size:12px;line-height:16px;color:var(--n500);margin-bottom:8px;">Маршрут согласования</div>
-                        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;">
+                        <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
                           <sc-for list="{{ b.route }}" as="rt" hint-placeholder-count="3">
                             <li style="{{ rt.box }}">
+                              <span class="tnum" style="width:18px;flex:0 0 auto;font-size:12px;line-height:16px;color:var(--n400);text-align:right;">{{ rt.n }}</span>
                               <span style="{{ rt.ava }}">{{ rt.ini }}</span>
-                              <span style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+                              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
                                 <span class="clamp1" style="font-size:13px;line-height:18px;font-weight:500;color:var(--n900);">{{ rt.name }}</span>
                                 <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ rt.role }}</span>
-                                <span class="tnum" style="{{ rt.actStyle }}"><i class="{{ rt.actIcon }}" style="font-size:13px;"></i>{{ rt.act }}</span>
                               </span>
+                              <span class="tnum" style="{{ rt.actStyle }}"><i class="{{ rt.actIcon }}" style="font-size:14px;"></i>{{ rt.act }}</span>
                             </li>
                           </sc-for>
                         </ol>
@@ -452,7 +458,7 @@
                   <section aria-labelledby="h-docs" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;">
                     <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:10px;">
                       <h3 id="h-docs" style="margin:0;font-size:15px;line-height:22px;font-weight:500;letter-spacing:-.011em;">Документы по заявке</h3>
-                      <div role="tablist" aria-label="Этапы" style="display:flex;gap:20px;border-bottom:1px solid var(--stroke);overflow-x:auto;">
+                      <div role="tablist" aria-label="Этапы" class="noscroll" style="display:flex;gap:24px;border-bottom:1px solid var(--stroke);">
                         <sc-for list="{{ docTabs }}" as="t" hint-placeholder-count="4">
                           <button class="tab" role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.nStyle }}">{{ t.n }}</span></button>
                         </sc-for>
@@ -487,7 +493,7 @@
     <div onKeyDown="{{ modalKey }}" style="position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;">
       <div onClick="{{ closeModal }}" style="position:absolute;inset:0;background:rgba(10,13,20,.32);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:mp-fade .15s ease;"></div>
       <div role="dialog" aria-modal="true" aria-labelledby="m-title" style="{{ mBox }}">
-        <div style="display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px;border-bottom:1px solid var(--stroke);">
+        <div style="{{ mHeadStyle }}">
           <div style="{{ mIconWrap }}"><i class="{{ mIcon }}" style="{{ mIconStyle }}"></i></div>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
             <h2 id="m-title" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ mTitle }}</h2>
@@ -526,17 +532,17 @@
           <!-- хронология -->
           <sc-if value="{{ mIsChrono }}" hint-placeholder-val="{{ false }}">
             <div role="table" aria-label="Хронология заявки" style="border:1px solid var(--stroke);border-radius:12px;overflow:hidden;">
-              <div role="row" style="display:grid;grid-template-columns:44px 1.2fr 1.3fr 118px 118px 1.3fr 1.6fr;background:var(--n100);font-size:12px;line-height:16px;font-weight:500;color:var(--n500);">
+              <div role="row" style="display:grid;grid-template-columns:40px 1.1fr 1.2fr 108px 108px 196px 1.5fr;background:var(--n100);font-size:12px;line-height:16px;font-weight:500;color:var(--n500);">
                 <span role="columnheader" style="padding:8px 10px;">№</span><span role="columnheader" style="padding:8px 10px;">Роль</span><span role="columnheader" style="padding:8px 10px;">ФИО</span><span role="columnheader" style="padding:8px 10px;">Дата начала</span><span role="columnheader" style="padding:8px 10px;">Дата завершения</span><span role="columnheader" style="padding:8px 10px;">Решение / Статус</span><span role="columnheader" style="padding:8px 10px;">Комментарий</span>
               </div>
               <sc-for list="{{ chrono }}" as="h" hint-placeholder-count="5">
-                <div role="row" style="display:grid;grid-template-columns:44px 1.2fr 1.3fr 118px 118px 1.3fr 1.6fr;border-top:1px solid var(--stroke);font-size:13px;line-height:18px;">
+                <div role="row" style="display:grid;grid-template-columns:40px 1.1fr 1.2fr 108px 108px 196px 1.5fr;border-top:1px solid var(--stroke);font-size:13px;line-height:18px;">
                   <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n500);">{{ h.n }}</span>
                   <span role="cell" style="padding:9px 10px;">{{ h.role }}</span>
                   <span role="cell" style="padding:9px 10px;color:var(--n600);">{{ h.fio }}</span>
                   <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n600);">{{ h.start }}</span>
                   <span role="cell" class="tnum" style="padding:9px 10px;color:var(--n600);">{{ h.end }}</span>
-                  <span role="cell" style="padding:9px 10px;"><span style="{{ h.badge }}">{{ h.status }}</span></span>
+                  <span role="cell" style="padding:8px 10px;"><span style="{{ h.badge.style }}"><span style="{{ h.badge.dot }}"></span>{{ h.badge.label }}</span></span>
                   <span role="cell" class="pre" style="padding:9px 10px;color:var(--n600);">{{ h.comment }}</span>
                 </div>
               </sc-for>
@@ -610,10 +616,14 @@ class Component extends DCLogic {
     this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
     this._signed = (e) => this.signed(e && e.detail || {});
     window.addEventListener('mp-sign-done', this._signed);
+    // Escape закрывает модальное окно, даже если фокус не внутри него
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.modal) this.closeModal(); };
+    window.addEventListener('keydown', this._esc);
   }
   componentWillUnmount(){
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load));
     window.removeEventListener('mp-sign-done', this._signed);
+    window.removeEventListener('keydown', this._esc);
     clearInterval(this._tick); clearTimeout(this._tt);
   }
   me(){ return window.mpArm.current('nn'); }
@@ -815,7 +825,7 @@ class Component extends DCLogic {
     }, 'Согласование документа');
   }
   doReturn(){
-    this.openModal({ type:'return', title:'Вернуть на доработку', text:'Заявка вернётся эксперту — ' + window.mpArm.shortName((window.mpArm.pendingRec(this.state.app) || {}).by) + '. Комментарий увидит эксперт, он попадёт в хронологию.', max:1500 });
+    this.openModal({ type:'return', title:'Вернуть на доработку', text:'Заявка вернётся эксперту (' + window.mpArm.shortName((window.mpArm.pendingRec(this.state.app) || {}).by) + '). Комментарий увидит эксперт, он попадёт в хронологию.', max:1500 });
   }
   doAssign(kind){
     const s = this.state, A = window.mpArm, me = this.me();
@@ -962,17 +972,19 @@ class Component extends DCLogic {
     if(files.length) rows.push({ isText:false, isNote:false, isFiles:true, label:'Документы', files, wrap:'grid-column:1 / -1;min-width:0;' });
     // маршрут согласования
     const ACT = { exec:['Исполнено', 'ri-check-line', '#2D9F75'], agree:['Согласовано', 'ri-check-double-line', '#2D9F75'], sign:['Подписано ЭЦП', 'ri-quill-pen-line', '#2D9F75'], return:['На доработку', 'ri-arrow-go-back-line', '#C2540A'] };
-    const route = (r.chain || []).map(c => { const a = ACT[c.act] || ACT.exec, av = A.avatar(c.user); return { ini:A.initials(c.user), name:A.shortName(c.user), role:A.roleLabel(c.user), act:a[0] + ' · ' + ED.fmtDT(c.at), actIcon:a[1],
-      actStyle:`display:inline-flex;align-items:center;gap:3px;font-size:11.5px;line-height:16px;color:${a[2]};`,
-      ava:`width:30px;height:30px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
-      box:'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border:1px solid #E2E4E9;border-radius:12px;background:#fff;min-width:0;max-width:260px;' }; });
+    // маршрут — вертикальный список шагов: № · сотрудник и роль · действие с датой справа (не переносится)
+    const rtBox = (first, pending) => `display:flex;align-items:center;gap:12px;padding:10px 14px 10px 10px;min-width:0;${first ? '' : 'border-top:1px solid #E2E4E9;'}background:${pending ? '#FBFCFD' : '#fff'};`;
+    const route = (r.chain || []).map((c, k) => { const a = ACT[c.act] || ACT.exec, av = A.avatar(c.user); return { n:String(k + 1), ini:A.initials(c.user), name:A.shortName(c.user), role:A.roleLabel(c.user), act:a[0] + ' · ' + ED.fmtDT(c.at), actIcon:a[1],
+      actStyle:`display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;color:${a[2]};`,
+      ava:`width:32px;height:32px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+      box: rtBox(k === 0, false) }; });
     const n = app.nn || {};
     if(r.state === 'approval' && n.next){
       const av = A.avatar(n.next.user);
-      route.push({ ini:A.initials(n.next.user), name:A.shortName(n.next.user), role:A.roleLabel(n.next.user), act: n.next.mode === 'sign' ? 'Ожидает подписи' : 'Ожидает согласования', actIcon:'ri-time-line',
-        actStyle:'display:inline-flex;align-items:center;gap:3px;font-size:11.5px;line-height:16px;color:#4D42E9;font-weight:500;',
-        ava:`width:30px;height:30px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;animation:mp-pulse 2s ease infinite;`,
-        box:'display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px;border:1px dashed #C6D0FF;border-radius:12px;background:#FBFCFD;min-width:0;max-width:260px;' });
+      route.push({ n:String(route.length + 1), ini:A.initials(n.next.user), name:A.shortName(n.next.user), role:A.roleLabel(n.next.user), act: n.next.mode === 'sign' ? 'Ожидает подписи' : 'Ожидает согласования', actIcon:'ri-time-line',
+        actStyle:'display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;height:24px;padding:0 10px;border-radius:999px;background:#EEF2FF;color:#312D86;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;',
+        ava:`width:32px;height:32px;border-radius:8px;background:${av[0]};color:${av[1]};font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;animation:mp-pulse 2s ease infinite;`,
+        box: rtBox(route.length === 0, true) });
     }
     const multiStep = route.length > 1 || r.state === 'approval';
     const pendingMine = r.state === 'approval' && n.next && n.next.user === this.me();
@@ -1267,8 +1279,9 @@ class Component extends DCLogic {
     const docTab = s.docTab != null ? s.docTab : stIdx;
     const docTabs = ['Нулевая экспертиза', 'Первичная экспертиза', 'Профессиональная экспертиза', 'Формулярная комиссия'].map((label, i) => ({ label, on: docTab === i, n:String(docsAll[i].length),
       pick: () => this.setState({ docTab:i }),
-      nStyle:`margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;display:inline-block;${docTab === i ? 'background:#EEF2FF;color:#4D42E9;' : 'background:#F6F8FA;color:#868C98;'}`,
-      style:`height:38px;padding:0;border:none;border-bottom:2px solid ${docTab === i ? '#4D42E9' : 'transparent'};margin-bottom:-1px;background:none;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;color:${docTab === i ? '#0A0D14' : '#525866'};white-space:nowrap;` }));
+      // выбранный этап — основной цвет текста, подчёркивание 2 px и заливка счётчика; остальные — серые
+      nStyle:`margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;display:inline-block;${docTab === i ? 'background:#4D42E9;color:#fff;' : 'background:#F6F8FA;color:#868C98;'}`,
+      style:`display:inline-flex;align-items:center;flex:0 0 auto;height:40px;padding:0 2px;border:none;border-bottom:2px solid ${docTab === i ? '#4D42E9' : 'transparent'};background:none;font-family:inherit;font-size:13px;line-height:20px;font-weight:${docTab === i ? 600 : 500};cursor:pointer;color:${docTab === i ? '#4D42E9' : '#525866'};white-space:nowrap;` }));
 
     // ── модальное окно ──
     const m = s.modal;
@@ -1286,9 +1299,8 @@ class Component extends DCLogic {
         style:`display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;width:100%;` }; }) : [];
       const chrono = isChrono ? (app.log || []).map(h => {
         const tone = A.NN_FILTER.indexOf(h.status) !== -1 ? A.nnTone({ nn:{ status:h.status }, include:app.include, result:app.result }) : 'gray';
-        const c = ED.TONE[tone] || ED.TONE.gray;
         return { n:String(h.n), role:h.role, fio:h.fio || '—', start:ED.fmtDT(h.start), end:ED.fmtDT(h.end), status:h.status || '—', comment:h.comment || '–',
-          badge:`display:inline-block;padding:2px 8px;border-radius:999px;background:${c.bg};color:${c.fg};font-size:12px;line-height:16px;font-weight:500;` };
+          badge: A.pill(h.status || '—', tone, { size:'sm', wrap:20 }) };
       }) : [];
       const btns = [];
       if(isChrono) btns.push({ label:'Закрыть', cls:'btn btn-s', onClick: () => this.closeModal(), disabled:false });
@@ -1302,6 +1314,7 @@ class Component extends DCLogic {
       modalVals = {
         hasModal:true, mTitle: isChrono ? 'Хронология заявки № ' + app.num : m.title, mText: isChrono ? 'Маршрут заявки по всем этапам, включая возвраты на доработку. Записи не изменяются и не удаляются.' : (m.text || ''),
         mHasText: isChrono || !!m.text, mIcon:ICON[0],
+        mHeadStyle:`display:flex;align-items:${isChrono || m.text ? 'flex-start' : 'center'};gap:14px;padding:20px 20px 16px;border-bottom:1px solid #E2E4E9;`,
         mIconWrap:`width:40px;height:40px;border-radius:10px;background:${TC[0]};display:flex;align-items:center;justify-content:center;flex:0 0 auto;`, mIconStyle:`font-size:20px;color:${TC[1]};`,
         mBox:`position:relative;width:100%;max-width:${isChrono ? 1080 : 520}px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:mp-pop .18s ease;overflow:hidden;`,
         mBody:`padding:${m.type === 'confirm' ? '0' : '16px 20px'};overflow-y:auto;flex:1;min-height:0;`,

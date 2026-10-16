@@ -161,8 +161,8 @@
                       <span style="{{ p.ava }}">{{ p.iin2 }}</span>
                       <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;text-align:left;">
                         <span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ p.name }}</span>
-                        <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ p.role }}</span>
-                        <span style="display:flex;align-items:center;gap:6px;margin-top:2px;"><span style="{{ p.chip }}">{{ p.state }}</span><span class="tnum" style="font-size:12px;line-height:16px;color:var(--n500);" title="Проголосовал по объектам">{{ p.nm }}</span></span>
+                        <span style="font-size:12px;line-height:16px;color:var(--n500);"><sc-if value="{{ p.isChair }}" hint-placeholder-val="{{ false }}"><b style="font-weight:500;color:#6E3FF3;">Председательствует · </b></sc-if>{{ p.role }}</span>
+                        <span style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;margin-top:2px;"><span style="{{ p.chip }}">{{ p.state }}</span><span class="tnum" style="font-size:12px;line-height:16px;color:var(--n500);" title="Проголосовал по объектам">{{ p.nm }}</span></span>
                       </span>
                     </button>
                   </sc-for>
@@ -192,8 +192,9 @@
                         <sc-for list="{{ o.votes }}" as="v" hint-placeholder-count="4"><span title="{{ v.tip }}" style="{{ v.style }}"><i class="{{ v.icon }}" style="font-size:11px;"></i>{{ v.iin2 }}</span></sc-for>
                       </div>
                       <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 20px 10px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
-                        <span class="tnum" style="font-size:13px;line-height:18px;color:var(--n600);">{{ o.sum }}</span>
+                        <span class="tnum" style="font-size:13px;line-height:18px;color:var(--n600);white-space:pre-line;">{{ o.sum }}</span>
                         <sc-if value="{{ o.hasRes }}" hint-placeholder-val="{{ false }}"><span style="{{ o.resStyle }}">{{ o.res }}</span></sc-if>
+                        <sc-if value="{{ o.hasTie }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;line-height:16px;color:var(--n500);">Решающий голос председательствующего</span></sc-if>
                       </div>
                     </div>
                   </sc-for>
@@ -392,12 +393,14 @@ class Component extends DCLogic {
     this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
     this._signed = (e) => this.signed(e && e.detail || {});
     window.addEventListener('mp-sign-done', this._signed);
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.edit) this.setState({ edit:null }); };
+    window.addEventListener('keydown', this._esc);
     const q = new URLSearchParams(location.search);
     if(q.get('created')){ this.toast('ok', 'Комиссия создана', 'Статус «Открытая». Участники получили уведомление и могут знакомиться с досье.'); try { history.replaceState(null, '', location.pathname + '?id=' + encodeURIComponent(q.get('id')) + '&from=' + (q.get('from') || 'active')); } catch(e){} }
   }
   componentWillUnmount(){
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load));
-    window.removeEventListener('mp-sign-done', this._signed); clearInterval(this._tick); clearTimeout(this._tt);
+    window.removeEventListener('mp-sign-done', this._signed); window.removeEventListener('keydown', this._esc); clearInterval(this._tick); clearTimeout(this._tt);
   }
   id(){ return new URLSearchParams(location.search).get('id'); }
   toast(kind, title, text){ clearTimeout(this._tt); this.setState({ toast:{ kind, title, text } }); this._tt = setTimeout(() => this.setState({ toast:null }), 5000); }
@@ -474,8 +477,8 @@ class Component extends DCLogic {
       const sv = A.fkVoted(c, u), stt = A.fkMemberState(c, u, now), on = s.focus === u;
       const chip = stt === 'Проголосовал' ? ['#EFFAF6','#176448'] : stt === 'Не проголосовал' ? ['#FDEDF0','#710E21'] : ['#F6F8FA','#525866'];
       const av = A.avatar(u);
-      return { iin2:A.user(u).iin.slice(0, 2), name:A.shortName(u), role:(u === c.chair ? 'Председательствует · ' : '') + A.roleLabel(u), state:stt, nm:(sv ? c.objects.length : 0) + '/' + c.objects.length, on,
-        chip:`height:20px;padding:0 7px;border-radius:999px;background:${chip[0]};color:${chip[1]};font-size:11.5px;line-height:20px;font-weight:500;`,
+      return { iin2:A.user(u).iin.slice(0, 2), name:A.shortName(u), role:A.roleLabel(u), isChair: u === c.chair, state:stt, nm:(sv ? c.objects.length : 0) + '/' + c.objects.length, on,
+        chip:`height:20px;padding:0 7px;border-radius:999px;background:${chip[0]};color:${chip[1]};font-size:11.5px;line-height:20px;font-weight:500;white-space:nowrap;`,
         ava:`width:40px;height:40px;border-radius:50%;background:${u === c.chair ? '#312D86' : av[0]};color:${u === c.chair ? '#fff' : av[1]};font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;${sv ? 'box-shadow:0 0 0 2px #fff,0 0 0 4px #38C793;' : ''}`,
         pick: () => this.setState({ focus: on ? null : u }),
         style:`display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;text-align:left;width:100%;` };
@@ -491,8 +494,8 @@ class Component extends DCLogic {
       const r = A.fkResults(c)[num];
       const showRes = !!res;
       return { n:String(i + 1), num, trade:sm.trade, cat:sm.catShort, catStyle:catStyle(sm.cat), org:a ? (a.org || ED.PROFILE).org : '', votes,
-        sum:'За ' + r.for + ' · Против ' + r.against + ' · Не голосовал ' + r.none, hasRes:showRes, res: showRes ? (res[num].include ? 'Включить в ЕД' : 'Не включать в ЕД') + (res[num].tie ? ' · голос председательствующего' : '') : '',
-        resStyle: showRes ? `height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:22px;font-weight:500;${res[num].include ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` : '' };
+        sum:'За ' + r.for + ' · Против ' + r.against + (r.none ? '\nНе голосовали: ' + r.none : ''), hasRes:showRes, res: showRes ? (res[num].include ? 'Включить в ЕД' : 'Не включать в ЕД') : '', hasTie: showRes && !!res[num].tie,
+        resStyle: showRes ? `display:inline-flex;align-items:center;min-height:22px;padding:3px 8px;box-sizing:border-box;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${res[num].include ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` : '' };
     });
 
     // ── голосование участника ──
@@ -538,7 +541,7 @@ class Component extends DCLogic {
       decDoneBox = hb.box; decDoneIconStyle = hb.iconStyle;
       decDoneIcon = held ? (signed ? 'ri-checkbox-circle-line' : 'ri-quill-pen-line') : 'ri-close-circle-line';
       decDoneTitle = held ? (signed ? 'Комиссия состоялась · протокол № ' + c.dec.protocol : 'Комиссия состоялась · ожидает подписи председательствующего') : 'Комиссия не состоялась';
-      decDoneText = 'Решение секретаря ' + A.shortName(c.dec.by) + ' подписано ЭЦП ' + ED.fmtDT(c.dec.at) + (signed ? '. Председательствующий ' + A.shortName(c.signed.by) + ' подписал ' + ED.fmtDT(c.signed.at) + '.' : held ? '. Протоколы будут сформированы после подписи ' + A.shortName(c.chair) + '.' : '. Протоколы не формируются.');
+      decDoneText = 'Решение секретаря ' + A.shortName(c.dec.by) + ' подписано ЭЦП ' + ED.fmtDT(c.dec.at) + (signed ? '. Председательствующий (' + A.shortName(c.signed.by) + ') подписал ' + ED.fmtDT(c.signed.at) + '.' : held ? '. Протоколы сформируются после подписи председательствующего (' + A.shortName(c.chair) + ').' : '. Протоколы не формируются.');
     }
     const protocols = c.signed ? [ [1, 'Именной — со всеми ФИО и голосами'], [2, 'Обезличенный — без ФИО в разделе «Голосование»'] ].map(([v, meta]) => ({ title:'protocol_№' + c.dec.protocol + '_' + v + '.pdf', meta, aria:'Открыть протокол ' + v,
       open: () => { try { window.dispatchEvent(new CustomEvent('mp-doc-open', { detail:{ type:'protocol', id:c.id, variant:v } })); } catch(e){} }, dl: () => this.toast('ok', 'Протокол скачан', 'protocol_№' + c.dec.protocol + '_' + v + '.pdf') })) : [];
@@ -563,7 +566,7 @@ class Component extends DCLogic {
 
     return {
       ...base, ok:true, missing:false,
-      num:A.fkNum(c), badge:{ label:A.FK_LABEL[st], style:`display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 8px;border-radius:999px;background:${tone.bg};color:${tone.fg};font-size:12px;line-height:16px;font-weight:500;`, dot:`width:6px;height:6px;border-radius:50%;background:${tone.dot};` },
+      num:A.fkNum(c), badge: A.pill(A.FK_LABEL[st], A.FK_TONE[st]),
       canSign: isChair && st === 'approval', sign: () => this.askSign('sign', 'Подписание протокола заседания'),
       hints, timers, info,
       showPeople, people, turnout:'Проголосовали: ' + A.fkVoteCount(c) + ' из ' + comp.length, canEdit: isSec && st === 'open',

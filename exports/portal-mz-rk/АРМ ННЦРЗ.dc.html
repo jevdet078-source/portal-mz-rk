@@ -82,6 +82,18 @@
   .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .tnum{font-variant-numeric:tabular-nums;}
+  /* фильтры: строгая сетка — подписи в одну строку, поля на одной линии, кнопки на уровне полей */
+  .flt{background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:20px 24px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px;align-items:start;}
+  .fld{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .f4{grid-column:span 4;} .f2{grid-column:span 2;}
+  .lbl{font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .flt-act{grid-column:span 4;display:flex;gap:8px;justify-content:flex-end;padding-top:26px;}
+  .seg{display:flex;background:var(--n100);border:1px solid var(--stroke);border-radius:10px;padding:3px;gap:2px;}
+  .seg button{transition:background .15s,color .15s,box-shadow .15s;}
+  .seg button[aria-selected="false"]:hover{color:var(--n900) !important;background:rgba(255,255,255,.6) !important;}
+  .seg button:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  @media (max-width:1180px){ .f4{grid-column:span 6;} .f2{grid-column:span 3;} .flt-act{grid-column:span 6;} }
+  @media (max-width:720px){ .flt{padding:16px;} .f4,.f2,.flt-act{grid-column:1 / -1;} .flt-act{padding-top:0;} .flt-act .btn{flex:1;} }
   @media (max-width:640px){ .arm-main{padding:16px 16px 96px !important;} .arm-pp{left:96px !important;right:16px;flex-wrap:wrap;} .arm-tabs i{display:none;} .arm-tabs button{padding:0 8px !important;} .arm-pp > div{flex-wrap:wrap;} }
 </style>
 </helmet>
@@ -103,8 +115,8 @@
       <sc-if value="{{ isRegistry }}" hint-placeholder-val="{{ true }}">
         <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <h1 style="flex:1;min-width:0;margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Прочие услуги</h1>
-            <div class="arm-tabs" role="tablist" aria-label="Очередь заявок" style="display:flex;background:var(--n100);border-radius:10px;padding:3px;gap:2px;">
+            <h1 style="flex:1 1 200px;min-width:0;margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Прочие услуги</h1>
+            <div class="arm-tabs seg" role="tablist" aria-label="Очередь заявок">
               <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
                 <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}"><i class="{{ t.icon }}" style="font-size:16px;"></i>{{ t.label }}<span style="{{ t.nStyle }}">{{ t.n }}</span></button>
               </sc-for>
@@ -112,10 +124,10 @@
           </div>
 
           <!-- Фильтры -->
-          <form onSubmit="{{ apply }}" role="search" aria-label="Фильтры заявок" style="background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:20px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;align-items:start;">
+          <form class="flt" onSubmit="{{ apply }}" role="search" aria-label="Фильтры заявок">
             <sc-for list="{{ texts }}" as="f" hint-placeholder-count="2">
-              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-                <label for="{{ f.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</label>
+              <div class="fld f4">
+                <label for="{{ f.id }}" class="lbl" title="{{ f.label }}">{{ f.label }}</label>
                 <div style="position:relative;">
                   <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
                   <input id="{{ f.id }}" class="inp" type="search" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.ph }}" autoComplete="off" style="padding-left:40px;" />
@@ -123,8 +135,8 @@
               </div>
             </sc-for>
             <sc-for list="{{ selects }}" as="f" hint-placeholder-count="2">
-              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-                <div id="{{ f.lbl }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</div>
+              <div class="fld f4">
+                <div id="{{ f.lbl }}" class="lbl">{{ f.label }}</div>
                 <div style="position:relative;">
                   <button type="button" class="inp sel" onClick="{{ f.toggle }}" aria-haspopup="listbox" aria-expanded="{{ f.open }}" aria-labelledby="{{ f.lbl }}" style="padding-right:36px;">
                     <span class="clamp1" style="{{ f.valStyle }}">{{ f.display }}</span>
@@ -145,8 +157,8 @@
               </div>
             </sc-for>
             <sc-for list="{{ dates }}" as="d" hint-placeholder-count="2">
-              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
-                <label for="{{ d.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ d.label }}</label>
+              <div class="fld f2">
+                <label for="{{ d.id }}" class="lbl">{{ d.label }}</label>
                 <div style="position:relative;">
                   <input id="{{ d.id }}" class="{{ d.cls }}" value="{{ d.value }}" onChange="{{ d.onChange }}" placeholder="дд.мм.гггг" inputMode="numeric" maxLength="10" autoComplete="off" aria-invalid="{{ d.invalid }}" aria-describedby="{{ d.msgId }}" style="padding-right:40px;" />
                   <button type="button" class="ib" onClick="{{ d.pick }}" aria-label="{{ d.pickLabel }}" title="Выбрать в календаре" style="position:absolute;right:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
@@ -157,7 +169,7 @@
                 </div>
               </div>
             </sc-for>
-            <div style="grid-column:-3 / -1;display:flex;gap:8px;justify-content:flex-end;align-self:end;">
+            <div class="flt-act">
               <button type="button" class="btn btn-g" onClick="{{ reset }}" disabled="{{ resetDisabled }}">Сбросить</button>
               <button type="submit" class="btn btn-p" disabled="{{ applyDisabled }}">Применить</button>
             </div>
@@ -175,7 +187,7 @@
           <!-- Таблица -->
           <div style="background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
             <div style="overflow-x:auto;">
-              <div role="table" aria-label="Заявки ЕД" style="min-width:1040px;">
+              <div role="table" aria-label="Заявки ЕД" style="min-width:1120px;">
                 <div role="row" style="display:flex;background:var(--n100);">
                   <sc-for list="{{ cols }}" as="c" hint-placeholder-count="9"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
                 </div>
@@ -191,18 +203,18 @@
                 </sc-if>
                 <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
                   <div role="row" class="row" tabIndex="0" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="{{ r.rowStyle }}">
-                    <div role="cell" style="width:104px;flex:0 0 auto;padding:10px 8px 10px 16px;display:flex;align-items:center;gap:8px;">
+                    <div role="cell" style="width:96px;flex:0 0 auto;padding:10px 8px 10px 16px;display:flex;align-items:center;gap:8px;">
                       <span title="{{ r.mineTitle }}" style="{{ r.mineDot }}"></span>
                       <a class="num tnum" href="{{ r.href }}" onClick="{{ r.link }}">{{ r.num }}</a>
                     </div>
-                    <div role="cell" style="width:56px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);">ЕД</div>
-                    <div role="cell" style="width:60px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.catStyle }}">{{ r.cat }}</span></div>
-                    <div role="cell" style="width:100px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.sent }}</div>
-                    <div role="cell" style="width:136px;flex:0 0 auto;padding:10px 8px;font-size:13px;line-height:18px;color:var(--n600);">{{ r.stage }}</div>
-                    <div role="cell" style="flex:1 1 150px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;font-weight:500;" title="{{ r.trade }}"><span class="clamp1" style="display:block;">{{ r.trade }}</span><span class="clamp1" style="display:block;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ r.org }}</span></div>
+                    <div role="cell" style="width:64px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);">ЕД</div>
+                    <div role="cell" style="width:64px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.catStyle }}">{{ r.cat }}</span></div>
+                    <div role="cell" style="width:104px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.sent }}</div>
+                    <div role="cell" style="width:180px;flex:0 0 auto;padding:10px 8px;font-size:13px;line-height:18px;color:var(--n600);">{{ r.stage }}</div>
+                    <div role="cell" style="flex:1 1 170px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;font-weight:500;" title="{{ r.trade }}"><span class="clamp1" style="display:block;">{{ r.trade }}</span><span class="clamp1" style="display:block;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ r.org }}</span></div>
                     <div role="cell" style="width:112px;flex:0 0 auto;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);"><span class="clamp1" style="display:block;">{{ r.maker }}</span></div>
-                    <div role="cell" style="width:196px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
-                    <div role="cell" style="width:148px;flex:0 0 auto;padding:10px 16px 10px 8px;"><span title="{{ r.timerTitle }}" style="{{ r.timerStyle }}">{{ r.timer }}</span></div>
+                    <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 8px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
+                    <div role="cell" style="width:140px;flex:0 0 auto;padding:10px 16px 10px 8px;"><span title="{{ r.timerTitle }}" style="{{ r.timerStyle }}">{{ r.timer }}</span></div>
                   </div>
                 </sc-for>
                 <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
@@ -217,7 +229,7 @@
             </div>
             <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--stroke);">
-                <span style="font-size:13px;line-height:20px;color:var(--n500);" class="tnum">{{ range }}</span>
+                <span style="font-size:13px;line-height:20px;color:var(--n500);white-space:nowrap;" class="tnum">{{ range }}</span>
                 <div style="display:flex;align-items:center;gap:6px;">
                   <button class="pg" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
                   <sc-for list="{{ pageBtns }}" as="p" hint-placeholder-count="3"><button class="pg" onClick="{{ p.go }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}">{{ p.n }}</button></sc-for>
@@ -344,11 +356,11 @@ class Component extends DCLogic {
       closeToast: () => this.setState({ toast:null }),
     };
 
-    const texts = [ ['maker', 'Поиск производитель', 'Наименование производителя...'], ['trade', 'Поиск торговое наименование', 'Торговое наименование...'] ]
+    const texts = [ ['maker', 'Производитель', 'Поиск по производителю'], ['trade', 'Торговое наименование', 'Поиск по наименованию'] ]
       .map(([k, label, ph]) => ({ id:'nn-' + k, label, ph, value:D[k], onChange:(e) => setD({ [k]:e.target.value }) }));
     const selDef = [
       { key:'stage', label:'Этап экспертизы', opts:['Все'].concat(ready ? A.NN_STAGES : []), w:300 },
-      { key:'status', label:'Статус заявки', opts:['Все'].concat(ready ? A.NN_FILTER : []), w:340, right:true },
+      { key:'status', label:'Статус заявки', opts:['Все'].concat(ready ? A.NN_FILTER : []), w:340 },
     ];
     const selects = selDef.map(d => {
       const open = s.pop === d.key, val = D[d.key];
@@ -387,11 +399,10 @@ class Component extends DCLogic {
         timerStyle = `display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;border:1px solid ${zero ? '#DF1C41' : '#38C793'};background:#fff;color:${zero ? '#AF1D38' : '#176448'};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;`;
       }
       const mine = app.nn && app.nn.assignee === me && A.FINAL.indexOf(A.nnStatus(app)) === -1;
-      const b = A.nnBadge(app, 'sm');
       const href = 'Карточка заявки ННЦРЗ.dc.html?n=' + app.num;
       return { num:app.num, href, cat:sm.catShort, trade:sm.trade || '—', org:(app.org || ED.PROFILE).org, maker:this.maker(app),
         sent: app.sentAt ? ED.fmtD(app.sentAt) : '—', stage:A.nnStage(app),
-        badge:{ ...b, style: b.style.replace('white-space:nowrap;', 'white-space:normal;').replace(/height:\d+px;/, 'min-height:22px;padding-top:3px;padding-bottom:3px;').replace('border-radius:999px', 'border-radius:11px') },
+        badge: A.nnBadge(app, 'sm', 22),
         timer, timerTitle, timerStyle,
         mineDot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${mine && s.tab !== 'mine' ? '#4D42E9' : 'transparent'};`, mineTitle: mine ? 'Назначено на вас' : '',
         catStyle:`display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:${sm.cat === 'mi' ? '#EBFAFF' : '#EEF2FF'};color:${sm.cat === 'mi' ? '#164564' : '#312D86'};font-size:11px;line-height:16px;font-weight:600;`,
@@ -418,17 +429,18 @@ class Component extends DCLogic {
       : { icon:'ri-search-line', title:'Ничего не найдено', text:'Измените условия поиска или сбросьте фильтры.', btn:'Сбросить фильтры', btnIcon:'ri-filter-off-line', act: () => this.applyF({ ...EMPTY_F }), tone:'gray' };
     const tones = { red:['#FDEDF0','#DF1C41'], gray:['#F6F8FA','#868C98'], green:['#EFFAF6','#38C793'] };
 
-    const hc = 'display:flex;align-items:center;padding:8px 8px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
-    const cols = [ ['№ заявки', 'width:104px;flex:0 0 auto;padding-left:16px;'], ['Услуга', 'width:56px;flex:0 0 auto;'], ['ЛС/МИ', 'width:60px;flex:0 0 auto;'], ['Дата подачи', 'width:100px;flex:0 0 auto;'], ['Этап экспертизы', 'width:136px;flex:0 0 auto;'], ['Торговое наименование', 'flex:1 1 150px;min-width:0;'], ['Производитель', 'width:112px;flex:0 0 auto;'], ['Статус', 'width:196px;flex:0 0 auto;'], ['Осталось дней', 'width:148px;flex:0 0 auto;padding-right:16px;'] ]
+    const hc = 'display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;padding:8px 8px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
+    const cols = [ ['№ заявки', 'width:96px;flex:0 0 auto;padding-left:16px;'], ['Услуга', 'width:64px;flex:0 0 auto;'], ['ЛС/МИ', 'width:64px;flex:0 0 auto;'], ['Дата подачи', 'width:104px;flex:0 0 auto;'], ['Этап экспертизы', 'width:180px;flex:0 0 auto;'], ['Торговое наименование', 'flex:1 1 170px;min-width:0;'], ['Производитель', 'width:112px;flex:0 0 auto;'], ['Статус', 'width:200px;flex:0 0 auto;'], ['Осталось дней', 'width:140px;flex:0 0 auto;padding-right:16px;'] ]
       .map(([label, st]) => ({ label, style: hc + st }));
-    const tabStyle = (on) => `height:32px;padding:0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#0A0D14;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    // выбранная вкладка — белая «таблетка» с рамкой и тенью, текст и счётчик в основном цвете; невыбранная — серый текст
+    const tabStyle = (on) => `height:32px;padding:0 10px 0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 0 0 1px #E2E4E9,0 2px 4px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     const seg = (on) => `${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     const fast = ready && ED.fast();
 
     return {
       ...base,
       tabs: [ ['mine', 'Мои задачи', 'ri-inbox-line', mineCount], ['all', 'Все заявки', 'ri-stack-line', ready ? s.apps.length : 0] ].map(([id, label, icon, n]) => ({ label, icon, n:String(n), on: s.tab === id,
-        nStyle:`min-width:20px;height:18px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${id === 'mine' && n > 0 ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
+        nStyle:`min-width:20px;height:18px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${s.tab === id ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
         pick: () => { this.setState({ tab:id, page:1 }); this.persist({ tab:id, page:1 }); }, style: tabStyle(s.tab === id) })),
       texts, selects, dates, closePop: () => this.setState({ pop:null }),
       apply: (e) => { if(e && e.preventDefault) e.preventDefault(); this.applyF(); },

@@ -86,7 +86,7 @@ class Component extends DCLogic {
     const s = this.state, p = this.props || {}, A = window.mpArm;
     const arm = p.arm === 'fk' ? 'fk' : 'nn';
     // на узком экране меню стартует свёрнутым, чтобы не съедать ширину рабочей области
-    const narrow = typeof window !== 'undefined' && window.innerWidth < 1100;
+    const narrow = typeof window !== 'undefined' && window.innerWidth < 1360;   // на ноутбуке меню свёрнуто — таблицам реестра хватает ширины
     const collapsed = s.collapsed === null ? (p.collapsed === '1' || narrow) : s.collapsed;
     const expanded = !collapsed;
     const ready = !!(A && A.ready);
