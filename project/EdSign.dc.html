@@ -19,7 +19,8 @@
   Пароль тестовых сертификатов — 1 (файл «Роли и пароли», столбец «пароль ЭЦП»).
 
   Протокол (события window):
-    'mp-sign-open'   ← detail { ctx, title, doc } — страница просит подписать документ
+    'mp-sign-open'   ← detail { ctx, title, doc, certs? } — страница просит подписать документ;
+                       certs — сертификаты сотрудника АРМ ([{ id, fio, iin, org, bin, usage, from, to }])
     'mp-sign-done'   → detail { ctx, signer:{ fio, iin, bin, org }, at }
     'mp-sign-cancel' → detail { ctx }
 -->
@@ -176,12 +177,14 @@ const STORES = [
 const DEFAULT_PATH = 'D:\\ЭЦП\\GOSTKNCA_bee6db7eba72055477629abcce681ae7f18ead89.p12';
 
 class Component extends DCLogic {
-  state = { open:false, phase:'store', store:'file', path:DEFAULT_PATH, pwd:'', showPwd:false, pwdErr:'', cert:'sign', certErr:'', busy:false, ctx:'', title:'', doc:'' };
+  state = { open:false, phase:'store', store:'file', path:DEFAULT_PATH, pwd:'', showPwd:false, pwdErr:'', cert:'sign', certErr:'', busy:false, ctx:'', title:'', doc:'', certs:null };
   componentDidMount(){
     this._onOpen = (e) => {
       const d = (e && e.detail) || {};
-      this.setState({ open:true, phase:'store', pwd:'', showPwd:false, pwdErr:'', cert:'sign', certErr:'', busy:false,
-        ctx:d.ctx || '', title:d.title || 'Подписание ЭЦП', doc:d.doc || '' });
+      // АРМ экспертов передают сертификаты сотрудника (detail.certs), заявитель — тестовые ключи организации
+      const certs = Array.isArray(d.certs) && d.certs.length ? d.certs : null;
+      this.setState({ open:true, phase:'store', pwd:'', showPwd:false, pwdErr:'', cert: certs ? certs[0].id : 'sign', certErr:'', busy:false,
+        ctx:d.ctx || '', title:d.title || 'Подписание ЭЦП', doc:d.doc || '', certs });
     };
     window.addEventListener('mp-sign-open', this._onOpen);
   }
@@ -203,7 +206,7 @@ class Component extends DCLogic {
   sign(){
     const s = this.state;
     if(s.busy) return;
-    const c = CERTS.find(x => x.id === s.cert);
+    const c = (s.certs || CERTS).find(x => x.id === s.cert);
     if(c.expired){ this.setState({ certErr:'Срок действия сертификата истек. Обновите сертификат' }); return; }
     this.setState({ busy:true, certErr:'' });
     this._t = setTimeout(() => {
@@ -229,7 +232,7 @@ class Component extends DCLogic {
       onClick: () => this.setState({ store:o.id, pwdErr:'' }),
       iconStyle:`font-size:18px;flex:0 0 auto;color:${on ? '#4D42E9' : '#868C98'};`,
       style:`display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#EEF2FF' : '#fff'};font-family:inherit;cursor:pointer;` }; });
-    const certs = CERTS.map(c => { const on = s.cert === c.id; return { ...c, on,
+    const certs = (s.certs || CERTS).map(c => { const on = s.cert === c.id; return { ...c, on,
       onClick: () => this.setState({ cert:c.id, certErr:'' }),
       radio:`width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:${on ? '5px solid #4D42E9' : '1.5px solid #CDD0D5'};background:#fff;`,
       radioDot:'display:none;',

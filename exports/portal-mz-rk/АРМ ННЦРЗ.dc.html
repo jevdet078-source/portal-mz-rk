@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  АРМ ННЦРЗ → «Прочие услуги»: реестр заявок ЕД (UC01.13.3.1) и раздел «Уведомления» (#notifications, UC01.13.3.2).
+  По постановке:
+    • только поданные заявки ЕД, черновиков нет (BR-1331-01); сортировка — по дате последнего изменения (BR-1331-02);
+      пагинация по 8 строк (BR-1331-03); после входа открывается реестр роли (BR-1331-06);
+    • фильтры: производитель, торговое наименование, этап экспертизы (без «Проверки соответствия п. 13»),
+      период по дате подачи (дд.мм.гггг, начало ≤ окончания), статус; «Применить» / «Сбросить»; строка «N заявок»;
+    • столбцы: № заявки, Услуга («ЕД»), ЛС/МИ (сразу справа от «Услуга»), дата подачи (без времени), этап,
+      торговое наименование, производитель, статус (внутренний статус ННЦРЗ), «Осталось дней» — тикающий таймер
+      Nд:ЧЧч:ММм:ССс в зелёной обводке, ноль — в красной, иначе прочерк (на этапе ФК — всегда прочерк);
+    • состояние списка сохраняется после выхода и возврата; техсбой — «Система недоступна, обратитесь в техническую поддержку».
+  Решения по UX:
+    • вкладки «Мои задачи» / «Все заявки»: у каждого сотрудника своя очередь — заявки, где «Назначено на» он;
+    • в «Всех заявках» строка своей задачи отмечена точкой у номера; клик по любой ячейке строки открывает карточку;
+    • длинные статусы согласования переносятся внутри метки, а не обрезаются.
+  Данные — EdData (mpEd) и EdArm (mpArm). Переключатель ролей — в шапке (ArmHeader).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-l:#CBF5E5;--green-ll:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-dk:#C2540A;--orange-l:#FFDAC2;--orange-ll:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes mp-shimmer{0%{background-position:-240px 0}100%{background-position:calc(240px + 100%) 0}}
+  @keyframes mp-flash{0%,60%{background:#EEF2FF}100%{background:#fff}}
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .btn-g:disabled{background:transparent;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .inp::placeholder{color:var(--n400);}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .inp-err:focus{border-color:var(--red);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-l);}
+  .sel{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;}
+  .opt{width:100%;display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .opt:hover,.opt:focus-visible{background:var(--n100);outline:none;}
+  .num{font-size:14px;line-height:20px;font-weight:500;color:var(--primary-dark);text-decoration:none;border-radius:4px;}
+  .num:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px;}
+  .row{transition:background .12s;cursor:pointer;}
+  .row:hover{background:var(--n50);}
+  .pg{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--stroke);border-radius:8px;background:#fff;color:var(--n500);font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .pg:hover{background:var(--n100);color:var(--n900);}
+  .pg:disabled{color:var(--n300);background:#fff;cursor:not-allowed;}
+  .pg[aria-current="page"]{background:var(--n100);color:var(--n900);border-color:var(--n300);}
+  .chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 6px 0 10px;border:1px solid var(--primary-light);border-radius:999px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:500;cursor:pointer;}
+  .chip:hover{border-color:var(--primary);}
+  .pp-b{height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;}
+  .btn:focus-visible,.ib:focus-visible,.num:focus-visible,.pg:focus-visible,.chip:focus-visible,.pp-b:focus-visible,.row:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tnum{font-variant-numeric:tabular-nums;}
+  @media (max-width:640px){ .arm-main{padding:16px 16px 96px !important;} .arm-pp{left:96px !important;right:16px;flex-wrap:wrap;} .arm-tabs i{display:none;} .arm-tabs button{padding:0 8px !important;} .arm-pp > div{flex-wrap:wrap;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdArm" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="ArmHeader" arm="nn" hint-size="100%,73px"></dc-import></div>
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="ArmNav" arm="nn" active="registry" hash-active="1" style="height:100%;" hint-size="272px,827px"></dc-import>
+    </div>
+    <main class="arm-main" style="flex:1;min-width:0;padding:24px 32px 96px;">
+
+      <sc-if value="{{ isNotifs }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="ArmNotifications" arm="nn" hint-size="100%,600px"></dc-import>
+      </sc-if>
+
+      <sc-if value="{{ isRegistry }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <h1 style="flex:1;min-width:0;margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Прочие услуги</h1>
+            <div class="arm-tabs" role="tablist" aria-label="Очередь заявок" style="display:flex;background:var(--n100);border-radius:10px;padding:3px;gap:2px;">
+              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+                <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}"><i class="{{ t.icon }}" style="font-size:16px;"></i>{{ t.label }}<span style="{{ t.nStyle }}">{{ t.n }}</span></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Фильтры -->
+          <form onSubmit="{{ apply }}" role="search" aria-label="Фильтры заявок" style="background:#fff;border:1px solid var(--stroke);border-radius:12px;padding:20px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;align-items:start;">
+            <sc-for list="{{ texts }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                <label for="{{ f.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</label>
+                <div style="position:relative;">
+                  <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
+                  <input id="{{ f.id }}" class="inp" type="search" value="{{ f.value }}" onChange="{{ f.onChange }}" placeholder="{{ f.ph }}" autoComplete="off" style="padding-left:40px;" />
+                </div>
+              </div>
+            </sc-for>
+            <sc-for list="{{ selects }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                <div id="{{ f.lbl }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</div>
+                <div style="position:relative;">
+                  <button type="button" class="inp sel" onClick="{{ f.toggle }}" aria-haspopup="listbox" aria-expanded="{{ f.open }}" aria-labelledby="{{ f.lbl }}" style="padding-right:36px;">
+                    <span class="clamp1" style="{{ f.valStyle }}">{{ f.display }}</span>
+                    <i class="ri-arrow-down-s-line" style="{{ f.chev }}"></i>
+                  </button>
+                  <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                    <div role="listbox" aria-labelledby="{{ f.lbl }}" style="{{ f.pop }}">
+                      <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4">
+                        <button type="button" role="option" aria-selected="{{ o.on }}" class="opt" onClick="{{ o.pick }}">
+                          <span style="flex:1;min-width:0;">{{ o.label }}</span>
+                          <sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i></sc-if>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <sc-for list="{{ dates }}" as="d" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                <label for="{{ d.id }}" style="font-size:14px;line-height:20px;font-weight:500;">{{ d.label }}</label>
+                <div style="position:relative;">
+                  <input id="{{ d.id }}" class="{{ d.cls }}" value="{{ d.value }}" onChange="{{ d.onChange }}" placeholder="дд.мм.гггг" inputMode="numeric" maxLength="10" autoComplete="off" aria-invalid="{{ d.invalid }}" aria-describedby="{{ d.msgId }}" style="padding-right:40px;" />
+                  <button type="button" class="ib" onClick="{{ d.pick }}" aria-label="{{ d.pickLabel }}" title="Выбрать в календаре" style="position:absolute;right:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
+                  <input id="{{ d.nid }}" type="date" tabIndex="-1" aria-hidden="true" onChange="{{ d.onNative }}" style="position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;" />
+                </div>
+                <div id="{{ d.msgId }}" aria-live="polite">
+                  <sc-if value="{{ d.hasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ d.err }}</span></sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <div style="grid-column:-3 / -1;display:flex;gap:8px;justify-content:flex-end;align-self:end;">
+              <button type="button" class="btn btn-g" onClick="{{ reset }}" disabled="{{ resetDisabled }}">Сбросить</button>
+              <button type="submit" class="btn btn-p" disabled="{{ applyDisabled }}">Применить</button>
+            </div>
+          </form>
+
+          <sc-if value="{{ showMeta }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:28px;">
+              <span style="font-size:14px;line-height:20px;color:var(--n500);" class="tnum">{{ foundText }}</span>
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="0">
+                <button class="chip" onClick="{{ c.onClear }}" aria-label="{{ c.aria }}">{{ c.label }}<i class="ri-close-line" style="font-size:16px;"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- Таблица -->
+          <div style="background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
+            <div style="overflow-x:auto;">
+              <div role="table" aria-label="Заявки ЕД" style="min-width:1040px;">
+                <div role="row" style="display:flex;background:var(--n100);">
+                  <sc-for list="{{ cols }}" as="c" hint-placeholder-count="9"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
+                </div>
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                  <div>
+                    <sc-for list="{{ skel }}" as="k" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:24px;height:60px;padding:0 20px;border-top:1px solid var(--stroke);">
+                        <span class="sk" style="width:72px;height:14px;"></span><span class="sk" style="width:40px;height:14px;"></span><span class="sk" style="width:80px;height:14px;"></span>
+                        <span class="sk" style="flex:1;height:14px;"></span><span class="sk" style="width:180px;height:22px;border-radius:999px;"></span><span class="sk" style="width:120px;height:22px;border-radius:999px;"></span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                  <div role="row" class="row" tabIndex="0" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="{{ r.rowStyle }}">
+                    <div role="cell" style="width:104px;flex:0 0 auto;padding:10px 8px 10px 16px;display:flex;align-items:center;gap:8px;">
+                      <span title="{{ r.mineTitle }}" style="{{ r.mineDot }}"></span>
+                      <a class="num tnum" href="{{ r.href }}" onClick="{{ r.link }}">{{ r.num }}</a>
+                    </div>
+                    <div role="cell" style="width:56px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);">ЕД</div>
+                    <div role="cell" style="width:60px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.catStyle }}">{{ r.cat }}</span></div>
+                    <div role="cell" style="width:100px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);" class="tnum">{{ r.sent }}</div>
+                    <div role="cell" style="width:136px;flex:0 0 auto;padding:10px 8px;font-size:13px;line-height:18px;color:var(--n600);">{{ r.stage }}</div>
+                    <div role="cell" style="flex:1 1 150px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;font-weight:500;" title="{{ r.trade }}"><span class="clamp1" style="display:block;">{{ r.trade }}</span><span class="clamp1" style="display:block;font-size:12px;line-height:16px;font-weight:400;color:var(--n500);">{{ r.org }}</span></div>
+                    <div role="cell" style="width:112px;flex:0 0 auto;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);"><span class="clamp1" style="display:block;">{{ r.maker }}</span></div>
+                    <div role="cell" style="width:196px;flex:0 0 auto;padding:10px 8px;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
+                    <div role="cell" style="width:148px;flex:0 0 auto;padding:10px 16px 10px 8px;"><span title="{{ r.timerTitle }}" style="{{ r.timerStyle }}">{{ r.timer }}</span></div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:56px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;border-top:1px solid var(--stroke);">
+                    <div style="{{ emptyIconWrap }}"><i class="{{ emptyIcon }}" style="{{ emptyIconStyle }}"></i></div>
+                    <div style="font-size:16px;line-height:24px;font-weight:500;">{{ emptyTitle }}</div>
+                    <div style="max-width:420px;font-size:14px;line-height:20px;color:var(--n500);">{{ emptyText }}</div>
+                    <sc-if value="{{ hasEmptyBtn }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ emptyAction }}"><i class="{{ emptyBtnIcon }}" style="font-size:18px;"></i>{{ emptyBtn }}</button></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--stroke);">
+                <span style="font-size:13px;line-height:20px;color:var(--n500);" class="tnum">{{ range }}</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button class="pg" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                  <sc-for list="{{ pageBtns }}" as="p" hint-placeholder-count="3"><button class="pg" onClick="{{ p.go }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}">{{ p.n }}</button></sc-for>
+                  <button class="pg" onClick="{{ next }}" disabled="{{ noNext }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <!-- Тост -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;top:89px;right:24px;z-index:80;width:380px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;line-height:20px;font-weight:500;">{{ toastTitle }}</div><sc-if value="{{ hasToastText }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;line-height:18px;color:var(--n500);margin-top:2px;">{{ toastText }}</div></sc-if></div>
+      <button class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;margin:-2px -4px 0 0;"><i class="ri-close-line" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+
+  <!-- Панель прототипа -->
+  <div class="arm-pp" style="position:fixed;left:296px;bottom:20px;z-index:50;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);">
+    <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+    <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
+    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+      <sc-for list="{{ demo }}" as="d" hint-placeholder-count="3"><button class="pp-b" onClick="{{ d.onClick }}" aria-pressed="{{ d.on }}" title="{{ d.title }}" style="{{ d.style }}">{{ d.label }}</button></sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const UIKEY = 'mp-arm-nn-ui';
+const EMPTY_F = { maker:'', trade:'', stage:'Все', status:'Все', from:'', to:'' };
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let ui = null;
+    try { ui = JSON.parse(sessionStorage.getItem(UIKEY) || 'null'); } catch(e){}
+    const applied = ui && ui.applied ? { ...EMPTY_F, ...ui.applied } : { ...EMPTY_F };
+    this.state = { ready:false, apps:[], draft:{ ...applied }, applied, page: ui && ui.page || 1, tab: ui && ui.tab || null, errs:{}, pop:null, toast:null, now:Date.now(), view:'registry', v:0 };
+  }
+  componentDidMount(){
+    this._load = () => this.load();
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
+    if(window.mpArm && window.mpArm.ready) this.load();
+    this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
+    this._hash = () => this.setState({ view: location.hash === '#notifications' ? 'notifications' : 'registry', pop:null });
+    window.addEventListener('hashchange', this._hash);
+    this._hash();
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
+    window.addEventListener('keydown', this._esc);
+    // ?done=… — возврат из карточки после действия (назначение — «сразу открывает реестр», UC01.13.3.3.1)
+    const q = new URLSearchParams(location.search);
+    const done = q.get('done');
+    if(done){ const [title, text] = done.split('|'); this.toast('ok', title, text || ''); try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){} }
+  }
+  componentWillUnmount(){
+    ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._load));
+    window.removeEventListener('hashchange', this._hash); window.removeEventListener('keydown', this._esc);
+    clearInterval(this._tick); clearTimeout(this._tt);
+  }
+  load(){
+    const ED = window.mpEd, A = window.mpArm; if(!ED || !A || !A.ready) return;
+    const apps = ED.listAll().filter(a => a.status !== 'Черновик');
+    const st = { ready:true, apps };
+    if(!this.state.tab){ const me = A.current('nn'); st.tab = A.nnTasks(me).length ? 'mine' : 'all'; }
+    this.setState(st);
+  }
+  persist(o){ const s = this.state; try { sessionStorage.setItem(UIKEY, JSON.stringify({ applied:s.applied, page:s.page, tab:s.tab, ...o })); } catch(e){} }
+  toast(kind, title, text){ clearTimeout(this._tt); this.setState({ toast:{ kind, title, text } }); this._tt = setTimeout(() => this.setState({ toast:null }), 4500); }
+  mask(v){ const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '.' + d.slice(2) : d; }
+  checkDates(f){
+    const ED = window.mpEd, errs = {};
+    const a = f.from ? ED.parseD(f.from) : null, b = f.to ? ED.parseD(f.to) : null;
+    if(f.from && !a) errs.from = 'Укажите дату в формате дд.мм.гггг';
+    if(f.to && !b) errs.to = 'Укажите дату в формате дд.мм.гггг';
+    if(a && b && a.getTime() > b.getTime()) errs.from = 'Дата начала должна быть не позже даты окончания';
+    return errs;
+  }
+  applyF(next){
+    const f = next || this.state.draft;
+    const errs = this.checkDates(f);
+    this.setState({ errs, pop:null });
+    if(Object.keys(errs).length) return;
+    const applied = { ...f, maker:f.maker.trim(), trade:f.trade.trim() };
+    this.setState({ applied, draft:{ ...applied }, page:1 });
+    this.persist({ applied, page:1 });
+  }
+  maker(app){ const r = app.form && app.form.regs && app.form.regs[0]; return (r && r.country) || '—'; }
+  filtered(){
+    const ED = window.mpEd, A = window.mpArm, s = this.state, f = s.applied;
+    const me = A.current('nn');
+    const a = f.from ? ED.parseD(f.from) : null, b = f.to ? ED.parseD(f.to) : null;
+    const mk = f.maker.toLowerCase(), tr = f.trade.toLowerCase();
+    return s.apps.filter(app => {
+      if(s.tab === 'mine' && !(app.nn && app.nn.assignee === me && A.FINAL.indexOf(A.nnStatus(app)) === -1)) return false;
+      const sm = ED.summary(app);
+      if(mk && this.maker(app).toLowerCase().indexOf(mk) === -1) return false;
+      if(tr && String(sm.trade || '').toLowerCase().indexOf(tr) === -1) return false;
+      if(f.stage !== 'Все' && A.nnStage(app) !== f.stage) return false;
+      if(f.status !== 'Все' && A.nnStatus(app) !== f.status) return false;
+      if(a && (app.sentAt || 0) < a.getTime()) return false;
+      if(b && (app.sentAt || 0) >= b.getTime() + 864e5) return false;
+      return true;
+    });
+  }
+
+  renderVals(){
+    const s = this.state, ED = window.mpEd, A = window.mpArm;
+    const ready = s.ready && !!ED && !!A;
+    const fail = ready && ED.fail();
+    const D = s.draft, F = s.applied;
+    const setD = (patch) => this.setState({ draft:{ ...s.draft, ...patch }, errs:{} });
+    const me = ready ? A.current('nn') : '';
+    const T = s.toast;
+    const base = {
+      isNotifs: s.view === 'notifications', isRegistry: s.view !== 'notifications',
+      hasToast: !!T, toastTitle: T ? T.title : '', toastText: T ? T.text : '', hasToastText: !!(T && T.text),
+      toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : '#38C793'};`,
+      closeToast: () => this.setState({ toast:null }),
+    };
+
+    const texts = [ ['maker', 'Поиск производитель', 'Наименование производителя...'], ['trade', 'Поиск торговое наименование', 'Торговое наименование...'] ]
+      .map(([k, label, ph]) => ({ id:'nn-' + k, label, ph, value:D[k], onChange:(e) => setD({ [k]:e.target.value }) }));
+    const selDef = [
+      { key:'stage', label:'Этап экспертизы', opts:['Все'].concat(ready ? A.NN_STAGES : []), w:300 },
+      { key:'status', label:'Статус заявки', opts:['Все'].concat(ready ? A.NN_FILTER : []), w:340, right:true },
+    ];
+    const selects = selDef.map(d => {
+      const open = s.pop === d.key, val = D[d.key];
+      return { label:d.label, lbl:'nn-lbl-' + d.key, open, display:val,
+        valStyle:`flex:1;min-width:0;color:${val === 'Все' ? '#525866' : '#0A0D14'};`,
+        chev:`position:absolute;right:10px;top:10px;font-size:20px;color:#868C98;transition:transform .15s;${open ? 'transform:rotate(180deg);' : ''}`,
+        toggle: () => this.setState({ pop: open ? null : d.key }),
+        pop:`position:absolute;${d.right ? 'right:0;' : 'left:0;'}top:calc(100% + 4px);z-index:25;width:${d.w}px;max-height:360px;overflow-y:auto;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;`,
+        opts: d.opts.map(o => ({ label:o, on: val === o, pick: () => { setD({ [d.key]:o }); this.setState({ pop:null }); } })) };
+    });
+    const dates = [ ['from', 'Дата начала'], ['to', 'Дата окончания'] ].map(([k, label]) => {
+      const err = s.errs[k] || '';
+      return { label, id:'nn-' + k, nid:'nn-' + k + '-n', msgId:'nn-' + k + '-m', value:D[k], err, hasErr:!!err, invalid:!!err,
+        cls:'inp tnum' + (err ? ' inp-err' : ''), pickLabel: label + ': выбрать в календаре',
+        onChange: (e) => setD({ [k]: this.mask(e.target.value) }),
+        pick: () => { const el = document.getElementById('nn-' + k + '-n'); if(el){ try { el.showPicker(); } catch(x){ el.click(); } } },
+        onNative: (e) => { const v = e.target.value; if(v){ const [y, m, dd] = v.split('-'); setD({ [k]: dd + '.' + m + '.' + y }); } } };
+    });
+    const isDef = (f) => !f.maker.trim() && !f.trade.trim() && f.stage === 'Все' && f.status === 'Все' && !f.from && !f.to;
+    const dirty = JSON.stringify({ ...D, maker:D.maker.trim(), trade:D.trade.trim() }) !== JSON.stringify(F);
+
+    const all = ready && !fail ? this.filtered() : [];
+    const mineCount = ready ? A.nnTasks(me).length : 0;
+    const per = 8, pages = Math.max(1, Math.ceil(all.length / per));
+    const page = Math.min(s.page, pages);
+    const now = s.now;
+    const rows = all.slice((page - 1) * per, page * per).map(app => {
+      const sm = ED.summary(app);
+      const t = ED.activeTimer(app, now);
+      const fk = A.nnStage(app) === 'Рассмотрение формулярной комиссией' || A.nnStatus(app) === 'Решение принято';
+      let timer = '—', timerTitle = 'Таймер не идёт', timerStyle = 'font-size:13px;line-height:20px;color:#868C98;padding-left:2px;';
+      if(t && !t.frozen && !fk){
+        const zero = t.remaining <= 0;
+        timer = ED.fmtRemain(t.remaining);
+        timerTitle = (t.owner === 'applicant' ? 'Срок заявителя' : 'Срок ННЦРЗ') + ' — до ' + ED.fmtDT(t.deadline);
+        timerStyle = `display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;border:1px solid ${zero ? '#DF1C41' : '#38C793'};background:#fff;color:${zero ? '#AF1D38' : '#176448'};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;`;
+      }
+      const mine = app.nn && app.nn.assignee === me && A.FINAL.indexOf(A.nnStatus(app)) === -1;
+      const b = A.nnBadge(app, 'sm');
+      const href = 'Карточка заявки ННЦРЗ.dc.html?n=' + app.num;
+      return { num:app.num, href, cat:sm.catShort, trade:sm.trade || '—', org:(app.org || ED.PROFILE).org, maker:this.maker(app),
+        sent: app.sentAt ? ED.fmtD(app.sentAt) : '—', stage:A.nnStage(app),
+        badge:{ ...b, style: b.style.replace('white-space:nowrap;', 'white-space:normal;').replace(/height:\d+px;/, 'min-height:22px;padding-top:3px;padding-bottom:3px;').replace('border-radius:999px', 'border-radius:11px') },
+        timer, timerTitle, timerStyle,
+        mineDot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${mine && s.tab !== 'mine' ? '#4D42E9' : 'transparent'};`, mineTitle: mine ? 'Назначено на вас' : '',
+        catStyle:`display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:${sm.cat === 'mi' ? '#EBFAFF' : '#EEF2FF'};color:${sm.cat === 'mi' ? '#164564' : '#312D86'};font-size:11px;line-height:16px;font-weight:600;`,
+        aria:'Заявка № ' + app.num + ', ' + (sm.trade || '') + ', ' + A.nnStatus(app),
+        open: () => { location.href = href; },
+        key: (e) => { if(e.key === 'Enter'){ e.preventDefault(); location.href = href; } },
+        link: (e) => { if(e) e.stopPropagation(); },
+        rowStyle:`display:flex;align-items:center;min-height:60px;border-top:1px solid #E2E4E9;${mine && s.tab !== 'mine' ? 'box-shadow:inset 2px 0 0 #4D42E9;' : ''}` };
+    });
+
+    const chips = [];
+    if(F.maker) chips.push({ label:'Производитель: «' + F.maker + '»', key:'maker', val:'' });
+    if(F.trade) chips.push({ label:'«' + F.trade + '»', key:'trade', val:'' });
+    if(F.stage !== 'Все') chips.push({ label:F.stage, key:'stage', val:'Все' });
+    if(F.status !== 'Все') chips.push({ label:F.status, key:'status', val:'Все' });
+    if(F.from) chips.push({ label:'с ' + F.from, key:'from', val:'' });
+    if(F.to) chips.push({ label:'по ' + F.to, key:'to', val:'' });
+    const plural = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'заявка' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'заявки' : 'заявок'; };
+
+    const noMine = ready && !fail && s.tab === 'mine' && mineCount === 0;
+    const filteredOut = ready && !fail && !noMine && all.length === 0;
+    const E = fail ? { icon:'ri-wifi-off-line', title:'Не удалось загрузить заявки', text:ED.FAIL_MSG, btn:'Повторить', btnIcon:'ri-refresh-line', act: () => this.toast('err', ED.FAIL_MSG, ''), tone:'red' }
+      : noMine ? { icon:'ri-checkbox-circle-line', title:'Задач нет', text:'Сейчас на вас не назначено ни одной заявки.', btn:'Показать все заявки', btnIcon:'ri-list-check-2', act: () => { this.setState({ tab:'all', page:1 }); this.persist({ tab:'all', page:1 }); }, tone:'green' }
+      : { icon:'ri-search-line', title:'Ничего не найдено', text:'Измените условия поиска или сбросьте фильтры.', btn:'Сбросить фильтры', btnIcon:'ri-filter-off-line', act: () => this.applyF({ ...EMPTY_F }), tone:'gray' };
+    const tones = { red:['#FDEDF0','#DF1C41'], gray:['#F6F8FA','#868C98'], green:['#EFFAF6','#38C793'] };
+
+    const hc = 'display:flex;align-items:center;padding:8px 8px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
+    const cols = [ ['№ заявки', 'width:104px;flex:0 0 auto;padding-left:16px;'], ['Услуга', 'width:56px;flex:0 0 auto;'], ['ЛС/МИ', 'width:60px;flex:0 0 auto;'], ['Дата подачи', 'width:100px;flex:0 0 auto;'], ['Этап экспертизы', 'width:136px;flex:0 0 auto;'], ['Торговое наименование', 'flex:1 1 150px;min-width:0;'], ['Производитель', 'width:112px;flex:0 0 auto;'], ['Статус', 'width:196px;flex:0 0 auto;'], ['Осталось дней', 'width:148px;flex:0 0 auto;padding-right:16px;'] ]
+      .map(([label, st]) => ({ label, style: hc + st }));
+    const tabStyle = (on) => `height:32px;padding:0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#0A0D14;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const seg = (on) => `${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const fast = ready && ED.fast();
+
+    return {
+      ...base,
+      tabs: [ ['mine', 'Мои задачи', 'ri-inbox-line', mineCount], ['all', 'Все заявки', 'ri-stack-line', ready ? s.apps.length : 0] ].map(([id, label, icon, n]) => ({ label, icon, n:String(n), on: s.tab === id,
+        nStyle:`min-width:20px;height:18px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${id === 'mine' && n > 0 ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
+        pick: () => { this.setState({ tab:id, page:1 }); this.persist({ tab:id, page:1 }); }, style: tabStyle(s.tab === id) })),
+      texts, selects, dates, closePop: () => this.setState({ pop:null }),
+      apply: (e) => { if(e && e.preventDefault) e.preventDefault(); this.applyF(); },
+      applyDisabled: !ready || !dirty, reset: () => this.applyF({ ...EMPTY_F }), resetDisabled: !ready || (isDef(D) && isDef(F)),
+      showMeta: ready && !fail,
+      foundText: all.length + ' ' + plural(all.length),
+      chips: chips.map(c => ({ label:c.label, aria:'Убрать фильтр ' + c.label, onClear: () => this.applyF({ ...F, [c.key]:c.val }) })),
+      cols, loading: !ready, skel:[1,2,3,4,5], rows,
+      showEmpty: fail || noMine || filteredOut, emptyTitle:E.title, emptyText:E.text, emptyBtn:E.btn, emptyBtnIcon:E.btnIcon, emptyAction:E.act, emptyIcon:E.icon, hasEmptyBtn:true,
+      emptyIconWrap:`width:64px;height:64px;border-radius:50%;background:${tones[E.tone][0]};display:flex;align-items:center;justify-content:center;`,
+      emptyIconStyle:`font-size:28px;color:${tones[E.tone][1]};`,
+      hasPager: ready && !fail && all.length > 0, range: all.length ? ((page - 1) * per + 1) + '–' + Math.min(page * per, all.length) + ' из ' + all.length : '',
+      pageBtns: Array.from({ length:pages }, (_, i) => ({ n:String(i + 1), cur: i + 1 === page ? 'page' : 'false', aria:'Страница ' + (i + 1), go: () => { this.setState({ page:i + 1 }); this.persist({ page:i + 1 }); } })),
+      noPrev: page <= 1, noNext: page >= pages,
+      prev: () => { const p = Math.max(1, page - 1); this.setState({ page:p }); this.persist({ page:p }); },
+      next: () => { const p = Math.min(pages, page + 1); this.setState({ page:p }); this.persist({ page:p }); },
+      demo: [
+        { label:'Сжатые сроки', title:'Тестовый контур: новые сроки — 2 минуты', on: fast, onClick: () => { if(!ED) return; ED.setFast(!fast); this.toast('ok', !fast ? 'Включены сжатые сроки' : 'Сроки — по рабочим дням', !fast ? 'Новые сроки — 2 минуты, как в тестовом контуре.' : ''); } },
+        { label:'Техсбой', title:'Сценарий «Система недоступна»', on: fail, onClick: () => ED && ED.setFail(!fail) },
+        { label:'Сбросить данные', title:'Вернуть демо-данные', on:false, onClick: () => { if(!A) return; A.resetAll(); this.setState({ applied:{ ...EMPTY_F }, draft:{ ...EMPTY_F }, page:1 }); this.persist({ applied:{ ...EMPTY_F }, page:1 }); this.toast('ok', 'Демо-данные восстановлены', ''); } },
+      ].map(d => ({ ...d, style: seg(d.on) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

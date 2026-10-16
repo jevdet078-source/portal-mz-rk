@@ -35,9 +35,14 @@
     • нумерация сквозная, 7 знаков с ведущими нулями, присваивается при создании (UC01.13.1.9);
       документы: SD-<тип>-<№ заявки>-<порядковый №>.
 
-  Ветка «Замечания» (первичная экспертиза) описана только в UC01.13 §2.1 — отдельной постановки
-  UC01.13.2.3.3 нет. Сделана как предложение: публичный статус «Направлены замечания», 10 рабочих
-  дней на ответ (UC01.13 §2.2). В фильтр реестра этот статус не добавлен — ждёт согласования.
+  Ветка «Замечания» (первичная экспертиза) — по UC01.13.3.4.2.3 и BPMN 2.2: статус «Выставлены
+  замечания», 10 рабочих дней на исправление, после ответа внутренний статус ННЦРЗ «Проверка доработки».
+
+  АРМ ННЦРЗ и АРМ Формулярной комиссии (UC01.13.3, UC01.13.4) работают поверх этих данных через
+  EdArm.dc.html: решения ННЦРЗ — ED.mutate(num, (app, ACT, H) => …) после подписи и согласования,
+  хронология — app.log, события заявителя для уведомлений сотрудникам — app.outbox.
+  Заявки других организаций (app.org) видит только АРМ; кабинет бизнеса — только свои (ED.list()).
+  Сжатые сроки «тестового контура» — localStorage['mp-ed-fast'] = '1' (панель «Прототип» в АРМ).
 -->
 <x-dc>
 <div style="display:none;"></div>
@@ -45,7 +50,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:40}}">
 const ED = (() => {
   const KEY = 'mp-ed-db', NKEY = 'mp-ed-notifs', SKEY = 'mp-ed-session', FKEY = 'mp-ed-fail';
-  const V = 4;
+  const V = 5;
   const HOUR = 36e5, DAY = 864e5;
 
   // ───────────────────────── справочная информация об услуге ─────────────────────────
@@ -145,7 +150,7 @@ const ED = (() => {
     'В работе':{ tone:'blue' },
     'Ожидает оплаты 20%':{ tone:'orange', action:true },
     'Подтверждение оплаты 20%':{ tone:'teal' },
-    'Направлены замечания':{ tone:'orange', action:true },
+    'Выставлены замечания':{ tone:'orange', action:true },
     'Ожидает оплаты 80%':{ tone:'orange', action:true },
     'Подтверждение оплаты 80%':{ tone:'teal' },
     'Направлен акт':{ tone:'orange', action:true },
@@ -156,9 +161,11 @@ const ED = (() => {
     'Рассмотрение заблокировано':{ tone:'red' },
     'Завершено':{ tone:'gray' },
     'Срок истёк':{ tone:'red' },
+    'Оплата не произведена':{ tone:'red' },
   };
   // Публичные статусы для фильтра реестра — в порядке UC01.13.2.1 §6
-  const FILTER = ['Черновик','В работе','Ожидает оплаты 20%','Подтверждение оплаты 20%','Ожидает оплаты 80%','Направлен акт','Отказ от решения','Формулярная комиссия','Решение принято','Отказано','Рассмотрение заблокировано','Завершено'];
+  // + «Выставлены замечания» и «Оплата не произведена» — статусы из постановок АРМ ННЦРЗ (UC01.13.3.4.x)
+  const FILTER = ['Черновик','В работе','Ожидает оплаты 20%','Подтверждение оплаты 20%','Выставлены замечания','Ожидает оплаты 80%','Подтверждение оплаты 80%','Направлен акт','Отказ от решения','Формулярная комиссия','Решение принято','Отказано','Рассмотрение заблокировано','Оплата не произведена','Завершено'];
 
   const toneOf = (label, app) => {
     if(label === 'Решение принято') return app && app.include === false ? 'red' : 'green';
@@ -230,7 +237,11 @@ const ED = (() => {
   const writeN = (list) => { try { localStorage.setItem(NKEY, JSON.stringify(list)); } catch(e){} emitN(); };
 
   const clone = (o) => JSON.parse(JSON.stringify(o));
-  const list = () => read().apps.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  // list — заявки кабинета бизнеса (без app.org), listAll — все заявки для АРМ
+  const byUpd = (a, b) => (b.updated || 0) - (a.updated || 0);
+  const list = () => read().apps.filter(a => !a.org).sort(byUpd);
+  const listAll = () => read().apps.slice().sort(byUpd).map(clone);
+  const meta = () => read().sid || '';
   const get = (num) => { const a = read().apps.find(x => x.num === num); return a ? clone(a) : null; };
   const put = (app, keepTime) => {
     const db = read();
@@ -339,7 +350,16 @@ const ED = (() => {
   // ───────────────────────── шаги и таймеры ─────────────────────────
   let sid = 0;
   const step = (o) => ({ id:'s' + (++sid) + Date.now().toString(36), at:null, timer:null, docs:[], ...o });
-  const timer = (owner, wd, start, deadline) => ({ owner, wd, start, deadline: deadline != null ? deadline : addWD(start, wd), frozen:null, stopped:null });
+  // Срок: отсчёт со следующего рабочего дня 00:01, конец — 23:59 N-го рабочего дня (UC01.13.3 §5).
+  // «Тестовый контур» (панель «Прототип»): любой срок — 2 минуты, как в постановках для тестового стенда.
+  const endWD = (ts, n) => { const d = new Date(addWD(ts, n)); d.setHours(23, 59, 0, 0); return d.getTime(); };
+  const FAST_MS = 2 * 60000;
+  let seeding = false;
+  const fastNow = () => { if(seeding) return false; try { return localStorage.getItem('mp-ed-fast') === '1'; } catch(e){ return false; } };
+  const setFast = (on) => { try { if(on) localStorage.setItem('mp-ed-fast', '1'); else localStorage.removeItem('mp-ed-fast'); } catch(e){} emit(); };
+  const timer = (owner, wd, start, deadline) => ({ owner, wd, start, deadline: deadline != null ? deadline : fastNow() ? start + FAST_MS : endWD(start, wd), fast: deadline == null && fastNow(), frozen:null, stopped:null });
+  // Внутренний этап / статус ННЦРЗ: остальные поля app.nn (назначение, решения, маршрут) ведёт EdArm
+  const nn = (app, stage, status) => { app.nn = Object.assign(app.nn || {}, { stage, status }); };
   const last = (app) => app.steps[app.steps.length - 1];
   const lastOf = (app, kind) => { for(let i = app.steps.length - 1; i >= 0; i--) if(app.steps[i].kind === kind) return app.steps[i]; return null; };
   const remainOf = (t, now) => t.frozen != null ? t.frozen : (t.stopped != null ? Math.max(0, t.deadline - t.stopped) : t.deadline - now);
@@ -350,7 +370,7 @@ const ED = (() => {
   const activeTimer = (app, now) => {
     now = now || Date.now();
     if(!app || !app.steps.length) return null;
-    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено','Формулярная комиссия'];
+    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено','Формулярная комиссия','Оплата не произведена'];
     if(final.indexOf(app.status) !== -1) return null;
     const s = last(app);
     let t = s.timer, src = s;
@@ -385,23 +405,43 @@ const ED = (() => {
   };
   const markRead = (num) => { const n = readN(); let ch = false; n.forEach(x => { if(x.num === num && !x.read){ x.read = true; ch = true; } }); if(ch) writeN(n); };
 
+  // ───────────────────────── хронология и события для АРМ ─────────────────────────
+  // app.log — «Хронология заявки» (UC01.13.3.5): строки только добавляются, никогда не меняются и не удаляются.
+  // app.outbox — действия заявителя и системы, которые АРМ ННЦРЗ (EdArm) разбирает в push-уведомления
+  // сотрудникам (UC01.13.3.2, табл. 2). Без EdArm на странице события копятся и разбираются позже.
+  const orgOf = (app) => app.org || PROFILE;
+  const logPush = (app, e) => {
+    app.log = app.log || [];
+    app.log.push({ n: app.log.length + 1, role:e.role, fio:e.fio || '', start: e.start != null ? e.start : e.end, end:e.end, status:e.status || '', comment:e.comment || '' });
+  };
+  const outPush = (app, ev, at, p) => { app.outbox = app.outbox || []; app.outbox.push({ ev, at, p: p || {} }); };
+  const APPLICANT_EV = { submit:1, pay20:1, pay80:1, remarksReply:1, actReply:1 };
+
   // ───────────────────────── машина состояний ─────────────────────────
   // Действия заявителя и решения ННЦРЗ / ФК. Каждое — чистая мутация app на момент at.
-  const finish = (app, at, variant, extra) => { app.steps.push(step({ kind:'done', title:'Экспертиза завершена', st:'Завершено', at, variant, ...(extra || {}) })); };
+  // Решения ННЦРЗ вызывает АРМ ННЦРЗ (EdArm) после подписи и маршрута согласования; документы,
+  // которые загрузил эксперт, приходят в p.docs и показываются заявителю как есть.
+  const finish = (app, at, variant, extra) => { app.steps.push(step({ kind:'done', title:'Экспертиза завершена', st: app.status === 'Оплата не произведена' ? 'Оплата не произведена' : 'Завершено', at, variant, ...(extra || {}) })); };
   const block = (app, at, cause) => {
     app.status = 'Рассмотрение заблокировано';
-    app.nn = { stage: app.nn ? app.nn.stage : '', status:'Рассмотрение заблокировано' };
+    nn(app, app.nn ? app.nn.stage : '', 'Рассмотрение заблокировано');
     app.steps.push(step({ kind:'blocked', title:'Рассмотрение заблокировано', st:'Рассмотрение заблокировано', at, cause }));
   };
-  const toPay80 = (app, at) => {
-    app.steps.push(step({ kind:'pay80', title:'Платежное поручение 80%', st:'Ожидает оплаты 80%', issued:at, timer: timer('applicant', 5, at), docs:[ invoice(app, 80) ] }));
+  const docsOr = (p, fallback) => p && Array.isArray(p.docs) && p.docs.length ? p.docs : fallback;
+  const toPay80 = (app, at, docs) => {
+    app.steps.push(step({ kind:'pay80', title:'Платежное поручение 80%', st:'Ожидает оплаты 80%', issued:at, timer: timer('applicant', 5, at), docs: docs && docs.length ? docs : [ invoice(app, 80) ] }));
     app.status = 'Ожидает оплаты 80%';
-    app.nn = { stage:'Первичная экспертиза', status:'Ожидает оплаты 80%' };
+    nn(app, 'Первичная экспертиза', 'Ожидает оплаты 80%');
   };
   const toFk = (app, at, note) => {
     app.steps.push(step({ kind:'fk', title:'Формулярная комиссия', st:'Формулярная комиссия', at, sessions:[], note: note || '' }));
     app.status = 'Формулярная комиссия';
-    app.nn = { stage:'Рассмотрение формулярной комиссией', status:'Формулярная комиссия' };
+    nn(app, 'Рассмотрение формулярной комиссией', 'Формулярная комиссия');
+  };
+  const unpaid = (app, at, pct, extra) => {
+    app.status = 'Оплата не произведена'; app.result = 'unpaid';
+    nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', 'Оплата не произведена');
+    finish(app, at, 'unpaid' + pct, extra);
   };
 
   const ACT = {
@@ -409,24 +449,25 @@ const ED = (() => {
     submit(app, at, p){
       app.status = 'В работе'; app.sentAt = at; app.signer = p && p.signer || null;
       app.steps = [ step({ kind:'p7', title:'Соответствие пункту 7', st:'В работе', at }) ];
-      app.nn = { stage:'Нулевая экспертиза', status:'Новая' };
+      nn(app, 'Нулевая экспертиза', 'Новая');
     },
     pay20(app, at, p){
       const s = lastOf(app, 'pay20'); s.st = 'Завершено'; s.at = at; s.file = p.file; stopT(s, at);
       app.steps.push(step({ kind:'wait', phase:'primary', title:'Ожидание проверки', st:'Подтверждение оплаты 20%', at }));
-      app.status = 'Подтверждение оплаты 20%'; app.nn = { stage:'Нулевая экспертиза', status:'Подтверждение оплаты 20%' };
+      app.status = 'Подтверждение оплаты 20%'; nn(app, 'Нулевая экспертиза', 'Подтверждение оплаты 20%');
     },
     pay80(app, at, p){
       const s = lastOf(app, 'pay80'); s.st = 'Завершено'; s.at = at; s.file = p.file; stopT(s, at);
       app.steps.push(step({ kind:'wait', phase:'prof', title:'Ожидание проверки', st:'Подтверждение оплаты 80%', at }));
-      app.status = 'Подтверждение оплаты 80%'; app.nn = { stage:'Первичная экспертиза', status:'Подтверждение оплаты 80%' };
+      app.status = 'Подтверждение оплаты 80%'; nn(app, 'Первичная экспертиза', 'Подтверждение оплаты 80%');
     },
     remarksReply(app, at, p){
       const s = lastOf(app, 'remarks'); s.st = 'Завершено'; s.at = at; s.reply = { text:p.text || '', files:p.files || [] }; stopT(s, at);
       const prev = app.steps.find(x => x.id === s.resumeFrom);
       const left = prev && prev.timer && prev.timer.frozen != null ? prev.timer.frozen : null;
       app.steps.push(step({ kind:'wait', phase:'primary', title:'Ожидание проверки', st:'В работе', at, timer: timer('nncrz', 5, at, left != null ? at + left : null) }));
-      app.status = 'В работе'; app.nn = { stage:'Первичная экспертиза', status:'В работе' };
+      // BPMN 2.2: после исправления замечаний — внутренний статус «Проверка доработки»
+      app.status = 'В работе'; nn(app, 'Первичная экспертиза', 'Проверка доработки');
     },
     // Акт по отказу в рассмотрении (первичная) и АВР проф. экспертизы: круг 1 — решение + файл, круг 2 — только файл
     actReply(app, at, p){
@@ -436,99 +477,143 @@ const ED = (() => {
       if(s.round === 2 || p.agree){
         stopT(s, at);
         if(isProf){ toFk(app, at); }
-        else { app.status = 'Отказано'; app.nn = { stage:'Первичная экспертиза', status:'Отказано' }; finish(app, at, 'refused'); notify(app, false, at); }
+        else { app.status = 'Отказано'; nn(app, 'Первичная экспертиза', 'Отказано'); finish(app, at, 'refused'); notify(app, false, at); }
         return;
       }
       // не согласен — остаток таймера замораживается, заявка возвращается эксперту
       freezeT(s, at);
       app.steps.push(step({ kind:'wait', phase: isProf ? 'dispute2' : 'dispute1', title:'Ожидание проверки', st:'Отказ от решения', at, frozenFrom:s.id }));
-      app.status = 'Отказ от решения'; app.nn = { stage: isProf ? 'Профессиональная экспертиза' : 'Первичная экспертиза', status:'Отказ от решения' };
+      app.status = 'Отказ от решения'; nn(app, isProf ? 'Профессиональная экспертиза' : 'Первичная экспертиза', 'Отказ от решения');
     },
 
     // ── ННЦРЗ ──
     p7Yes(app, at){
       const s = lastOf(app, 'p7'); s.st = 'Завершено';
-      app.status = 'Завершено'; app.result = 'p7'; app.nn = { stage:'Нулевая экспертиза', status:'Завершено' };
+      app.status = 'Завершено'; app.result = 'p7'; nn(app, 'Нулевая экспертиза', 'Завершено');
       finish(app, at, 'p7'); notify(app, true, at);
     },
-    p7No(app, at){
+    p7No(app, at, p){
       const s = lastOf(app, 'p7'); s.st = 'Завершено';
-      app.steps.push(step({ kind:'pay20', title:'Платежное поручение 20%', st:'Ожидает оплаты 20%', issued:at, timer: timer('applicant', 5, at), docs:[ invoice(app, 20) ] }));
-      app.status = 'Ожидает оплаты 20%'; app.nn = { stage:'Нулевая экспертиза', status:'Ожидает оплаты 20%' };
+      app.steps.push(step({ kind:'pay20', title:'Платежное поручение 20%', st:'Ожидает оплаты 20%', issued:at, timer: timer('applicant', 5, at), docs: docsOr(p, [ invoice(app, 20) ]) }));
+      app.status = 'Ожидает оплаты 20%'; nn(app, 'Нулевая экспертиза', 'Ожидает оплаты 20%');
     },
     confirm20(app, at){
       const s = last(app); s.st = 'В работе'; s.timer = timer('nncrz', 5, at);
-      app.status = 'В работе'; app.nn = { stage:'Первичная экспертиза', status:'В работе' };
+      app.status = 'В работе'; nn(app, 'Первичная экспертиза', 'В работе');
     },
-    remarks(app, at){
+    // Оплата не подтверждена (UC01.13.3.4.1 Alt 7–8, UC01.13.3.4.2.1 Alt 5–6). Первый раз — заявителю
+    // возвращается шаг оплаты со сроком «остаток + 1 рабочий день»; второй раз — «Оплата не произведена».
+    payNo(app, at, p){
+      const pct = p && p.pct === 80 ? 80 : 20, kind = 'pay' + pct;
+      const w = last(app); if(w && w.kind === 'wait') w.st = 'Завершено';
+      const prev = lastOf(app, kind);
+      const reject = { comment:(p && p.comment) || '', file:(p && p.file) || null, at };
+      if(prev && prev.round === 2){ unpaid(app, at, pct, { reject }); return; }
+      const left = prev && prev.timer ? Math.max(0, prev.timer.deadline - (prev.timer.stopped != null ? prev.timer.stopped : at)) : 0;
+      const t = timer('applicant', 1, at, fastNow() ? at + left + FAST_MS : endWD(at + left, 1));
+      t.note = 'остаток срока + 1 рабочий день';
+      app.steps.push(step({ kind, round:2, title:'Платежное поручение ' + pct + '%', st:'Ожидает оплаты ' + pct + '%', issued:at, timer:t, docs: prev ? prev.docs : [ invoice(app, pct) ], reject }));
+      app.status = 'Ожидает оплаты ' + pct + '%'; nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', 'Ожидает оплаты ' + pct + '%');
+    },
+    remarks(app, at, p){
       const s = last(app); s.st = 'Завершено'; freezeT(s, at);
-      const doc = nnDoc(app, 12, 'Сводный запрос (замечания)', 184);
-      app.steps.push(step({ kind:'remarks', title:'Замечания ННЦРЗ', st:'Направлены замечания', issued:at, resumeFrom:s.id, timer: timer('applicant', 10, at), docs:[doc],
-        items:[
-          'Раздел досье 3: приведите перечень зарегистрированных аналогов с указанием лекарственной формы и дозировки по состоянию на дату подачи заявления.',
-          'Раздел досье 5: приложите полный текст фармакоэкономического исследования, на которое дана ссылка, с переводом на русский язык.',
-        ] }));
-      app.status = 'Направлены замечания'; app.nn = { stage:'Первичная экспертиза', status:'Направлены замечания' };
+      const items = p && Array.isArray(p.items) && p.items.length ? p.items : [
+        'Раздел досье 3: приведите перечень зарегистрированных аналогов с указанием лекарственной формы и дозировки по состоянию на дату подачи заявления.',
+        'Раздел досье 5: приложите полный текст фармакоэкономического исследования, на которое дана ссылка, с переводом на русский язык.',
+      ];
+      app.steps.push(step({ kind:'remarks', title:'Замечания ННЦРЗ', st:'Выставлены замечания', issued:at, resumeFrom:s.id, timer: timer('applicant', 10, at),
+        docs: docsOr(p, [ nnDoc(app, 12, 'Заключение по первичной экспертизе (замечания)', 184) ]), items }));
+      app.status = 'Выставлены замечания'; nn(app, 'Первичная экспертиза', 'Выставлены замечания');
     },
-    recommend(app, at){ const s = last(app); s.st = 'Завершено'; stopT(s, at); toPay80(app, at); },
-    refuse(app, at){
+    recommend(app, at, p){ const s = last(app); s.st = 'Завершено'; stopT(s, at); toPay80(app, at, p && p.docs); },
+    refuse(app, at, p){
       const s = last(app); s.st = 'Завершено'; stopT(s, at);
-      app.steps.push(step({ kind:'refuse', round:1, title:'Отказ в рассмотрении', st:'Направлен акт', issued:at, timer: timer('applicant', 10, at),
-        docs:[ nnDoc(app, 17, 'Заключение первичной экспертизы (мотивированный отказ)', 356), nnDoc(app, 18, 'Акт выполненных работ', 142) ] }));
-      app.status = 'Направлен акт'; app.nn = { stage:'Первичная экспертиза', status:'Направлен акт' };
+      app.steps.push(step({ kind:'refuse', round:1, title:'Отказ в рассмотрении', st:'Направлен акт', issued:at, timer: timer('applicant', 5, at), comment:(p && p.comment) || '',
+        docs: docsOr(p, [ nnDoc(app, 17, 'Сопроводительное письмо', 96), nnDoc(app, 18, 'Акт мотивированного отказа', 142) ]) }));
+      app.status = 'Направлен акт'; nn(app, 'Первичная экспертиза', 'Направлен акт');
     },
+    // После подтверждения 80 % — этап «Профессиональная экспертиза», статус «Новая» до назначения эксперта
+    // (UC01.13.3.3.4); срок проф. экспертизы — 30 рабочих дней.
     confirm80(app, at){
-      const s = last(app); s.st = 'В работе'; s.timer = timer('nncrz', 35, at);
-      app.status = 'В работе'; app.nn = { stage:'Профессиональная экспертиза', status:'В работе' };
+      const s = last(app); s.st = 'В работе'; s.timer = timer('nncrz', 30, at);
+      app.status = 'В работе'; nn(app, 'Профессиональная экспертиза', 'Новая');
     },
-    profDone(app, at){
+    // Эксперт отметил экспертизу «Завершено» — новый срок 5 рабочих дней на документы (UC01.13.3.4.3 п. 3–5)
+    profFinish(app, at){
+      const s = last(app); if(!s || s.kind !== 'wait') return;
+      stopT(s, at); s.timer30 = s.timer; s.timer = timer('nncrz', 5, at);
+      nn(app, 'Профессиональная экспертиза', 'Подготовка документов');
+    },
+    profDone(app, at, p){
       const s = last(app); s.st = 'Завершено'; stopT(s, at);
-      app.steps.push(step({ kind:'avr', round:1, title:'АВР проф. экспертизы', st:'Направлен акт', issued:at, timer: timer('applicant', 10, at),
-        docs:[ nnDoc(app, 14, 'Заключение профессиональной экспертизы', 1240), { title:'Сопроводительное письмо', id:'', name:'Сопроводительное письмо № ' + app.num + '.pdf', size:88 * 1024 }, nnDoc(app, 18, 'Акт выполненных работ', 142) ] }));
-      app.status = 'Направлен акт'; app.nn = { stage:'Профессиональная экспертиза', status:'Направлен акт' };
+      app.steps.push(step({ kind:'avr', round:1, title:'АВР проф. экспертизы', st:'Направлен акт', issued:at, timer: timer('applicant', 5, at),
+        docs: docsOr(p, [ nnDoc(app, 14, 'Заключение профессиональной экспертизы', 1240), { title:'Сопроводительное письмо', id:'', name:'Сопроводительное письмо № ' + app.num + '.pdf', size:88 * 1024 }, nnDoc(app, 18, 'Акт выполненных работ', 142) ]) }));
+      app.status = 'Направлен акт'; nn(app, 'Профессиональная экспертиза', 'Направлен акт');
     },
-    disputeAccept(app, at){
+    disputeAccept(app, at, p){
       const s = last(app); s.st = 'Завершено';
-      if(s.phase === 'dispute1'){ toPay80(app, at); return; }
+      if(s.phase === 'dispute1'){ toPay80(app, at, p && p.docs); return; }
       toFk(app, at, 'ННЦРЗ принял ваш мотивированный отказ и изменил заключение профессиональной экспертизы.');
-      const fk = last(app); fk.docs = [ nnDoc(app, 14, 'Заключение профессиональной экспертизы (изменённое)', 1260) ];
+      const fk = last(app); fk.docs = docsOr(p, [ nnDoc(app, 14, 'Заключение профессиональной экспертизы (изменённое)', 1260) ]);
     },
-    disputeReject(app, at){
+    disputeReject(app, at, p){
       const s = last(app); s.st = 'Завершено';
       const src = app.steps.find(x => x.id === s.frozenFrom);
       const left = src && src.timer ? src.timer.frozen : 0;
-      const t = timer('applicant', src && src.timer ? src.timer.wd : 10, at, at + (left || 0));
+      const t = timer('applicant', src && src.timer ? src.timer.wd : 5, at, at + (left || 0));
+      t.note = 'остаток первоначального срока';
       if(s.phase === 'dispute1'){
-        app.steps.push(step({ kind:'refuse', round:2, title:'Отказ в рассмотрении', st:'Направлен акт', issued:at, timer:t,
-          docs:[ nnDoc(app, 17, 'Заключение первичной экспертизы (повторное)', 362), nnDoc(app, 18, 'Акт выполненных работ', 142) ] }));
-        app.nn = { stage:'Первичная экспертиза', status:'Направлен акт' };
+        app.steps.push(step({ kind:'refuse', round:2, title:'Отказ в рассмотрении', st:'Направлен акт', issued:at, timer:t, comment:(p && p.comment) || '',
+          docs: docsOr(p, [ nnDoc(app, 17, 'Сопроводительное письмо (повторное)', 98), nnDoc(app, 18, 'Акт мотивированного отказа', 142) ]) }));
+        nn(app, 'Первичная экспертиза', 'Направлен акт');
       } else {
         app.steps.push(step({ kind:'avr', round:2, title:'АВР проф. экспертизы', st:'Направлен акт', issued:at, timer:t,
-          docs:[ nnDoc(app, 14, 'Заключение профессиональной экспертизы (новое)', 1275), nnDoc(app, 18, 'Акт выполненных работ', 142) ] }));
-        app.nn = { stage:'Профессиональная экспертиза', status:'Направлен акт' };
+          docs: docsOr(p, [ nnDoc(app, 14, 'Заключение профессиональной экспертизы (новое)', 1275), nnDoc(app, 18, 'Акт выполненных работ', 142) ]) }));
+        nn(app, 'Профессиональная экспертиза', 'Направлен акт');
       }
       app.status = 'Направлен акт';
     },
-    fkFailed(app, at){ const s = lastOf(app, 'fk'); s.sessions = (s.sessions || []).concat([{ at, held:false }]); },
+    fkFailed(app, at, p){ const s = lastOf(app, 'fk'); s.sessions = (s.sessions || []).concat([{ at, held:false, comm:(p && p.comm) || '' }]); },
     fkDecide(app, at, p){
-      const s = lastOf(app, 'fk'); s.st = 'Решение принято'; s.sessions = (s.sessions || []).concat([{ at, held:true }]);
+      const s = lastOf(app, 'fk'); s.st = 'Решение принято'; s.sessions = (s.sessions || []).concat([{ at, held:true, comm:(p && p.comm) || '' }]);
       app.status = 'Решение принято'; app.include = !!p.include;
-      app.nn = { stage:'Рассмотрение формулярной комиссией', status:'Решение принято' };
-      finish(app, at, 'fk', { docs:[ { title:'Протокол Формулярной комиссии (обезличенный)', id:'', name:'protocol_№' + app.num + '_2.pdf', size:214 * 1024 } ] });
+      nn(app, 'Рассмотрение формулярной комиссией', 'Решение принято');
+      const pn = (p && p.protocol) || app.num;
+      finish(app, at, 'fk', { docs:[ { title:'Протокол заседания Формулярной комиссии (обезличенный)', id:'', name:'protocol_№' + pn + '_2.pdf', size:214 * 1024, protocol:pn, comm:(p && p.comm) || '', kind:'protocol2' } ] });
       notify(app, !!p.include, at);
     },
-    fkInclude(app, at){ ACT.fkDecide(app, at, { include:true }); },
-    fkExclude(app, at){ ACT.fkDecide(app, at, { include:false }); },
+    fkInclude(app, at, p){ ACT.fkDecide(app, at, { ...(p || {}), include:true }); },
+    fkExclude(app, at, p){ ACT.fkDecide(app, at, { ...(p || {}), include:false }); },
 
     // ── система: истёк срок на стороне заявителя ──
     timeout(app, at){
       const s = last(app);
       if(!s || !s.timer || s.timer.owner !== 'applicant') return;
       s.st = 'Срок истёк'; s.timer.stopped = s.timer.deadline; s.expired = true;
-      if(s.kind === 'pay20'){ app.status = 'Завершено'; app.result = 'unpaid'; app.nn = { stage:'Нулевая экспертиза', status:'Завершено' }; finish(app, at, 'unpaid20'); return; }
-      if(s.kind === 'remarks'){ app.status = 'Завершено'; app.result = 'unfixed'; app.nn = { stage:'Первичная экспертиза', status:'Завершено' }; finish(app, at, 'unfixed'); return; }
+      if(s.kind === 'pay20' || s.kind === 'pay80'){ unpaid(app, at, s.kind === 'pay20' ? 20 : 80); return; }
+      if(s.kind === 'remarks'){ app.status = 'Завершено'; app.result = 'unfixed'; nn(app, 'Первичная экспертиза', 'Завершено'); finish(app, at, 'unfixed'); return; }
       block(app, at, s.kind);
     },
+  };
+
+  // Запись действия заявителя / системы в хронологию и в «исходящие» для АРМ
+  const LOG_TXT = {
+    pay20:'Загружено платёжное поручение 20%', pay80:'Загружено платёжное поручение 80%',
+    remarksReply:'Направлены исправления по замечаниям',
+  };
+  const trackApplicant = (app, ev, at, p, before) => {
+    if(!APPLICANT_EV[ev]) return;
+    const o = orgOf(app);
+    let comment = LOG_TXT[ev] || '';
+    if(ev === 'submit') comment = 'Заявление подписано ЭЦП и отправлено';
+    if(ev === 'remarksReply' && p && p.text) comment = p.text;
+    if(ev === 'actReply'){
+      const st = before;
+      comment = st && st.round === 2 ? 'Загружен документ по повторному решению' : p && p.agree ? 'Согласен — загружен подписанный акт выполненных работ' : 'Не согласен — загружено мотивированное возражение';
+    }
+    const start = ev === 'submit' ? app.created : before ? (before.issued || before.at || app.created) : app.created;
+    logPush(app, { role:'Заявитель (' + o.org + ')', fio: (p && p.signer && p.signer.fio) || (app.signer && app.signer.fio) || [o.last, o.first, o.middle].join(' '), start, end:at, status:(app.nn && app.nn.status) || app.status, comment });
+    outPush(app, ev, at, { round: before && before.round, agree: p && p.agree });
   };
 
   const apply = (num, ev, payload, at) => {
@@ -536,28 +621,33 @@ const ED = (() => {
     const app = db.apps.find(x => x.num === num);
     if(!app || !ACT[ev]) return null;
     at = at || Date.now();
+    const before = last(app);
     ACT[ev](app, at, payload || {});
+    trackApplicant(app, ev, at, payload || {}, before);
     app.updated = at;
     write(db);
     return clone(app);
   };
+  // Мутация заявки целиком (АРМ ННЦРЗ / ФК): fn(app, ACT, helpers) — одна запись в хранилище
+  const H = { logPush, outPush, nn: (app, st, status) => nn(app, st, status), last, lastOf, timer: (o, wd, s, d) => timer(o, wd, s, d), endWD, orgOf };
+  const mutate = (num, fn, at) => {
+    const db = read();
+    const app = db.apps.find(x => x.num === num);
+    if(!app) return null;
+    if(fn(app, ACT, H) === false) return null;
+    app.updated = at || Date.now();
+    write(db);
+    return clone(app);
+  };
+  const mutateAll = (fn) => { const db = read(); fn(db.apps, ACT, H, db); write(db); };
 
-  // Решения ННЦРЗ / ФК, доступные в текущем состоянии — для панели «Прототип»
+  // Решения ННЦРЗ / ФК, доступные в текущем состоянии — для панели «Прототип» (оставлено для отладки;
+  // в карточке заявителя решения принимаются в АРМ ННЦРЗ и АРМ ФК)
   const events = (app) => {
     if(!app || app.status === 'Черновик') return [];
-    const s = last(app); if(!s) return [];
-    const E = (ev, label, tone) => ({ ev, label, tone: tone || 'neutral' });
     const out = [];
-    if(s.kind === 'p7' && s.st === 'В работе') out.push(E('p7Yes', 'Соответствует п. 7', 'ok'), E('p7No', 'Не соответствует — счёт 20%'));
-    if(s.kind === 'wait' && s.st === 'Подтверждение оплаты 20%') out.push(E('confirm20', 'Подтвердить оплату 20%', 'ok'));
-    if(s.kind === 'wait' && s.phase === 'primary' && s.st === 'В работе') out.push(E('recommend', 'Рекомендовано — счёт 80%', 'ok'), E('refuse', 'Отказано', 'bad'), E('remarks', 'Замечания (предложение)'));
-    if(s.kind === 'wait' && s.st === 'Подтверждение оплаты 80%') out.push(E('confirm80', 'Подтвердить оплату 80%', 'ok'));
-    if(s.kind === 'wait' && s.phase === 'prof' && s.st === 'В работе') out.push(E('profDone', 'Заключение + АВР', 'ok'));
-    if(s.kind === 'wait' && s.phase === 'dispute1') out.push(E('disputeAccept', 'Принять отказ заявителя — счёт 80%', 'ok'), E('disputeReject', 'Повторный отказ', 'bad'));
-    if(s.kind === 'wait' && s.phase === 'dispute2') out.push(E('disputeAccept', 'Изменить заключение — в ФК', 'ok'), E('disputeReject', 'Новое заключение + АВР', 'bad'));
-    if(s.kind === 'fk' && s.st === 'Формулярная комиссия') out.push(E('fkInclude', 'Комиссия: включить в ЕД', 'ok'), E('fkExclude', 'Комиссия: не включать', 'bad'), E('fkFailed', 'Комиссия не состоялась'));
     const t = activeTimer(app);
-    if(t && t.owner === 'applicant' && !t.frozen) out.push(E('expire', 'Истечь срок заявителя', 'warn'));
+    if(t && t.owner === 'applicant' && !t.frozen) out.push({ ev:'expire', label:'Истечь срок заявителя', tone:'warn' });
     return out;
   };
   // «Истечь срок» — дедлайн через 3 секунды, дальше срабатывает tick()
@@ -569,10 +659,17 @@ const ED = (() => {
     const db = read(); const now = Date.now(); let ch = false;
     db.apps.forEach(app => {
       const t = activeTimer(app, now);
-      if(t && t.owner === 'applicant' && !t.frozen && t.remaining <= 0 && t.step === last(app)){ ACT.timeout(app, t.deadline); app.updated = now; ch = true; }
+      if(t && t.owner === 'applicant' && !t.frozen && t.remaining <= 0 && t.step === last(app)){
+        const kind = t.step.kind;
+        ACT.timeout(app, t.deadline); app.updated = now; ch = true;
+        const why = { pay20:'Не оплачен счёт 20% в установленный срок', pay80:'Не оплачен счёт 80% в установленный срок', remarks:'Истёк срок отработки замечаний', refuse:'Не загружен документ по акту в установленный срок', avr:'Не загружен документ по АВР в установленный срок' }[kind] || 'Истёк срок';
+        logPush(app, { role:'Система', fio:'', start:t.deadline, end:t.deadline, status:(app.nn && app.nn.status) || app.status, comment:why });
+        outPush(app, 'timeout', t.deadline, { kind });
+      }
     });
     if(ch) write(db);
   };
+
 
   // ───────────────────────── демо-данные ─────────────────────────
   const PRODUCTS = {
@@ -596,10 +693,19 @@ const ED = (() => {
       'Vasofix Safety':{ tech:'Катетер внутривенный периферический', oper:'Стерильное, однократного применения', country:'Германия', reg:'РК-МИ-5№015772' },
     },
   };
-  const demoForm = (cat, trade, partial) => {
+  // Другие организации-заявители — их заявки видит только АРМ (в кабинете бизнеса — только свои)
+  const ORGS = {
+    alliance:{ org:'ТОО «Фарм Альянс Казахстан»', legal:'г. Алматы, Медеуский район, пр. Достык, 210, офис 504', actual:'г. Алматы, Медеуский район, пр. Достык, 210, офис 504', last:'Ержанова', first:'Дана', middle:'Болатовна', phone:'+7 727 355 21 40', email:'d.erzhanova@pharmalliance.kz', bin:'150940018736', bank:'АО «Банк ЦентрКредит»', iik:'KZ158562203105747413', bik:'KCJBKZKX', kbe:'17' },
+    nur:{ org:'ТОО «Нур Фарма Дистрибуция»', legal:'г. Астана, район Алматы, ул. Жансугурова, 8/1', actual:'г. Астана, район Алматы, ул. Жансугурова, 8/1', last:'Оразбаев', first:'Ринат', middle:'Серикович', phone:'+7 717 268 40 15', email:'r.orazbayev@nurpharma.kz', bin:'110440012385', bank:'АО «Народный Банк Казахстана»', iik:'KZ026010002000184211', bik:'HSBKKZKX', kbe:'17' },
+    dala:{ org:'ТОО «Дала Мед Импорт»', legal:'г. Шымкент, Аль-Фарабийский район, ул. Тауке хана, 45', actual:'г. Шымкент, Аль-Фарабийский район, ул. Тауке хана, 45', last:'Ким', first:'Елена', middle:'Викторовна', phone:'+7 725 253 77 90', email:'e.kim@dalamed.kz', bin:'170240031152', bank:'АО «ForteBank»', iik:'KZ9096503F0008123456', bik:'IRTYKZKA', kbe:'17' },
+    kmg:{ org:'АО «Казахстан Медикал Групп»', legal:'г. Алматы, Бостандыкский район, ул. Тимирязева, 42, корпус 2', actual:'г. Алматы, Бостандыкский район, ул. Тимирязева, 42, корпус 2', last:'Байжанов', first:'Ерлан', middle:'Кайратович', phone:'+7 727 390 12 12', email:'e.baizhanov@kmg-med.kz', bin:'041140002917', bank:'АО «Bank RBK»', iik:'KZ75821A0000012345678', bik:'KINCKZKA', kbe:'17' },
+    medtech:{ org:'ТОО «МедТех Сервис Плюс»', legal:'г. Караганда, район им. Казыбек би, пр. Бухар-Жырау, 66', actual:'г. Караганда, район им. Казыбек би, пр. Бухар-Жырау, 66', last:'Сулейменова', first:'Асель', middle:'Жанатовна', phone:'+7 721 241 05 33', email:'a.suleimenova@medtechplus.kz', bin:'190640027744', bank:'АО «Jusan Bank»', iik:'KZ43998CTB0000987654', bik:'TSESKZKA', kbe:'17' },
+  };
+  const demoForm = (cat, trade, partial, prof) => {
     const p = PRODUCTS[cat][trade] || {};
     const f = blankForm(); f.cat = cat;
     f.a.position = partial ? '' : 'Директор по регистрации';
+    if(prof) f.a.phone = prof.phone;
     const reg = newReg();
     reg.num = p.reg || ''; reg.country = p.country || ''; reg.regDate = '14.06.2023'; reg.perpetual = true;
     if(cat === 'ls'){
@@ -629,46 +735,80 @@ const ED = (() => {
   };
 
   function seed(){
-    sid = 0;
+    sid = 0; seeding = true;
     const now = Date.now();
-    const db = { v:V, seq:131, apps:[] };
+    const db = { v:V, seq:170, sid: now.toString(36) + Math.random().toString(36).slice(2, 6), apps:[] };
     const H = (h) => now - h * HOUR;
-    const mk = (num, cat, trade, createdH, plan, extra) => {
-      const app = { num, status:'Черновик', created:H(createdH), updated:H(createdH), sentAt:null, form: demoForm(cat, trade, plan === null), steps:[], docSeq:0, saved:true, ...(extra || {}) };
+    const mk = (num, cat, trade, createdH, plan, orgKey) => {
+      const prof = orgKey ? ORGS[orgKey] : null;
+      const app = { num, status:'Черновик', created:H(createdH), updated:H(createdH), sentAt:null, form: demoForm(cat, trade, plan === null, prof), steps:[], docSeq:0, saved:true };
+      if(prof) app.org = { ...prof };
       (plan || []).forEach(([ev, h, p]) => { ACT[ev](app, H(h), p || {}); app.updated = H(h); });
       db.apps.push(app);
       return app;
     };
     const signer = { fio:'Сейтжанова Аружан Маратовна', iin:'920315401540' };
     const F = (name, kb) => ({ file:{ name, size:kb * 1024 } });
-    const sub = (h) => ['submit', h, { signer }];
+    const sub = (h, o) => ['submit', h, { signer: o ? { fio:[ORGS[o].last, ORGS[o].first, ORGS[o].middle].join(' '), iin:'' } : signer }];
+    const agree = (h) => ['actReply', h, { agree:true, file:{ name:'АВР подписанный.pdf', size:188 * 1024 } }];
+    // полный путь до Формулярной комиссии: h — момент подачи (часов назад), k — масштаб шагов
+    const toFkPlan = (h, o) => [ sub(h, o), ['p7No', h - 40], ['pay20', h - 70, F('ПП_20.pdf', 150)], ['confirm20', h - 90], ['recommend', h - 170], ['pay80', h - 200, F('ПП_80.pdf', 160)], ['confirm80', h - 220], ['profFinish', h - 520], ['profDone', h - 560], agree(h - 600) ];
 
+    // ── ТОО «Астана Групп» (кабинет бизнеса) ──
     mk('0000131', 'ls', 'Форсига', 30, null);
     mk('0000129', 'ls', 'Энхерту', 120, [ sub(120), ['p7No', 26] ]);
-    mk('0000127', 'mi', 'Resolute Onyx', 900, [ sub(900), ['p7No', 860], ['pay20', 840, F('Платёжное поручение 20% № 4512.pdf', 212)], ['confirm20', 800], ['refuse', 50] ]);
+    mk('0000127', 'mi', 'Resolute Onyx', 900, [ sub(900), ['p7No', 860], ['pay20', 840, F('Платёжное поручение 20% № 4512.pdf', 212)], ['confirm20', 800], ['refuse', 50, { comment:'Представленное досье не содержит сведений о клинико-экономическом преимуществе изделия по сравнению с изделиями, включёнными в перечень (раздел досье 5).' }] ]);
     mk('0000126', 'mi', 'FreeStyle Libre 2', 4, [ sub(3) ]);
     mk('0000124', 'ls', 'Кейтруда', 1200, [ sub(1200), ['p7No', 1150], ['pay20', 1130, F('ПП 20% Кейтруда.pdf', 198)], ['confirm20', 1100], ['recommend', 20] ]);
     mk('0000121', 'mi', 'Attune', 200, [ sub(200), ['p7No', 150], ['pay20', 6, F('Платёжное поручение № 977.pdf', 176)] ]);
     mk('0000118', 'ls', 'Ксарелто', 1700, [ sub(1700), ['p7No', 1650], ['pay20', 1640, F('ПП_20.pdf', 150)], ['confirm20', 1600], ['recommend', 1500], ['pay80', 1480, F('ПП_80.pdf', 160)], ['confirm80', 300] ]);
-    mk('0000116', 'ls', 'Тагриссо', 2600, [ sub(2600), ['p7No', 2550], ['pay20', 2530, F('ПП_20.pdf', 150)], ['confirm20', 2500], ['recommend', 2400], ['pay80', 2380, F('ПП_80.pdf', 160)], ['confirm80', 2300], ['profDone', 100], ['actReply', 40, { agree:false, file:{ name:'Мотивированный отказ Тагриссо.pdf', size:248 * 1024 } }] ]);
-    mk('0000113', 'ls', 'Дарзалекс', 3400, [ sub(3400), ['p7No', 3350], ['pay20', 3330, F('ПП_20.pdf', 150)], ['confirm20', 3300], ['recommend', 3200], ['pay80', 3180, F('ПП_80.pdf', 160)], ['confirm80', 3100], ['profDone', 1200], ['actReply', 1150, { agree:true, file:{ name:'АВР подписанный.pdf', size:188 * 1024 } }], ['fkFailed', 300] ]);
-    mk('0000110', 'ls', 'Джардинс', 4300, [ sub(4300), ['p7No', 4250], ['pay20', 4230, F('ПП_20.pdf', 150)], ['confirm20', 4200], ['recommend', 4100], ['pay80', 4080, F('ПП_80.pdf', 160)], ['confirm80', 4000], ['profDone', 2400], ['actReply', 2350, { agree:true, file:{ name:'АВР подписанный.pdf', size:188 * 1024 } }], ['fkInclude', 2] ]);
-    mk('0000107', 'mi', 'MiniMed 780G', 4600, [ sub(4600), ['p7No', 4550], ['pay20', 4530, F('ПП_20.pdf', 150)], ['confirm20', 4500], ['recommend', 4400], ['pay80', 4380, F('ПП_80.pdf', 160)], ['confirm80', 4300], ['profDone', 2700], ['actReply', 2650, { agree:true, file:{ name:'АВР подписанный.pdf', size:188 * 1024 } }], ['fkExclude', 400] ]);
-    mk('0000104', 'ls', 'Хумира', 2100, [ sub(2100), ['p7No', 2050], ['pay20', 2030, F('ПП_20.pdf', 150)], ['confirm20', 2000], ['refuse', 1900], ['actReply', 1850, { agree:false, file:{ name:'Мотивированный отказ.pdf', size:233 * 1024 } }], ['disputeReject', 1700], ['actReply', 1690, { file:{ name:'Акт выполненных работ.pdf', size:140 * 1024 } }] ]);
+    mk('0000116', 'ls', 'Тагриссо', 2600, [ sub(2600), ['p7No', 2550], ['pay20', 2530, F('ПП_20.pdf', 150)], ['confirm20', 2500], ['recommend', 2400], ['pay80', 2380, F('ПП_80.pdf', 160)], ['confirm80', 2300], ['profFinish', 160], ['profDone', 100], ['actReply', 40, { agree:false, file:{ name:'Мотивированное возражение Тагриссо.pdf', size:248 * 1024 } }] ]);
+    mk('0000113', 'ls', 'Дарзалекс', 3400, [ sub(3400), ['p7No', 3350], ['pay20', 3330, F('ПП_20.pdf', 150)], ['confirm20', 3300], ['recommend', 3200], ['pay80', 3180, F('ПП_80.pdf', 160)], ['confirm80', 3100], ['profFinish', 1250], ['profDone', 1200], agree(1150), ['fkFailed', 300, { comm:'0000004' }] ]);
+    mk('0000110', 'ls', 'Джардинс', 4300, [ sub(4300), ['p7No', 4250], ['pay20', 4230, F('ПП_20.pdf', 150)], ['confirm20', 4200], ['recommend', 4100], ['pay80', 4080, F('ПП_80.pdf', 160)], ['confirm80', 4000], ['profFinish', 2450], ['profDone', 2400], agree(2350), ['fkInclude', 2, { protocol:'ФК-12/2026', comm:'0000003' }] ]);
+    mk('0000107', 'mi', 'MiniMed 780G', 4600, [ sub(4600), ['p7No', 4550], ['pay20', 4530, F('ПП_20.pdf', 150)], ['confirm20', 4500], ['recommend', 4400], ['pay80', 4380, F('ПП_80.pdf', 160)], ['confirm80', 4300], ['profFinish', 2750], ['profDone', 2700], agree(2650), ['fkExclude', 2, { protocol:'ФК-12/2026', comm:'0000003' }] ]);
+    mk('0000104', 'ls', 'Хумира', 2100, [ sub(2100), ['p7No', 2050], ['pay20', 2030, F('ПП_20.pdf', 150)], ['confirm20', 2000], ['refuse', 1900, { comment:'Не представлено обоснование возможности соглашения по разделению затрат или рисков (раздел досье 4).' }], ['actReply', 1850, { agree:false, file:{ name:'Мотивированное возражение.pdf', size:233 * 1024 } }], ['disputeReject', 1700], ['actReply', 1690, { file:{ name:'Акт выполненных работ.pdf', size:140 * 1024 } }] ]);
     mk('0000102', 'mi', 'Accu-Chek Performa', 2400, [ sub(2400), ['p7No', 2350], ['pay20', 2330, F('ПП_20.pdf', 150)], ['confirm20', 2300], ['recommend', 2200], ['timeout', 1900] ]);
     mk('0000101', 'ls', 'Метформин-Тева', 3000, [ sub(3000), ['p7Yes', 2950] ]);
     mk('0000099', 'mi', 'Vasofix Safety', 3600, [ sub(3600), ['p7No', 3550], ['timeout', 3400] ]);
+
+    // ── другие организации (видны в АРМ ННЦРЗ и ФК) ──
+    // нулевая экспертиза — внутренние шаги (назначение, согласование) достраивает EdArm
+    mk('0000150', 'ls', 'Ксарелто', 52, [ sub(50, 'alliance') ], 'alliance');
+    mk('0000151', 'mi', 'Attune', 27, [ sub(26, 'nur') ], 'nur');
+    mk('0000152', 'ls', 'Метформин-Тева', 100, [ sub(98, 'dala') ], 'dala');
+    mk('0000153', 'ls', 'Джардинс', 152, [ sub(150, 'kmg') ], 'kmg');
+    // первичная экспертиза
+    mk('0000154', 'mi', 'Accu-Chek Performa', 202, [ sub(200, 'medtech'), ['p7No', 170], ['pay20', 60, F('Платёжное поручение 20%.pdf', 164)], ['confirm20', 30] ], 'medtech');
+    mk('0000155', 'ls', 'Хумира', 302, [ sub(300, 'alliance'), ['p7No', 270], ['pay20', 200, F('ПП 20% Хумира.pdf', 171)], ['confirm20', 50] ], 'alliance');
+    mk('0000156', 'mi', 'Resolute Onyx', 502, [ sub(500, 'nur'), ['p7No', 470], ['pay20', 420, F('ПП_20.pdf', 150)], ['confirm20', 400], ['remarks', 100, { items:[ 'Сведения о государственной регистрации: регистрационное удостоверение приложено без страницы с перечнем комплектации.', 'Досье, раздел 3: перечень аналогов не содержит сведений о комплектации и эксплуатационных характеристиках.' ] }] ], 'nur');
+    mk('0000157', 'ls', 'Энхерту', 602, [ sub(600, 'dala'), ['p7No', 570], ['pay20', 520, F('ПП_20.pdf', 150)], ['confirm20', 500], ['remarks', 300, { items:[ 'Досье, раздел 5: приложите полный текст фармакоэкономического исследования с переводом на русский язык.' ] }], ['remarksReply', 10, { text:'Полный текст исследования и нотариально заверенный перевод приложены одним архивом.', files:[ { name:'Исследование_перевод.zip', size:4812 * 1024 } ] }] ], 'dala');
+    mk('0000158', 'ls', 'Кейтруда', 802, [ sub(800, 'kmg'), ['p7No', 770], ['pay20', 740, F('ПП_20.pdf', 150)], ['confirm20', 720], ['recommend', 400], ['pay80', 28, F('Платёжное поручение 80%.pdf', 168)] ], 'kmg');
+    // профессиональная экспертиза
+    mk('0000159', 'mi', 'FreeStyle Libre 2', 902, [ sub(900, 'medtech'), ['p7No', 870], ['pay20', 840, F('ПП_20.pdf', 150)], ['confirm20', 820], ['recommend', 500], ['pay80', 470, F('ПП_80.pdf', 160)], ['confirm80', 12] ], 'medtech');
+    mk('0000160', 'ls', 'Дарзалекс', 1102, [ sub(1100, 'alliance'), ['p7No', 1070], ['pay20', 1040, F('ПП_20.pdf', 150)], ['confirm20', 1020], ['recommend', 800], ['pay80', 770, F('ПП_80.pdf', 160)], ['confirm80', 400] ], 'alliance');
+    // формулярная комиссия: свободные объекты и объекты комиссий (комиссии — в EdArm)
+    mk('0000161', 'ls', 'Тагриссо', 1300, toFkPlan(1300, 'nur'), 'nur');
+    mk('0000162', 'mi', 'Vasofix Safety', 1320, toFkPlan(1320, 'dala'), 'dala');
+    mk('0000163', 'ls', 'Форсига', 1340, toFkPlan(1340, 'kmg'), 'kmg');
+    mk('0000164', 'mi', 'MiniMed 780G', 1360, toFkPlan(1360, 'medtech'), 'medtech');
+    mk('0000165', 'ls', 'Ксарелто', 1380, toFkPlan(1380, 'alliance'), 'alliance');
+    mk('0000166', 'ls', 'Хумира', 1400, toFkPlan(1400, 'nur'), 'nur');
+    mk('0000167', 'mi', 'Attune', 1420, toFkPlan(1420, 'dala'), 'dala');
+    mk('0000168', 'ls', 'Метформин-Тева', 1440, toFkPlan(1440, 'kmg'), 'kmg');
+    mk('0000169', 'ls', 'Энхерту', 1460, toFkPlan(1460, 'medtech'), 'medtech');
+    mk('0000170', 'mi', 'Accu-Chek Performa', 1480, toFkPlan(1480, 'alliance'), 'alliance');
 
     // уведомления по итоговым решениям демо-заявок (UC01.13.2.2): свежее — непрочитанное
     try {
       const n = [
         { id:'ed-0000110', n:'103', num:'0000110', ok:true,  at:H(2),    read:false },
-        { id:'ed-0000107', n:'102', num:'0000107', ok:false, at:H(400),  read:true },
+        { id:'ed-0000107', n:'102', num:'0000107', ok:false, at:H(2),    read:true },
         { id:'ed-0000104', n:'101', num:'0000104', ok:false, at:H(1690), read:true },
         { id:'ed-0000101', n:'100', num:'0000101', ok:true,  at:H(2950), read:true },
       ];
       localStorage.setItem(NKEY, JSON.stringify(n));
     } catch(e){}
+    seeding = false;
     return db;
   }
   const reset = () => { cache = null; try { localStorage.removeItem(KEY); sessionStorage.removeItem(SKEY); } catch(e){} const db = seed(); write(db); emitN(); };
@@ -693,7 +833,8 @@ const ED = (() => {
 
   return {
     KEY, NKEY, SERVICE, SERVICE_SHORT, SERVICE_TYPE, PRICE, PROVIDER, PROFILE, DICT, SCHEMA, FILTER, TONE, ST, EXT, LIMIT, FAIL_MSG,
-    dossier, list, get, put, remove, newApp, newReg, blankForm, validate, stepDone, apply, events, expireSoon, tick,
+    dossier, list, listAll, meta, get, put, remove, newApp, newReg, blankForm, validate, stepDone, apply, mutate, mutateAll, events, expireSoon, tick,
+    ORGS, orgOf, logPush, endWD, addWDEnd: endWD, fast: fastNow, setFast, FAST_MS, isWork,
     activeTimer, stage, badge, toneOf, summary, last, lastOf, markRead, readN, writeN, notifs:readN,
     fmtD, fmtT, fmtDT, parseD, addWD, wdWord, fmtRemain, money, fileSize, ext, checkFile, phoneOk,
     session, fail, setFail, reset, emit, invalidate,

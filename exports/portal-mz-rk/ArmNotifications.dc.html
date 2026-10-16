@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Раздел «Уведомления» АРМ экспертов (UC01.13.3.2 — АРМ ННЦРЗ, UC01.13.4.4 — АРМ ФК).
+  Пропс arm — nn | fk. Подключается в реестр АРМ по #notifications.
+
+  По постановке (табл. 1): №, ID заявки (у ФК — № комиссии), наименование услуги, статус, дата действия,
+  текст; непрочитанные — жирным; клик по уведомлению или ID — карточка и отметка «Прочитано»
+  (дата прочтения хранится, пользователю не показывается); «Закрыть» — обратно в реестр (Alt 3).
+  Получатель — текущий сотрудник, поэтому столбец «ФИО пользователя» вынесен в подзаголовок.
+  Цвет метки у текста — цвет события из табл. 2 (синий, зелёный, красный, жёлтый).
+  Дата — в формате портала «дд.мм.гггг, чч:мм» (в постановке «ГГ-ММ-ДД, HH-MM»).
+-->
+<x-dc>
+<helmet>
+<style>
+  .nt-row{transition:background .12s;cursor:pointer;}
+  .nt-row:hover{background:#FBFCFD;}
+  .nt-row:focus-visible,.nt-b:focus-visible,.nt-pg:focus-visible,.nt-id:focus-visible{outline:none;box-shadow:inset 0 0 0 2px #C6D0FF;}
+  .nt-b{transition:background .15s,border-color .15s,color .15s;}
+  .nt-b:hover{background:#FBFCFD;border-color:#CDD0D5;color:#0A0D14;}
+  .nt-id{color:#362DA6;font-weight:500;text-decoration:none;border-radius:4px;}
+  .nt-id:hover{color:#4D42E9;text-decoration:underline;text-underline-offset:3px;}
+  .nt-pg{min-width:32px;height:32px;padding:0 8px;border:1px solid #E2E4E9;border-radius:8px;background:#fff;color:#525866;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
+  .nt-pg:hover{background:#F6F8FA;color:#0A0D14;}
+  .nt-pg:disabled{color:#CDD0D5;cursor:not-allowed;background:#fff;}
+  .nt-pg[aria-current="page"]{background:#F6F8FA;color:#0A0D14;border-color:#CDD0D5;}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:20px;font-family:'Inter',sans-serif;color:#0A0D14;">
+  <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
+      <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Уведомления</h1>
+      <div style="font-size:14px;line-height:20px;color:#525866;">{{ who }}</div>
+    </div>
+    <div role="tablist" aria-label="Фильтр уведомлений" style="display:flex;background:#F6F8FA;border-radius:10px;padding:3px;gap:2px;">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+        <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<sc-if value="{{ t.hasN }}" hint-placeholder-val="{{ false }}"><span style="{{ t.nStyle }}">{{ t.n }}</span></sc-if></button>
+      </sc-for>
+    </div>
+    <a class="nt-b" href="{{ closeHref }}" style="height:36px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Закрыть</a>
+  </div>
+
+  <div style="background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <div role="table" aria-label="Уведомления" style="min-width:980px;">
+        <div role="row" style="display:flex;background:#F6F8FA;">
+          <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
+        </div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+          <div role="row" tabIndex="0" class="nt-row" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="display:flex;align-items:center;min-height:56px;border-top:1px solid #E2E4E9;">
+            <div role="cell" style="width:88px;flex:0 0 auto;padding:10px 12px 10px 20px;display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px;color:#525866;" class="tnum"><span style="{{ r.dot }}"></span>{{ r.n }}</div>
+            <div role="cell" style="width:128px;flex:0 0 auto;padding:10px 12px;font-size:14px;line-height:20px;"><a class="nt-id tnum" href="{{ r.href }}" onClick="{{ r.openLink }}">{{ r.ref }}</a></div>
+            <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:18px;color:#525866;">{{ r.svc }}</div>
+            <div role="cell" style="width:236px;flex:0 0 auto;padding:10px 12px;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
+            <div role="cell" style="width:148px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;" class="tnum">{{ r.at }}</div>
+            <div role="cell" style="flex:1;min-width:0;padding:10px 20px 10px 12px;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}">{{ r.text }}</span></div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:48px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;border-top:1px solid #E2E4E9;">
+            <div style="width:56px;height:56px;border-radius:50%;background:#F6F8FA;display:flex;align-items:center;justify-content:center;"><i class="ri-notification-off-line" style="font-size:24px;color:#868C98;"></i></div>
+            <div style="font-size:15px;line-height:22px;font-weight:500;">{{ emptyTitle }}</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+    <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid #E2E4E9;">
+        <span style="font-size:13px;line-height:20px;color:#525866;" class="tnum">{{ range }}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button class="nt-pg" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+          <sc-for list="{{ pages }}" as="p" hint-placeholder-count="3"><button class="nt-pg" onClick="{{ p.go }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}">{{ p.n }}</button></sc-for>
+          <button class="nt-pg" onClick="{{ next }}" disabled="{{ noNext }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1160,&quot;height&quot;:600}}">
+class Component extends DCLogic {
+  state = { tab:'all', page:1, v:0 };
+  componentDidMount(){
+    this._re = () => this.setState({ v:this.state.v + 1 });
+    ['mp-arm-ready','mp-arm-change'].forEach(n => window.addEventListener(n, this._re));
+  }
+  componentWillUnmount(){ ['mp-arm-ready','mp-arm-change'].forEach(n => window.removeEventListener(n, this._re)); }
+  renderVals(){
+    const s = this.state, A = window.mpArm, ED = window.mpEd;
+    const arm = this.props.arm === 'fk' ? 'fk' : 'nn';
+    const ready = !!(A && ED && A.ready);
+    const me = ready ? A.current(arm) : '';
+    const all = ready ? A.notifsFor(me) : [];
+    const unread = all.filter(x => !x.read).length;
+    const list = s.tab === 'unread' ? all.filter(x => !x.read) : all;
+    const per = 10, pages = Math.max(1, Math.ceil(list.length / per)), page = Math.min(s.page, pages);
+    const TONE = { blue:'#4D42E9', green:'#38C793', red:'#DF1C41', yellow:'#F17B2C' };
+    const badge = (x) => {
+      const tone = x.kind === 'fk' ? ({ 'Открытая':'teal', 'Голосование':'blue', 'Принятие решения':'orange', 'На согласовании':'purple', 'Состоялась':'green', 'Не состоялась':'gray' }[x.status] || 'gray') : ({ 'Решение принято':'green' }[x.status] || (A.NN_FILTER.indexOf(x.status) !== -1 ? A.nnTone({ nn:{ status:x.status } }) : 'gray'));
+      const t = ED.TONE[tone] || ED.TONE.gray;
+      return { label:x.status || '—', style:`display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 7px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;`, dot:`width:6px;height:6px;border-radius:50%;background:${t.dot};flex:0 0 auto;` };
+    };
+    const rows = list.slice((page - 1) * per, page * per).map(x => {
+      const href = x.kind === 'fk' ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(x.ref) + '&from=notifications' : 'Карточка заявки ННЦРЗ.dc.html?n=' + x.ref;
+      const go = () => { A.readNotif(x.id); location.href = href; };
+      return { n:String(x.n), ref:x.label, href, svc: x.kind === 'fk' ? 'Формулярная комиссия · ЕД' : 'Включение ЛС / МИ в перечень ЕД',
+        badge: badge(x), at: ED.fmtD(x.at) + ', ' + ED.fmtT(x.at), text:x.text, aria:(x.read ? '' : 'Непрочитанное. ') + x.text,
+        open: go, key: (e) => { if(e.key === 'Enter'){ e.preventDefault(); go(); } },
+        openLink: (e) => { if(e){ e.preventDefault(); e.stopPropagation(); } go(); },
+        dot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${x.read ? 'transparent' : '#4D42E9'};`,
+        toneDot:`width:8px;height:8px;margin-top:6px;border-radius:2px;flex:0 0 auto;background:${TONE[x.tone] || '#4D42E9'};`,
+        textStyle:`font-size:14px;line-height:20px;font-weight:${x.read ? 400 : 600};color:#0A0D14;` };
+    });
+    const hc = 'display:flex;align-items:center;padding:8px 12px;font-size:13px;line-height:20px;font-weight:500;color:#525866;white-space:nowrap;';
+    const tabStyle = (on) => `height:30px;padding:0 12px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;${on ? 'background:#fff;color:#0A0D14;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    return {
+      who: ready ? 'Получатель: ' + A.fullName(me) + ' · ' + A.roleLabel(me) : '',
+      tabs: [ ['all', 'Все', all.length], ['unread', 'Непрочитанные', unread] ].map(([id, label, n]) => ({ label, on: s.tab === id, n:String(n), hasN: n > 0,
+        nStyle:`min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${id === 'unread' ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
+        pick: () => this.setState({ tab:id, page:1 }), style: tabStyle(s.tab === id) })),
+      closeHref: arm === 'fk' ? 'АРМ ФК.dc.html#active' : 'АРМ ННЦРЗ.dc.html#registry',
+      cols: [ ['№', 88, 20], ['ID заявки', 128], ['Наименование услуги', 200], ['Статус', 236], ['Дата действия', 148], ['Текст уведомления', 0] ].map(([label, w, pl]) => ({ label: arm === 'fk' && label === 'ID заявки' ? '№ комиссии' : label, style: hc + (w ? `width:${w}px;flex:0 0 auto;` : 'flex:1;min-width:0;') + (pl ? `padding-left:${pl}px;` : '') })),
+      rows, empty: ready && rows.length === 0, emptyTitle: s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Уведомлений пока нет',
+      hasPager: list.length > per, range: ((page - 1) * per + 1) + '–' + Math.min(page * per, list.length) + ' из ' + list.length,
+      pages: Array.from({ length:pages }, (_, i) => ({ n:String(i + 1), cur: i + 1 === page ? 'page' : 'false', aria:'Страница ' + (i + 1), go: () => this.setState({ page:i + 1 }) })),
+      noPrev: page <= 1, noNext: page >= pages,
+      prev: () => this.setState({ page:Math.max(1, page - 1) }), next: () => this.setState({ page:Math.min(pages, page + 1) }),
+    };
+  }
+}
+</script>
+</body>
+</html>

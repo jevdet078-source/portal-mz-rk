@@ -21,8 +21,8 @@
   Каждый шаг: «Сведения об услуге» (БИН, № заявки, дата и время отправки, статус шага, срок,
   «Осталось дней» — посекундно, формат Nд:ЧЧч:ММм:ССс) + действие шага. Все отправки — через ЭЦП.
 
-  Панель «Прототип» справа внизу — решения ННЦРЗ и ФК для текущего состояния заявки, «Истечь срок»
-  для таймеров заявителя и внутренний этап / статус ННЦРЗ (заявителю не виден).
+  Панель «Прототип» слева внизу — ссылки «Открыть в АРМ ННЦРЗ» / «Открыть в АРМ ФК» (решения принимают
+  сотрудники в АРМ экспертов), «Истечь срок» для таймеров заявителя и внутренний этап / статус ННЦРЗ (заявителю не виден).
 -->
 <x-dc>
 <helmet>
@@ -86,6 +86,7 @@
 
 <div style="min-height:100vh;background:var(--n50);">
   <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <dc-import name="EdArm" hint-size="0px,0px"></dc-import>
   <dc-import name="EdSign" hint-size="0px,0px"></dc-import>
   <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
 
@@ -397,12 +398,14 @@
     <div style="{{ ppBox }}">
       <button onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}" style="width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;">
         <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
-        <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип · ННЦРЗ</span>
+        <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
         <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);"></i>
       </button>
       <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ true }}">
         <div style="padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--stroke);">
           <div style="font-size:12px;line-height:16px;color:var(--n500);">Внутри ННЦРЗ (заявитель не видит):<br><b style="color:var(--n900);font-weight:500;">{{ ppStage }}</b> · <b style="color:var(--n900);font-weight:500;">{{ ppStatus }}</b></div>
+          <a class="pp-btn" href="{{ ppArmHref }}" style="text-decoration:none;"><i class="ri-hospital-line" style="font-size:15px;color:#4D42E9;flex:0 0 auto;"></i>Открыть в АРМ ННЦРЗ</a>
+          <sc-if value="{{ ppHasFk }}" hint-placeholder-val="{{ false }}"><a class="pp-btn" href="{{ ppFkHref }}" style="text-decoration:none;"><i class="ri-team-line" style="font-size:15px;color:#6E3FF3;flex:0 0 auto;"></i>Открыть в АРМ ФК</a></sc-if>
           <sc-for list="{{ ppEvents }}" as="e" hint-placeholder-count="2">
             <button class="pp-btn" onClick="{{ e.onClick }}"><i class="{{ e.icon }}" style="{{ e.iconStyle }}"></i>{{ e.label }}</button>
           </sc-for>
@@ -519,6 +522,11 @@ class Component extends DCLogic {
       const pct = step.kind === 'pay20' ? 20 : 80;
       v.docsTitle = 'Счёт на оплату ' + pct + '%';
       v.docs = nnDocs(step.docs);
+      // ННЦРЗ не подтвердил оплату (UC01.13.3.4.1 Alt 7, UC01.13.3.4.2.1 Alt 5): комментарий эксперта и срок «остаток + 1 рабочий день»
+      if(step.reject){
+        v.note = { tone:'orange', icon:'ri-error-warning-line', title:'ННЦРЗ не подтвердил поступление оплаты', paras:[ step.reject.comment || 'Платёж не поступил.', 'Оплатите счёт и снова прикрепите платёжное поручение до ' + ED.fmtDT(step.timer.deadline) + ' (остаток срока + 1 рабочий день). Повторная неоплата прекращает рассмотрение заявки.' ] };
+        if(step.reject.file) v.docs = v.docs.concat(nnDocs([ { title:'Документ ННЦРЗ к замечанию', id:'', name:step.reject.file.name, size:step.reject.file.size } ]));
+      }
       if(open){
         v.act = { title:'Платёжное поручение ' + pct + '%', desc:'Оплатите счёт на ' + ED.money(ED.PRICE * pct / 100) + ' и прикрепите платёжное поручение.', choice:false, text:false,
           up:'Платёжное поручение', formats:'PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG · до 300 МБ', kind:'pay', send:'Отправить документ' };
@@ -541,7 +549,7 @@ class Component extends DCLogic {
     }
     if(step.kind === 'remarks'){
       v.docs = nnDocs(step.docs);
-      v.note = { tone:'orange', icon:'ri-error-warning-line', title:'Замечания эксперта', paras: step.items, proposal:true };
+      v.note = { tone:'orange', icon:'ri-error-warning-line', title:'Замечания эксперта', paras: step.items };
       if(open) v.act = { title:'Ответ на замечания', desc:'Исправьте замечания: опишите изменения и приложите исправленные документы одним файлом.', choice:false, text:true,
         up:'Исправленные документы', formats:'ZIP, RAR, 7Z, DOCX, XLSX, PDF, JPG, PNG · до 500 МБ', kind:'dossier', send:'Отправить ответ' };
       else if(step.reply) v.reply = { title:'Ваш ответ', text:step.reply.text, files:(step.reply.files || []).map(f => fileRow(f, 'Отправлен ' + ED.fmtDT(step.at))) };
@@ -550,6 +558,7 @@ class Component extends DCLogic {
     if(step.kind === 'refuse' || step.kind === 'avr'){
       const prof = step.kind === 'avr';
       v.docs = nnDocs(step.docs);
+      if(step.comment) v.note = { tone:'red', icon:'ri-file-forbid-line', title:'Причина отказа', paras:[ step.comment ] };
       if(open){
         if(step.round === 1){
           v.act = { title:'Ваше решение', desc: prof ? 'Ознакомьтесь с заключением профессиональной экспертизы. Согласны — подпишите акт выполненных работ и прикрепите его. Не согласны — прикрепите мотивированный отказ.' : 'ННЦРЗ отказал в проведении профессиональной экспертизы. Согласны — подпишите акт выполненных работ и прикрепите его. Не согласны — прикрепите мотивированный отказ.',
@@ -582,7 +591,8 @@ class Component extends DCLogic {
       const mail = true;
       const R = {
         p7:{ tone:'green', icon:'ri-checkbox-circle-fill', title:'ЛС / МИ включено в перечень Единого дистрибьютора', paras:[ 'Настоящим уведомляем, что заявленное ' + cat + ' соответствует пункту 7 Правил и подлежит включению в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора, в автоматическом порядке — без отдельного рассмотрения.', 'Основание: пункт 7 Правил формирования перечня закупа (приказ МЗ РК № ҚР ДСМ-324/2020).' ], mail },
-        unpaid20:{ tone:'gray', icon:'ri-forbid-line', title:'Экспертиза прекращена', paras:[ 'Счёт на оплату 20 % не оплачен в установленный срок. Проведение экспертизы по заявке прекращено.' ], mail:false },
+        unpaid20:{ tone:'gray', icon:'ri-forbid-line', title:'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 20 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 20 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
+        unpaid80:{ tone:'gray', icon:'ri-forbid-line', title:'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 80 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 80 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
         unfixed:{ tone:'gray', icon:'ri-forbid-line', title:'Экспертиза прекращена', paras:[ 'Замечания ННЦРЗ не устранены в установленный срок. Проведение экспертизы по заявке прекращено.' ], mail:false },
         refused:{ tone:'red', icon:'ri-close-circle-fill', title:'Отказано в проведении профессиональной экспертизы', paras:[ 'Обработка заявки завершена. Мотивированный отказ и акт выполненных работ — в шаге «Отказ в рассмотрении».' ], mail },
         fk: app.include
@@ -799,7 +809,9 @@ class Component extends DCLogic {
       ppBox:`position:fixed;left:112px;bottom:20px;z-index:50;width:${s.ppOpen ? 300 : 248}px;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;`,
       ppStage: (app.nn && app.nn.stage) || '—', ppStatus: (app.nn && app.nn.status) || '—',
       ppEvents, ppEmpty: ppEvents.length === 0,
-      ppEmptyText: final ? 'Обработка заявки завершена.' : lastActs ? 'Ждём действия заявителя — выполните его в карточке.' : 'Нет доступных решений.',
+      ppEmptyText: final ? 'Обработка заявки завершена.' : lastActs ? 'Ждём действия заявителя — выполните его в карточке.' : 'Решения принимают сотрудники в АРМ ННЦРЗ и АРМ ФК.',
+      ppArmHref: 'Карточка заявки ННЦРЗ.dc.html?n=' + app.num,
+      ppHasFk: !!(app.nn && app.nn.stage === 'Рассмотрение формулярной комиссией'), ppFkHref: (() => { const A = window.mpArm; const c = A && A.ready ? A.commissionOf(app.num) : null; return c ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(c.id) : 'АРМ ФК.dc.html#active'; })(),
       failOn, ppFailStyle: failOn ? 'background:#FDEDF0;border-color:#F8C9D2;color:#710E21;' : '',
       ppFail: () => { ED.setFail(!failOn); },
       ppReset: () => { ED.reset(); location.href = 'Прочие услуги.dc.html'; },
