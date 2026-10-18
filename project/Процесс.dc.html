@@ -23,7 +23,9 @@
 
   Процесс — #ls / #mi. Состояние процесса (этап) — панель прототипа внизу справа,
   хранится в localStorage['mp-proc-<id>'] = p1 | p2 | p3 | p45 | done.
-  Этап 2 интерактивный: загрузить чек → «Отправить» → подтверждение в модалке → чек отправлен.
+  Этап 2 интерактивный (UC11.03, оплата через ПШЭП — UC9.16 / UC9.15): выбор вида пошлины →
+  «Перейти к оплате» → статус платежа (9 состояний, раздел 6) → доверенность → «Отправить» → модалка.
+  Ответ ПШЭП и callback об оплате эмулируются строкой «Платёж» панели прототипа.
 -->
 <x-dc>
 <helmet>
@@ -146,11 +148,11 @@
                       <!-- реквизиты госпошлины -->
                       <sc-if value="{{ st.hasReq }}" hint-placeholder-val="{{ false }}">
                         <div style="border:1px solid var(--stroke);border-radius:16px;overflow:hidden;background:var(--n0);box-shadow:var(--sh-xs);">
-                          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:var(--n100);border-bottom:1px solid var(--stroke);">
+                          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:16px;background:var(--n100);border-bottom:1px solid var(--stroke);">
                             <div style="display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n500);"><i class="ri-error-warning-line" style="font-size:20px;"></i>{{ st.reqHead }}</div>
                             <button onClick="{{ noop }}" style="display:inline-flex;align-items:center;gap:2px;padding:6px 10px 6px 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);flex:0 0 auto;"><i class="ri-download-line" style="font-size:20px;"></i><span style="padding:0 4px;">Скачать реквизиты</span></button>
                           </div>
-                          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px;font-size:14px;line-height:20px;letter-spacing:-.006em;">
+                          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px;padding:16px;font-size:14px;line-height:20px;letter-spacing:-.006em;">
                             <div><div style="color:var(--n500);margin-bottom:2px;">Сумма пошлины</div><div style="color:var(--n900);">На регистрацию <span style="font-weight:500;">11 МРП</span>,<br />На перерегистрацию <span style="font-weight:500;">5 МРП</span></div></div>
                             <div><div style="color:var(--n500);margin-bottom:2px;">Получатель</div><div style="color:var(--n900);">РГУ «Комитет медицинского и фармацевтического контроля Министерства здравоохранения Республики Казахстан»</div></div>
                             <div><div style="color:var(--n500);margin-bottom:2px;">Реквизиты</div><div style="color:var(--n900);">КНП 911, КБК 105428</div></div>
@@ -159,7 +161,42 @@
                         </div>
                       </sc-if>
 
-                      <!-- загрузка чека и доверенности -->
+                      <!-- UC11.03: вид пошлины, переход в ПШЭП и статус платежа -->
+                      <sc-if value="{{ st.hasFee }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                          <div id="fee-label" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ st.feeLabel }}<span style="color:var(--red);">{{ st.feeStar }}</span></div>
+                          <div role="radiogroup" aria-labelledby="fee-label" aria-required="{{ st.feeReq }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+                            <sc-for list="{{ st.fees }}" as="f" hint-placeholder-count="3">
+                              <button role="radio" aria-checked="{{ f.checked }}" aria-disabled="{{ f.locked }}" title="{{ f.tip }}" onClick="{{ f.onPick }}" style="{{ f.style }}">
+                                <span style="{{ f.ring }}"><span style="{{ f.dot }}"></span></span>
+                                <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                                  <span style="{{ f.titleStyle }}">{{ f.title }}</span>
+                                  <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ f.sub }}</span>
+                                </span>
+                              </button>
+                            </sc-for>
+                          </div>
+                          <sc-if value="{{ st.hasPayRow }}" hint-placeholder-val="{{ true }}">
+                            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+                              <sc-if value="{{ st.showPay }}" hint-placeholder-val="{{ true }}">
+                                <button onClick="{{ st.onPay }}" aria-disabled="{{ st.payOff }}" aria-busy="{{ st.payBusy }}" title="{{ st.payTip }}" style="{{ st.payStyle }}">
+                                  <sc-if value="{{ st.payLoading }}" hint-placeholder-val="{{ false }}"><span style="width:16px;height:16px;margin:2px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:mp-spin .8s linear infinite;"></span></sc-if>
+                                  <span style="padding:0 4px;">Перейти к оплате</span>
+                                  <sc-if value="{{ st.payIdle }}" hint-placeholder-val="{{ true }}"><i class="ri-external-link-line" style="font-size:20px;"></i></sc-if>
+                                </button>
+                              </sc-if>
+                              <sc-if value="{{ st.hasPs }}" hint-placeholder-val="{{ false }}">
+                                <div role="status" style="{{ st.ps.style }}">
+                                  <i class="{{ st.ps.icon }}" style="{{ st.ps.iconStyle }}"></i>
+                                  <span style="min-width:0;">{{ st.ps.text }}<sc-if value="{{ st.ps.paid }}" hint-placeholder-val="{{ false }}"><span style="color:var(--n400);">&nbsp;·&nbsp;</span><span style="color:var(--n500);white-space:nowrap;">{{ st.ps.date }}</span><span style="color:var(--n400);">&nbsp;·&nbsp;</span><a href="#" onClick="{{ noop }}" target="_blank" rel="noopener" title="Откроется на сайте ПШЭП" style="display:inline-flex;align-items:center;gap:2px;font-weight:500;color:var(--primary);text-decoration:none;white-space:nowrap;">Электронный чек<i class="ri-external-link-line" style="font-size:16px;"></i></a></sc-if></span>
+                                </div>
+                              </sc-if>
+                            </div>
+                          </sc-if>
+                        </div>
+                      </sc-if>
+
+                      <!-- загрузка доверенности -->
                       <sc-for list="{{ st.slots }}" as="sl" hint-placeholder-count="0">
                         <div style="display:flex;flex-direction:column;gap:12px;">
                           <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ sl.label }}<span style="font-weight:400;color:var(--n500);">{{ sl.labelSub }}</span><span style="color:var(--red);">{{ sl.star }}</span></div>
@@ -189,7 +226,7 @@
                       </sc-for>
 
                       <sc-if value="{{ st.hasSend }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ openModal }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:4px;padding:8px 12px 8px 8px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);"><i class="ri-send-plane-line" style="font-size:20px;"></i><span style="padding:0 4px;">Отправить</span></button>
+                        <button onClick="{{ st.onSend }}" aria-disabled="{{ st.sendOff }}" title="{{ st.sendTip }}" style="{{ st.sendStyle }}"><i class="ri-send-plane-line" style="font-size:20px;"></i><span style="padding:0 4px;">Отправить</span></button>
                       </sc-if>
 
                       <!-- документы: заключение, свидетельство, отправленные файлы -->
@@ -231,15 +268,15 @@
     </main>
   </div>
 
-  <!-- Status Modals [1.0] — «Отправить чек?» -->
+  <!-- Status Modals [1.0] — подтверждение отправки этапа 2 -->
   <sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;animation:mp-fade .15s ease;">
       <div onClick="{{ stop }}" style="width:434px;max-width:calc(100% - 32px);background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);overflow:hidden;">
         <div style="display:flex;gap:16px;padding:20px;">
           <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-information-fill" style="font-size:24px;color:var(--primary);"></i></div>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
-            <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">Отправить чек?</div>
-            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">После отправки замена файла будет недоступна. Убедитесь, что файл корректен.</div>
+            <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">Отправить?</div>
+            <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ modalText }}</div>
           </div>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:12px;padding:16px 20px;border-top:1px solid var(--stroke);">
@@ -251,18 +288,37 @@
   </sc-if>
 
   <!-- Панель прототипа: процесс и его этап -->
-  <div style="position:fixed;right:20px;bottom:20px;z-index:50;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:8px 8px 8px 14px;display:flex;align-items:center;gap:10px;">
-    <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
-    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
-      <sc-for list="{{ demoProc }}" as="o" hint-placeholder-count="2">
-        <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
-      </sc-for>
+  <div data-proto-panel style="position:fixed;right:20px;bottom:20px;z-index:50;max-width:calc(100% - 40px);background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:8px 8px 8px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+    <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;">
+      <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
+      <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+        <sc-for list="{{ demoProc }}" as="o" hint-placeholder-count="2">
+          <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+        <sc-for list="{{ demoPhase }}" as="o" hint-placeholder-count="5">
+          <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+        </sc-for>
+      </div>
     </div>
-    <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
-      <sc-for list="{{ demoPhase }}" as="o" hint-placeholder-count="5">
-        <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
-      </sc-for>
-    </div>
+    <!-- этап 2: ответ ПШЭП / callback UC9.15 и требование доверенности -->
+    <sc-if value="{{ demoFeeOn }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;">
+        <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Платёж</span>
+        <div style="display:flex;flex-wrap:wrap;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+          <sc-for list="{{ demoPay }}" as="o" hint-placeholder-count="7">
+            <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+          </sc-for>
+        </div>
+        <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Доверенность</span>
+        <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+          <sc-for list="{{ demoPoa }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
   </div>
 </div>
 </x-dc>
@@ -270,24 +326,45 @@
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.state = { id:'ls', phase:'p1', open:null, receipt:false, poa:false, sent:false, modal:false };
+    // fee — вид пошлины (reg | rereg | free), pay — статус платежа в ЕО (UC11.03, раздел 6):
+    // none · created · pending · hold · paid · error · check; poaReq — доверенность обязательна
+    this.state = { id:'ls', phase:'p1', open:null, ...this.fresh() };
   }
+  fresh(){ return { fee:null, pay:'none', poa:false, poaReq:false, sent:false, modal:false }; }
   componentDidMount(){
     this.readHash();
     this._onHash = () => this.readHash();
     window.addEventListener('hashchange', this._onHash);
   }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); clearTimeout(this._payTimer); }
 
   readHash(){
     const id = (location.hash || '').replace('#','') === 'mi' ? 'mi' : 'ls';
     let phase = id === 'mi' ? 'p45' : 'p1';
     try { const v = localStorage.getItem('mp-proc-' + id); if(['p1','p2','p3','p45','done'].includes(v)) phase = v; } catch(e){}
-    this.setState({ id, phase, open:null, receipt:false, poa:false, sent:false, modal:false });
+    clearTimeout(this._payTimer);
+    this.setState({ id, phase, open:null, ...this.fresh() });
   }
   setPhase(phase){
-    this.setState({ phase, open:null, receipt:false, poa:false, sent:false, modal:false });
+    clearTimeout(this._payTimer);
+    this.setState({ phase, open:null, ...this.fresh() });
     try { localStorage.setItem('mp-proc-' + this.state.id, phase); } catch(e){}
+  }
+  // «Перейти к оплате»: ЕО создаёт платёж, получает paymentUrl от ПШЭП и открывает его в новой вкладке.
+  // В прототипе ответ ПШЭП и callback UC9.15 эмулируются панелью «Платёж».
+  startPay(){
+    const { fee, pay } = this.state;
+    if(!fee || fee === 'free') return;
+    if(pay === 'pending') return;                         // та же ссылка, новый платёж не создаётся
+    if(pay !== 'none' && pay !== 'error') return;
+    clearTimeout(this._payTimer);
+    this.setState({ pay:'created' });
+    this._payTimer = setTimeout(() => this.setState({ pay:'pending' }), 1600);
+  }
+  demoSetPay(pay){
+    clearTimeout(this._payTimer);
+    const fee = pay === 'none' ? this.state.fee : (this.state.fee && this.state.fee !== 'free' ? this.state.fee : 'reg');
+    this.setState({ pay, fee });
   }
   openList(){
     if(this.state.open) return this.state.open;
@@ -366,18 +443,80 @@ class Component extends DCLogic {
     });
     const card = (title, meta, action, label, labelSub) => ({ title, meta, action, hasLabel:!!label, label:label || '', labelSub:labelSub || '' });
     const FILE = 'document_11022024_001211.pdf';
-    const slot = (kind) => ({
-      label: kind === 'receipt' ? 'Загрузите чек оплаты' : 'Загрузите доверенность',
-      labelSub: kind === 'poa' ? ' (Для иностранных производителей)' : '',
-      star: kind === 'receipt' ? '*' : '',
-      empty: !s[kind], uploaded: !!s[kind],
-      onPick: () => this.setState({ [kind]:true }),
-      onRemove: () => this.setState({ [kind]:false }),
+    const slot = () => ({
+      label: 'Загрузите доверенность', labelSub: ' (Для иностранных производителей)', star: s.poaReq ? '*' : '',
+      empty: !s.poa, uploaded: s.poa,
+      onPick: () => this.setState({ poa:true }),
+      onRemove: () => this.setState({ poa:false }),
     });
+
+    /* ── Этап 2: оплата госпошлины через ПШЭП (UC11.03) ─────────────── */
+    const FEES = [['reg','На регистрацию','11 МРП'], ['rereg','На перерегистрацию','5 МРП'], ['free','Внесение изменений','Бесплатно']];
+    const PAY_DATE = '03.04.2026';
+    // выбор вида доступен, пока платёж не создан или создать его не удалось (состояния 1, 2, 7, 9)
+    const feeLocked = (sent) => sent || !['none','error'].includes(s.pay);
+    const feeOptions = (sent, fee) => FEES.map(([id, title, sub]) => {
+      const checked = fee === id, locked = feeLocked(sent);
+      const border = checked ? 'var(--primary)' : 'var(--stroke)';
+      const fill = checked ? 'var(--primary)' : 'var(--n0)';
+      return { id, title, sub, checked: String(checked), locked: String(locked),
+        tip: locked ? (sent ? '' : 'Вид пошлины нельзя изменить после создания платежа') : '',
+        onPick: () => { if(!locked) this.setState({ fee:id }); },
+        style:`display:flex;align-items:flex-start;gap:10px;width:100%;padding:12px;border:1px solid ${border};border-radius:12px;`
+          + `background:${checked && !locked ? 'var(--primary-lighter)' : locked ? 'var(--n50)' : 'var(--n0)'};`
+          + `box-shadow:${checked && !locked ? '0 0 0 1px var(--primary)' : 'var(--sh-xs)'};font-family:inherit;text-align:left;`
+          + `cursor:${locked ? 'default' : 'pointer'};opacity:${locked && !checked ? .56 : 1};transition:border-color .15s,background .15s;`,
+        ring:`width:16px;height:16px;margin:2px 0;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;`
+          + `background:${fill};box-shadow:inset 0 0 0 ${checked ? 0 : 1.5}px var(--n300);`,
+        dot:`width:6px;height:6px;border-radius:50%;background:${checked ? '#fff' : 'transparent'};`,
+        titleStyle:`font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:${locked && !checked ? 'var(--n500)' : 'var(--n900)'};` };
+    });
+    const PS = {
+      pending:['#FEF3EB','ri-time-line','#F17B2C','Ожидается оплата государственной пошлины'],
+      hold:   ['#EEF2FF','ri-loader-4-line','#4D42E9','Платеж обрабатывается, дождитесь подтверждения'],
+      paid:   ['#EFFAF6','ri-checkbox-circle-fill','#38C793','Пошлина оплачена'],
+      error:  ['#FDEDF0','ri-error-warning-fill','#DF1C41','Не удалось получить ссылку на оплату. Повторите попытку позже'],
+      check:  ['#FEF3EB','ri-error-warning-line','#F17B2C','Платеж проверяется, обратитесь в службу поддержки'],
+      free:   ['#EEF2FF','ri-information-line','#4D42E9','Оплата государственной пошлины не требуется'],
+    };
+    const payStatus = (key) => {
+      const T = PS[key];
+      return { text:T[3], icon:T[1], paid: key === 'paid', date:PAY_DATE,
+        style:`display:inline-flex;align-items:flex-start;gap:8px;max-width:100%;padding:8px 10px;border-radius:8px;background:${T[0]};font-size:14px;line-height:20px;letter-spacing:-.006em;color:#0A0D14;`,
+        iconStyle:`font-size:20px;color:${T[2]};flex:0 0 auto;${key === 'hold' ? 'animation:mp-spin 1.4s linear infinite;' : ''}` };
+    };
+    const btn = (on, busy) => `align-self:flex-start;display:inline-flex;align-items:center;gap:4px;padding:8px 8px 8px 12px;border:none;border-radius:8px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;flex:0 0 auto;transition:background .15s;`
+      + (on || busy ? `background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);cursor:${busy ? 'progress' : 'pointer'};${busy ? 'opacity:.72;' : ''}`
+                    : 'background:var(--n100);color:var(--n400);box-shadow:none;cursor:not-allowed;');
+    const feeWork = (b) => {
+      const isFree = s.fee === 'free', paid = s.pay === 'paid', busy = s.pay === 'created';
+      const payOn = !!s.fee && !isFree && ['none','pending','error'].includes(s.pay);
+      const poaOk = !s.poaReq || s.poa;
+      const sendOn = poaOk && (isFree || (!!s.fee && paid));
+      const psKey = isFree ? 'free' : PS[s.pay] ? s.pay : null;
+      Object.assign(b, {
+        hasFee:true, feeLabel:'Выберите вид пошлины', feeStar:'*', feeReq:'true', fees: feeOptions(false, s.fee), hasPayRow: true,
+        showPay: !isFree, payLoading: busy, payIdle: !busy,
+        payOff: String(!payOn), payBusy: String(busy),
+        payTip: busy ? '' : !s.fee ? 'Выберите вид пошлины' : s.pay === 'pending' ? 'Откроется та же страница оплаты' : payOn ? 'Страница оплаты ПШЭП откроется в новой вкладке' : '',
+        payStyle: btn(payOn, busy),
+        onPay: () => { if(payOn) this.startPay(); },
+        hasPs: !!psKey, ps: psKey ? payStatus(psKey) : payStatus('free'),
+        hasSend:true, sendOff: String(!sendOn), sendStyle: btn(sendOn, false),
+        sendTip: sendOn ? '' : !s.fee ? 'Выберите вид пошлины' : !(isFree || paid) ? 'Станет доступна после оплаты пошлины' : 'Загрузите доверенность',
+        onSend: () => { if(sendOn) this.setState({ modal:true }); },
+      });
+    };
+    const feeResult = (b, fee) => {
+      Object.assign(b, { hasFee:true, feeLabel:'Вид пошлины', feeStar:'', feeReq:'false', fees: feeOptions(true, fee),
+        hasPayRow:true, showPay:false, hasPs:true, ps: payStatus(fee === 'free' ? 'free' : 'paid') });
+    };
     const EXPERT_NOTE = 'Отслеживание статуса доступно на портале ИС «Экспертиза»';
 
     const body = (st, status) => {
-      const b = { bannersTop:[], bannersBottom:[], steps:[], hasReq:false, reqHead:'', slots:[], hasSend:false, cards:[], hasGo:false };
+      const b = { bannersTop:[], bannersBottom:[], steps:[], hasReq:false, reqHead:'', slots:[], hasSend:false, cards:[], hasGo:false,
+        hasFee:false, feeLabel:'', feeStar:'', feeReq:'false', fees:[], hasPayRow:false, showPay:false, payLoading:false, payIdle:true, payOff:'true', payBusy:'false', payTip:'', payStyle:'',
+        onPay:noop, hasPs:false, ps:payStatus('free'), sendOff:'true', sendTip:'', sendStyle:'', onSend:noop };
       if(st.kind === 'expert'){
         if(status === 'done'){
           b.steps = steps([['Подача заявления','done','30.03.2026',EXPERT_NOTE], ['Обработка заявления','done','31.03.2026'], ['Результат услуги сформирован','done','03.04.2026']]);
@@ -390,16 +529,15 @@ class Component extends DCLogic {
         if(status === 'wait'){
           b.bannersBottom = [banner('info', 'Этап станет доступен после получения заключения о безопасности.')];
         } else if(status === 'work' && !s.sent){
-          b.bannersTop = [banner('warn', 'Ожидается оплата государственной пошлины')];
-          b.hasReq = true; b.reqHead = 'Оплатите пошлину по указанным реквизитам и прикрепите чек';
-          b.slots = [slot('receipt'), slot('poa')];
-          b.hasSend = s.receipt;
+          b.hasReq = true; b.reqHead = 'Выберите вид пошлины и перейдите к оплате';
+          feeWork(b);
+          b.slots = [slot()];
         } else {
           const done = status === 'done';
-          b.bannersTop = [banner('ok', done ? 'Чек успешно отправлен — 03.04.2026. Оплата подтверждена.' : 'Чек успешно отправлен — 03.04.2026. Этап 3 будет запущен автоматически.')];
+          if(!done) b.bannersTop = [banner('ok', 'Отправлено — ' + PAY_DATE + '. Этап 3 будет запущен автоматически.')];
           b.hasReq = true; b.reqHead = 'Реквизиты';
-          b.cards = [card(FILE, 'PDF ∙ 1.2 МБ ∙ 05.04.2026', 'Скачать', 'Чек оплаты')];
-          if(done || s.poa) b.cards.push(card(FILE, 'PDF ∙ 1.2 МБ ∙ 05.04.2026', 'Скачать', 'Доверенность', ' (Для иностранных производителей)'));
+          feeResult(b, done ? 'reg' : s.fee);
+          if(done || s.poa) b.cards = [card(FILE, 'PDF ∙ 1.2 МБ ∙ ' + PAY_DATE, 'Скачать', 'Доверенность', ' (Для иностранных производителей)')];
         }
       }
       if(st.kind === 'reg'){
@@ -466,11 +604,15 @@ class Component extends DCLogic {
       goCurrent: () => { if(current) this.goTo(current.nums); },
       stages, noop,
       modal: s.modal,
-      openModal: () => this.setState({ modal:true }),
+      modalText: s.poa ? 'После отправки изменить вид пошлины и доверенность будет нельзя.' : 'После отправки изменить вид пошлины будет нельзя.',
       closeModal: () => this.setState({ modal:false }),
       stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
       confirmSend: () => this.setState({ modal:false, sent:true }),
       demoProc, demoPhase,
+      demoFeeOn: phase === 'p2' && !s.sent,
+      demoPay: [['none','Не создан'], ['created','Создан'], ['pending','Ожидает'], ['hold','Удержан'], ['paid','Оплачен'], ['error','Ошибка'], ['check','Проверка']]
+        .map(([id, label]) => ({ label, style:seg(s.pay === id), onClick: () => this.demoSetPay(id) })),
+      demoPoa: [[false,'Не нужна'], [true,'Нужна']].map(([v, label]) => ({ label, style:seg(s.poaReq === v), onClick: () => this.setState({ poaReq:v }) })),
     };
   }
 }
