@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Новая главная портала — общий «бэкенд» вариантов A–E («Главная A - Ясный» … «Главная E - AI-помощник»).
+  Невизуальный компонент: подключается через <dc-import name="HomeData" hint-size="0px,0px">,
+  кладёт API в window.mpHome и рассылает событие 'mp-home-ready'.
+
+  Что внутри:
+    • 10 брендовых палитр (PALETTES) и applyTheme(): CSS-переменные --b50 … --b950, --bacc на <html>.
+      Выбор хранится в localStorage['mp-theme'], смена — событие 'mp-theme-change'.
+      Нейтральные цвета — AlignUI (n0 … n900), их не трогаем.
+    • Контент главной по ролям — тот же, что на текущей главной («Портал Минздрава - Главная»):
+      разделы и ссылки, «Часто ищут», «Новое на портале», «Полезные ссылки», FAQ, новости, ответы AI.
+      Плюс популярные госуслуги с кодами eGov — из «Государственные услуги.dc.html».
+    • search(q, role) — подсказки поиска по услугам и разделам; botReply(q, role) — ответы AI.
+    • Доступность: localStorage['mp-a11y'] = { size:'md'|'lg'|'xl', contrast:bool } → атрибуты на <html>.
+  Общие стили новых страниц (.hm-*) — в helmet этого компонента.
+-->
+<x-dc>
+<helmet>
+<style>
+  /* Палитра по умолчанию — «Небесная лазурь»; HomeData перезаписывает переменные выбранной палитрой */
+  :root{
+    --b50:#EEF8FC; --b100:#D6EEF7; --b200:#ACDCEE; --b300:#7CC8E4; --b400:#3FB0D9; --b500:#1AA3CF; --b600:#0B7AA6; --b700:#086286; --b800:#0A4F6C; --b900:#0B3A50; --b950:#06222F; --bacc:#E3A92B;
+    /* нейтральные — AlignUI один в один */
+    --n0:#FFFFFF; --n50:#FBFCFD; --n100:#F6F8FA; --n200:#E2E4E9; --n300:#CDD0D5; --n400:#868C98; --n500:#525866; --n600:#31353F; --n700:#20232D; --n900:#0A0D14;
+    --red:#DF1C41; --red-l:#FDEDF0; --red-d:#710E21; --green:#38C793; --green-l:#EFFAF6; --green-d:#176448; --orange:#F17B2C; --orange-l:#FEF3EB;
+    --hm-sh1:0 1px 2px rgba(10,13,20,.04);
+    --hm-sh2:0 1px 2px rgba(10,13,20,.04),0 6px 16px -6px rgba(10,13,20,.08);
+    --hm-sh3:0 24px 48px -20px rgba(10,13,20,.22);
+    --gut:clamp(16px,3.4vw,72px);
+    --wrap:1760px;
+    --hm-ease:cubic-bezier(.2,.7,.2,1);
+  }
+  html[data-contrast="hi"]{ --n400:#525866; --n500:#31353F; --n300:#868C98; --n200:#B9BEC7; }
+  html[data-a11y="lg"]{ zoom:1.125; }
+  html[data-a11y="xl"]{ zoom:1.25; }
+
+  /* Страница проявляется, когда заставка ушла (или её нет) — без «прыжков» подгружаемых блоков */
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+
+  .hm-root{ font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; font-feature-settings:'cv11','ss01'; }
+  .hm-root *, .hm-root *::before, .hm-root *::after{ box-sizing:border-box; }
+  .hm-wrap{ width:min(100% - 2*var(--gut), var(--wrap)); margin-inline:auto; }
+  .hm-root :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; border-radius:10px; }
+  .hm-root input:focus-visible, .hm-root textarea:focus-visible{ outline:none; }
+  .hm-search{ position:relative; z-index:20; }
+  /* Пока открыт список подсказок поиска, все его предки поднимаются над соседними блоками:
+     иначе анимация появления (.hm-in) и isolation создают свои слои, и следующий блок перекрывает список */
+  .hm-root :has(.sb-drop){ position:relative; z-index:60; }
+
+  .hm-eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--b700); }
+  .hm-eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--bacc); }
+  .hm-h2{ font-size:clamp(24px,1.1vw + 14px,34px); line-height:1.18; font-weight:600; letter-spacing:-.022em; margin:0; color:var(--n900); }
+  .hm-lead{ font-size:16px; line-height:1.6; color:var(--n500); margin:0; }
+  .hm-sec{ padding-block:clamp(40px,4.4vw,80px); }
+  .hm-sec-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px 24px; flex-wrap:wrap; margin-bottom:clamp(20px,2vw,32px); }
+  .hm-sec-head > div:first-child{ display:flex; flex-direction:column; gap:10px; }
+
+  .hm-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; height:48px; padding:0 22px; border:none; border-radius:12px; background:var(--b600); color:#fff; font:600 15px/1 'Inter',sans-serif; text-decoration:none; cursor:pointer; transition:background .15s, transform .15s, box-shadow .15s; white-space:nowrap; }
+  .hm-btn:hover{ background:var(--b700); }
+  .hm-btn i{ font-size:19px; }
+  .hm-btn-line{ background:var(--n0); color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .hm-btn-line:hover{ background:var(--n100); }
+  .hm-btn-soft{ background:var(--b50); color:var(--b700); }
+  .hm-btn-soft:hover{ background:var(--b100); }
+  .hm-btn-sm{ height:40px; padding:0 16px; font-size:14px; border-radius:10px; }
+
+  .hm-link{ display:inline-flex; align-items:center; gap:6px; font-size:15px; font-weight:600; color:var(--b700) !important; text-decoration:none; }
+  .hm-link i{ font-size:18px; transition:transform .15s; }
+  .hm-link:hover i{ transform:translateX(3px); }
+
+  .hm-card{ background:var(--n0); border:1px solid var(--n200); border-radius:20px; box-shadow:var(--hm-sh1); }
+  .hm-ico{ width:48px; height:48px; flex:0 0 auto; border-radius:14px; display:flex; align-items:center; justify-content:center; background:var(--b50); color:var(--b600); font-size:24px; }
+  .hm-ico.sm{ width:40px; height:40px; border-radius:11px; font-size:20px; }
+  .hm-ico.red{ background:var(--red-l); color:var(--red); }
+
+  .hm-chip{ display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:none; border-radius:999px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font:500 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; white-space:nowrap; text-decoration:none; }
+  .hm-chip:hover{ box-shadow:inset 0 0 0 1px var(--b300); color:var(--b700); background:var(--b50); }
+
+  .hm-seg{ display:inline-flex; gap:4px; padding:4px; border-radius:14px; background:var(--n100); box-shadow:inset 0 0 0 1px var(--n200); flex-wrap:wrap; }
+  .hm-seg button{ height:40px; padding:0 16px; border:none; border-radius:10px; background:transparent; color:var(--n500); font:500 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; white-space:nowrap; display:inline-flex; align-items:center; gap:8px; }
+  .hm-seg button:hover{ color:var(--n900); }
+  .hm-seg button[aria-pressed="true"]{ background:var(--n0); color:var(--b700); font-weight:600; box-shadow:0 1px 3px rgba(10,13,20,.1); }
+
+  /* Орнамент «қошқар мүйіз»: маска + цвет бренда; svg собирается в HomeData (--hm-orn) */
+  .hm-orn{ position:absolute; inset:0; pointer-events:none; background:var(--b500); -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.07; }
+
+  .hm-root image-slot{ display:block !important; width:100% !important; height:100% !important; }
+  .hm-scroll{ scrollbar-width:none; }
+  .hm-scroll::-webkit-scrollbar{ display:none; }
+  .hm-sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+  /* Подсказка (tooltip): всё второстепенное — пояснения, официальные названия, «где оформляется» —
+     не текстом на странице, а в подсказке по наведению / фокусу. Разметка: data-tip="…" на любом элементе.
+     Один плавающий элемент на документ (HomeData.installTips), не обрезается overflow карточек. */
+  .hm-tip{ position:fixed; z-index:300; max-width:300px; padding:8px 11px; border-radius:10px; background:var(--n900); color:#fff; font:500 13px/1.45 'Inter',system-ui,sans-serif; letter-spacing:-.003em; box-shadow:0 12px 28px -10px rgba(10,13,20,.45); pointer-events:none; opacity:0; transform:translateY(3px); transition:opacity .14s ease, transform .14s ease; }
+  .hm-tip.on{ opacity:1; transform:none; }
+  /* значок «откроется на внешнем портале» — вместо подписи «На портале eGov.kz ↗» */
+  .hm-ext{ font-size:16px; color:var(--n300); flex:0 0 auto; }
+  /* значок-подсказка «i» рядом с заголовком — пояснение только по наведению */
+  .hm-info{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; color:var(--n400); font-size:17px; cursor:help; vertical-align:middle; }
+  .hm-info:hover{ color:var(--b600); }
+  /* «Полезные ссылки» (организации отрасли): лого + название, описание — в подсказке */
+  .hm-orgs{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,300px),1fr)); gap:12px; }
+  .hm-orgs a{ display:flex; align-items:center; gap:14px; padding:14px 16px 14px 14px; border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:box-shadow .15s, background .15s; }
+  .hm-orgs a:hover{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); }
+  .hm-orgs .logo{ width:44px; height:44px; flex:0 0 auto; border-radius:12px; overflow:hidden; background:var(--n100); }
+  .hm-orgs b{ flex:1; min-width:0; font-size:14.5px; font-weight:600; line-height:1.35; }
+
+  @keyframes hm-up{ from{ opacity:0; transform:translateY(16px); } to{ opacity:1; transform:none; } }
+  @keyframes hm-fade{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes hm-drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+  html.mp-ready .hm-in{ animation:hm-up .7s var(--hm-ease) both; }
+  html.mp-ready .hm-in.d1{ animation-delay:.06s; } html.mp-ready .hm-in.d2{ animation-delay:.12s; } html.mp-ready .hm-in.d3{ animation-delay:.18s; } html.mp-ready .hm-in.d4{ animation-delay:.24s; }
+  @media (prefers-reduced-motion:reduce){ .hm-root *, .hm-root *::before, .hm-root *::after{ animation:none !important; transition:none !important; } }
+  .hm-band-soft{ background:linear-gradient(180deg, #fff, var(--n50)); }
+
+  /* ================================================================
+     ОФОРМЛЕНИЕ: <html data-fill="deep | flat | pastel">  (localStorage['mp-fill'])
+     deep   — глубокие градиенты бренда (исходные стили страниц, переопределений нет)
+     flat   — «без градиентов»: только сплошные цвета бренда, декоративные свечения скрыты
+     pastel — пастельные градиенты: тёмные баннеры становятся светлыми, текст — тёмный.
+              Цвета — пресет --pa, --pb, --pc, --pd (localStorage['mp-pastel']; пресеты — PASTELS ниже).
+              На пастели только n900 / n600 / b900: контраст ≥ 6:1 на любой точке градиента.
+     ================================================================ */
+  :root{ --pa:#BAE6FD; --pb:#C7D2FE; --pc:#E0F2FE; --pd:#F5F8FF;
+    --pg-mesh: radial-gradient(70% 90% at 6% 0%, var(--pa), transparent 72%), radial-gradient(60% 85% at 96% 6%, var(--pb), transparent 72%), radial-gradient(70% 80% at 55% 105%, var(--pc), transparent 74%), var(--pd);
+    --pg-lin: linear-gradient(135deg, var(--pa) 0%, var(--pc) 50%, var(--pb) 100%); }
+
+  /* ——— без градиентов ——— */
+  html[data-fill="flat"] .hm-band-soft{ background:var(--n50); }
+  html[data-fill="flat"] .va-hero{ background:var(--b50); }
+  html[data-fill="flat"] .va-glow,
+  html[data-fill="flat"] .va-gov::after,
+  html[data-fill="flat"] .vb-blob, html[data-fill="flat"] .vb-sky .fade,
+  html[data-fill="flat"] .vb-feat::after,
+  html[data-fill="flat"] .vb-glassband::before, html[data-fill="flat"] .vb-glassband::after,
+  html[data-fill="flat"] .vc-sit::after,
+  html[data-fill="flat"] .vd-deco::after,
+  html[data-fill="flat"] .pf::after,
+  html[data-fill="flat"] .hv-hero::after{ display:none; }
+  html[data-fill="flat"] .va-gov, html[data-fill="flat"] .vb-feat, html[data-fill="flat"] .vb-pcta{ background:var(--b700); }
+  html[data-fill="flat"] .vb-sky::before{ background:var(--b900); }
+  html[data-fill="flat"] .vb-h1{ background:none; color:#fff; }
+  html[data-fill="flat"] .vb-tile{ background:rgba(255,255,255,.1); }
+  html[data-fill="flat"] .vb-tile:hover{ background:rgba(255,255,255,.18); }
+  html[data-fill="flat"] .vb-tile[aria-expanded="true"]{ background:#fff; }
+  html[data-fill="flat"] .vb-tile.gov{ background:var(--b600); }
+  html[data-fill="flat"] .vb-glassband{ background:var(--b50); }
+  html[data-fill="flat"] .vb-fresh a{ background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  html[data-fill="flat"] .vc-hero{ background:var(--b50); }
+  html[data-fill="flat"] .vc-role[aria-checked="true"]{ background:var(--b50); }
+  html[data-fill="flat"] .vd-hero{ background:var(--b900); }
+  html[data-fill="flat"] .vd-hero::before{ background:var(--bacc); }
+  html[data-fill="flat"] .vd-cover{ background:var(--b600); }
+  html[data-fill="flat"] .vd-stats{ background:var(--b50); }
+  html[data-fill="flat"] .ve-hero::before{ background:var(--b50); }
+  html[data-fill="flat"] .ve-orb, html[data-fill="flat"] .ai-hello .big{ background:var(--b600); }
+  html[data-fill="flat"] .ve-h1 span{ background:none; color:var(--b700); }
+  html[data-fill="flat"] .ve-field{ background:var(--b300); }
+  html[data-fill="flat"] .sb-ai .sb-ico, html[data-fill="flat"] .ai-logo, html[data-fill="flat"] .fq-more .ic{ background:var(--b600); }
+  html[data-fill="flat"] .ai-fab{ background:var(--b600); }
+  html[data-fill="flat"] .fq-more{ background:var(--b50); }
+  html[data-fill="flat"] .nw-cover{ background:var(--b600); }
+  html[data-fill="flat"] .sp-line{ background:var(--bacc); }
+  html[data-fill="flat"] .sp-emblem{ background:#fff; }
+  html[data-fill="flat"] .sp-ornament{ background:var(--b900); }
+  html[data-fill="flat"] .sp-leaf{ background:var(--b800); }
+  html[data-fill="flat"] .hv-hero{ background:var(--b900); }
+  html[data-fill="flat"] .vf-hcard{ background:var(--b900); }
+  html[data-fill="flat"] .vf-hcard .deco::after{ display:none; }
+  html[data-fill="flat"] .mk-f .hc{ background:var(--b900) !important; }
+  html[data-fill="flat"] .mk-a, html[data-fill="flat"] .mk-c, html[data-fill="flat"] .mk-e{ background:var(--b50); }
+  html[data-fill="flat"] .mk-b{ background:var(--b900); }
+  html[data-fill="flat"] .mk-d{ background:var(--b900); }
+
+  /* ——— пастельные градиенты ——— */
+  html[data-fill="pastel"] .va-hero, html[data-fill="pastel"] .vc-hero{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .va-glow{ display:none; }
+  html[data-fill="pastel"] .ve-hero::before{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .hm-band-soft, html[data-fill="pastel"] .vb-glassband, html[data-fill="pastel"] .vd-stats{ background:linear-gradient(180deg, var(--pd), #fff); }
+  html[data-fill="pastel"] .vb-glassband::before{ background:radial-gradient(closest-side, var(--pa), transparent); }
+  html[data-fill="pastel"] .vb-glassband::after{ background:radial-gradient(closest-side, var(--pb), transparent); }
+  html[data-fill="pastel"] .vc-role[aria-checked="true"]{ background:linear-gradient(120deg, var(--pc), #fff); }
+  html[data-fill="pastel"] .ve-field{ background:linear-gradient(120deg, var(--pa), var(--pb), var(--pc)); }
+  html[data-fill="pastel"] .ve-orb, html[data-fill="pastel"] .ai-hello .big{ background:radial-gradient(120% 120% at 25% 15%, var(--pa), var(--b500) 55%, var(--b700)); }
+  html[data-fill="pastel"] .fq-more{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .nw-cover{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .nw-cover::before{ background:var(--b700); opacity:.08; }
+  html[data-fill="pastel"] .nw-cover i{ color:var(--b800); }
+  /* карточки-акценты: пастель + тёмный текст */
+  html[data-fill="pastel"] .va-gov, html[data-fill="pastel"] .vb-feat, html[data-fill="pastel"] .vb-pcta{ background:var(--pg-lin); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.7); }
+  html[data-fill="pastel"] .va-gov::before, html[data-fill="pastel"] .vb-feat::before, html[data-fill="pastel"] .vb-pcta::before{ background:var(--b700); opacity:.06; }
+  html[data-fill="pastel"] .va-gov::after, html[data-fill="pastel"] .vb-feat::after{ background:radial-gradient(closest-side, rgba(255,255,255,.7), transparent); }
+  html[data-fill="pastel"] .va-gov p, html[data-fill="pastel"] .vb-feat p, html[data-fill="pastel"] .vb-pcta span{ color:var(--n600); }
+  html[data-fill="pastel"] .va-gov .hm-ico, html[data-fill="pastel"] .vb-feat .ic{ background:rgba(255,255,255,.75); color:var(--b700); box-shadow:none; }
+  html[data-fill="pastel"] .va-gov .count, html[data-fill="pastel"] .vb-feat .cnt{ background:rgba(255,255,255,.7); color:var(--b900); }
+  html[data-fill="pastel"] .va-gov-links a{ background:rgba(255,255,255,.62); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); color:var(--n900); }
+  html[data-fill="pastel"] .va-gov-links a:hover{ background:#fff; }
+  html[data-fill="pastel"] .va-gov-all, html[data-fill="pastel"] .vb-feat .go, html[data-fill="pastel"] .vb-pcta a{ background:var(--b600); color:#fff; }
+  /* B — светлое сияние вместо тёмного */
+  html[data-fill="pastel"] .vb-hero{ background:var(--pd); color:var(--n900); }
+  html[data-fill="pastel"] .vb-sky::before{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .vb-blob{ opacity:1; filter:blur(20px); }
+  html[data-fill="pastel"] .vb-blob.b1{ background:radial-gradient(closest-side, var(--pa), transparent); }
+  html[data-fill="pastel"] .vb-blob.b2{ background:radial-gradient(closest-side, var(--pb), transparent); }
+  html[data-fill="pastel"] .vb-blob.b3{ background:radial-gradient(closest-side, var(--pc), transparent); }
+  html[data-fill="pastel"] .vb-sky .grain{ background:var(--b700); opacity:.05; }
+  html[data-fill="pastel"] .vb-sky .fade{ background:linear-gradient(180deg, transparent, rgba(255,255,255,.6)); }
+  html[data-fill="pastel"] .vb-h1{ background:none; color:var(--n900); }
+  html[data-fill="pastel"] .vb-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .vb-badge{ background:rgba(255,255,255,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); color:var(--n600); }
+  html[data-fill="pastel"] .vb-badge span{ background:#fff; color:var(--b900); }
+  html[data-fill="pastel"] .vb-tile{ background:rgba(255,255,255,.55); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9), 0 10px 30px -18px rgba(10,13,20,.25); }
+  html[data-fill="pastel"] .vb-tile:hover{ background:rgba(255,255,255,.8); }
+  html[data-fill="pastel"] .vb-tile[aria-expanded="true"]{ background:#fff; }
+  html[data-fill="pastel"] .vb-tile .ic{ background:#fff; color:var(--b700); box-shadow:none; }
+  html[data-fill="pastel"] .vb-tile.gov{ background:var(--b600); color:#fff; }
+  html[data-fill="pastel"] .vb-tile.gov .ic{ background:rgba(255,255,255,.16); color:#fff; }
+  html[data-fill="pastel"] .vb-tile.red .ic{ background:var(--red-l); color:var(--red); }
+  html[data-fill="pastel"] .vb-panel{ box-shadow:0 30px 60px -28px rgba(10,13,20,.3); }
+  /* D — светлый официальный баннер */
+  html[data-fill="pastel"] .vd-hero{ background:var(--pg-mesh); color:var(--n900); }
+  html[data-fill="pastel"] .vd-deco::before{ background:var(--b700); opacity:.04; }
+  html[data-fill="pastel"] .vd-deco::after{ display:none; }
+  html[data-fill="pastel"] .vd-eye{ color:var(--b900); }
+  html[data-fill="pastel"] .vd-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .vd-show{ background:rgba(255,255,255,.45); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); }
+  html[data-fill="pastel"] .vd-cover{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .vd-cover::before{ background:var(--b700); opacity:.07; }
+  html[data-fill="pastel"] .vd-cover i{ color:var(--b800); }
+  html[data-fill="pastel"] .vd-cover .lbl{ background:rgba(255,255,255,.75); color:var(--b900); }
+  /* поиск и шапка поверх светлого баннера */
+  html[data-fill="pastel"] .sb-glass .sb-chips > span{ color:var(--n600); }
+  html[data-fill="pastel"] .sb-glass .sb-chip{ background:rgba(255,255,255,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); color:var(--n700); }
+  html[data-fill="pastel"] .sb-glass .sb-chip:hover{ background:#fff; color:var(--b800); }
+  html[data-fill="pastel"] .sb-glass .sb-field{ box-shadow:0 0 0 1px rgba(255,255,255,.9), 0 24px 48px -24px rgba(10,13,20,.25); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid){ background:rgba(255,255,255,.35); border-bottom-color:rgba(255,255,255,.7); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-name b{ color:var(--n900); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-name span{ color:var(--n600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role{ color:var(--n600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role:hover, html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]{ color:var(--b900); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]::after{ background:var(--b600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-ibtn{ background:rgba(255,255,255,.7); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); color:var(--n700); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-ibtn i{ color:var(--n500); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-login{ background:var(--b600); color:#fff; }
+  /* заставки и витрина */
+  html[data-fill="pastel"] .sp-emblem{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .sp-ornament{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .sp-ornament::before{ background:var(--b700); }
+  html[data-fill="pastel"] .sp-ornament .sp-name b, html[data-fill="pastel"] .sp-curtain .sp-name b{ color:var(--n900); }
+  html[data-fill="pastel"] .sp-ornament .sp-name span, html[data-fill="pastel"] .sp-curtain .sp-name span{ color:var(--b900); }
+  html[data-fill="pastel"] .sp-ornament .sp-cap, html[data-fill="pastel"] .sp-curtain .sp-cap{ color:var(--n600); }
+  html[data-fill="pastel"] .sp-ornament .sp-skip, html[data-fill="pastel"] .sp-curtain .sp-skip{ background:rgba(255,255,255,.7); color:var(--n700); }
+  html[data-fill="pastel"] .sp-orn path{ stroke:var(--b600); }
+  html[data-fill="pastel"] .sp-orn .soft path{ stroke:color-mix(in srgb, var(--b500) 45%, transparent); }
+  html[data-fill="pastel"] .sp-leaf{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .sp-leaf::before{ background:var(--b700); }
+  html[data-fill="pastel"] .sp-curtain .sp-ring circle{ stroke:var(--b500); }
+  html[data-fill="pastel"] .sp-pulse{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .vf-hcard{ background:var(--pg-mesh); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.8); }
+  html[data-fill="pastel"] .vf-hcard .deco::before{ background:var(--b700); opacity:.05; }
+  html[data-fill="pastel"] .vf-hcard .deco::after{ display:none; }
+  html[data-fill="pastel"] .vf-eye{ color:var(--b900); }
+  html[data-fill="pastel"] .vf-lead, html[data-fill="pastel"] .vf-trust{ color:var(--n600); }
+  html[data-fill="pastel"] .vf-trust i{ color:var(--b700); }
+  html[data-fill="pastel"] .mk-f .hc{ background:var(--pg-lin) !important; }
+  html[data-fill="pastel"] .hv-hero{ background:var(--pg-mesh); color:var(--n900); }
+  html[data-fill="pastel"] .hv-hero::before{ background:var(--b700); }
+  html[data-fill="pastel"] .hv-hero::after{ display:none; }
+  html[data-fill="pastel"] .hv-brand span, html[data-fill="pastel"] .hv-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .hv-pills span{ background:rgba(255,255,255,.65); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); }
+  html[data-fill="pastel"] .hv-pills i{ color:var(--b700); }
+  html[data-fill="pastel"] .mk-a, html[data-fill="pastel"] .mk-c, html[data-fill="pastel"] .mk-e, html[data-fill="pastel"] .mk-b, html[data-fill="pastel"] .mk-d{ background:var(--pg-mesh); }
+</style>
+</helmet>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:400,&quot;height&quot;:80}}">
+const H = (() => {
+  // ——— Палитры ———
+  // 600 — кнопки и активные элементы (белый текст ≥ 4.5:1 по WCAG AA у всех палитр), 700 — ссылки и текст на 50/100,
+  // 50–200 — фоны и плашки, 900–950 — тёмные баннеры, bacc — тонкий акцент (точки, линии, свечение)
+  const PALETTES = [
+    { id:'sky', name:'Небесная лазурь', hint:'Цвет государственного флага: доверие, чистота, открытость', star:true,
+      c:{ b50:'#EEF8FC', b100:'#D6EEF7', b200:'#ACDCEE', b300:'#7CC8E4', b400:'#3FB0D9', b500:'#1AA3CF', b600:'#0B7AA6', b700:'#086286', b800:'#0A4F6C', b900:'#0B3A50', b950:'#06222F', bacc:'#E3A92B' } },
+    { id:'teal', name:'Бирюза', hint:'Цвет медицины и заботы: свежий, спокойный, современный',
+      c:{ b50:'#EDFAF8', b100:'#D2F2EE', b200:'#A6E4DC', b300:'#6FD0C4', b400:'#33B9A9', b500:'#14A89A', b600:'#0B7F75', b700:'#0A665E', b800:'#0C524C', b900:'#0B3D39', b950:'#062421', bacc:'#F2A541' } },
+    { id:'clinic', name:'Клинический синий', hint:'Классика здравоохранения: надёжность и порядок',
+      c:{ b50:'#EFF5FF', b100:'#DBE8FE', b200:'#B9D2FD', b300:'#8DB5FB', b400:'#5E97F8', b500:'#3B82F6', b600:'#1F63D8', b700:'#1A4FAE', b800:'#1A428C', b900:'#172F63', b950:'#0D1B3B', bacc:'#16B3A3' } },
+    { id:'ocean', name:'Глубокий океан', hint:'Сдержанный петроль: солидно, премиально, без крика',
+      c:{ b50:'#ECF7F9', b100:'#D0ECF1', b200:'#A3D7E2', b300:'#6DBDCE', b400:'#3BA2B8', b500:'#1A8FA6', b600:'#0E6E84', b700:'#0C586A', b800:'#0D4756', b900:'#0B3440', b950:'#061E26', bacc:'#E9B949' } },
+    { id:'emerald', name:'Изумруд', hint:'Здоровье и жизнь: природный, уверенный цвет',
+      c:{ b50:'#ECFAF3', b100:'#D1F2E2', b200:'#A3E4C5', b300:'#6CD0A2', b400:'#34B97F', b500:'#16A36A', b600:'#0B7A4F', b700:'#096141', b800:'#0A4E36', b900:'#093A29', b950:'#052218', bacc:'#E7B23A' } },
+    { id:'sage', name:'Шалфей', hint:'Мягкий и тактильный: спокойствие без резкости',
+      c:{ b50:'#F2F7F3', b100:'#E0EDE3', b200:'#C0DAC7', b300:'#98C2A4', b400:'#6FA982', b500:'#4F9A6B', b600:'#3A7553', b700:'#2F5E44', b800:'#284C38', b900:'#1F3A2B', b950:'#112118', bacc:'#C99A4B' } },
+    { id:'sapphire', name:'Сапфир', hint:'Строгий государственный: официальность и вес',
+      c:{ b50:'#EEF2FC', b100:'#D9E1F8', b200:'#B3C3F0', b300:'#879FE5', b400:'#5F7EDC', b500:'#3D5FD6', b600:'#2A47B8', b700:'#223A96', b800:'#1D3179', b900:'#17265A', b950:'#0C1534', bacc:'#D9A93A' } },
+    { id:'indigo', name:'Индиго — текущий', hint:'Нынешний цвет портала — для сравнения',
+      c:{ b50:'#EEF2FF', b100:'#E0E5FF', b200:'#C6D0FF', b300:'#A3AEFA', b400:'#8079F3', b500:'#6A61F0', b600:'#4D42E9', b700:'#362DA6', b800:'#312D86', b900:'#231F63', b950:'#14113A', bacc:'#35B9E9' } },
+    { id:'aurora', name:'Аврора', hint:'Небесно-синий с фиолетовым сиянием: технологичность и AI',
+      c:{ b50:'#EEF6FE', b100:'#DCEBFD', b200:'#BAD6FA', b300:'#8DBBF5', b400:'#5AA0EA', b500:'#2E8BD9', b600:'#1C6CC0', b700:'#18579B', b800:'#17467C', b900:'#14345C', b950:'#0B1E37', bacc:'#8B6CF6' } },
+    { id:'graphite', name:'Графит и золото', hint:'Монохром с золотом герба: торжественно и премиально',
+      c:{ b50:'#F4F5F7', b100:'#E6E8EC', b200:'#CDD1D8', b300:'#A9AFBA', b400:'#7F8796', b500:'#5B6576', b600:'#2F3744', b700:'#232A35', b800:'#1B2029', b900:'#12161D', b950:'#0A0D12', bacc:'#C8962E' } },
+  ];
+  const ls = (k, v) => { try { if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch(e){ return null; } };
+  const palette = (id) => PALETTES.find(p => p.id === id) || PALETTES[0];
+  const themeId = () => palette(ls('mp-theme')).id;
+  const applyTheme = (id) => {
+    const p = palette(id || themeId());
+    const st = document.documentElement.style;
+    Object.entries(p.c).forEach(([k, v]) => st.setProperty('--' + k, v));
+    document.documentElement.dataset.theme = p.id;
+    if(fillId() === 'pastel' && pastelId() === 'brand') applyFill();
+    return p;
+  };
+  const setTheme = (id) => {
+    const p = applyTheme(id); ls('mp-theme', p.id);
+    try { window.dispatchEvent(new CustomEvent('mp-theme-change', { detail:p.id })); } catch(e){}
+  };
+
+  // ——— Оформление: глубокие градиенты / без градиентов / пастельные градиенты ———
+  const FILLS = [
+    { id:'flat', name:'Без градиентов', hint:'Только сплошные цвета бренда — строго и спокойно' },
+    { id:'deep', name:'Глубокие градиенты', hint:'Тёмные переливы цвета бренда, стекло и сияние' },
+    { id:'pastel', name:'Пастельные градиенты', hint:'Светлые нежные переливы, тёмный текст, лёгкое стекло' },
+  ];
+  // Пастельные пресеты: 4 точки — три пятна сетки (a, b, c) и фон (d). Проверено скриптом:
+  // текст n900 / n600 и акценты b900 на любой точке — контраст ≥ 6:1 (WCAG AA с запасом, местами AAA)
+  const PASTELS = [
+    { id:'brand', name:'Из цвета бренда', hint:'Пастель на основе выбранной палитры — всегда в тон кнопкам', p:null },
+    { id:'sky', name:'Утреннее небо', hint:'Небесно-голубой и лёгкий перивинкл', p:['#BAE6FD','#C7D2FE','#E0F2FE','#F5F8FF'], star:true },
+    { id:'lagoon', name:'Лагуна', hint:'Бирюза и аква — свежо и по-медицински', p:['#99F6E4','#A5F3FC','#BFDBFE','#F0FDFA'] },
+    { id:'steppe', name:'Небо Казахстана', hint:'Голубой флага и тёплое солнце — национально и светло', p:['#7DD3FC','#A5F3FC','#FDE68A','#F0F9FF'] },
+    { id:'aqualav', name:'Аква и лаванда', hint:'Бирюзовый с сиреневым — чуть ярче, современно', p:['#A5F3FC','#C4B5FD','#BFDBFE','#FAF7FF'] },
+    { id:'haze', name:'Голубая дымка', hint:'Насыщенный пастельный синий — заметнее остальных', p:['#93C5FD','#A5B4FC','#BAE6FD','#EFF6FF'] },
+    { id:'silk', name:'Сапфировый шёлк', hint:'Сине-фиолетовый перелив, благородно', p:['#A5B4FC','#93C5FD','#C7D2FE','#EEF2FF'] },
+    { id:'mint', name:'Ледяная мята', hint:'Мята и голубой — максимально легко и чисто', p:['#BBF7D0','#A5F3FC','#DBEAFE','#F2FDF6'] },
+    { id:'dawn', name:'Бирюзовый рассвет', hint:'Аква, голубой и капля тёплого света', p:['#99F6E4','#BAE6FD','#FDE68A','#F5FBFF'] },
+    { id:'pearl', name:'Перламутр', hint:'Голубой, лаванда и нежный розовый — как перламутр', p:['#BFDBFE','#FBCFE8','#DDD6FE','#F8FAFC'] },
+  ];
+  const fillId = () => { const f = ls('mp-fill'); return FILLS.some(x => x.id === f) ? f : 'deep'; };
+  const pastelId = () => { const p = ls('mp-pastel'); return PASTELS.some(x => x.id === p) ? p : 'sky'; };
+  const pastelStops = (id) => {
+    const ps = PASTELS.find(x => x.id === (id || pastelId())) || PASTELS[1];
+    if(ps.p) return ps.p;
+    const c = palette(themeId()).c;
+    return [c.b200, c.b100, 'color-mix(in srgb, ' + c.bacc + ' 28%, #fff)', c.b50];
+  };
+  function applyFill(){
+    const el = document.documentElement, f = fillId();
+    el.dataset.fill = f;
+    const st = pastelStops();
+    ['--pa','--pb','--pc','--pd'].forEach((k, i) => el.style.setProperty(k, st[i]));
+  }
+  const setFill = (id) => { ls('mp-fill', id); applyFill(); try { window.dispatchEvent(new CustomEvent('mp-fill-change', { detail:id })); } catch(e){} };
+  const setPastel = (id) => { ls('mp-pastel', id); ls('mp-fill', 'pastel'); applyFill(); try { window.dispatchEvent(new CustomEvent('mp-fill-change', { detail:'pastel' })); } catch(e){} };
+
+  // ——— Орнамент «қошқар мүйіз» (бараний рог) — svg-плитка для маски ———
+  const ORN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M60 74C60 56 70 45 83 45c11 0 17 9 13 18-3 6-11 7-15 2-3-4 0-9 5-8"/>'
+    + '<path d="M60 74C60 56 50 45 37 45c-11 0-17 9-13 18 3 6 11 7 15 2 3-4 0-9-5-8"/>'
+    + '<path d="M60 74c3 11 11 18 21 18 7 0 11-5 9-10-2-4-7-4-9-1"/>'
+    + '<path d="M60 74c-3 11-11 18-21 18-7 0-11-5-9-10 2-4 7-4 9-1"/>'
+    + '<path d="M60 18l8 8-8 8-8-8z"/><path d="M60 34v10"/>'
+    + '<path d="M0 0l7 7M120 0l-7 7M0 120l7-7M120 120l-7-7"/><circle cx="60" cy="108" r="2.4"/><circle cx="8" cy="60" r="2.4"/><circle cx="112" cy="60" r="2.4"/>'
+    + '</svg>';
+  const ORN_URL = 'url("data:image/svg+xml;utf8,' + encodeURIComponent(ORN) + '")';
+
+  // ——— Доступность ———
+  const a11y = () => { try { return { size:'md', contrast:false, ...(JSON.parse(ls('mp-a11y') || '{}')) }; } catch(e){ return { size:'md', contrast:false }; } };
+  const applyA11y = (v) => {
+    const a = v || a11y(), el = document.documentElement;
+    if(a.size === 'md') delete el.dataset.a11y; else el.dataset.a11y = a.size;
+    if(a.contrast) el.dataset.contrast = 'hi'; else delete el.dataset.contrast;
+  };
+  const setA11y = (patch) => {
+    const a = { ...a11y(), ...patch }; ls('mp-a11y', JSON.stringify(a)); applyA11y(a);
+    try { window.dispatchEvent(new CustomEvent('mp-a11y-change', { detail:a })); } catch(e){}
+  };
+
+  // ссылки для показа: ?role=business, ?theme=teal — сразу открывают нужную роль и палитру
+  try { const qs = new URLSearchParams(location.search); const qr = qs.get('role'), qt = qs.get('theme');
+    if(['citizens','business','medical'].includes(qr)) ls('mp-role', qr);
+    if(qt && PALETTES.some(p => p.id === qt)) ls('mp-theme', qt);
+    const qf = qs.get('fill'), qp = qs.get('pastel');
+    if(['flat','deep','pastel'].includes(qf)) ls('mp-fill', qf);
+    if(qp && PASTELS.some(p => p.id === qp)){ ls('mp-pastel', qp); if(!qf) ls('mp-fill', 'pastel'); } } catch(e){}
+  // применяем сразу при загрузке компонента — до первой отрисовки страницы
+  try { applyTheme(); applyFill(); document.documentElement.style.setProperty('--hm-orn', ORN_URL); applyA11y(); } catch(e){}
+
+  // ——— Роли и навигация ———
+  const ROLES = [
+    { id:'citizens', label:'Гражданам', icon:'ri-user-3-line', who:'Я — гражданин', whoDesc:'Медицинская помощь, справки, прививки, ОСМС' },
+    { id:'business', label:'Бизнесу', icon:'ri-briefcase-4-line', who:'Я — представитель организации', whoDesc:'Регистрация ЛС и МИ, лицензии, аккредитация' },
+    { id:'medical', label:'Медперсоналу', icon:'ri-stethoscope-line', who:'Я — медицинский работник', whoDesc:'Квалификация, протоколы, документация' },
+  ];
+  const getRole = () => { const r = ls('mp-role'); return ROLES.some(x => x.id === r) ? r : 'citizens'; };
+  const setRole = (id) => { ls('mp-role', id); try { window.dispatchEvent(new CustomEvent('mp-role-change', { detail:id })); } catch(e){} };
+
+  const HOME = 'Портал Минздрава - Главная.dc.html';
+  const hasGov = (role) => role !== 'medical';
+  const govPage = (role, cat) => 'Государственные услуги.dc.html?for=' + (role === 'business' ? 'business' : 'citizens') + (cat ? '&cat=' + cat : '');
+  const COMPOSITE = 'Услуги.dc.html';
+  const bizEntry = (target, back) => (ls('mp-profile') === 'business' ? target
+    : 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target) + (back ? '&back=' + encodeURIComponent(back) : ''));
+  const EGOV = 'https://egov.kz/ru/services/presale/';
+  const ELICENSE = 'https://elicense.kz/';
+  const P = { cat:'Каталог услуг.dc.html', mo:'Медорганизации.dc.html', vac:'Вакцинация.dc.html', preg:'Беременность.dc.html', kids:'Здоровье детей.dc.html',
+    em:'Экстренная помощь.dc.html', drugs:'Лекарства.dc.html', dis:'Заболевания.dc.html', news:'Новости.dc.html', proto:'Клинические протоколы.dc.html', osms:'ОСМС.dc.html' };
+
+  // Госуслуги — наименования и коды из постановки «Анализ ГУ МЗ» (как на странице «Государственные услуги»).
+  // short — короткое имя для плиток, name — официальное (подсказка и поиск)
+  const eg = (code) => EGOV + code;
+  const GOV = {
+    citizens:[
+      { short:'Запись на приём к врачу', name:'Запись на прием к врачу', icon:'ri-calendar-check-line', href:eg('P702'), kw:'записаться врач прием терапевт кардиолог' },
+      { short:'Вызов врача на дом', name:'Вызов врача на дом', icon:'ri-home-heart-line', href:eg('P701'), kw:'температура болею' },
+      { short:'Прикрепление к поликлинике', name:'Прикрепление к поликлинике', icon:'ri-hospital-line', href:eg('P703'), kw:'прикрепиться участок' },
+      { short:'Справка по форме № 075/у', name:'Выдача медицинской справки по форме № 075/у', icon:'ri-file-text-line', href:eg('P715'), kw:'справка работа учеба 075' },
+      { short:'Справка по форме № 073/у', name:'Выдача медицинской справки по форме № 073/у', icon:'ri-file-text-line', href:eg('P723'), kw:'справка 073' },
+      { short:'Больничный лист', name:'Выдача больничного листа', icon:'ri-file-list-3-line', href:eg('P713'), kw:'нетрудоспособность больничный' },
+      { short:'Информация об ОСМС', name:'Информация об ОСМС', icon:'ri-shield-check-line', href:eg('P711'), kw:'страхование застрахован осмс статус' },
+      { short:'Справки из наркологии, психиатрии и тубдиспансера', name:'Справки из наркологии, психиатрии и тубдиспансера', icon:'ri-file-shield-2-line', href:eg('P704'), kw:'справка водитель оружие' },
+      { short:'Корректировка сведений по вакцинации', name:'Корректировка сведений по вакцинации', icon:'ri-syringe-line', href:eg('P721'), kw:'прививка вакцина' },
+      { short:'«Рождение ребёнка»', name:'Композитная услуга «Рождение ребенка»', icon:'ri-parent-line', href:eg('Com013'), kw:'роды ребенок рождение пособие' },
+      { short:'Направление на госпитализацию', name:'Выдача направления пациентам на госпитализацию в стационар', icon:'ri-hotel-bed-line', href:eg('P710'), kw:'стационар госпитализация' },
+      { short:'Справка по динамическому наблюдению', name:'Справка по динамическому наблюдению', icon:'ri-pulse-line', href:eg('P708'), kw:'учет наблюдение' },
+    ],
+    business:[
+      { short:'Регистрация ЛС и МИ — «Единое окно»', name:'Композитная государственная услуга по регистрации лекарственных средств и медицинских изделий с подачей пакета документов по принципу «Единого окна»', icon:'ri-stack-line', href:bizEntry(COMPOSITE, HOME), portal:true, kw:'регистрация лекарств изделий единое окно цена' },
+      { short:'Лицензия на фармацевтическую деятельность', name:'Выдача лицензии на фармацевтическую деятельность', icon:'ri-capsule-line', href:eg('licensing_489pass_mz'), kw:'аптека лицензия' },
+      { short:'Лицензия на медицинскую деятельность', name:'Выдача лицензии на медицинскую деятельность', icon:'ri-first-aid-kit-line', href:eg('med_accreditatio_2F487pass_mz'), kw:'клиника лицензия' },
+      { short:'Аккредитация медицинских организаций', name:'Аккредитация медицинских организаций (стандарты аккредитации)', icon:'ri-award-line', href:eg('approval_documents_477pass_mz'), kw:'аккредитация' },
+      { short:'Сведения о лекарственном обеспечении', name:'Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', icon:'ri-medicine-bottle-line', href:eg('P709'), kw:'лекарства информация' },
+      { short:'Лицензия на оборот наркотических средств', name:'Выдача лицензии на оборот наркотических средств в здравоохранении', icon:'ri-shield-keyhole-line', href:eg('licensing_2F490pass_mz'), kw:'наркотические лицензия' },
+      { short:'Лицензия на дезинфекцию, дезинсекцию, дератизацию', name:'Выдача лицензии на дезинфекцию, дезинсекцию, дератизацию в здравоохранении', icon:'ri-bug-line', href:eg('licensing_pass603012_mz'), kw:'дезинфекция лицензия' },
+      { short:'Сертификат специалиста для допуска к клинической практике', name:'Выдача сертификата специалиста для допуска к клинической практике', icon:'ri-medal-line', href:ELICENSE, kw:'сертификат специалист' },
+    ],
+    medical:[
+      { short:'Сертификация специалистов', name:'Сертификация специалистов', icon:'ri-medal-line', href:'Паспорт услуги.dc.html#cert-clinical', portal:true, kw:'сертификат' },
+      { short:'Аккредитация', name:'Аккредитация', icon:'ri-award-line', href:'Паспорт услуги.dc.html#accred', portal:true, kw:'аккредитация' },
+      { short:'Присвоение квалификационной категории', name:'Присвоение категории', icon:'ri-star-line', href:'Присвоение категории.dc.html', portal:true, kw:'категория квалификация' },
+      { short:'Клинические протоколы', name:'Справочник клинических протоколов', icon:'ri-file-list-3-line', href:P.proto + '#protocols', portal:true, kw:'протокол лечение мкб' },
+      { short:'Стандарты медицинской помощи', name:'Стандарты медицинской помощи', icon:'ri-book-2-line', href:P.proto + '#standards', portal:true, kw:'стандарт' },
+      { short:'Электронные медицинские формы', name:'Электронные медицинские формы', icon:'ri-file-edit-line', href:P.cat, portal:true, kw:'формы документация' },
+    ],
+  };
+  const GOV_COUNT = { citizens:21, business:12 };
+
+  // Разделы по ролям — состав как на текущей главной (замечания аналитика 14.10.2026 учтены)
+  const SECTIONS = {
+    citizens:[
+      { id:'med', icon:'ri-hospital-line', label:'Медорганизации', desc:'Поликлиники, стационары, лаборатории и аптеки рядом с вами', href:P.mo,
+        links:[{label:'Поликлиники',href:P.mo},{label:'Стационары и лаборатории',href:P.mo},{label:'Аптеки',href:P.drugs},{label:'Поиск врача',href:P.mo}] },
+      { id:'vac', icon:'ri-syringe-line', label:'Вакцинация', desc:'Национальный календарь прививок, виды вакцин и пункты вакцинации', href:P.vac,
+        links:[{label:'Календарь прививок',href:P.vac},{label:'Виды вакцин',href:P.vac},{label:'Мифы и факты',href:P.vac},{label:'Адреса пунктов',href:P.vac}] },
+      { id:'preg', icon:'ri-bear-smile-line', label:'Беременность', desc:'Беременность по неделям, обследования и права будущих мам', href:P.preg,
+        links:[{label:'Беременность по этапам',href:P.preg},{label:'Что делать по неделям',href:P.preg},{label:'Обследования',href:P.preg},{label:'Права беременных',href:P.preg}] },
+      { id:'kids', icon:'ri-parent-line', label:'Здоровье детей', desc:'Развитие ребёнка, прививки и патронажное наблюдение', href:P.kids,
+        links:[{label:'Календарь развития',href:P.kids},{label:'Прививки детей',href:P.kids},{label:'Патронажное наблюдение',href:P.kids},{label:'Рекомендации по возрастам',href:P.kids}] },
+      { id:'emer', icon:'ri-alarm-warning-line', label:'Экстренная помощь', desc:'Что делать до приезда скорой: инфаркт, инсульт, травмы, ожоги', href:P.em, tone:'red',
+        links:[{label:'Инфаркт и инсульт',href:P.em},{label:'Ожоги и отравления',href:P.em},{label:'Травмы',href:P.em},{label:'До приезда скорой',href:P.em}] },
+    ],
+    business:[
+      { id:'pharma', icon:'ri-capsule-line', label:'Фармацевтика', desc:'Регистрация ЛС и МИ по принципу «Единого окна», сведения о лекарственном обеспечении', href:govPage('business','pharma'),
+        links:[{label:'Регистрация ЛС и МИ — «Единое окно»',href:bizEntry(COMPOSITE, HOME)},{label:'Сведения о лекарственном обеспечении',href:eg('P709'),ext:true},{label:'Все услуги категории',href:govPage('business','pharma')}] },
+      { id:'lic', icon:'ri-award-line', label:'Лицензирование и аккредитация', desc:'Лицензии на медицинскую и фармацевтическую деятельность, аккредитация организаций', href:govPage('business','lic'),
+        links:[{label:'Лицензия на фармацевтическую деятельность',href:eg('licensing_489pass_mz'),ext:true},{label:'Лицензия на медицинскую деятельность',href:eg('med_accreditatio_2F487pass_mz'),ext:true},{label:'Аккредитация медорганизаций',href:eg('approval_documents_477pass_mz'),ext:true},{label:'Все услуги категории',href:govPage('business','lic')}] },
+    ],
+    medical:[
+      { id:'prof', icon:'ri-user-star-line', label:'Профессиональная деятельность', desc:'Сертификация специалистов, аккредитация и квалификационная категория', href:'Паспорт услуги.dc.html#cert-clinical',
+        links:[{label:'Сертификация специалистов',href:'Паспорт услуги.dc.html#cert-clinical'},{label:'Аккредитация',href:'Паспорт услуги.dc.html#accred'},{label:'Присвоение категории',href:'Присвоение категории.dc.html'}] },
+      { id:'proto', icon:'ri-file-text-line', label:'Клинические протоколы', desc:'Справочник клинических протоколов и стандартов медицинской помощи', href:P.proto + '#protocols',
+        links:[{label:'Справочник клинических протоколов',href:P.proto + '#protocols'},{label:'Стандарты медицинской помощи',href:P.proto + '#standards'}] },
+      { id:'docs', icon:'ri-clipboard-line', label:'Документация и отчётность', desc:'Электронные медицинские формы, расписание приёма и отчётность', href:P.cat,
+        links:[{label:'Электронные медицинские формы',href:P.cat},{label:'Расписание приёма',href:P.cat},{label:'Отчётность',href:P.cat}] },
+    ],
+  };
+  // Карточка «Государственные услуги» — первая у «Гражданам» и «Бизнесу», у «Медперсоналу» её нет
+  const govCard = (role) => !hasGov(role) ? null : {
+    id:'gov', icon:'ri-government-line', label:'Государственные услуги', href:govPage(role), count:GOV_COUNT[role],
+    desc: role === 'business' ? 'Фармацевтика, лицензирование и аккредитация — онлайн, с ЭЦП' : 'Справки, запись к врачу, прикрепление к поликлинике, ОСМС — онлайн, с ЭЦП',
+    links: GOV[role].slice(0, 4).map(g => ({ label:g.short, href:g.href, ext:!g.portal })),
+  };
+
+  // Справочники — есть у всех ролей (страницы портала)
+  const LIBRARY = [
+    { label:'Медорганизации', icon:'ri-map-pin-2-line', href:P.mo },
+    { label:'Лекарства', icon:'ri-capsule-line', href:P.drugs },
+    { label:'Заболевания', icon:'ri-heart-pulse-line', href:P.dis },
+    { label:'Клинические протоколы', icon:'ri-file-list-3-line', href:P.proto + '#protocols' },
+    { label:'Новости', icon:'ri-newspaper-line', href:P.news },
+  ];
+
+  // Заголовок и подзаголовок первого экрана — по роли
+  const HERO = {
+    citizens:{ title:'Медицинские услуги онлайн', lead:'Запишитесь к врачу, получите справку, прикрепитесь к поликлинике и узнайте статус ОСМС — онлайн, без очередей.', short:'Гражданам', popTitle:'Популярные услуги', allLabel:'Все государственные услуги' },
+    business:{ title:'Услуги для фармацевтического и медицинского бизнеса', lead:'Регистрация лекарственных средств и медицинских изделий, лицензирование и аккредитация — онлайн, с ЭЦП.', short:'Бизнесу', popTitle:'Популярные услуги', allLabel:'Все услуги для бизнеса' },
+    medical:{ title:'Сервисы для медицинских работников', lead:'Квалификация, клинические протоколы и электронная документация — в одном месте.', short:'Медперсоналу', popTitle:'Сервисы для медработников', allLabel:'Клинические протоколы' },
+  };
+
+  const CHIPS = {
+    citizens:['Государственные услуги','Записаться к врачу','Медорганизации рядом','Вакцинация'],
+    business:['Регистрация ЛС и МИ','Получить лицензию','Аккредитация','Государственные услуги'],
+    medical:['Клинические протоколы','Сертификация','Расписание приёма','Электронные формы'],
+  };
+
+  // «Новое на портале» — как на текущей главной
+  const FRESH = {
+    citizens:[
+      { icon:'ri-calendar-check-line', title:'Онлайн-запись к узким специалистам', desc:'Кардиолог, эндокринолог и другие — без визита в регистратуру.', href:P.cat, tag:'Новая услуга' },
+      { icon:'ri-home-heart-line', title:'Вызов врача на дом онлайн', desc:'Оформление вызова с подтверждением времени.', href:P.cat, tag:'Новая услуга' },
+      { icon:'ri-file-list-3-line', title:'Электронные направления', desc:'Направления на МРТ, КТ и УЗИ в кабинете.', href:P.cat, tag:'Обновление' },
+      { icon:'ri-syringe-line', title:'Запись на вакцинацию', desc:'Выбор вакцины и пункта прививки.', href:P.vac, tag:'Новая услуга' },
+      { icon:'ri-home-heart-line', title:'Патронаж детей', desc:'График визитов патронажной медсестры.', href:P.kids, tag:'Обновление' },
+    ],
+    business:[
+      { icon:'ri-stack-line', title:'Регистрация ЛС и МИ по принципу «Единого окна»', desc:'Подача пакета документов в одном окне.', href:bizEntry(COMPOSITE, HOME), tag:'Новая услуга' },
+      { icon:'ri-cloud-line', title:'Новые цифровые сервисы для поставщиков', desc:'Электронное взаимодействие с МЗ РК.', href:P.cat, tag:'Обновление' },
+      { icon:'ri-award-line', title:'Обновления лицензирования', desc:'Изменения в порядке выдачи лицензий.', href:P.cat, tag:'Обновление' },
+    ],
+    medical:[
+      { icon:'ri-file-list-3-line', title:'Электронные клинические протоколы', desc:'Актуальные протоколы в одном справочнике.', href:P.cat, tag:'Новая услуга' },
+      { icon:'ri-calendar-2-line', title:'Обновление расписания приёма', desc:'Управление слотами и записями.', href:P.cat, tag:'Обновление' },
+      { icon:'ri-file-edit-line', title:'Новые формы отчётности', desc:'Электронные формы и отчёты.', href:P.cat, tag:'Обновление' },
+      { icon:'ri-vidicon-line', title:'Сервис телемедицины', desc:'Видеоконсультации с пациентами.', href:P.cat, tag:'Новая услуга' },
+    ],
+  };
+
+  // Полезные ссылки (бизнес). На текущей главной РЦЭЗ был указан дважды (аббревиатурой и полным названием) — оставлен один
+  const USEFUL = [
+    { slot:'ul-rcez', name:'Республиканский центр электронного здравоохранения', short:'РЦЭЗ', desc:'Цифровая инфраструктура отрасли, электронные сервисы и стандарты данных.' },
+    { slot:'ul-kmfk', name:'Комитет медицинского и фармацевтического контроля МЗ РК', short:'КМФК', desc:'Контроль качества медицинских и фармацевтических услуг.' },
+    { slot:'ul-ncels', name:'Национальный центр экспертизы лекарственных средств и медицинских изделий', short:'НЦЭЛС', desc:'Экспертиза и регистрация лекарств и медицинских изделий.' },
+    { slot:'ul-nncrz', name:'ННЦРЗ им. Салидат Каирбековой', short:'ННЦРЗ', desc:'Национальный научный центр развития здравоохранения.' },
+  ];
+
+  // Жизненные ситуации (вариант C) — те же услуги и разделы, сгруппированные по поводу обращения
+  const SITUATIONS = {
+    citizens:[
+      { icon:'ri-stethoscope-line', title:'Заболел — нужен врач', acts:[GOV.citizens[0], GOV.citizens[1], GOV.citizens[5]] },
+      { icon:'ri-file-text-line', title:'Нужна медицинская справка', acts:[GOV.citizens[3], GOV.citizens[4], GOV.citizens[7]] },
+      { icon:'ri-hospital-line', title:'Прикрепиться к поликлинике, проверить ОСМС', acts:[GOV.citizens[2], GOV.citizens[6], { short:'Найти медорганизацию', href:P.mo, portal:true }] },
+      { icon:'ri-bear-smile-line', title:'Жду ребёнка', acts:[{ short:'Беременность по неделям', href:P.preg, portal:true }, { short:'Права беременных', href:P.preg, portal:true }, GOV.citizens[9]] },
+      { icon:'ri-parent-line', title:'Здоровье ребёнка', acts:[{ short:'Календарь развития', href:P.kids, portal:true }, { short:'Патронажное наблюдение', href:P.kids, portal:true }, { short:'Прививки детей', href:P.kids, portal:true }] },
+      { icon:'ri-syringe-line', title:'Прививки', acts:[{ short:'Календарь прививок', href:P.vac, portal:true }, { short:'Пункты вакцинации', href:P.vac, portal:true }, GOV.citizens[8]] },
+      { icon:'ri-capsule-line', title:'Лекарства и аптеки', acts:[{ short:'Справочник лекарств', href:P.drugs, portal:true }, { short:'Аптеки рядом', href:P.drugs, portal:true }] },
+      { icon:'ri-alarm-warning-line', title:'Экстренная ситуация', tone:'red', acts:[{ short:'Вызов скорой — 103', href:'tel:103', portal:true }, { short:'Инфаркт и инсульт', href:P.em, portal:true }, { short:'До приезда скорой', href:P.em, portal:true }] },
+    ],
+    business:[
+      { icon:'ri-stack-line', title:'Регистрирую лекарство или медицинское изделие', acts:[GOV.business[0], { short:'Паспорт услуги: цена ЛС', href:'Паспорт услуги.dc.html#price-ls', portal:true }, { short:'Паспорт услуги: цена МИ', href:'Паспорт услуги.dc.html#price-mi', portal:true }] },
+      { icon:'ri-store-2-line', title:'Открываю аптеку', acts:[GOV.business[1], GOV.business[5]] },
+      { icon:'ri-hospital-line', title:'Открываю медицинскую организацию', acts:[GOV.business[2], GOV.business[3], GOV.business[6]] },
+      { icon:'ri-medicine-bottle-line', title:'Нужны сведения о лекарственном обеспечении', acts:[GOV.business[4]] },
+      { icon:'ri-medal-line', title:'Подтверждаю квалификацию сотрудников', acts:[GOV.business[7], { short:'Аккредитация организации по оценке знаний', href:eg('approval_documents_pass153-5_mz') }] },
+    ],
+    medical:[
+      { icon:'ri-medal-line', title:'Подтвердить квалификацию', acts:[GOV.medical[0], GOV.medical[1], GOV.medical[2]] },
+      { icon:'ri-file-list-3-line', title:'Найти протокол или стандарт', acts:[GOV.medical[3], GOV.medical[4]] },
+      { icon:'ri-clipboard-line', title:'Документация и отчётность', acts:[GOV.medical[5], { short:'Расписание приёма', href:P.cat, portal:true }, { short:'Отчётность', href:P.cat, portal:true }] },
+    ],
+  };
+
+  // ——— FAQ: аудитория → тема → подтема → вопросы (тексты — с текущей главной) ———
+  const FAQ_AUD = [ { id:'nas', label:'Населению', role:'citizens' }, { id:'med', label:'Медработникам', role:'medical' }, { id:'post', label:'Поставщикам', role:'business' } ];
+  const FAQ = {
+    nas:[
+      { id:'soc', label:'Социологические исследования и опросы населения', icon:'ri-star-line', subs:[
+        { id:'soc-res', label:'Результаты опросов', qs:[
+          { q:'Где публикуются результаты социологических опросов?', a:'Результаты ежегодных опросов об удовлетворённости медицинской помощью публикуются в разделе «Новости» и на официальном ресурсе фонда социального медицинского страхования.' },
+          { q:'Как принять участие в опросе?', a:'Опросы проводятся после получения медицинских услуг — вам приходит уведомление в личном кабинете или SMS со ссылкой на анкету. Участие добровольное и анонимное.' },
+        ] },
+      ] },
+      { id:'status', label:'Узнать статус / Калькулятор ОСМС', icon:'ri-calculator-line', subs:[
+        { id:'categories', label:'Категории участников в ОСМС', qs:[
+          { q:'Категория граждан социального благополучия D (кризисный уровень) и E (экстренный уровень)', a:'За граждан, отнесённых к категориям социального благополучия D (кризисный уровень) и E (экстренный уровень), взносы на ОСМС уплачивает государство. Отнесение к категории определяется по цифровой карте семьи на основании уровня дохода и социального положения.' },
+          { q:'Работодатели и налоговые агенты*', a:'Работодатели ежемесячно исчисляют и перечисляют отчисления на ОСМС за своих работников (3% от дохода работника), а также удерживают взносы работника (2%). Налоговые агенты перечисляют платежи в составе единого платежа с заработной платы.' },
+          { q:'Индивидуальные помощники*', a:'Индивидуальные помощники, оказывающие услуги лицам с инвалидностью, участвуют в системе ОСМС. Взносы за них уплачиваются в порядке, установленном для соответствующей категории занятости.' },
+          { q:'Льготные категории населения, взносы на ОСМС за которых платит государство', a:'Государство уплачивает взносы за 15 льготных категорий, среди которых: дети; многодетные матери; пенсионеры; лица с инвалидностью; беременные женщины и мамы в декрете; студенты; безработные, зарегистрированные в центрах занятости; получатели адресной социальной помощи и другие.' },
+          { q:'Плательщики единого платежа', a:'Плательщики единого совокупного платежа (ЕСП) — неформально занятые лица, уплачивающие фиксированный платёж, часть которого направляется на ОСМС. Уплата ЕСП обеспечивает статус застрахованного.' },
+          { q:'Самостоятельные плательщики', a:'Самостоятельные плательщики — лица, не относящиеся к другим категориям, уплачивающие взносы за себя самостоятельно (5% от 1 МЗП). Это позволяет сохранять статус застрахованного при отсутствии официальной занятости.' },
+          { q:'Индивидуальные предприниматели (ИП), лица, занимающиеся частной практикой и владельцы крестьянских хозяйств (КХ)', a:'ИП, лица частной практики (адвокаты, нотариусы, частные судебные исполнители) и владельцы КХ уплачивают взносы на ОСМС за себя самостоятельно — 5% от 1,4-кратного минимального размера заработной платы ежемесячно.' },
+        ] },
+        { id:'insured', label:'Узнать статус застрахованности', qs:[
+          { q:'Как узнать, застрахован ли я в системе ОСМС?', a:'Воспользуйтесь сервисом «Проверка ОСМС» на портале: введите ИИН (12 цифр) и нажмите «Проверить». Статус отобразится мгновенно, авторизация не требуется. Также проверка доступна в мобильном приложении и по номеру 1406.' },
+          { q:'Что делать, если статус «Не застрахован»?', a:'Уточните категорию занятости и наличие оплаты взносов. При официальной работе — обратитесь к работодателю. Если вы относитесь к льготной категории — проверьте корректность данных. Иначе можно вносить взносы как самостоятельный плательщик.' },
+          { q:'Как часто обновляется статус застрахованности?', a:'Статус пересчитывается ежемесячно на основании поступивших отчислений и взносов. Право на медицинскую помощь в системе ОСМС сохраняется при регулярной уплате.' },
+        ] },
+        { id:'calc', label:'Калькулятор ОСМС', qs:[
+          { q:'Для чего нужен калькулятор ОСМС?', a:'Калькулятор помогает рассчитать сумму ежемесячных взносов и отчислений на ОСМС в зависимости от категории плательщика и размера дохода.' },
+          { q:'Как рассчитываются взносы для самостоятельного плательщика?', a:'Взнос составляет 5% от 1 минимальной заработной платы. Введите актуальный размер МЗП в калькулятор, и он покажет сумму к уплате за месяц.' },
+        ] },
+        { id:'refund', label:'Возврат ошибочно перечисленных платежей на ОСМС', qs:[
+          { q:'Как вернуть ошибочно перечисленный платёж?', a:'Подайте заявление на возврат через личный кабинет или в отделении фонда, приложив документ, подтверждающий ошибочный платёж. Возврат осуществляется на реквизиты плательщика в установленный срок.' },
+          { q:'В какой срок возвращаются средства?', a:'Возврат ошибочно уплаченных сумм производится в течение установленного законодательством срока после регистрации заявления и проверки платежа.' },
+        ] },
+        { id:'sums', label:'Получить информацию о суммах, перечисленных на ОСМС', qs:[
+          { q:'Где посмотреть историю перечислений на ОСМС?', a:'В личном кабинете пациента или в сервисе «Проверка ОСМС» доступна история отчислений и взносов за последние 12 месяцев с указанием даты, суммы и плательщика.' },
+          { q:'Кто перечисляет за меня взносы?', a:'В истории отображается источник платежа: работодатель, государство (для льготных категорий) или вы сами (самостоятельный плательщик).' },
+        ] },
+      ] },
+      { id:'rights', label:'Права населения', icon:'ri-scales-3-line', subs:[
+        { id:'rights-insured', label:'Права застрахованных', qs:[
+          { q:'На какую медицинскую помощь я имею право по ОСМС?', a:'Застрахованные лица имеют право на расширенный пакет медицинской помощи: консультации профильных специалистов, плановую госпитализацию, диагностику (МРТ, КТ, УЗИ), реабилитацию и лекарственное обеспечение по показаниям.' },
+          { q:'Чем ГОБМП отличается от ОСМС?', a:'ГОБМП — гарантированный государством бесплатный объём (неотложная помощь, вакцинация, помощь при социально значимых заболеваниях) — доступен всем. ОСМС — расширенный пакет для застрахованных лиц.' },
+        ] },
+        { id:'rights-complaint', label:'Как защитить свои права', qs:[
+          { q:'Куда обратиться при отказе в медицинской помощи?', a:'Обратитесь в службу поддержки пациентов медорганизации, на горячую линию 1406 или подайте обращение через портал. Все обращения регистрируются и рассматриваются в установленный срок.' },
+        ] },
+      ] },
+      { id:'faq', label:'Частые вопросы', icon:'ri-question-line', subs:[
+        { id:'faq-general', label:'Общие вопросы', qs:[
+          { q:'Как прикрепиться к поликлинике?', a:'Авторизуйтесь на портале, откройте раздел «Прикрепление к поликлинике», выберите медорганизацию по адресу проживания и подтвердите заявку. Статус обновится в установленный срок.' },
+          { q:'Как записаться на приём к врачу?', a:'Авторизуйтесь → «Каталог медицинских услуг» → выберите организацию → выберите врача → подтвердите запись.' },
+          { q:'Как вызвать врача на дом?', a:'В каталоге услуг выберите «Вызов врача на дом», укажите адрес и симптомы, подтвердите время визита.' },
+          { q:'Как получить больничный лист?', a:'Лист временной нетрудоспособности оформляет лечащий врач по результатам приёма. В электронном виде он передаётся работодателю и доступен в кабинете.' },
+        ] },
+      ] },
+      { id:'report', label:'Отчёт по обращениям', icon:'ri-file-edit-line', subs:[
+        { id:'report-how', label:'Как подать обращение', qs:[
+          { q:'Как подать обращение или жалобу?', a:'Подайте обращение через портал (раздел обратной связи), по телефону 1406 или в отделении фонда. Укажите суть вопроса и контактные данные для ответа.' },
+          { q:'Как отследить статус обращения?', a:'Статус рассмотрения обращения отображается в личном кабинете; о результате вы получите уведомление в установленный срок.' },
+        ] },
+      ] },
+    ],
+    med:[
+      { id:'accred', label:'Аккредитация и сертификация', icon:'ri-award-line', subs:[
+        { id:'accred-cert', label:'Сертификация специалистов', qs:[
+          { q:'Как пройти сертификацию специалиста?', a:'В разделе «Профессиональная деятельность» подайте заявление на сертификацию, приложите документы об образовании и стаже и отслеживайте статус рассмотрения.' },
+          { q:'Как присвоить квалификационную категорию?', a:'Подайте заявление с подтверждением стажа и квалификации; решение принимается аттестационной комиссией по итогам оценки.' },
+        ] },
+        { id:'accred-org', label:'Аккредитация медорганизаций', qs:[
+          { q:'Что нужно для аккредитации медорганизации?', a:'Подготовьте документы о соответствии стандартам, подайте заявку через профильный сервис и пройдите оценку внешними экспертами.' },
+        ] },
+      ] },
+      { id:'proto', label:'Клинические протоколы и стандарты', icon:'ri-file-text-line', subs:[
+        { id:'proto-find', label:'Доступ к протоколам', qs:[
+          { q:'Где найти актуальные клинические протоколы?', a:'Актуальные клинические протоколы и стандарты медицинской помощи доступны в разделе «Клинические протоколы» с фильтрацией по профилю и коду МКБ-10.' },
+          { q:'Как часто обновляются протоколы?', a:'Протоколы пересматриваются и обновляются регулярно; в разделе отображается дата последней редакции каждого документа.' },
+        ] },
+      ] },
+      { id:'docs-med', label:'Документация и отчётность', icon:'ri-clipboard-line', subs:[
+        { id:'docs-forms', label:'Электронные формы', qs:[
+          { q:'Как получить доступ к электронным медицинским формам?', a:'Доступ предоставляется через личный кабинет медработника после подтверждения места работы и роли в системе.' },
+          { q:'Как формируется отчётность?', a:'Отчётные формы заполняются в электронном виде в кабинете и автоматически передаются в информационную систему здравоохранения.' },
+        ] },
+      ] },
+    ],
+    post:[
+      { id:'pharma', label:'Фармацевтическая деятельность', icon:'ri-capsule-line', subs:[
+        { id:'pharma-lic', label:'Лицензирование', qs:[
+          { q:'Как получить лицензию на фармацевтическую деятельность?', a:'Откройте «Государственные услуги» → «Лицензирование и аккредитация» → «Выдача лицензии на фармацевтическую деятельность»: заявление подаётся на портале eGov.kz с приложением учредительных и разрешительных документов и оплатой госпошлины.' },
+          { q:'Как зарегистрировать цену на лекарственное средство?', a:'Регистрация цены входит в композитную государственную услугу по регистрации лекарственных средств и медицинских изделий по принципу «Единого окна». Заявка подаётся в кабинете бизнеса: «Государственные услуги» → «Фармацевтика».' },
+        ] },
+        { id:'pharma-bad', label:'Регистрация БАД', qs:[
+          { q:'Как зарегистрировать БАД?', a:'Регистрация выполняется через профильный сервис: подача заявления, экспертиза состава и внесение в реестр разрешённой продукции.' },
+        ] },
+      ] },
+      { id:'sanepid', label:'Санитарно-эпидемиологический надзор', icon:'ri-shield-cross-line', subs:[
+        { id:'sanepid-exp', label:'Экспертиза и надзор', qs:[
+          { q:'Как пройти санитарно-эпидемиологическую экспертизу?', a:'Подайте заявку в территориальное подразделение санитарно-эпидемиологического контроля, приложите документы на продукцию и дождитесь заключения экспертизы.' },
+          { q:'Какие документы требуются для экспертизы?', a:'Комплект зависит от вида продукции: как правило, это техническая документация, протоколы испытаний и сведения о производителе.' },
+        ] },
+      ] },
+      { id:'contracts', label:'Закуп и договоры с фондом', icon:'ri-file-list-3-line', subs:[
+        { id:'contracts-how', label:'Договоры на оказание услуг', qs:[
+          { q:'Как заключить договор с фондом социального медицинского страхования?', a:'Медорганизация подаёт заявку на закуп услуг, проходит проверку соответствия требованиям и заключает договор в электронном формате.' },
+        ] },
+      ] },
+    ],
+  };
+  const faqAudOf = (role) => (FAQ_AUD.find(a => a.role === role) || FAQ_AUD[0]).id;
+
+  // ——— Новости — как на текущей главной; img — у новости есть загруженная картинка (image-slot) ———
+  const NEWS_TABS = [ { id:'services', label:'Новые услуги', icon:'ri-sparkling-2-line' }, { id:'drugs', label:'Лекарства', icon:'ri-capsule-line' }, { id:'osms', label:'ОСМС', icon:'ri-shield-check-line' }, { id:'prevent', label:'Профилактика', icon:'ri-heart-pulse-line' } ];
+  const NEWS = [
+    { tab:'services', slot:'news-s1-empty', title:'Запущена онлайн-запись к узким специалистам', desc:'Записаться к кардиологу и эндокринологу теперь можно полностью онлайн.', date:'24 июня 2026' },
+    { tab:'services', slot:'news-s2', img:true, title:'Электронные направления на обследования', desc:'Направления на МРТ, КТ и УЗИ доступны в личном кабинете.', date:'21 июня 2026' },
+    { tab:'services', slot:'news-s3', img:true, title:'Вызов врача на дом через портал', desc:'Оформление вызова участкового врача с подтверждением времени.', date:'18 июня 2026' },
+    { tab:'drugs', slot:'news-d1', img:true, title:'Обновлён перечень бесплатных лекарств', desc:'В список ГОБМП включены новые позиции для пациентов с диабетом.', date:'22 июня 2026' },
+    { tab:'drugs', slot:'news-d2', img:true, title:'Проверка наличия лекарств в аптеках', desc:'Остатки препаратов в аптеках по выбранному региону.', date:'20 июня 2026' },
+    { tab:'drugs', slot:'news-d3', img:true, title:'Расширен справочник аналогов', desc:'Добавлены сведения о действующих веществах и аналогах.', date:'16 июня 2026' },
+    { tab:'osms', slot:'news-o1', title:'Расширен пакет услуг по ОСМС на 2026 год', desc:'Включены новые виды диагностики и реабилитации.', date:'24 июня 2026' },
+    { tab:'osms', slot:'news-o2', title:'Упрощена проверка статуса застрахованного', desc:'Проверка по ИИН без авторизации за несколько секунд.', date:'19 июня 2026' },
+    { tab:'osms', slot:'news-o3', title:'Новые категории, освобождённые от взносов', desc:'Уточнён перечень граждан, за которых платит государство.', date:'15 июня 2026' },
+    { tab:'prevent', slot:'news-p1', title:'Стартовала кампания вакцинации против гриппа', desc:'Прививку можно сделать бесплатно по месту прикрепления.', date:'23 июня 2026' },
+    { tab:'prevent', slot:'news-p2', title:'Месяц профилактики сердечно-сосудистых заболеваний', desc:'Бесплатные скрининги давления и холестерина.', date:'17 июня 2026' },
+    { tab:'prevent', slot:'news-p3', title:'Школы здоровья для будущих мам', desc:'Бесплатные занятия по подготовке к родам.', date:'14 июня 2026' },
+  ].map(n => ({ ...n, category:NEWS_TABS.find(t => t.id === n.tab).label, icon:NEWS_TABS.find(t => t.id === n.tab).icon }));
+
+  // ——— AI-помощник ———
+  // Подсказки пустого чата — короткие вопросы, без пояснений (пояснения — шум; ответ сам всё объяснит)
+  const AI_SUGGEST = {
+    citizens:[ { q:'Как получить справку 075/у?' }, { q:'Болит голова — к какому врачу?' }, { q:'Как прикрепиться к поликлинике?' }, { q:'Проверить статус ОСМС' } ],
+    business:[ { q:'Регистрация ЛС и МИ' }, { q:'Лицензия на аптеку' }, { q:'Как зарегистрировать цену ЛС?' }, { q:'Аккредитация медорганизации' } ],
+    medical:[ { q:'Где найти клинические протоколы?' }, { q:'Как пройти сертификацию?' }, { q:'Присвоение категории' }, { q:'Электронные медицинские формы' } ],
+  };
+  // Ответ помощника: { text, actions:[{label, href, icon}], chips:[…], links:[подходящее на портале], warn, sos }
+  //   actions — кнопки перехода (первая — основная), chips — уточняющие вопросы, links — найдено поиском по порталу.
+  //   Объединяет ответы AI-оверлея и плавающего помощника текущей главной (симптомы — подробнее, услуги — с кнопкой).
+  const A = (label, href, icon) => ({ label, href, icon });
+  const CALL103 = A('Позвонить 103', 'tel:103', 'ri-phone-fill');
+  const RULES = [
+    { re:/(инсульт|без сознан|потерял\S* сознан|не дыш|задыха|судорог|сильн\S* кровотеч|кровь не останавл|отравил|отравлен|ожог|перелом)/, r:() => ({ warn:true, sos:true,
+      text:'Если есть угроза жизни — сразу звоните 103 (скорая) или 112. Вызов бесплатный, с любого телефона.\n\nПока едет скорая: оставайтесь рядом, не давайте лекарств без указания диспетчера, следуйте его инструкциям.',
+      actions:[CALL103, A('Первая помощь', P.em, 'ri-first-aid-kit-line')] }) },
+    { re:/(груд|сердц|инфаркт)/, r:() => ({ warn:true, sos:true,
+      text:'Боль в груди может быть признаком сердечного приступа. Если боль сильная, отдаёт в руку или челюсть, есть одышка и холодный пот — немедленно звоните 103.\n\nВ плановом порядке — консультация кардиолога.',
+      actions:[CALL103, A('Записаться к кардиологу', eg('P702'), 'ri-calendar-check-line')], chips:['Что делать до приезда скорой'] }) },
+    { re:/(до приезда скор|первая помощь|первую помощь)/, r:() => ({ text:'Пошаговые инструкции при инфаркте, инсульте, травмах, ожогах и отравлениях — в разделе «Экстренная помощь». При угрозе жизни сначала звоните 103.', actions:[A('Экстренная помощь', P.em, 'ri-first-aid-kit-line'), CALL103] }) },
+    { re:/075/, r:() => ({ text:'Справка по форме № 075/у нужна для работы и учёбы. Оформляется онлайн на eGov.kz с ЭЦП — понадобится пройти осмотр в своей поликлинике.', actions:[A('Справка 075/у на eGov.kz', eg('P715'), 'ri-file-text-line')], chips:['Справка 073/у','Справка из наркологии'] }) },
+    { re:/073/, r:() => ({ text:'Справка по форме № 073/у оформляется онлайн на eGov.kz с ЭЦП.', actions:[A('Справка 073/у на eGov.kz', eg('P723'), 'ri-file-text-line')], chips:['Справка 075/у'] }) },
+    { re:/(нарколог|психиатр|тубдиспансер|для водител|на оружие)/, r:() => ({ text:'Справки из наркологии, психиатрии и тубдиспансера — одна государственная услуга на eGov.kz.', actions:[A('Оформить на eGov.kz', eg('P704'), 'ri-file-shield-2-line')] }) },
+    { re:/справк/, r:() => ({ text:'Медицинские справки оформляются онлайн на eGov.kz с ЭЦП. Какая нужна?', chips:['Справка 075/у','Справка 073/у','Справка из наркологии'], actions:[A('Все справки', govPage('citizens'), 'ri-government-line')] }) },
+    { re:/больничн|нетрудоспособ/, r:() => ({ text:'Больничный лист оформляет лечащий врач по результатам приёма. В электронном виде он сразу уходит работодателю.', actions:[A('Больничный лист', eg('P713'), 'ri-file-list-3-line')] }) },
+    { re:/((входит|пакет|гобмп).*осмс|осмс.*(входит|пакет)|гобмп)/, r:() => ({ text:'ГОБМП — бесплатный объём для всех: неотложная помощь, вакцинация, лечение социально значимых заболеваний.\n\nОСМС — расширенный пакет для застрахованных: консультации профильных специалистов, плановая госпитализация, МРТ, КТ, УЗИ, реабилитация и лекарства по показаниям.', actions:[A('Проверить статус ОСМС', eg('P711'), 'ri-shield-check-line')] }) },
+    { re:/(осмс|застрахован|страховк|отчислени|взнос)/, r:() => ({ text:'Статус в системе ОСМС, историю отчислений и взносов показывает государственная услуга «Информация об ОСМС» на eGov.kz. За льготные категории — детей, пенсионеров, беременных, студентов — взносы платит государство.', actions:[A('Проверить статус ОСМС', eg('P711'), 'ri-shield-check-line')], chips:['Что входит в ОСМС?'] }) },
+    { re:/(единое окно|единого окна|композит|регистрац\S* (лс|ми|лекарств|медицинск))/, r:() => ({ text:'Регистрация лекарственных средств и медицинских изделий — композитная услуга «Единого окна»: весь пакет документов подаётся в одном месте. ' + (bizEntry(COMPOSITE) === COMPOSITE ? 'Заявка — в кабинете бизнеса, раздел «Услуги».' : 'Войдите с ЭЦП под профилем «Бизнес» — услуга откроется сразу после входа.'), actions:[A('Перейти к услуге', bizEntry(COMPOSITE, HOME), 'ri-stack-line')], chips:['Регистрация цены ЛС','Регистрация цены МИ'] }) },
+    { re:/прикреп/, r:() => ({ text:'Прикрепиться к поликлинике можно онлайн: выберите медорганизацию по адресу проживания и подтвердите заявку на eGov.kz.', actions:[A('Прикрепиться на eGov.kz', eg('P703'), 'ri-hospital-line'), A('Найти поликлинику', P.mo, 'ri-map-pin-line')] }) },
+    { re:/(голов|мигрен)/, r:() => ({ text:'Головная боль часто связана с переутомлением, давлением или обезвоживанием: отдохните, выпейте воды, измерьте давление.\n\nЕсли боль повторяется — к терапевту, затем к неврологу. Резкая боль с нарушением речи или зрения — сразу 103.', actions:[A('Записаться к врачу', eg('P702'), 'ri-calendar-check-line')], chips:['Признаки инсульта'] }) },
+    { re:/(признаки инсульта)/, r:() => ({ warn:true, sos:true, text:'Признаки инсульта: перекос лица, слабость в руке или ноге с одной стороны, нарушение речи, внезапная сильная головная боль. Заметили хотя бы один — сразу звоните 103 и запомните время начала.', actions:[CALL103, A('Первая помощь', P.em, 'ri-first-aid-kit-line')] }) },
+    { re:/(температ|жар|лихорад|простуд|орви|грипп|(^|\D)3[89]([.,]\d)?(\D|$))/, r:() => ({ text:'При температуре — покой, обильное питьё, жаропонижающее при t выше 38,5 °C. Если держится больше 3 дней или выше 39,5 °C — вызовите врача на дом.', actions:[A('Вызвать врача на дом', eg('P701'), 'ri-home-heart-line')], chips:['Больничный лист'] }) },
+    { re:/(вызов\S* врач|врач\S* на дом)/, r:() => ({ text:'Вызов врача на дом оформляется онлайн на eGov.kz: укажите адрес и симптомы.', actions:[A('Вызвать врача на дом', eg('P701'), 'ri-home-heart-line')] }) },
+    { re:/(мрт|кт|узи|направлени|обследован)/, r:() => ({ text:'МРТ, КТ и УЗИ по ОСМС — по направлению лечащего врача. Нужно быть застрахованным: проверьте статус ОСМС. Электронное направление появится в личном кабинете.', actions:[A('Записаться к врачу', eg('P702'), 'ri-calendar-check-line'), A('Статус ОСМС', eg('P711'), 'ri-shield-check-line')] }) },
+    { re:/(записа|приём|прием|к врачу|кардиолог|терапевт|невролог|педиатр|специалист)/, r:() => ({ text:'Записаться на приём можно онлайн на eGov.kz: выберите поликлинику, специалиста и время.', actions:[A('Записаться к врачу', eg('P702'), 'ri-calendar-check-line')], chips:['Вызов врача на дом'] }) },
+    { re:/(поликлин|больниц|организац|рядом|ближайш|адрес|стационар|лаборатор)/, r:() => ({ text:'Поликлиники, стационары, лаборатории и аптеки рядом — в справочнике медорганизаций: поиск по региону и карта.', actions:[A('Найти медорганизацию', P.mo, 'ri-map-pin-line')] }) },
+    { re:/(вакцин|привив)/, r:() => ({ text:'Национальный календарь прививок, виды вакцин и пункты вакцинации — в разделе «Вакцинация». Ошибку в сведениях о прививках можно исправить на eGov.kz.', actions:[A('Вакцинация', P.vac, 'ri-syringe-line'), A('Исправить сведения', eg('P721'), 'ri-edit-line')] }) },
+    { re:/цен/, test:(t) => /((^|\s)лс(\s|$)|лекарств|препарат)/.test(t), r:() => ({ text:'Регистрация цены производителя лекарственного средства — онлайн в кабинете «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', actions:[A('Паспорт услуги', 'Паспорт услуги.dc.html#price-ls', 'ri-price-tag-3-line')] }) },
+    { re:/цен/, test:(t) => /((^|\s)ми(\s|$)|издели|(^|\s)имн(\s|$))/.test(t), r:() => ({ text:'Регистрация цены производителя медицинского изделия — онлайн в кабинете «Единое окно». Понадобятся ЭЦП организации, договор с НЦЭЛС и заявка на платёж. Срок — 10 рабочих дней.', actions:[A('Паспорт услуги', 'Паспорт услуги.dc.html#price-mi', 'ri-stethoscope-line')] }) },
+    { re:/(регистрац.*цен|цен.*регистрац)/, r:() => ({ text:'Для чего нужна регистрация цены?', chips:['Регистрация цены ЛС','Регистрация цены МИ'] }) },
+    { re:/(беремен|роды|рожден)/, r:() => ({ text:'Беременность по неделям, обследования и права будущих мам — в разделе «Беременность». После родов — композитная услуга «Рождение ребёнка» на eGov.kz.', actions:[A('Беременность', P.preg, 'ri-bear-smile-line'), A('«Рождение ребёнка»', eg('Com013'), 'ri-parent-line')] }) },
+    { re:/(ребён|ребен|дет[ейия]|патронаж)/, r:() => ({ text:'Календарь развития, прививки и патронаж — в разделе «Здоровье детей».', actions:[A('Здоровье детей', P.kids, 'ri-parent-line')] }) },
+    { re:/(сертификац|категори|аттестац)/, role:'medical', r:() => ({ text:'Сертификация специалистов, аккредитация и присвоение квалификационной категории — в разделе «Профессиональная деятельность».', actions:[A('Сертификация', 'Паспорт услуги.dc.html#cert-clinical', 'ri-medal-line'), A('Присвоение категории', 'Присвоение категории.dc.html', 'ri-star-line')] }) },
+    { re:/(протокол|стандарт|мкб)/, r:() => ({ text:'Актуальные клинические протоколы и стандарты медицинской помощи — в справочнике с поиском по профилю и коду МКБ-10.', actions:[A('Клинические протоколы', P.proto + '#protocols', 'ri-file-list-3-line')] }) },
+    { re:/(форм|отчёт|отчет|расписан)/, role:'medical', r:() => ({ text:'Электронные медицинские формы, расписание приёма и отчётность — в кабинете медработника после подтверждения места работы.', actions:[A('Кабинет врача', 'Вход.dc.html', 'ri-stethoscope-line')] }) },
+    { re:/(госуслуг|государственн\S* услуг|egov|егов)/, r:(role) => role === 'medical'
+      ? { text:'Государственные услуги здравоохранения — в разделах «Гражданам» и «Бизнесу», оформляются на eGov.kz. Для медработников здесь — квалификация, протоколы и документация.' }
+      : { text: role === 'business' ? 'Госуслуги для бизнеса: фармацевтика, лицензирование и аккредитация.' : 'Справки, запись к врачу, прикрепление к поликлинике, ОСМС — все госуслуги в одном списке. Выбранная откроется на eGov.kz.', actions:[A('Государственные услуги', govPage(role), 'ri-government-line')] } },
+    { re:/(аптек\S* лиценз|лиценз\S* .*аптек|фармацевтическ\S* деятельн|лиценз\S* на фармдеят)/, r:() => ({ text:'Лицензия на фармацевтическую деятельность оформляется на eGov.kz: заявление, учредительные документы и госпошлина.', actions:[A('Подать на eGov.kz', eg('licensing_489pass_mz'), 'ri-capsule-line')] }) },
+    { re:/(аккредитац)/, r:() => ({ text:'Аккредитация медицинских организаций — по стандартам аккредитации, заявка подаётся на eGov.kz.', actions:[A('Аккредитация на eGov.kz', eg('approval_documents_477pass_mz'), 'ri-award-line')] }) },
+    { re:/(медицинск\S* деятельн|лиценз\S* .*клиник|клиник\S* .*лиценз)/, r:() => ({ text:'Лицензия на медицинскую деятельность оформляется на eGov.kz: заявление, документы о соответствии требованиям и госпошлина.', actions:[A('Подать на eGov.kz', eg('med_accreditatio_2F487pass_mz'), 'ri-first-aid-kit-line')] }) },
+    { re:/(лицензи|фарм)/, r:() => ({ text:'Лицензии в здравоохранении оформляются на eGov.kz или «Е‑лицензирование». Какая нужна?', chips:['Лицензия на аптеку','Лицензия на медицинскую деятельность'], actions:[A('Лицензирование', govPage('business', 'lic'), 'ri-award-line')] }) },
+    { re:/(лекарств|таблетк|препарат|аналог|аптек)/, r:() => ({ text:'Инструкции, показания, аналоги и наличие в аптеках вашего региона — в справочнике лекарств. Подбирать и заменять препараты должен врач.', actions:[A('Справочник лекарств', P.drugs, 'ri-capsule-line')] }) },
+    { re:/^(привет|здравствуй|добрый|салем|сәлем)/, r:(role) => ({ text:'Здравствуйте! Спросите своими словами — подскажу услугу, раздел или специалиста.', chips:AI_SUGGEST[role].slice(0, 3).map(x => x.q) }) },
+    { re:/(спасибо|благодар|рахмет)/, r:() => ({ text:'Пожалуйста! Если появятся вопросы — я рядом.' }) },
+  ];
+  const botReply = (q, role) => {
+    const t = String(q).toLowerCase().replace(/ё/g, 'е');
+    const rule = RULES.find(x => x.re.test(t) && (!x.test || x.test(t)) && (!x.role || x.role === role));
+    const found = search(q, role);
+    if(rule){
+      const r = rule.r(role);
+      const hrefs = new Set((r.actions || []).map(a => a.href));
+      // к ответу без кнопок добавляем найденное на портале
+      const links = (r.actions && r.actions.length) || r.sos ? [] : found.filter(f => !hrefs.has(f.href)).slice(0, 3);
+      return { ...r, links, cta:(r.actions || [])[0] };
+    }
+    // нет готового ответа — ищем в справочном центре (FAQ): совпадение по формулировке вопроса
+    const words = norm(q).split(/\s+/).filter(w => w.length > 2 && !STOP.has(w)).map(w => w.slice(0, Math.max(3, w.length - 2)));
+    if(words.length){
+      let best = null;
+      Object.values(FAQ).forEach(themes => themes.forEach(th => th.subs.forEach(sb => sb.qs.forEach(x => {
+        const nq = norm(x.q), hits = words.filter(w => nq.includes(w)).length;
+        if(hits >= Math.max(1, Math.ceil(words.length * .6)) && (!best || hits > best.hits)) best = { hits, x };
+      }))));
+      if(best) return { text: best.x.a, links: found.slice(0, 2) };
+    }
+    if(found.length) return { text:'Вот что нашлось на портале:', links:found.slice(0, 4) };
+    return { text:'Не нашёл точного ответа. Уточните, пожалуйста, — например, опишите симптом или назовите услугу.', chips:AI_SUGGEST[role].slice(0, 3).map(x => x.q) };
+  };
+
+  // ——— Поиск: подсказки по услугам и разделам ———
+  const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/[«»"()№.,]/g, ' ');
+  const INDEX = [];
+  ROLES.forEach(r => {
+    (GOV[r.id] || []).forEach(g => INDEX.push({ kind:'Госуслуга', role:r.id, label:g.short, sub: g.portal ? 'На портале' : (/elicense/.test(g.href) ? '«Е‑лицензирование»' : 'eGov.kz'), icon:g.icon, href:g.href, text:norm(g.short + ' ' + g.name + ' ' + (g.kw || '')) }));
+    (SECTIONS[r.id] || []).forEach(s => {
+      INDEX.push({ kind:'Раздел', role:r.id, label:s.label, sub:s.desc, icon:s.icon, href:s.href, text:norm(s.label + ' ' + s.desc) });
+      s.links.forEach(l => INDEX.push({ kind:'Раздел', role:r.id, label:l.label, sub:s.label, icon:s.icon, href:l.href, text:norm(l.label + ' ' + s.label) }));
+    });
+  });
+  LIBRARY.forEach(l => INDEX.push({ kind:'Справочник', role:'*', label:l.label, sub:'Справочник', icon:l.icon, href:l.href, text:norm(l.label) }));
+  // служебные слова вопроса («как получить …», «где найти …») не мешают искать по смыслу
+  const STOP = new Set('как где что мне меня нужно нужна нужен надо для на по во из от до или это хочу можно ли мой моя мои свой свою получить оформить сделать найти узнать подать есть какой какая какие куда когда чем'.split(' '));
+  const search = (q, role) => {
+    const words = norm(q).split(/\s+/).filter(w => w.length > 1 && !STOP.has(w));
+    if(!words.length) return [];
+    const seen = new Set();
+    return INDEX.map(it => {
+      const hits = words.filter(w => it.text.includes(w.slice(0, Math.max(3, w.length - 2)))).length;
+      // короткий запрос — все слова; длинная фраза — допускаем одно лишнее слово
+      if(hits < (words.length <= 2 ? words.length : words.length - 1)) return null;
+      const score = (words.length - hits) * 5 + (it.role === role || it.role === '*' ? 0 : 10) + (it.kind === 'Госуслуга' ? 0 : 1) + (norm(it.label).startsWith(words[0].slice(0, 3)) ? 0 : 2);
+      return { ...it, score };
+    }).filter(Boolean).sort((a, b) => a.score - b.score).filter(it => { const k = it.label + it.href; if(seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
+  };
+
+  // Открыть AI-помощника (AiPanel) с вопросом — из поиска, чипсов и подсказок
+  const ask = (q) => { try { window.dispatchEvent(new CustomEvent('mp-ai-open', { detail:{ q: q || '' } })); } catch(e){} };
+
+  // Где оформляется услуга — для подсказки (на странице вместо подписи — значок внешней ссылки)
+  const whereTip = (href, portal) => portal || !/^https?:/.test(href || '') ? '' : (/elicense/.test(href) ? 'Откроется на портале «Е‑лицензирование»' : 'Откроется на портале eGov.kz');
+  const tipOf = (g) => [g.name && g.name !== g.short ? g.name : '', whereTip(g.href, g.portal)].filter(Boolean).join(' · ');
+
+  // ——— Подсказки data-tip: один плавающий элемент, показ по наведению (с задержкой) и по фокусу с клавиатуры ———
+  const installTips = () => {
+    if(window.__hmTips) return; window.__hmTips = true;
+    let el = null, cur = null, timer = null;
+    const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+    const show = (tg) => {
+      const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+      if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+      el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+      const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+      // data-tip-pos="right" — справа от элемента (свёрнутое боковое меню), иначе — над ним (или под, если сверху нет места)
+      const right = tg.getAttribute('data-tip-pos') === 'right';
+      const x = right ? r.right + 10 : Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+      const y = right ? r.top + r.height / 2 - h / 2 : (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8);
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      requestAnimationFrame(() => el && el.classList.add('on'));
+    };
+    const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+    document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+    document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('mousedown', hide);
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, { passive:true, capture:true });
+  };
+  try { installTips(); } catch(e){}
+
+  const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return n + ' ' + (a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many); };
+
+  const VARIANTS = [
+    { id:'cur', key:'', label:'Текущая', name:'Текущая главная', file:HOME },
+    { id:'a', key:'A', label:'Ясный', name:'Ясный — сервис прежде всего', file:'Главная A - Ясный.dc.html' },
+    { id:'b', key:'B', label:'Стекло', name:'Стекло — сияние и глубина', file:'Главная B - Стекло.dc.html' },
+    { id:'c', key:'C', label:'Ситуации', name:'Жизненные ситуации', file:'Главная C - Жизненные ситуации.dc.html' },
+    { id:'d', key:'D', label:'Официальный', name:'Официальный — визитная карточка', file:'Главная D - Официальный.dc.html' },
+    { id:'e', key:'E', label:'AI-помощник', name:'AI-помощник в центре', file:'Главная E - AI-помощник.dc.html' },
+    { id:'f', key:'F', label:'Портал услуг', name:'Портал услуг — меню и каталог', file:'Главная F - Портал услуг.dc.html' },
+    { id:'g', key:'G', label:'Строгий', name:'Строгий — типографика и порядок', file:'Главная G - Строгий.dc.html' },
+  ];
+
+  return { PALETTES, palette, themeId, applyTheme, setTheme, FILLS, PASTELS, fillId, pastelId, pastelStops, applyFill, setFill, setPastel, ORN_URL, a11y, setA11y, applyA11y,
+    ROLES, getRole, setRole, HOME, hasGov, govPage, bizEntry, COMPOSITE, EGOV, P, GOV, GOV_COUNT, SECTIONS, govCard, LIBRARY,
+    HERO, CHIPS, FRESH, USEFUL, SITUATIONS, FAQ_AUD, FAQ, faqAudOf, NEWS_TABS, NEWS, AI_SUGGEST, botReply, search, ask, plural, whereTip, tipOf, VARIANTS };
+})();
+window.mpHome = H;
+
+class Component extends DCLogic {
+  constructor(props){ super(props); window.mpHome = H; }
+  componentDidMount(){
+    window.mpHome = H;
+    try { window.dispatchEvent(new CustomEvent('mp-home-ready')); } catch(e){}
+    // другая вкладка сменила палитру / доступность
+    this._st = (e) => { if(e.key === 'mp-theme') H.applyTheme(); if(e.key === 'mp-fill' || e.key === 'mp-pastel') H.applyFill(); if(e.key === 'mp-a11y') H.applyA11y(); };
+    window.addEventListener('storage', this._st);
+  }
+  componentWillUnmount(){ window.removeEventListener('storage', this._st); }
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>

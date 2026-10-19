@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Главная · вариант G «Строгий» — типографика и порядок.
+  Язык государственного документа: белый лист, сетка, линейки вместо карточек, крупная типографика,
+  гильош (защитная сетка паспортов и банкнот) — единственный декор, рисуется SVG, без картинок.
+  Первый экран отвечает на две главные задачи: «найти услугу» (поиск + 6 самых частых услуг с номерами)
+  и «войти в кабинет» (карточка-удостоверение справа). Ниже — указатель разделов: все разделы и ссылки
+  одним взглядом, без скрытых меню. Затем «Новое», FAQ, новости.
+  Общие блоки: HomeData, PortalHeader (official), SearchBox, HomeFaq, HomeNews, PortalFooter, AiPanel, Splash, ThemeKit.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+
+  /* служебная строка (38 px) уезжает при прокрутке, основная шапка остаётся */
+  .vg-top{ position:sticky; top:-38px; z-index:40; }
+
+  /* ——— ПЕРВЫЙ ЭКРАН ——— */
+  .vg-hero{ position:relative; overflow:hidden; background:#fff; border-bottom:1px solid var(--n200); }
+  html[data-fill="deep"] .vg-hero{ background:linear-gradient(180deg, #fff 35%, var(--b50) 100%); }
+  html[data-fill="pastel"] .vg-hero{ background:var(--pg-mesh); }
+  .vg-hero-grid{ position:relative; display:grid; grid-template-columns:minmax(0,1fr) minmax(360px,440px); gap:clamp(32px,6vw,128px); align-items:center; padding-block:clamp(40px,4.6vw,88px) clamp(44px,5vw,96px); }
+  .vg-h1{ margin:0 0 clamp(22px,2vw,32px); font-size:clamp(36px,2.6vw + 12px,68px); line-height:1.04; font-weight:600; letter-spacing:-.038em; color:var(--n900); max-width:17ch; text-wrap:balance; }
+  .vg-search{ max-width:780px; }
+
+  /* самые частые задачи — пронумерованный указатель, а не карточки */
+  .vg-tasks-hd{ display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px 16px; margin:clamp(28px,3vw,48px) 0 6px; }
+  .vg-tasks-hd h2{ margin:0; font-size:15px; font-weight:600; color:var(--n900); }
+  .vg-all{ display:inline-flex; align-items:center; gap:6px; font-size:15px; font-weight:600; color:var(--b700); text-decoration:none; white-space:nowrap; }
+  .vg-all em{ font-style:normal; font-variant-numeric:tabular-nums; color:var(--n500); font-weight:500; }
+  .vg-all i{ font-size:18px; transition:transform .15s; }
+  .vg-all:hover i{ transform:translateX(3px); }
+  .vg-tasks{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); column-gap:clamp(20px,2.6vw,48px); border-bottom:1px solid var(--n200); }
+  .vg-task{ position:relative; display:grid; grid-template-columns:30px minmax(0,1fr) auto; align-items:center; gap:12px; min-height:62px; padding:12px 2px; border-top:1px solid var(--n200); color:var(--n900); text-decoration:none; }
+  .vg-task::before{ content:''; position:absolute; left:0; top:-1px; height:2px; width:0; background:var(--b600); transition:width .35s var(--hm-ease, ease); }
+  .vg-task:hover::before, .vg-task:focus-visible::before{ width:100%; }
+  .vg-task .n{ font-size:13px; font-weight:600; letter-spacing:.02em; color:var(--b600); font-variant-numeric:tabular-nums; }
+  .vg-task b{ font-size:16px; font-weight:600; line-height:1.3; letter-spacing:-.008em; transition:color .15s; }
+  .vg-task > i{ font-size:20px; color:var(--n300); transition:transform .2s, color .15s; }
+  .vg-task:hover b{ color:var(--b700); }
+  .vg-task:hover > i{ color:var(--b600); transform:translateX(3px); }
+
+  /* правая колонка: гильош + карточка кабинета */
+  .vg-aside{ position:relative; display:flex; justify-content:center; }
+  .vg-guil{ position:absolute; left:50%; top:50%; width:clamp(560px,54vw,940px); aspect-ratio:1; transform:translate(-50%,-50%); color:var(--b600); pointer-events:none;
+    -webkit-mask-image:radial-gradient(closest-side, #000 58%, transparent 100%); mask-image:radial-gradient(closest-side, #000 58%, transparent 100%); }
+  .vg-guil svg{ display:block; width:100%; height:100%; }
+  .vg-guil .bands{ opacity:.2; }
+  .vg-guil .rings{ opacity:.32; }
+  .vg-guil .gold{ color:var(--bacc); opacity:.75; }
+  html.mp-ready .vg-guil svg{ animation:vg-guil 2.2s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes vg-guil{ from{ opacity:0; transform:rotate(-10deg) scale(.94); } to{ opacity:1; transform:none; } }
+
+  .vg-cab{ position:relative; z-index:1; width:100%; padding:clamp(22px,2vw,30px); border-radius:24px; background:rgba(255,255,255,.9); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    box-shadow:0 0 0 1px var(--n200), 0 40px 80px -48px color-mix(in srgb, var(--b900) 60%, transparent); }
+  .vg-cab-hd{ display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .vg-cab-hd .ic{ width:48px; height:48px; flex:0 0 auto; border-radius:14px; display:flex; align-items:center; justify-content:center; background:var(--b600); color:#fff; font-size:23px; }
+  .vg-cab-hd b{ font-size:20px; font-weight:600; letter-spacing:-.016em; }
+  .vg-cab ul{ list-style:none; margin:0; padding:0; }
+  .vg-cab li a{ display:flex; align-items:center; gap:12px; padding:13px 2px; border-top:1px solid var(--n200); color:var(--n800, #222530); text-decoration:none; font-size:15px; font-weight:500; }
+  .vg-cab li a > i:first-child{ font-size:20px; color:var(--b600); }
+  .vg-cab li a span{ flex:1; }
+  .vg-cab li a > i:last-child{ font-size:18px; color:var(--n300); transition:transform .15s, color .15s; }
+  .vg-cab li a:hover{ color:var(--b700); }
+  .vg-cab li a:hover > i:last-child{ color:var(--b600); transform:translateX(3px); }
+  .vg-cab-act{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; margin-top:18px; }
+  .vg-cab-act .hm-btn{ height:50px; }
+
+  /* ——— УКАЗАТЕЛЬ РАЗДЕЛОВ ——— */
+  .vg-idx{ border-top:2px solid var(--n900); }
+  .vg-row{ display:grid; grid-template-columns:minmax(260px,4fr) minmax(0,8fr) 44px; gap:16px clamp(20px,2.4vw,40px); align-items:center; padding:clamp(18px,1.6vw,24px) 0; border-bottom:1px solid var(--n200); }
+  .vg-row-hd{ display:flex; align-items:center; gap:16px; color:var(--n900); text-decoration:none; min-width:0; }
+  .vg-row-hd .hm-ico{ width:44px; height:44px; border-radius:12px; font-size:21px; }
+  .vg-row-hd b{ font-size:clamp(18px,.4vw + 14px,21px); font-weight:600; letter-spacing:-.016em; line-height:1.25; transition:color .15s; }
+  .vg-row-hd .cnt{ margin-left:2px; padding:3px 9px; border-radius:999px; background:var(--b50); color:var(--b700); font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .vg-row-hd:hover b{ color:var(--b700); }
+  .vg-row.red .hm-ico{ background:var(--red-l); color:var(--red); }
+  .vg-links{ display:flex; flex-wrap:wrap; gap:4px 30px; min-width:0; }
+  .vg-links a{ display:inline-flex; align-items:center; gap:6px; padding:6px 0; font-size:15px; color:var(--n700); text-decoration:none;
+    background:linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition:background-size .25s, color .15s; }
+  .vg-links a:hover{ color:var(--b700); background-size:100% 1px; }
+  .vg-links a .hm-ext{ font-size:14px; }
+  .vg-go{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font-size:20px; text-decoration:none; transition:background .15s, color .15s, box-shadow .15s; }
+  .vg-go:hover{ background:var(--b600); color:#fff; box-shadow:none; }
+
+  /* ——— НОВОЕ НА ПОРТАЛЕ ——— */
+  .vg-fresh{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); border-top:2px solid var(--n900); }
+  .vg-fresh a{ display:flex; flex-direction:column; gap:10px; min-height:150px; padding:22px clamp(18px,1.6vw,28px) 22px 0; margin-right:clamp(18px,1.6vw,28px); border-bottom:1px solid var(--n200); color:var(--n900); text-decoration:none; }
+  .vg-fresh .tag{ font-size:13px; font-weight:600; color:var(--b700); }
+  .vg-fresh a:last-child{ margin-right:0; }
+  .vg-fresh b{ font-size:17px; font-weight:600; line-height:1.35; letter-spacing:-.01em; transition:color .15s; }
+  .vg-fresh a > i{ margin-top:auto; font-size:20px; color:var(--n300); transition:transform .2s, color .15s; }
+  .vg-fresh a:hover b{ color:var(--b700); }
+  .vg-fresh a:hover > i{ color:var(--b600); transform:translateX(3px); }
+
+  @media (prefers-reduced-motion: reduce){ html.mp-ready .vg-guil svg{ animation:none; } .vg-task::before{ transition:none; } }
+  @media (max-width:1100px){
+    .vg-hero-grid{ grid-template-columns:minmax(0,1fr); }
+    .vg-aside{ max-width:520px; }
+    .vg-guil{ width:760px; left:70%; }
+    .vg-guil .bands{ opacity:.12; }
+  }
+  @media (max-width:900px){
+    .vg-row{ grid-template-columns:minmax(0,1fr); }
+    .vg-go{ display:none; }
+    .vg-links{ gap:2px 22px; padding-left:60px; }
+  }
+  @media (max-width:640px){
+    .vg-tasks{ grid-template-columns:minmax(0,1fr); }
+    .vg-links{ padding-left:0; }
+    .vg-cab-act{ grid-template-columns:minmax(0,1fr); }
+    .vg-fresh{ grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:78%; overflow-x:auto; scroll-snap-type:x mandatory; }
+    .vg-fresh a{ scroll-snap-align:start; }
+  }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="vg-top"><dc-import name="PortalHeader" look="official" hint-size="100%,110px"></dc-import></div>
+
+  <main>
+    <!-- ПЕРВЫЙ ЭКРАН: найти услугу · войти в кабинет -->
+    <section class="vg-hero">
+      <div class="hm-wrap vg-hero-grid">
+        <div>
+          <h1 class="vg-h1 hm-in d1">{{ heroTitle }}</h1>
+          <div class="vg-search hm-search hm-in d2"><dc-import name="SearchBox" look="light" chips="0" hotkey="1" hint-size="100%,72px"></dc-import></div>
+
+          <div class="hm-in d3">
+            <div class="vg-tasks-hd">
+              <h2>{{ popTitle }}</h2>
+              <a class="vg-all" href="{{ allHref }}">{{ allLabel }}<sc-if value="{{ hasCount }}" hint-placeholder-val="{{ true }}"><em>{{ count }}</em></sc-if><i class="ri-arrow-right-line"></i></a>
+            </div>
+            <ol class="vg-tasks">
+              <sc-for list="{{ popular }}" as="g" hint-placeholder-count="6">
+                <li><a class="vg-task" href="{{ g.href }}" target="{{ g.target }}" data-tip="{{ g.tip }}"><span class="n">{{ g.n }}</span><b>{{ g.short }}</b><i class="{{ g.arrow }}"></i></a></li>
+              </sc-for>
+            </ol>
+          </div>
+        </div>
+
+        <div class="vg-aside">
+          <div class="vg-guil" ref="{{ guilRef }}"></div>
+          <aside class="vg-cab hm-in d2" aria-label="{{ cab.title }}">
+            <div class="vg-cab-hd"><span class="ic"><i class="{{ cab.icon }}"></i></span><b>{{ cab.title }}</b></div>
+            <ul>
+              <sc-for list="{{ cab.items }}" as="c" hint-placeholder-count="3">
+                <li><a href="{{ c.href }}"><i class="{{ c.icon }}"></i><span>{{ c.label }}</span><i class="ri-arrow-right-s-line"></i></a></li>
+              </sc-for>
+            </ul>
+            <div class="vg-cab-act">
+              <a class="hm-btn" href="{{ cab.login }}" data-tip="Вход по ЭЦП"><i class="ri-login-box-line"></i>Войти</a>
+              <a class="hm-btn hm-btn-line" href="Регистрация.dc.html">Регистрация</a>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- УКАЗАТЕЛЬ РАЗДЕЛОВ: всё содержание портала одним взглядом -->
+    <section class="hm-sec">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Разделы портала</h2></div></div>
+        <div class="vg-idx">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+            <div class="{{ r.cls }}">
+              <a class="vg-row-hd" href="{{ r.href }}" data-tip="{{ r.desc }}">
+                <span class="hm-ico"><i class="{{ r.icon }}"></i></span><b>{{ r.label }}</b>
+                <sc-if value="{{ r.hasCnt }}" hint-placeholder-val="{{ false }}"><span class="cnt">{{ r.cnt }}</span></sc-if>
+              </a>
+              <nav class="vg-links" aria-label="{{ r.label }}">
+                <sc-for list="{{ r.links }}" as="l" hint-placeholder-count="4">
+                  <a href="{{ l.href }}" target="{{ l.target }}" data-tip="{{ l.tip }}">{{ l.label }}<sc-if value="{{ l.ext }}" hint-placeholder-val="{{ false }}"><i class="ri-external-link-line hm-ext"></i></sc-if></a>
+                </sc-for>
+              </nav>
+              <a class="vg-go" href="{{ r.href }}" aria-label="{{ r.goLabel }}"><i class="ri-arrow-right-line"></i></a>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- НОВОЕ НА ПОРТАЛЕ -->
+    <section class="hm-sec" style="padding-top:0;">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Новое на портале</h2></div></div>
+        <div class="vg-fresh hm-scroll">
+          <sc-for list="{{ fresh }}" as="c" hint-placeholder-count="4">
+            <a href="{{ c.href }}" data-tip="{{ c.desc }}"><span class="tag">{{ c.tag }}</span><b>{{ c.title }}</b><i class="ri-arrow-right-line"></i></a>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- ПОЛЕЗНЫЕ ССЫЛКИ (бизнес) -->
+    <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+      <section class="hm-sec" style="padding-top:0;">
+        <div class="hm-wrap">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
+            <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
+              <a href="#" data-tip="{{ u.desc }}">
+                <span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span>
+                <b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i>
+              </a>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- НОВОСТИ -->
+    <section class="hm-sec" style="background:var(--n50);border-top:1px solid var(--n200);">
+      <div class="hm-wrap"><dc-import name="HomeNews" layout="editorial" hint-size="100%,640px"></dc-import></div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="hm-sec">
+      <div class="hm-wrap"><dc-import name="HomeFaq" hint-size="100%,720px"></dc-import></div>
+    </section>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="g" hint-size="1px,1px"></dc-import>
+</div>
+<dc-import name="Splash" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href);
+const SELF = 'Главная G - Строгий.dc.html';
+
+// Гильош — защитная сетка паспортов и банкнот. Каждое кольцо — одна кривая r(t) = R + A·sin(n·t) + B·sin(m·t),
+// повторённая поворотом (<use>), как на гильоширной машине: ~15 КБ разметки вместо сотен кривых.
+const GUILLOCHE = (() => {
+  const curve = (R, A, n, B, m, steps) => {
+    let d = '';
+    for(let i = 0; i <= steps; i++){
+      const t = i / steps * Math.PI * 2, r = R + A * Math.sin(n * t) + B * Math.sin(m * t);
+      d += (i ? 'L' : 'M') + (r * Math.cos(t)).toFixed(1) + ' ' + (r * Math.sin(t)).toFixed(1);
+    }
+    return d + 'Z';
+  };
+  const bands = [
+    { id:'vg-g1', d:curve(262, 30, 9, 7, 27, 600), copies:12, sym:40 },
+    { id:'vg-g2', d:curve(176, 32, 12, 0, 1, 480), copies:10, sym:30 },
+    { id:'vg-g3', d:curve(94, 20, 8, 5, 24, 360), copies:9, sym:45 },
+  ];
+  const uses = bands.map(b => Array.from({ length:b.copies }, (_, k) => '<use href="#' + b.id + '" transform="rotate(' + (k * b.sym / b.copies).toFixed(2) + ')"/>').join('')).join('');
+  const ring = (r, w) => '<circle r="' + r + '" stroke-width="' + w + '"/>';
+  return '<svg viewBox="-320 -320 640 640" fill="none" stroke="currentColor" stroke-width=".7" aria-hidden="true" focusable="false">'
+    + '<defs>' + bands.map(b => '<path id="' + b.id + '" d="' + b.d + '"/>').join('') + '</defs>'
+    + '<g class="bands">' + uses + '</g>'
+    + '<g class="rings">' + ring(306, .6) + ring(300, 1.1) + ring(132, .6) + ring(50, .6) + '</g>'
+    + '<g class="gold">' + ring(303, .9) + '</g></svg>';
+})();
+
+// Кабинет по роли: три самых нужных раздела + вход
+const CABINET = {
+  citizens:{ title:'Личный кабинет', icon:'ri-shield-user-line', items:[
+    { label:'Медицинская карта', icon:'ri-heart-pulse-line', href:'Личная медицинская карта.dc.html' },
+    { label:'Записи и направления', icon:'ri-calendar-check-line', href:'Личный кабинет.dc.html' },
+    { label:'Уведомления', icon:'ri-notification-3-line', href:'Уведомления.dc.html' } ] },
+  business:{ title:'Кабинет организации', icon:'ri-building-2-line', items:[
+    { label:'Мои заявки', icon:'ri-stack-line', href:'Мои процессы.dc.html', biz:true },
+    { label:'Договоры', icon:'ri-file-paper-2-line', href:'Договора.dc.html', biz:true },
+    { label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html', biz:true } ] },
+  medical:{ title:'Кабинет врача', icon:'ri-stethoscope-line', items:[
+    { label:'Приём пациентов', icon:'ri-user-heart-line', href:'Кабинет врача.dc.html' },
+    { label:'Рабочий календарь', icon:'ri-calendar-2-line', href:'Рабочий календарь.dc.html' },
+    { label:'Профиль врача', icon:'ri-profile-line', href:'Профиль врача.dc.html' } ] },
+};
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.guilRef = React.createRef();
+    this.state = { role: lsRole(), ready: !!window.mpHome };
+  }
+  paintGuilloche(){ const el = this.guilRef.current; if(el && !el.firstChild) el.innerHTML = GUILLOCHE; }
+  componentDidMount(){
+    this.paintGuilloche();
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._role);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+  }
+  componentDidUpdate(){ this.paintGuilloche(); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._role); clearTimeout(this._fb); }
+  renderVals(){
+    const H = window.mpHome, role = this.state.role;
+    const base = { guilRef:this.guilRef };
+    if(!H) return { ...base, heroTitle:'', popTitle:'', popular:[], allHref:'#', allLabel:'', hasCount:false, count:'', cab:{ title:'', icon:'', items:[], login:'#' }, rows:[], fresh:[], isBusiness:false, useful:[] };
+    const hero = H.HERO[role];
+    const link = (l) => ({ ...l, ext: ext(l.href), target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href) });
+    const gc = H.govCard(role);
+    const row = (x, extra) => ({ ...x, cls:'vg-row' + (x.tone === 'red' ? ' red' : ''), hasCnt:false, cnt:'', goLabel:'Открыть раздел «' + x.label + '»', links:x.links.map(link), ...extra });
+    const rows = [
+      // в строке госуслуг — следующие услуги после шести на первом экране, без повтора
+      ...(gc ? [row({ ...gc, links: H.GOV[role].slice(6, 10).map(g => ({ label:g.short, href:g.href })) }, { hasCnt:true, cnt:gc.count })] : []),
+      ...H.SECTIONS[role].map(x => row(x)),
+      row({ id:'lib', icon:'ri-book-open-line', label:'Справочники', desc:'', href:H.P.drugs, links:H.LIBRARY }),
+    ];
+    const cab = CABINET[role];
+    return {
+      ...base,
+      heroTitle: hero.title, popTitle: hero.popTitle,
+      popular: H.GOV[role].slice(0, 6).map((g, i) => ({ ...g, n: String(i + 1).padStart(2, '0'), target: ext(g.href) ? '_blank' : '_self', tip: H.tipOf(g), arrow: ext(g.href) ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
+      allHref: H.hasGov(role) ? H.govPage(role) : H.P.proto + '#protocols', allLabel: hero.allLabel,
+      hasCount: H.hasGov(role), count: H.GOV_COUNT[role] || '',
+      cab: { ...cab, items: cab.items.map(c => ({ ...c, href: c.biz ? H.bizEntry(c.href, SELF) : c.href })),
+        login: role === 'business' ? H.bizEntry('Кабинет бизнеса.dc.html', SELF) : 'Вход.dc.html' },
+      rows,
+      fresh: H.FRESH[role],
+      isBusiness: role === 'business', useful: H.USEFUL,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#0B7AA6"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#fff"/><rect width="1200" height="40" fill="#06222F"/><rect x="80" y="140" width="560" height="64" rx="8" fill="#0A0D14"/><rect x="80" y="240" width="560" height="64" rx="16" fill="#fff" stroke="#E1E4EA" stroke-width="3"/><g stroke="#E1E4EA" stroke-width="3"><path d="M80 360h270M370 360h270M80 420h270M370 420h270M80 480h270M370 480h270"/></g><circle cx="920" cy="330" r="260" fill="none" stroke="#ACDCEE" stroke-width="3"/><rect x="740" y="170" width="360" height="330" rx="28" fill="#fff" stroke="#E1E4EA" stroke-width="3"/><rect x="772" y="430" width="200" height="44" rx="10" fill="#0B7AA6"/><rect x="80" y="600" width="1040" height="4" fill="#0A0D14"/></svg></template>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Справочный центр (FAQ) новой главной: аудитория → тема → подтема → вопросы. Тексты — HomeData.FAQ
+  (те же, что на текущей главной). Аудитория сама следует за ролью в шапке (Гражданам → Населению,
+  Бизнесу → Поставщикам, Медперсоналу → Медработникам), но переключается и вручную.
+  Внизу — «Не нашли ответ?» → AI-помощник.
+-->
+<x-dc>
+<helmet>
+<style>
+  .fq *{ box-sizing:border-box; }
+  .fq{ font-family:'Inter',system-ui,sans-serif; }
+  .fq-grid{ display:grid; grid-template-columns:minmax(280px,380px) minmax(0,1fr); gap:24px; align-items:start; }
+  .fq-themes{ display:flex; flex-direction:column; gap:8px; position:sticky; top:96px; }
+  .fq-th{ border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); overflow:hidden; transition:box-shadow .15s; }
+  .fq-th.on{ box-shadow:inset 0 0 0 1px var(--b200), 0 8px 20px -14px rgba(10,13,20,.2); }
+  .fq-thb{ width:100%; display:flex; align-items:center; gap:12px; padding:14px 14px 14px 14px; border:none; background:none; font-family:inherit; text-align:left; cursor:pointer; }
+  .fq-thb .ic{ width:40px; height:40px; border-radius:11px; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:20px; background:var(--n100); color:var(--n500); transition:.15s; }
+  .fq-th.on .fq-thb .ic{ background:var(--b50); color:var(--b600); }
+  .fq-thb b{ flex:1; font-size:14.5px; font-weight:600; line-height:1.35; color:var(--n900); }
+  .fq-thb i.ch{ font-size:20px; color:var(--n400); transition:transform .2s; }
+  .fq-th.on .fq-thb i.ch{ transform:rotate(180deg); }
+  .fq-subs{ padding:0 10px 10px; animation:fq-in .2s ease; }
+  @keyframes fq-in{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  .fq-sub{ width:100%; display:flex; align-items:center; gap:10px; padding:10px 12px; border:none; border-radius:10px; background:none; font:500 14px/1.35 'Inter',sans-serif; color:var(--n600); cursor:pointer; text-align:left; }
+  .fq-sub:hover{ background:var(--n100); }
+  .fq-sub[aria-current="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .fq-sub span{ flex:1; }
+  .fq-sub em{ font-style:normal; font-size:12px; font-weight:600; min-width:22px; height:22px; padding:0 7px; border-radius:999px; background:var(--n100); color:var(--n500); display:inline-flex; align-items:center; justify-content:center; }
+  .fq-sub[aria-current="true"] em{ background:#fff; color:var(--b700); }
+  .fq-main{ background:#fff; border-radius:24px; box-shadow:inset 0 0 0 1px var(--n200); padding:clamp(20px,2.4vw,36px); min-height:420px; }
+  .fq-crumb{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:13px; color:var(--n400); margin-bottom:8px; }
+  .fq-crumb i{ font-size:15px; }
+  .fq-main h3{ margin:0 0 20px; font-size:clamp(19px,.5vw + 15px,24px); font-weight:600; letter-spacing:-.015em; color:var(--n900); }
+  .fq-qs{ display:flex; flex-direction:column; gap:10px; }
+  .fq-q{ border-radius:16px; box-shadow:inset 0 0 0 1px var(--n200); background:#fff; transition:.15s; }
+  .fq-q.on{ box-shadow:inset 0 0 0 1px var(--b200); background:var(--n50); }
+  .fq-qb{ width:100%; display:flex; align-items:flex-start; gap:14px; padding:18px 18px 18px 20px; border:none; background:none; font-family:inherit; text-align:left; cursor:pointer; }
+  .fq-qb .n{ font-size:13px; font-weight:700; color:var(--b600); min-width:22px; padding-top:2px; font-variant-numeric:tabular-nums; }
+  .fq-qb b{ flex:1; font-size:15.5px; font-weight:500; line-height:1.5; color:var(--n900); }
+  .fq-qb .pm{ width:30px; height:30px; flex:0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:19px; background:var(--n100); color:var(--n500); transition:.15s; }
+  .fq-q.on .fq-qb .pm{ background:var(--b600); color:#fff; transform:rotate(45deg); }
+  .fq-a{ padding:0 64px 20px 56px; font-size:15px; line-height:1.7; color:var(--n500); white-space:pre-line; animation:fq-in .2s ease; }
+  .fq-more{ margin-top:20px; display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:16px; background:linear-gradient(120deg,var(--b50),color-mix(in srgb, var(--b100) 60%, #fff)); }
+  .fq-more .ic{ width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,var(--b500),var(--b700)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; }
+  .fq-more div{ flex:1; }
+  .fq-more b{ display:block; font-size:15px; font-weight:600; color:var(--n900); }
+  .fq-more span{ font-size:13.5px; color:var(--n500); }
+  .fq-more button{ height:42px; padding:0 16px; border:none; border-radius:11px; background:#fff; color:var(--b800); font:600 14px/1 'Inter',sans-serif; cursor:pointer; box-shadow:0 1px 2px rgba(10,13,20,.08); white-space:nowrap; }
+  @media (max-width:1023px){ .fq-grid{ grid-template-columns:minmax(0,1fr); } .fq-themes{ position:static; } }
+  @media (max-width:640px){ .fq-a{ padding:0 18px 18px 56px; } .fq-more{ flex-wrap:wrap; } }
+</style>
+</helmet>
+<div class="fq">
+  <div class="hm-sec-head">
+    <div>
+      <h2 class="hm-h2">Часто задаваемые вопросы</h2>
+    </div>
+    <div class="hm-seg" role="group" aria-label="Для кого вопросы">
+      <sc-for list="{{ auds }}" as="a" hint-placeholder-count="3">
+        <button onClick="{{ a.onClick }}" aria-pressed="{{ a.on }}">{{ a.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+  <div class="fq-grid">
+    <nav class="fq-themes" aria-label="Темы вопросов">
+      <sc-for list="{{ themes }}" as="t" hint-placeholder-count="5">
+        <div class="{{ t.cls }}">
+          <button class="fq-thb" onClick="{{ t.onClick }}" aria-expanded="{{ t.openStr }}"><span class="ic"><i class="{{ t.icon }}"></i></span><b>{{ t.label }}</b><i class="ri-arrow-down-s-line ch"></i></button>
+          <sc-if value="{{ t.open }}" hint-placeholder-val="{{ false }}">
+            <div class="fq-subs">
+              <sc-for list="{{ t.subs }}" as="x" hint-placeholder-count="3">
+                <button class="fq-sub" onClick="{{ x.onClick }}" aria-current="{{ x.on }}"><span>{{ x.label }}</span><em>{{ x.count }}</em></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </nav>
+    <section class="fq-main" aria-live="polite">
+      <div class="fq-crumb"><span>{{ crumbAud }}</span><i class="ri-arrow-right-s-line"></i><span>{{ crumbTheme }}</span></div>
+      <h3>{{ crumbSub }}</h3>
+      <div class="fq-qs">
+        <sc-for list="{{ qs }}" as="q" hint-placeholder-count="5">
+          <div class="{{ q.cls }}">
+            <button class="fq-qb" onClick="{{ q.onClick }}" aria-expanded="{{ q.openStr }}"><span class="n">{{ q.num }}</span><b>{{ q.q }}</b><span class="pm"><i class="ri-add-line"></i></span></button>
+            <sc-if value="{{ q.open }}" hint-placeholder-val="{{ false }}"><div class="fq-a">{{ q.a }}</div></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <div class="fq-more">
+        <span class="ic"><i class="ri-sparkling-2-fill"></i></span>
+        <div><b>Не нашли ответ?</b></div>
+        <button onClick="{{ askAi }}">Спросить помощника</button>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:760}}">
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = { ready: !!window.mpHome, aud:null, theme:null, sub:null, q:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.setState({ ready:true });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._onRole = (e) => { if(e && e.detail && window.mpHome) this.pickAud(window.mpHome.faqAudOf(e.detail)); };
+    window.addEventListener('mp-role-change', this._onRole);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._onRole); }
+  pickAud(id){
+    const H = window.mpHome; const t0 = H.FAQ[id][0];
+    this.setState({ aud:id, theme:t0.id, vt:t0.id, sub:t0.subs[0].id, q:0 });
+  }
+  renderVals(){
+    const H = window.mpHome;
+    if(!H) return { auds:[], themes:[], qs:[], crumbAud:'', crumbTheme:'', crumbSub:'', askAi:()=>{} };
+    const s = this.state;
+    const aud = s.aud || H.faqAudOf(lsGet('mp-role') || 'citizens');
+    const themes = H.FAQ[aud];
+    // по умолчанию — «Узнать статус / Калькулятор ОСМС → Категории участников», как на текущей главной
+    const defTheme = aud === 'nas' ? 'status' : themes[0].id;
+    const thId = s.aud ? s.theme : defTheme;
+    const vt = s.aud ? (s.vt || s.theme) : defTheme;
+    const cur = themes.find(t => t.id === vt) || themes.find(t => t.id === defTheme);
+    const sub = cur.subs.find(x => x.id === s.sub) || cur.subs[0];
+    const audLabel = H.FAQ_AUD.find(a => a.id === aud).label;
+    return {
+      auds: H.FAQ_AUD.map(a => ({ ...a, on: a.id === aud ? 'true' : 'false', onClick:() => this.pickAud(a.id) })),
+      themes: themes.map(t => { const open = thId === t.id; return { ...t, open, openStr: open ? 'true' : 'false', cls:'fq-th' + (open ? ' on' : ''),
+        onClick:() => open ? this.setState({ aud, theme:null, vt:cur.id, sub:sub.id }) : this.setState({ aud, theme:t.id, vt:t.id, sub:t.subs[0].id, q:0 }),
+        subs: t.subs.map(x => ({ label:x.label, count:x.qs.length, on: open && sub.id === x.id ? 'true' : 'false', onClick:() => this.setState({ aud, theme:t.id, vt:t.id, sub:x.id, q:0 }) })) }; }),
+      crumbAud: audLabel, crumbTheme: cur.label, crumbSub: sub.label,
+      qs: sub.qs.map((q, i) => { const open = s.q === i; return { ...q, num:i + 1, open, openStr: open ? 'true' : 'false', cls:'fq-q' + (open ? ' on' : ''),
+        onClick:() => this.setState({ aud, theme:thId, vt:cur.id, sub:sub.id, q: open ? -1 : i }) }; }),
+      askAi: () => H.ask(''),
+    };
+  }
+}
+</script>
+</body>
+</html>

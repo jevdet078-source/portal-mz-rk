@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Главная · вариант B «Стекло» — сияние и глубина.
+  Каркас знаком по текущей главной (плитки разделов + поиск + выпадающая панель раздела), но первый
+  экран — глубокий цвет бренда с мягким «северным сиянием» (только CSS-градиенты, без картинок и 3D),
+  плитки и панель — матовое стекло. Ниже — популярные услуги «бенто», «Новое», FAQ, новости в
+  редакционной раскладке. Шапка прозрачная поверх баннера и становится стеклянной при прокрутке.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:var(--n50,#FBFCFD); }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+
+  .vb-top{ position:sticky; top:0; z-index:40; height:72px; }
+  .vb-hero{ position:relative; margin-top:-72px; padding-top:72px; color:#fff; background:var(--b950); isolation:isolate; }
+  .vb-sky{ position:absolute; inset:0; overflow:hidden; z-index:-1; }
+  .vb-sky::before{ content:''; position:absolute; inset:0; background:linear-gradient(180deg, var(--b900) 0%, var(--b950) 70%); }
+  .vb-blob{ position:absolute; border-radius:50%; filter:blur(10px); opacity:.85; will-change:transform; }
+  .vb-blob.b1{ width:62vw; height:62vw; left:-18vw; top:-30vw; background:radial-gradient(closest-side, color-mix(in srgb, var(--b500) 75%, transparent), transparent); animation:vb-d1 22s ease-in-out infinite alternate; }
+  .vb-blob.b2{ width:52vw; height:52vw; right:-16vw; top:-14vw; background:radial-gradient(closest-side, color-mix(in srgb, var(--b300) 55%, transparent), transparent); animation:vb-d2 26s ease-in-out infinite alternate; }
+  .vb-blob.b3{ width:44vw; height:44vw; left:30vw; bottom:-30vw; background:radial-gradient(closest-side, color-mix(in srgb, var(--bacc) 32%, transparent), transparent); animation:vb-d3 30s ease-in-out infinite alternate; }
+  @keyframes vb-d1{ to{ transform:translate(8vw, 6vw) scale(1.08); } }
+  @keyframes vb-d2{ to{ transform:translate(-6vw, 8vw) scale(.94); } }
+  @keyframes vb-d3{ to{ transform:translate(-8vw, -4vw) scale(1.1); } }
+  .vb-sky .grain{ position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn), radial-gradient(70% 80% at 50% 40%, #000, transparent); mask-image:var(--hm-orn), radial-gradient(70% 80% at 50% 40%, #000, transparent); -webkit-mask-size:132px, 100% 100%; mask-size:132px, 100% 100%; -webkit-mask-composite:source-in; mask-composite:intersect; opacity:.06; }
+  .vb-sky .fade{ position:absolute; left:0; right:0; bottom:0; height:120px; background:linear-gradient(180deg, transparent, color-mix(in srgb, var(--b950) 60%, transparent)); }
+
+  .vb-in{ position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; padding-block:clamp(40px,5vw,96px) clamp(36px,4vw,72px); }
+  .vb-h1{ margin:0 0 30px; max-width:24ch; font-size:clamp(34px,2.4vw + 12px,64px); line-height:1.06; font-weight:600; letter-spacing:-.034em; text-wrap:balance; background:linear-gradient(180deg,#fff 30%, color-mix(in srgb, var(--b100) 85%, #fff)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .vb-search{ width:min(100%, 880px); }
+
+  .vb-tiles{ margin-top:clamp(32px,3.6vw,56px); width:100%; display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; max-width:1240px; }
+  .vb-tiles.n3{ grid-template-columns:repeat(3, minmax(0,1fr)); max-width:860px; } .vb-tiles.n4{ grid-template-columns:repeat(4, minmax(0,1fr)); max-width:1040px; } .vb-tiles.n5{ grid-template-columns:repeat(5, minmax(0,1fr)); }
+  .vb-tile{ position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:18px; padding:18px; min-height:132px; border:none; border-radius:20px; text-align:left; text-decoration:none; color:#fff; cursor:pointer; font-family:inherit;
+    background:linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.04)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16), inset 0 1px 0 rgba(255,255,255,.22); -webkit-backdrop-filter:blur(18px) saturate(1.4); backdrop-filter:blur(18px) saturate(1.4); transition:background .2s, transform .2s, box-shadow .2s; }
+  .vb-tile:hover{ background:linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.08)); transform:translateY(-3px); }
+  .vb-tile[aria-expanded="true"]{ background:#fff; color:var(--b900); box-shadow:0 20px 40px -20px rgba(0,0,0,.5); }
+  .vb-tile .ic{ width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:23px; background:rgba(255,255,255,.14); box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+  .vb-tile[aria-expanded="true"] .ic{ background:var(--b50); color:var(--b600); box-shadow:none; }
+  .vb-tile b{ font-size:15px; font-weight:600; line-height:1.3; letter-spacing:-.01em; }
+  .vb-tile .chev{ position:absolute; right:14px; top:16px; font-size:20px; opacity:.6; transition:transform .2s; }
+  .vb-tile[aria-expanded="true"] .chev{ transform:rotate(180deg); opacity:.9; }
+  .vb-tile.gov{ background:linear-gradient(150deg, color-mix(in srgb, var(--b400) 60%, transparent), rgba(255,255,255,.06)); }
+  .vb-tile.gov .cnt{ position:absolute; right:14px; top:16px; font-size:12px; font-weight:600; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.18); }
+  .vb-tile.red .ic{ background:color-mix(in srgb, var(--red) 40%, transparent); }
+
+  .vb-panel{ width:100%; max-width:1240px; margin-top:12px; text-align:left; border-radius:24px; padding:clamp(18px,1.8vw,24px); background:rgba(255,255,255,.97); color:var(--n900); box-shadow:0 30px 60px -24px rgba(0,0,0,.55); animation:vb-drop .22s ease; }
+  .vb-phd{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .vb-phd h3{ flex:1; }
+  .vb-pclose{ width:36px; height:36px; border:none; border-radius:10px; background:var(--n100); color:var(--n500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:19px; }
+  .vb-pclose:hover{ background:var(--n200); }
+  @keyframes vb-drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+  .vb-panel h3{ margin:0; font-size:20px; font-weight:600; letter-spacing:-.015em; }
+  .vb-plinks{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,260px),1fr)); gap:8px; }
+  .vb-plinks a{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-radius:12px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n800,#1a1d24); text-decoration:none; font-size:14.5px; font-weight:500; transition:.15s; }
+  .vb-plinks a:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); }
+  .vb-plinks i{ font-size:17px; color:var(--n400); }
+
+  /* популярные услуги — бенто */
+  .vb-bento{ display:grid; grid-template-columns:minmax(0,1.25fr) repeat(3, minmax(0,1fr)); grid-auto-rows:minmax(150px,auto); gap:clamp(12px,1.2vw,18px); }
+  .vb-feat{ grid-row:span 2; position:relative; overflow:hidden; border-radius:26px; padding:clamp(22px,2vw,32px); color:#fff; text-decoration:none; display:flex; flex-direction:column; background:radial-gradient(120% 120% at 0% 0%, var(--b500), var(--b800) 60%, var(--b950)); }
+  .vb-feat::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.07; }
+  .vb-feat::after{ content:''; position:absolute; right:-60px; bottom:-60px; width:260px; height:260px; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--bacc) 40%, transparent), transparent); }
+  .vb-feat > *{ position:relative; z-index:1; }
+  .vb-feat .ic{ width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; background:rgba(255,255,255,.14); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); }
+  .vb-feat h3{ margin:auto 0 8px; font-size:clamp(24px,.8vw + 16px,32px); font-weight:600; letter-spacing:-.022em; }
+  .vb-feat .go{ align-self:flex-start; display:inline-flex; align-items:center; gap:8px; height:46px; padding:0 18px; border-radius:12px; background:#fff; color:var(--b800); font-weight:600; font-size:15px; }
+  .vb-feat .cnt{ position:absolute; right:clamp(22px,2vw,32px); top:clamp(22px,2vw,32px); font-size:13px; font-weight:600; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.16); }
+  .vb-svc{ position:relative; display:flex; flex-direction:column; gap:14px; padding:20px; border-radius:22px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:transform .2s, box-shadow .2s; }
+  .vb-svc:hover{ transform:translateY(-3px); box-shadow:inset 0 0 0 1px var(--b200), 0 24px 44px -28px rgba(10,13,20,.35); }
+  .vb-svc b{ font-size:16px; font-weight:600; line-height:1.35; letter-spacing:-.01em; margin-top:auto; }
+  .vb-svc > .hm-ext{ position:absolute; right:18px; top:18px; transition:color .15s; }
+  .vb-svc:hover > .hm-ext{ color:var(--b600); }
+  .vb-svc .hm-ico{ transition:.2s; }
+  .vb-svc:hover .hm-ico{ background:var(--b600); color:#fff; }
+
+  /* новое — стекло на светлом сиянии */
+  .vb-glassband{ position:relative; overflow:hidden; background:linear-gradient(180deg, var(--b50), #fff); }
+  .vb-glassband::before{ content:''; position:absolute; width:50vw; height:50vw; left:-10vw; top:-20vw; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b200) 80%, transparent), transparent); }
+  .vb-glassband::after{ content:''; position:absolute; width:40vw; height:40vw; right:-8vw; bottom:-24vw; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--bacc) 22%, transparent), transparent); }
+  .vb-glassband > *{ position:relative; z-index:1; }
+  .vb-fresh{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:16px; }
+  .vb-fresh a{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:22px; min-height:164px; border-radius:22px; text-decoration:none; color:var(--n900); background:rgba(255,255,255,.62); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9), 0 16px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); -webkit-backdrop-filter:blur(16px) saturate(1.3); backdrop-filter:blur(16px) saturate(1.3); transition:transform .2s; }
+  .vb-fresh a:hover{ transform:translateY(-3px); }
+  .vb-fresh .tag{ margin-top:auto; font-size:12px; font-weight:600; color:var(--b800); background:color-mix(in srgb, var(--b100) 80%, #fff); padding:5px 10px; border-radius:999px; }
+  .vb-fresh b{ font-size:17px; font-weight:600; line-height:1.35; }
+
+
+  @media (max-width:1280px){ .vb-bento{ grid-template-columns:repeat(3, minmax(0,1fr)); } .vb-feat{ grid-column:span 3; grid-row:auto; min-height:280px; } }
+  @media (max-width:1100px){ .vb-tiles, .vb-tiles.n4, .vb-tiles.n5{ grid-template-columns:repeat(3, minmax(0,1fr)); } .vb-panel{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:720px){ .vb-tiles, .vb-tiles.n3, .vb-tiles.n4, .vb-tiles.n5{ grid-template-columns:repeat(2, minmax(0,1fr)); } .vb-plinks{ grid-template-columns:minmax(0,1fr); } .vb-bento{ grid-template-columns:minmax(0,1fr); } .vb-feat{ grid-column:auto; } }
+  @media (prefers-reduced-motion:reduce){ .vb-blob{ animation:none !important; } }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="vb-top"><dc-import name="PortalHeader" look="glass" hint-size="100%,72px"></dc-import></div>
+
+  <main>
+    <section class="vb-hero">
+      <div class="vb-sky" aria-hidden="true"><span class="vb-blob b1"></span><span class="vb-blob b2"></span><span class="vb-blob b3"></span><span class="grain"></span><span class="fade"></span></div>
+      <div class="hm-wrap vb-in">
+        <h1 class="vb-h1 hm-in d1">{{ heroTitle }}</h1>
+        <div class="vb-search hm-in d2 hm-search"><dc-import name="SearchBox" look="glass" center="1" hotkey="1" hint-size="100%,120px"></dc-import></div>
+
+        <div class="{{ tilesCls }}">
+          <sc-if value="{{ hasGov }}" hint-placeholder-val="{{ true }}">
+            <a class="vb-tile gov" href="{{ govHref }}"><span class="ic"><i class="ri-government-line"></i></span><span class="cnt">{{ govCount }}</span><b>Государственные услуги</b></a>
+          </sc-if>
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="5">
+            <button class="{{ t.cls }}" onClick="{{ t.onClick }}" aria-expanded="{{ t.exp }}" aria-haspopup="true"><span class="ic"><i class="{{ t.icon }}"></i></span><i class="ri-arrow-down-s-line chev"></i><b>{{ t.label }}</b></button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+          <div class="vb-panel">
+            <div class="vb-phd">
+              <h3>{{ panel.label }}</h3>
+              <a class="hm-btn hm-btn-soft hm-btn-sm" href="{{ panel.href }}">Открыть раздел<i class="ri-arrow-right-line"></i></a>
+              <button class="vb-pclose" onClick="{{ closePanel }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+            </div>
+            <div class="vb-plinks">
+              <sc-for list="{{ panel.links }}" as="l" hint-placeholder-count="4"><a href="{{ l.href }}" target="{{ l.target }}" data-tip="{{ l.tip }}"><span>{{ l.label }}</span><i class="{{ l.icon }}"></i></a></sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+
+    <!-- ПОПУЛЯРНЫЕ УСЛУГИ — БЕНТО -->
+    <section class="hm-sec">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">{{ popTitle }}</h2></div><a class="hm-link" href="{{ allHref }}">{{ allLabel }}<i class="ri-arrow-right-line"></i></a></div>
+        <div class="vb-bento">
+          <a class="vb-feat" href="{{ feat.href }}">
+            <span class="ic"><i class="{{ feat.icon }}"></i></span>
+            <sc-if value="{{ feat.hasCnt }}" hint-placeholder-val="{{ true }}"><span class="cnt">{{ feat.cnt }}</span></sc-if>
+            <h3>{{ feat.title }}</h3>
+            <span class="go">{{ feat.go }}<i class="ri-arrow-right-line"></i></span>
+          </a>
+          <sc-for list="{{ popular }}" as="g" hint-placeholder-count="6">
+            <a class="vb-svc" href="{{ g.href }}" target="{{ g.target }}" data-tip="{{ g.tip }}"><span class="hm-ico"><i class="{{ g.icon }}"></i></span><i class="{{ g.arrow }}"></i><b>{{ g.short }}</b></a>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- НОВОЕ -->
+    <section class="hm-sec vb-glassband">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Новое на портале</h2></div></div>
+        <div class="vb-fresh">
+          <sc-for list="{{ fresh }}" as="c" hint-placeholder-count="5">
+            <a href="{{ c.href }}" data-tip="{{ c.desc }}"><span class="hm-ico"><i class="{{ c.icon }}"></i></span><b>{{ c.title }}</b><span class="tag">{{ c.tag }}</span></a>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+      <section class="hm-sec">
+        <div class="hm-wrap">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
+            <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
+              <a href="#" data-tip="{{ u.desc }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i></a>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <section class="hm-sec"><div class="hm-wrap"><dc-import name="HomeFaq" hint-size="100%,720px"></dc-import></div></section>
+    <section class="hm-sec" style="background:#fff;border-top:1px solid var(--n200);"><div class="hm-wrap"><dc-import name="HomeNews" layout="editorial" hint-size="100%,640px"></dc-import></div></section>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="b" hint-size="1px,1px"></dc-import>
+</div>
+<dc-import name="Splash" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href);
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { role: lsRole(), ready: !!window.mpHome, tab:null }; }
+  componentDidMount(){
+    // роль из ссылки (?role=…) HomeData кладёт в хранилище при загрузке — перечитываем, когда он готов
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail, tab:null }); };
+    window.addEventListener('mp-role-change', this._role);
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.tab) this.setState({ tab:null }); };
+    window.addEventListener('keydown', this._esc);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._role); window.removeEventListener('keydown', this._esc); clearTimeout(this._fb); }
+  renderVals(){
+    const H = window.mpHome, s = this.state, role = s.role;
+    const emptyFeat = { href:'#', icon:'', hasCnt:false, cnt:'', title:'', desc:'', go:'' };
+    if(!H) return { heroTitle:'', heroLead:'', tilesCls:'vb-tiles', hasGov:false, govHref:'#', govCount:'', tiles:[], panelOpen:false, panel:{ links:[] }, closePanel:()=>{}, roleShort:'', popTitle:'', allHref:'#', allLabel:'', feat:emptyFeat, popular:[], fresh:[], isBusiness:false, useful:[] };
+    const hero = H.HERO[role];
+    const secs = H.SECTIONS[role];
+    const gov = H.hasGov(role);
+    const link = (l) => ({ ...l, target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href), icon: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' });
+    const active = secs.find(x => x.id === s.tab);
+    const nTiles = secs.length + (gov ? 1 : 0);
+    const gc = H.govCard(role);
+    // бенто: крупная карточка — госуслуги (у медперсонала — профессиональная деятельность), рядом 6 популярных
+    const feat = gc
+      ? { href:gc.href, icon:'ri-government-line', hasCnt:true, cnt:H.plural(gc.count, 'услуга', 'услуги', 'услуг'), title:'Государственные услуги', desc:gc.desc, go:'Все госуслуги' }
+      : { href:secs[0].href, icon:secs[0].icon, hasCnt:false, cnt:'', title:secs[0].label, desc:secs[0].desc, go:'Открыть раздел' };
+    return {
+      heroTitle: hero.title,
+      tilesCls: 'vb-tiles hm-in d4 n' + Math.min(nTiles, 6),
+      hasGov: gov, govHref: gov ? H.govPage(role) : '#', govCount: gov ? H.GOV_COUNT[role] : '',
+      tiles: secs.map(x => ({ ...x, exp: s.tab === x.id ? 'true' : 'false', cls:'vb-tile' + (x.tone === 'red' ? ' red' : ''), onClick:() => this.setState(st => ({ tab: st.tab === x.id ? null : x.id })) })),
+      panelOpen: !!active, panel: active ? { ...active, links: active.links.map(link) } : { links:[] },
+      closePanel: () => this.setState({ tab:null }),
+      popTitle: hero.popTitle,
+      allHref: gov ? H.govPage(role) : H.P.proto + '#protocols', allLabel: hero.allLabel,
+      feat, popular: H.GOV[role].slice(0, 6).map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', tip: H.tipOf(g), arrow: ext(g.href) ? 'ri-external-link-line hm-ext' : 'ri-arrow-right-up-line hm-ext' })),
+      fresh: H.FRESH[role], isBusiness: role === 'business', useful: H.USEFUL,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#06222F"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="g" cx="30%" cy="20%" r="70%"><stop offset="0" stop-color="#1AA3CF"/><stop offset="1" stop-color="#06222F"/></radialGradient></defs><rect width="1200" height="800" fill="url(#g)"/><rect x="300" y="200" width="600" height="56" rx="12" fill="#fff" opacity=".9"/><rect x="260" y="300" width="680" height="72" rx="20" fill="#fff"/><g fill="#fff" opacity=".18"><rect x="120" y="470" width="150" height="130" rx="20"/><rect x="290" y="470" width="150" height="130" rx="20"/><rect x="460" y="470" width="150" height="130" rx="20"/><rect x="630" y="470" width="150" height="130" rx="20"/><rect x="800" y="470" width="150" height="130" rx="20"/><rect x="970" y="470" width="150" height="130" rx="20"/></g></svg></template>
+</body>
+</html>

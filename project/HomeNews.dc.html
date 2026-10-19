@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Новости здравоохранения на новой главной. Данные — HomeData.NEWS (как на текущей главной).
+  Пропсы: layout = grid (три карточки) | editorial (главная новость крупно + лента справа),
+          title — заголовок блока.
+  Картинки — те же image-slot, что на текущей главной; у новостей без загруженной картинки — обложка
+  в цветах бренда с орнаментом (вместо серого «Изображение новости»).
+-->
+<x-dc>
+<helmet>
+<style>
+  .nw *{ box-sizing:border-box; }
+  .nw{ font-family:'Inter',system-ui,sans-serif; }
+  .nw-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(16px,1.6vw,24px); }
+  .nw-card{ display:flex; flex-direction:column; border-radius:22px; overflow:hidden; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:inherit; transition:transform .2s, box-shadow .2s; }
+  .nw-card:hover{ transform:translateY(-3px); box-shadow:inset 0 0 0 1px var(--n200), 0 22px 40px -24px rgba(10,13,20,.35); }
+  .nw-img{ position:relative; height:clamp(170px,12vw,230px); flex:0 0 auto; overflow:hidden; background:var(--b50); }
+  .nw-cover{ position:absolute; inset:0; background:radial-gradient(120% 140% at 0% 0%, var(--b400), var(--b700) 55%, var(--b900)); display:flex; align-items:flex-end; padding:18px; }
+  .nw-cover::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:110px; mask-size:110px; opacity:.1; }
+  .nw-cover i{ position:relative; font-size:40px; color:rgba(255,255,255,.92); }
+  .nw-body{ padding:20px 22px 22px; display:flex; flex-direction:column; flex:1; }
+  .nw-tag{ align-self:flex-start; display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--b700); background:var(--b50); padding:5px 10px; border-radius:999px; }
+  .nw-tag i{ font-size:14px; }
+  .nw-t{ font-size:17px; font-weight:600; line-height:1.4; letter-spacing:-.012em; margin:12px 0 8px; color:var(--n900); }
+  .nw-d{ font-size:14.5px; line-height:1.55; color:var(--n500); flex:1; }
+  .nw-meta{ display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:14px; font-size:13px; color:var(--n400); }
+  .nw-meta span.more{ display:inline-flex; align-items:center; gap:4px; font-weight:600; color:var(--b700); }
+
+  .nw-ed{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:clamp(16px,1.6vw,24px); }
+  .nw-lead .nw-img{ height:clamp(240px,20vw,360px); }
+  .nw-lead .nw-t{ font-size:clamp(20px,.6vw + 15px,26px); }
+  .nw-list{ display:flex; flex-direction:column; gap:12px; }
+  .nw-row{ display:flex; gap:16px; align-items:center; padding:12px; border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:inherit; transition:box-shadow .15s, transform .15s; }
+  .nw-row:hover{ box-shadow:inset 0 0 0 1px var(--b200), 0 14px 30px -20px rgba(10,13,20,.3); transform:translateX(2px); }
+  .nw-row .nw-img{ width:132px; height:96px; border-radius:12px; }
+  .nw-row .nw-cover{ padding:12px; } .nw-row .nw-cover i{ font-size:26px; }
+  .nw-row .nw-t{ font-size:15.5px; margin:8px 0 4px; }
+  .nw-row .nw-d{ font-size:13.5px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .nw-foot{ display:flex; justify-content:center; margin-top:clamp(20px,2vw,32px); }
+  @media (max-width:1100px){ .nw-ed{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:900px){ .nw-grid{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:560px){ .nw-row .nw-img{ width:96px; height:84px; } }
+</style>
+</helmet>
+<div class="nw">
+  <div class="hm-sec-head">
+    <div>
+      <h2 class="hm-h2">{{ title }}</h2>
+    </div>
+    <div class="hm-seg" role="group" aria-label="Рубрика новостей">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <button onClick="{{ t.onClick }}" aria-pressed="{{ t.on }}">{{ t.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+    <div class="nw-grid">
+      <sc-for list="{{ items }}" as="n" hint-placeholder-count="3">
+        <a class="nw-card" href="Новости.dc.html">
+          <div class="nw-img">
+            <sc-if value="{{ n.img }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ n.slot }}" shape="rect" placeholder="Изображение новости" hint-size="100%,200px"></x-import></sc-if>
+            <sc-if value="{{ n.noImg }}" hint-placeholder-val="{{ true }}"><div class="nw-cover"><i class="{{ n.icon }}"></i></div></sc-if>
+          </div>
+          <div class="nw-body">
+            <span class="nw-tag"><i class="{{ n.icon }}"></i>{{ n.category }}</span>
+            <div class="nw-t">{{ n.title }}</div>
+            <div class="nw-meta"><span>{{ n.date }}</span></div>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isEd }}" hint-placeholder-val="{{ false }}">
+    <div class="nw-ed">
+      <a class="nw-card nw-lead" href="Новости.dc.html">
+        <div class="nw-img">
+          <sc-if value="{{ lead.img }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ lead.slot }}" shape="rect" placeholder="Изображение новости" hint-size="100%,320px"></x-import></sc-if>
+          <sc-if value="{{ lead.noImg }}" hint-placeholder-val="{{ true }}"><div class="nw-cover"><i class="{{ lead.icon }}"></i></div></sc-if>
+        </div>
+        <div class="nw-body">
+          <span class="nw-tag"><i class="{{ lead.icon }}"></i>{{ lead.category }}</span>
+          <div class="nw-t">{{ lead.title }}</div>
+          <div class="nw-d">{{ lead.desc }}</div>
+          <div class="nw-meta"><span>{{ lead.date }}</span></div>
+        </div>
+      </a>
+      <div class="nw-list">
+        <sc-for list="{{ rest }}" as="n" hint-placeholder-count="3">
+          <a class="nw-row" href="Новости.dc.html">
+            <div class="nw-img">
+              <sc-if value="{{ n.img }}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ n.slot }}" shape="rect" placeholder="Фото" hint-size="132px,96px"></x-import></sc-if>
+              <sc-if value="{{ n.noImg }}" hint-placeholder-val="{{ true }}"><div class="nw-cover"><i class="{{ n.icon }}"></i></div></sc-if>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <span class="nw-tag"><i class="{{ n.icon }}"></i>{{ n.category }}</span>
+              <div class="nw-t">{{ n.title }}</div>
+              <div class="nw-meta" style="margin-top:8px;"><span>{{ n.date }}</span></div>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div class="nw-foot"><a class="hm-btn hm-btn-line" href="Новости.dc.html">Все новости<i class="ri-arrow-right-line"></i></a></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:640}}">
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { tab:'services', ready: !!window.mpHome }; }
+  componentDidMount(){ this._ready = () => this.setState({ ready:true }); window.addEventListener('mp-home-ready', this._ready); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); }
+  renderVals(){
+    const H = window.mpHome, s = this.state;
+    const empty = { title:'', img:false, noImg:true, icon:'', category:'', desc:'', date:'', slot:'' };
+    if(!H) return { title:this.props.title || 'Новости здравоохранения', tabs:[], items:[], isGrid:false, isEd:false, lead:empty, rest:[] };
+    const items = H.NEWS.filter(n => n.tab === s.tab).map(n => ({ ...n, img:!!n.img, noImg:!n.img }));
+    // редакционная раскладка: крупно — главная новость рубрики, справа — ещё три (из рубрики и соседних)
+    const others = H.NEWS.filter(n => n.tab !== s.tab).map(n => ({ ...n, img:!!n.img, noImg:!n.img }));
+    const ed = this.props.layout === 'editorial';
+    return {
+      title: this.props.title || 'Новости здравоохранения',
+      tabs: H.NEWS_TABS.map(t => ({ ...t, on: s.tab === t.id ? 'true' : 'false', onClick:() => this.setState({ tab:t.id }) })),
+      isGrid: !ed, isEd: ed, items,
+      lead: items[0] || empty, rest: items.slice(1).concat(others).slice(0, 3),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Витрина для показа руководству: пять новых вариантов главной (A–E) и текущая, 10 палитр бренда
+  с проверкой контраста по WCAG и четыре заставки. Палитра и заставка, выбранные здесь, сохраняются
+  и применяются во всех вариантах (HomeData: localStorage['mp-theme'], ['mp-splash']).
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:var(--n50,#FBFCFD); }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+  .hv-hero{ position:relative; overflow:hidden; color:#fff; background:linear-gradient(120deg, var(--b950), var(--b800)); isolation:isolate; }
+  .hv-hero::before{ content:''; position:absolute; inset:0; z-index:-1; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.05; }
+  .hv-hero::after{ content:''; position:absolute; z-index:-1; width:70vw; height:70vw; right:-25vw; top:-40vw; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b400) 45%, transparent), transparent); }
+  .hv-in{ padding-block:clamp(32px,3.6vw,64px); display:flex; flex-direction:column; gap:18px; }
+  .hv-brand{ display:flex; align-items:center; gap:14px; }
+  .hv-emb{ width:52px; height:52px; border-radius:50%; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .hv-emb img{ width:52px; height:52px; object-fit:contain; }
+  .hv-brand b{ display:block; font-size:15px; font-weight:600; }
+  .hv-brand span{ font-size:13px; color:rgba(255,255,255,.6); }
+  .hv-h1{ margin:8px 0 0; font-size:clamp(30px,1.8vw + 14px,52px); line-height:1.08; font-weight:600; letter-spacing:-.03em; max-width:24ch; }
+  .hv-lead{ margin:0; max-width:72ch; font-size:17px; line-height:1.6; color:rgba(255,255,255,.75); }
+  .hv-pills{ display:flex; flex-wrap:wrap; gap:8px; }
+  .hv-pills span{ display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 14px; border-radius:999px; background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16); font-size:14px; }
+  .hv-pills i{ font-size:17px; color:var(--bacc); }
+
+  .hv-vars{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,380px),1fr)); gap:clamp(16px,1.6vw,24px); }
+  .hv-var{ display:flex; flex-direction:column; border-radius:24px; overflow:hidden; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:transform .2s, box-shadow .2s; }
+  .hv-var:hover{ transform:translateY(-3px); box-shadow:inset 0 0 0 1px var(--b200), 0 30px 56px -34px rgba(10,13,20,.45); }
+  .hv-thumb{ position:relative; height:200px; overflow:hidden; border-bottom:1px solid var(--n200); }
+  .hv-body{ padding:20px 22px 22px; display:flex; flex-direction:column; gap:10px; flex:1; }
+  .hv-key{ display:flex; align-items:center; gap:10px; }
+  .hv-key em{ font-style:normal; width:32px; height:32px; border-radius:10px; background:var(--b600); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:15px; }
+  .hv-key em.cur{ background:var(--n200); color:var(--n600); }
+  .hv-key b{ font-size:18px; font-weight:600; letter-spacing:-.012em; }
+  .hv-body p{ margin:0; font-size:14.5px; line-height:1.55; color:var(--n500); }
+  .hv-body ul{ margin:4px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+  .hv-body li{ display:flex; gap:8px; font-size:14px; line-height:1.45; color:var(--n700); }
+  .hv-body li i{ font-size:16px; color:var(--b600); flex:0 0 auto; margin-top:1px; }
+  .hv-open{ margin-top:auto; padding-top:12px; display:inline-flex; align-items:center; gap:6px; font-weight:600; font-size:15px; color:var(--b700); }
+
+  /* мини-макеты вариантов (CSS, без картинок) */
+  .mk{ position:absolute; inset:0; }
+  .mk i{ position:absolute; display:block; border-radius:6px; }
+  .mk-a{ background:linear-gradient(180deg,#fff, var(--b50)); }
+  .mk-b{ background:radial-gradient(80% 90% at 20% 0%, var(--b500), var(--b950) 70%); }
+  .mk-c{ background:radial-gradient(80% 120% at 100% 0%, var(--b50), #fff 60%); }
+  .mk-d{ background:linear-gradient(115deg, var(--b950), var(--b800)); }
+  .mk-e{ background:radial-gradient(40% 60% at 20% 20%, var(--b100), transparent), radial-gradient(40% 60% at 85% 10%, color-mix(in srgb, var(--bacc) 25%, transparent), transparent), #fff; }
+  .mk-cur{ background:#F6F8FA; }
+  .mk-f{ background:var(--n100); }
+  .mk-g{ background:radial-gradient(circle at 76% 42%, transparent 33%, var(--b100) 33.6%, transparent 35%), radial-gradient(circle at 76% 42%, transparent 40%, var(--b100) 40.6%, transparent 42%), #fff; }
+
+  .hv-pals{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,300px),1fr)); gap:14px; }
+  .hv-pal{ display:flex; flex-direction:column; gap:12px; padding:16px; border:none; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-align:left; font-family:inherit; cursor:pointer; transition:.15s; }
+  .hv-pal:hover{ box-shadow:inset 0 0 0 1px var(--n300), 0 16px 32px -24px rgba(10,13,20,.35); }
+  .hv-pal[aria-pressed="true"]{ box-shadow:inset 0 0 0 2px var(--n900), 0 16px 32px -24px rgba(10,13,20,.35); }
+  .hv-sw{ height:84px; border-radius:14px; position:relative; overflow:hidden; }
+  .hv-sw .btn{ position:absolute; left:12px; bottom:12px; height:30px; padding:0 12px; border-radius:8px; color:#fff; font-size:12.5px; font-weight:600; display:flex; align-items:center; }
+  .hv-sw .acc{ position:absolute; right:12px; top:12px; width:14px; height:14px; border-radius:50%; box-shadow:0 0 0 2px rgba(255,255,255,.8); }
+  .hv-ramp{ display:flex; height:10px; border-radius:5px; overflow:hidden; }
+  .hv-ramp span{ flex:1; }
+  .hv-pal b{ display:flex; align-items:center; gap:8px; font-size:15.5px; font-weight:600; color:var(--n900); }
+  .hv-pal b em{ font-style:normal; font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FEF7EC; color:#8A5A0B; }
+  .hv-pal small{ font-size:13px; line-height:1.45; color:var(--n500); }
+  .hv-pal b em.new{ background:var(--green-l); color:var(--green-d); }
+  .hv-flat{ height:120px; border-radius:14px; padding:10px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:inset 0 0 0 1px rgba(10,13,20,.05); }
+  .hv-flat .ban{ height:46px; border-radius:10px; display:flex; align-items:center; padding:0 12px; }
+  .hv-flat .ban i{ font-style:normal; font-size:13px; font-weight:600; color:#fff; }
+  .hv-flat .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 2px; }
+  .hv-flat .lnk{ font-size:12.5px; font-weight:600; }
+  .hv-flat .btn, .hv-past .btn{ height:30px; padding:0 12px; border-radius:8px; color:#fff; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; }
+  .hv-past{ height:120px; border-radius:14px; padding:14px; display:flex; flex-direction:column; align-items:flex-start; box-shadow:inset 0 0 0 1px rgba(10,13,20,.06); }
+  .hv-past .t{ font-size:15px; font-weight:600; letter-spacing:-.01em; color:var(--n900); }
+  .hv-past .s{ font-size:12.5px; color:var(--n600); margin-top:3px; }
+  .hv-past .btn{ margin-top:auto; background:var(--b600); }
+  .hv-chips{ display:flex; gap:6px; }
+  .hv-chips span{ flex:1; height:14px; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(10,13,20,.06); }
+  .hv-aa{ display:flex; gap:6px; flex-wrap:wrap; }
+  .hv-aa span{ font-size:11.5px; font-weight:600; padding:3px 8px; border-radius:6px; background:var(--green-l); color:var(--green-d); }
+
+  .hv-sps{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,260px),1fr)); gap:14px; }
+  .hv-sp{ border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); padding:18px; display:flex; flex-direction:column; gap:8px; }
+  .hv-sp b{ font-size:16px; font-weight:600; }
+  .hv-sp p{ margin:0 0 6px; font-size:14px; line-height:1.5; color:var(--n500); flex:1; }
+  .hv-sp .row{ display:flex; gap:8px; }
+  .hv-sp button{ height:40px; padding:0 14px; border:none; border-radius:10px; font:600 14px/1 'Inter',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .hv-sp .play{ background:var(--n900); color:#fff; }
+  .hv-sp .use{ background:var(--n100); color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .hv-sp .use[aria-pressed="true"]{ background:var(--b50); color:var(--b800); box-shadow:inset 0 0 0 2px var(--b500); }
+
+  .hv-ux{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,340px),1fr)); gap:14px; }
+  .hv-ux div{ padding:18px; border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); display:flex; gap:14px; }
+  .hv-ux b{ display:block; font-size:15.5px; font-weight:600; margin-bottom:4px; }
+  .hv-ux span{ font-size:14px; line-height:1.5; color:var(--n500); }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <section class="hv-hero">
+    <div class="hm-wrap hv-in">
+      <div class="hv-brand"><span class="hv-emb"><img src="uploads/images.jpg" alt="Государственный герб Республики Казахстан"></span><span><b>Министерство здравоохранения</b><span>Республики Казахстан</span></span></div>
+      <h1 class="hv-h1">Новая главная страница портала — варианты</h1>
+      <p class="hv-lead">Шесть вариантов первого экрана и структуры главной: весь текущий состав (роли, госуслуги, разделы, «Новое», FAQ, новости, AI-помощник) сохранён, меняются подача и удобство. Цвет бренда, оформление (без градиентов, пастель, глубокие) и заставка переключаются в любом варианте — кнопка «Варианты дизайна» слева внизу.</p>
+      <div class="hv-pills">
+        <span><i class="ri-layout-masonry-line"></i>6 вариантов + текущая</span>
+        <span><i class="ri-palette-line"></i>10 цветов бренда без градиентов</span>
+        <span><i class="ri-contrast-drop-2-line"></i>10 пастельных и 10 глубоких градиентов</span>
+        <span><i class="ri-play-circle-line"></i>4 заставки при входе</span>
+        <span><i class="ri-eye-line"></i>Версия для слабовидящих</span>
+        <span><i class="ri-speed-up-line"></i>Без 3D и тяжёлых медиа</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="hm-sec">
+    <div class="hm-wrap">
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 1</span><h2 class="hm-h2">Выберите вариант главной</h2></div></div>
+      <div class="hv-vars">
+        <sc-for list="{{ variants }}" as="v" hint-placeholder-count="6">
+          <a class="hv-var" href="{{ v.file }}">
+            <div class="hv-thumb"><div class="{{ v.mk }}"><sc-for list="{{ v.bars }}" as="b" hint-placeholder-count="6"><i style="{{ b }}"></i></sc-for></div></div>
+            <div class="hv-body">
+              <div class="hv-key"><em class="{{ v.keyCls }}">{{ v.k }}</em><b>{{ v.name }}</b></div>
+              <p>{{ v.idea }}</p>
+              <ul><sc-for list="{{ v.pts }}" as="p" hint-placeholder-count="3"><li><i class="ri-check-line"></i>{{ p }}</li></sc-for></ul>
+              <span class="hv-open">Открыть вариант<i class="ri-arrow-right-line"></i></span>
+            </div>
+          </a>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section class="hm-sec" style="background:#fff;border-block:1px solid var(--n200);">
+    <div class="hm-wrap">
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 2</span><h2 class="hm-h2">Цвет бренда — без градиентов</h2><p class="hm-lead">Только сплошные цвета: кнопки, ссылки, баннеры и карточки — одним цветом бренда. Нажмите на палитру — она применится ко всем вариантам в режиме «Без градиентов». Контраст проверен по WCAG 2.1.</p></div></div>
+      <div class="hv-pals">
+        <sc-for list="{{ flats }}" as="p" hint-placeholder-count="10">
+          <button class="hv-pal" aria-pressed="{{ p.on }}" onClick="{{ p.onClick }}">
+            <div class="hv-flat" style="{{ p.bg }}">
+              <span class="ban" style="{{ p.ban }}"><i>Медицинские услуги — в одном окне</i></span>
+              <span class="row"><span class="lnk" style="{{ p.link }}">Все услуги →</span><span class="btn" style="{{ p.btn }}">Получить услугу</span></span>
+            </div>
+            <div class="hv-chips"><sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="4"><span style="{{ c.style }}" title="{{ c.title }}"></span></sc-for></div>
+            <b>{{ p.name }}<sc-if value="{{ p.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if></b>
+            <small>{{ p.hint }}</small>
+            <div class="hv-aa"><span>{{ p.c1 }}</span><span>{{ p.c2 }}</span><span>{{ p.c3 }}</span></div>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section class="hm-sec">
+    <div class="hm-wrap">
+      <div class="hm-sec-head">
+        <div><span class="hm-eyebrow">Шаг 3</span><h2 class="hm-h2">Градиенты</h2><p class="hm-lead">Отдельный набор для показа. Пастельные — новые светлые переливы с тёмным текстом; глубокие — тёмные переливы цвета бренда. Кнопки и ссылки в обоих наборах — сплошным цветом бренда.</p></div>
+        <div class="hm-seg" role="group" aria-label="Набор градиентов">
+          <sc-for list="{{ gtabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" aria-pressed="{{ t.on }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ showPastel }}" hint-placeholder-val="{{ true }}">
+        <div class="hv-pals">
+          <sc-for list="{{ pastels }}" as="g" hint-placeholder-count="10">
+            <button class="hv-pal" aria-pressed="{{ g.on }}" onClick="{{ g.onClick }}">
+              <div class="hv-past" style="{{ g.mesh }}">
+                <span class="t">Здоровье — в одном окне</span>
+                <span class="s">Госуслуги, запись к врачу, справки</span>
+                <span class="btn">Получить услугу</span>
+              </div>
+              <div class="hv-chips"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="4"><span style="{{ c }}"></span></sc-for></div>
+              <b>{{ g.name }}<sc-if value="{{ g.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if><sc-if value="{{ g.isNew }}" hint-placeholder-val="{{ true }}"><em class="new">Новый</em></sc-if></b>
+              <small>{{ g.hint }}</small>
+              <div class="hv-aa"><span>{{ g.c1 }}</span><span>{{ g.c2 }}</span></div>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showDeep }}" hint-placeholder-val="{{ false }}">
+        <div class="hv-pals">
+          <sc-for list="{{ pals }}" as="p" hint-placeholder-count="10">
+            <button class="hv-pal" aria-pressed="{{ p.on }}" onClick="{{ p.onClick }}">
+              <div class="hv-sw" style="{{ p.sw }}"><span class="acc" style="{{ p.acc }}"></span><span class="btn" style="{{ p.btn }}">Получить услугу</span></div>
+              <div class="hv-ramp"><sc-for list="{{ p.ramp }}" as="r" hint-placeholder-count="10"><span style="{{ r }}"></span></sc-for></div>
+              <b>{{ p.name }}<sc-if value="{{ p.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if></b>
+              <small>{{ p.hint }}</small>
+              <div class="hv-aa"><span>{{ p.c1 }}</span><span>{{ p.c2 }}</span></div>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section class="hm-sec" style="background:#fff;border-top:1px solid var(--n200);">
+    <div class="hm-wrap">
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 4</span><h2 class="hm-h2">Заставка при входе</h2><p class="hm-lead">Показывается один раз за сеанс, ≈ 2 секунды, пропускается кликом или Esc. Для тех, у кого в системе отключена анимация, — короткое проявление без движения.</p></div></div>
+      <div class="hv-sps">
+        <sc-for list="{{ splashes }}" as="x" hint-placeholder-count="4">
+          <div class="hv-sp">
+            <b>{{ x.label }}</b>
+            <p>{{ x.desc }}</p>
+            <div class="row"><button class="play" onClick="{{ x.play }}"><i class="ri-play-fill"></i>Показать</button><button class="use" aria-pressed="{{ x.on }}" onClick="{{ x.use }}">{{ x.useLabel }}</button></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section class="hm-sec">
+    <div class="hm-wrap">
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Во всех вариантах</span><h2 class="hm-h2">Что улучшено по UX</h2></div></div>
+      <div class="hv-ux">
+        <sc-for list="{{ ux }}" as="u" hint-placeholder-count="8">
+          <div><span class="hm-ico"><i class="{{ u.icon }}"></i></span><span><b>{{ u.t }}</b><span>{{ u.d }}</span></span></div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+</div>
+<dc-import name="Splash" auto="0" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lum = (hex) => { const c = hex.match(/\w\w/g).map(h => parseInt(h, 16) / 255).map(v => v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4)); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+const cr = (a, b) => { const x = lum(a), y = lum(b); return ((Math.max(x, y) + .05) / (Math.min(x, y) + .05)).toFixed(1).replace('.', ','); };
+// мини-макеты: [left, top, width, height, color] в процентах
+const MK = {
+  cur:[[6,8,88,8,'#E2E4E9'],[6,22,88,30,'#4D42E9'],[30,32,40,8,'#fff'],[6,60,20,30,'#EEF2FF'],[29,60,20,30,'#FEF3EB'],[52,60,20,30,'#EEEBFF']],
+  a:[[6,10,46,9,'var(--b900)'],[6,24,40,5,'var(--n300)'],[6,36,44,11,'#fff'],[58,8,36,58,'#fff'],[6,74,42,20,'var(--b600)'],[52,74,42,20,'#fff']],
+  b:[[25,14,50,9,'rgba(255,255,255,.9)'],[20,30,60,10,'#fff'],[8,56,13,22,'rgba(255,255,255,.22)'],[23,56,13,22,'rgba(255,255,255,.22)'],[38,56,13,22,'rgba(255,255,255,.22)'],[53,56,13,22,'rgba(255,255,255,.22)']],
+  c:[[6,12,40,10,'var(--b900)'],[6,30,42,11,'#fff'],[56,10,38,16,'#fff'],[56,30,38,16,'var(--b600)'],[56,50,38,16,'#fff'],[6,74,88,18,'var(--b50)']],
+  d:[[0,0,100,6,'var(--b950)'],[6,20,46,9,'#fff'],[6,36,40,5,'rgba(255,255,255,.45)'],[6,48,46,11,'rgba(255,255,255,.9)'],[60,14,34,72,'#fff'],[60,14,34,26,'var(--b500)']],
+  f:[[0,0,18,100,'#fff'],[22,8,46,44,'var(--b900)'],[70,8,26,44,'#fff'],[22,58,17,30,'#fff'],[41,58,17,30,'#fff'],[60,58,17,30,'#fff']],
+  g:[[0,0,100,5,'var(--b950)'],[6,14,44,10,'var(--n900)'],[6,30,44,10,'#fff'],[6,48,21,3,'var(--n200)'],[29,48,21,3,'var(--n200)'],[6,58,21,3,'var(--n200)'],[29,58,21,3,'var(--n200)'],[60,14,32,56,'#fff'],[63,58,15,7,'var(--b600)'],[6,82,88,2,'var(--n900)']],
+  e:[[46,10,8,13,'var(--b600)'],[28,30,44,8,'var(--b900)'],[18,46,64,14,'#fff'],[18,66,31,10,'#fff'],[51,66,31,10,'#fff'],[18,82,64,8,'var(--n200)']],
+};
+const IDEAS = {
+  cur:{ idea:'Нынешняя главная — оставлена для сравнения, ничего не изменено.', pts:['Индиго-баннер с плитками и поиском','Контент шириной 1280 px','Два отдельных AI-чата'] },
+  a:{ idea:'Сервис прежде всего: заголовок по роли, поиск с подсказками и популярные услуги — на первом экране.', pts:['До популярной услуги — один клик','Разделы со ссылками сразу видны','103 / 112 — одной строкой под поиском'] },
+  b:{ idea:'Знакомая структура (плитки + поиск + панель раздела), но в глубоком цвете бренда со «стеклом» и мягким сиянием.', pts:['Вау-эффект без 3D и картинок','Популярные услуги «бенто»','Шапка-стекло при прокрутке'] },
+  c:{ idea:'От задачи человека: «Кто вы?» и жизненные ситуации — «Заболел», «Нужна справка», «Открываю аптеку».', pts:['Понятно людям любого возраста','2–3 конкретных действия в ситуации','Все разделы — отдельным рядом'] },
+  d:{ idea:'Визитная карточка министерства: служебная строка, национальный орнамент, золотая линия, плотный справочник услуг.', pts:['Телефоны 103 / 112 / 1414 всегда видны','Витрина «Новое на портале»','Портал в цифрах'] },
+  f:{ idea:'Сервисный портал: короткое меню разделов слева, «Для кого» и 103 — в шапке, баннер с поиском и входом в кабинет, услуги с фильтром по темам.', pts:['Всё под рукой без прокрутки','Выбор «Для кого» — одна строка в шапке','Меню сворачивается, на телефоне — выдвижное'] },
+  e:{ idea:'AI-помощник в центре: человек пишет задачу своими словами и получает ответ с кнопкой к услуге прямо на первом экране.', pts:['Диалог без отдельного окна','Ответ с кнопкой к услуге и найденным на портале','Разделы и услуги — сразу под полем'] },
+};
+IDEAS.g = { idea:'Язык государственного документа: белый лист, сетка и линейки вместо карточек, гильош как на паспорте. На первом экране — две главные задачи: найти услугу и войти в кабинет.', pts:['6 самых частых услуг — пронумерованным списком','Все разделы и ссылки — одним указателем','Служебная строка с 103 / 112 / 1414'] };
+const SPLASH = [
+  { id:'emblem', label:'Герб', desc:'Белый фон, герб в тонкой обводке, название министерства и золотая линия. Строго и торжественно.' },
+  { id:'ornament', label:'Орнамент', desc:'Тёмный цвет бренда, вокруг герба прорисовывается «қошқар мүйіз». Национальная идентичность.' },
+  { id:'pulse', label:'Пульс', desc:'Линия кардиограммы приводит к гербу — тема здоровья без лишних слов.' },
+  { id:'curtain', label:'Шторка', desc:'Герб и название на цвете бренда, затем створки расходятся и открывают портал. Самая короткая.' },
+];
+const UX = [
+  { icon:'ri-fullscreen-line', t:'На всю ширину экрана', d:'Фоны — от края до края, контент до 1760 px; отступы и шрифты растут вместе с экраном. Основа — ноутбук 1366–1536 px.' },
+  { icon:'ri-search-eye-line', t:'Поиск с подсказками', d:'Услуги и разделы находятся при вводе; Enter — вопрос AI-помощнику. Клавиша «/» ставит курсор в поиск.' },
+  { icon:'ri-sparkling-2-line', t:'Один AI-помощник', d:'Вместо двух разных чатов (оверлей поиска и плавающий) — одна панель справа; страница остаётся видна.' },
+  { icon:'ri-eye-line', t:'Версия для слабовидящих', d:'Крупный и очень крупный текст, повышенный контраст. Аудитория портала — от 16 до 60+ лет.' },
+  { icon:'ri-government-line', t:'Реальные госуслуги', d:'Популярные услуги — с официальными названиями и кодами eGov.kz; видно, где откроется услуга.' },
+  { icon:'ri-question-answer-line', t:'FAQ следует за ролью', d:'Выбрали «Бизнесу» — вопросы сразу для поставщиков. Внизу — «Не нашли ответ?» → AI-помощник.' },
+  { icon:'ri-speed-up-line', t:'Лёгкий для медленного интернета', d:'Без 3D, видео и фото на первом экране: градиенты и орнамент — средствами CSS. Важно для сёл и аулов.' },
+  { icon:'ri-checkbox-circle-line', t:'Доступность WCAG 2.1 AA', d:'Контраст текста и кнопок ≥ 4,5:1, видимый фокус, управление с клавиатуры, учёт «уменьшить движение».' },
+];
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let sp = 'emblem'; try { sp = localStorage.getItem('mp-splash') || 'emblem'; } catch(e){}
+    this.state = { ready: !!window.mpHome, theme:null, sp };
+  }
+  componentDidMount(){ this._ready = () => this.setState({ ready:true }); window.addEventListener('mp-home-ready', this._ready); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); }
+  renderVals(){
+    const H = window.mpHome, s = this.state;
+    if(!H) return { variants:[], pals:[], flats:[], pastels:[], gtabs:[], showPastel:false, showDeep:false, splashes:[], ux:UX };
+    const tid = s.theme || H.themeId();
+    const fill = H.fillId(), pid = H.pastelId(), gtab = s.gtab || (fill === 'deep' ? 'deep' : 'pastel');
+    // точки пастели в hex (для пресета «Из цвета бренда» смешиваем акцент с белым 28 / 72)
+    const mix = (hex, w) => '#' + hex.match(/\w\w/g).map(h => Math.round(parseInt(h, 16) * w + 255 * (1 - w)).toString(16).padStart(2, '0')).join('');
+    const stops = (id) => { const g = H.PASTELS.find(x => x.id === id); if(g.p) return g.p; const c = H.palette(tid).c; return [c.b200, c.b100, mix(c.bacc, .28), c.b50]; };
+    const worst = (fg, st) => { const v = Math.min(...st.map(b => { const x = lum(fg), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); })); return v.toFixed(1).replace('.', ','); };
+    const keys = ['b50','b100','b200','b300','b400','b500','b600','b700','b800','b900'];
+    return {
+      variants: H.VARIANTS.map(v => { const id = v.id; const info = IDEAS[id];
+        return { ...v, k: v.key || '—', keyCls: v.key ? '' : 'cur', mk: 'mk mk-' + id, idea: info.idea, pts: info.pts,
+          bars: MK[id].map(([l, t, w, h, c]) => `left:${l}%;top:${t}%;width:${w}%;height:${h}%;background:${c};box-shadow:0 2px 6px rgba(10,13,20,.06);`) }; }),
+      // без градиентов: баннер — сплошной 800, плашка — 50, ссылка — 700, кнопка — 600
+      flats: H.PALETTES.map(p => ({ name:p.name, hint:p.hint, star:!!p.star, on: fill === 'flat' && p.id === tid ? 'true' : 'false',
+        bg: `background:${p.c.b50};`, ban: `background:${p.c.b800};`, link: `color:${p.c.b700};`, btn: `background:${p.c.b600};`,
+        chips: ['b50','b200','b600','b800'].map(k => ({ style:`background:${p.c[k]};`, title:k.replace('b', '') + ' · ' + p.c[k] })),
+        c1: 'Кнопка ' + cr('#FFFFFF', p.c.b600) + ':1', c2: 'Ссылка ' + cr(p.c.b700, p.c.b50) + ':1', c3: 'Баннер ' + cr('#FFFFFF', p.c.b800) + ':1',
+        onClick:() => { H.setTheme(p.id); H.setFill('flat'); this.setState({ theme:p.id, tick:Date.now() }); } })),
+      gtabs: [ { id:'pastel', label:'Пастельные · ' + H.PASTELS.length + ' новых' }, { id:'deep', label:'Глубокие · ' + H.PALETTES.length } ]
+        .map(t => ({ ...t, on: gtab === t.id ? 'true' : 'false', onClick:() => this.setState({ gtab:t.id }) })),
+      showPastel: gtab === 'pastel', showDeep: gtab === 'deep',
+      pastels: H.PASTELS.map(g => { const st = stops(g.id);
+        return { name:g.name, hint:g.hint, star:!!g.star, isNew: !!g.p, on: fill === 'pastel' && pid === g.id ? 'true' : 'false',
+          mesh: `background:radial-gradient(70% 90% at 0% 0%, ${st[0]}, transparent 70%), radial-gradient(70% 90% at 100% 0%, ${st[1]}, transparent 70%), radial-gradient(80% 80% at 60% 100%, ${st[2]}, transparent 72%), ${st[3]};`,
+          chips: st.map(c => `background:${c};`),
+          c1: 'Заголовки ' + worst('#0A0D14', st) + ':1 · AAA', c2: 'Текст ' + worst('#31353F', st) + ':1 · AA',
+          onClick:() => { H.setPastel(g.id); this.setState({ tick:Date.now() }); } }; }),
+      pals: H.PALETTES.map(p => ({ name:p.name, hint:p.hint, star:!!p.star, on: fill === 'deep' && p.id === tid ? 'true' : 'false',
+        sw: `background:radial-gradient(120% 140% at 0% 0%, ${p.c.b400}, ${p.c.b700} 55%, ${p.c.b950});`,
+        acc: `background:${p.c.bacc};`, btn: `background:${p.c.b600};box-shadow:0 0 0 1px rgba(255,255,255,.35);`,
+        ramp: keys.map(k => `background:${p.c[k]};`),
+        c1: 'Кнопка ' + cr('#FFFFFF', p.c.b600) + ':1 · AA', c2: 'Ссылка ' + cr(p.c.b700, '#FFFFFF') + ':1 · AA',
+        onClick:() => { H.setTheme(p.id); H.setFill('deep'); this.setState({ theme:p.id, tick:Date.now() }); } })),
+      splashes: SPLASH.map(x => ({ ...x, on: s.sp === x.id ? 'true' : 'false', useLabel: s.sp === x.id ? 'Выбрана' : 'Выбрать',
+        play:() => { try { window.dispatchEvent(new CustomEvent('mp-splash-replay', { detail:x.id })); } catch(e){} },
+        use:() => { this.setState({ sp:x.id }); try { localStorage.setItem('mp-splash', x.id); } catch(e){} } })),
+      ux: UX,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#06222F"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#06222F"/><g><rect x="100" y="140" width="300" height="220" rx="24" fill="#EEF8FC"/><rect x="450" y="140" width="300" height="220" rx="24" fill="#1AA3CF"/><rect x="800" y="140" width="300" height="220" rx="24" fill="#fff"/><rect x="100" y="420" width="300" height="220" rx="24" fill="#0B3A50"/><rect x="450" y="420" width="300" height="220" rx="24" fill="#D6EEF7"/><rect x="800" y="420" width="300" height="220" rx="24" fill="#E3A92B"/></g></svg></template>
+</body>
+</html>

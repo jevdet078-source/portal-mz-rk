@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Подвал новой главной: тот же состав, что у общего Footer (о портале, популярные разделы, контакты),
+  плюс экстренные номера. Фон — самый тёмный тон бренда (--b950) с орнаментом, на всю ширину.
+-->
+<x-dc>
+<helmet>
+<style>
+  .pf *{ box-sizing:border-box; }
+  .pf{ position:relative; overflow:hidden; background:var(--b950); color:rgba(255,255,255,.72); font-family:'Inter',system-ui,sans-serif; }
+  .pf::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.035; pointer-events:none; }
+  .pf::after{ content:''; position:absolute; left:-10%; right:-10%; top:-240px; height:420px; background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--b500) 35%, transparent), transparent 70%); pointer-events:none; }
+  .pf-in{ position:relative; z-index:1; width:min(100% - 2*var(--gut,40px), var(--wrap,1760px)); margin-inline:auto; padding:clamp(40px,4.5vw,72px) 0 28px; }
+  .pf-grid{ display:grid; grid-template-columns:1.5fr 1fr 1fr 1.1fr; gap:clamp(24px,3vw,56px); }
+  .pf-brand{ display:flex; align-items:center; gap:14px; margin-bottom:18px; }
+  .pf-emb{ width:52px; height:52px; border-radius:50%; background:#fff; overflow:hidden; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+  .pf-emb img{ width:52px; height:52px; object-fit:contain; }
+  .pf-brand b{ display:block; color:#fff; font-size:15px; font-weight:600; }
+  .pf-brand span{ font-size:13px; color:rgba(255,255,255,.55); }
+  .pf p{ margin:0 0 20px; max-width:360px; font-size:14px; line-height:1.6; color:rgba(255,255,255,.6); }
+  .pf-soc{ display:flex; gap:8px; }
+  .pf-soc a{ width:40px; height:40px; border-radius:11px; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; color:#fff; font-size:18px; text-decoration:none; transition:background .15s; }
+  .pf-soc a:hover{ background:rgba(255,255,255,.16); }
+  .pf h4{ margin:0 0 16px; font-size:12px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:#fff; }
+  .pf ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .pf ul a{ font-size:14px; color:rgba(255,255,255,.66); text-decoration:none; transition:color .15s; }
+  .pf ul a:hover{ color:#fff; }
+  .pf-ct{ display:flex; align-items:center; gap:10px; font-size:14px; color:rgba(255,255,255,.66); }
+  .pf-ct i{ font-size:17px; color:rgba(255,255,255,.4); }
+  .pf-sos{ display:flex; gap:8px; margin-top:18px; }
+  .pf-sos a{ flex:1; display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.06); box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); text-decoration:none; }
+  .pf-sos a b{ font-size:18px; color:#fff; font-weight:700; letter-spacing:-.01em; }
+  .pf-sos a span{ font-size:12px; color:rgba(255,255,255,.55); }
+  .pf-bot{ margin-top:clamp(32px,3vw,48px); padding-top:22px; border-top:1px solid rgba(255,255,255,.1); display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:13px; color:rgba(255,255,255,.45); }
+  @media (max-width:1023px){ .pf-grid{ grid-template-columns:1fr 1fr; } }
+  @media (max-width:640px){ .pf-grid{ grid-template-columns:minmax(0,1fr); } }
+</style>
+</helmet>
+<footer class="pf">
+  <div class="pf-in">
+    <div class="pf-grid">
+      <div>
+        <div class="pf-brand"><span class="pf-emb"><img src="uploads/images.jpg" alt=""></span><span><b>Министерство здравоохранения</b><span>Республики Казахстан</span></span></div>
+        <div class="pf-soc">
+          <sc-for list="{{ socials }}" as="s" hint-placeholder-count="4"><a href="#" aria-label="{{ s.label }}"><i class="{{ s.icon }}"></i></a></sc-for>
+        </div>
+      </div>
+      <div>
+        <h4>О портале</h4>
+        <ul><sc-for list="{{ about }}" as="l" hint-placeholder-count="7"><li><a href="{{ l.href }}">{{ l.label }}</a></li></sc-for></ul>
+      </div>
+      <div>
+        <h4>Популярные разделы</h4>
+        <ul><sc-for list="{{ popular }}" as="l" hint-placeholder-count="5"><li><a href="{{ l.href }}">{{ l.label }}</a></li></sc-for></ul>
+      </div>
+      <div>
+        <h4>Контакты</h4>
+        <ul><sc-for list="{{ contacts }}" as="c" hint-placeholder-count="4"><li class="pf-ct"><i class="{{ c.icon }}"></i>{{ c.text }}</li></sc-for></ul>
+        <div class="pf-sos">
+          <a href="tel:103"><b>103</b><span>Скорая помощь</span></a>
+          <a href="tel:112"><b>112</b><span>Служба спасения</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="pf-bot">
+      <span>© Министерство здравоохранения Республики Казахстан</span>
+      <span>Версия портала 1.0 · Обновлено 24.06.2026</span>
+    </div>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:420}}">
+class Component extends DCLogic {
+  renderVals(){
+    return {
+      socials: [ { icon:'ri-facebook-fill', label:'Facebook' }, { icon:'ri-instagram-line', label:'Instagram' }, { icon:'ri-youtube-fill', label:'YouTube' }, { icon:'ri-telegram-fill', label:'Telegram' } ],
+      about: ['О портале','О Министерстве здравоохранения','Новости','Телемедицина','Частые вопросы','Пользовательское соглашение','Политика конфиденциальности']
+        .map(label => ({ label, href: label === 'Новости' ? 'Новости.dc.html' : '#' })),
+      popular: [
+        { label:'Каталог медицинских услуг', href:'Каталог услуг.dc.html' },
+        { label:'Медицинские организации', href:'Медорганизации.dc.html' },
+        { label:'Лекарства', href:'Лекарства.dc.html' },
+        { label:'Справочник заболеваний', href:'Заболевания.dc.html' },
+        { label:'Вакцинация', href:'Вакцинация.dc.html' },
+      ],
+      contacts: [
+        { icon:'ri-phone-line', text:'1414 — служба поддержки' },
+        { icon:'ri-mail-line', text:'support@dsm.gov.kz' },
+        { icon:'ri-map-pin-line', text:'г. Астана, проспект Мәңгілік Ел, 8' },
+        { icon:'ri-time-line', text:'Круглосуточно, без выходных' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
