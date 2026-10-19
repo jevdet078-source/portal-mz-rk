@@ -52,6 +52,14 @@
   .tk-pinfo span{ display:block; font-size:13px; line-height:1.45; color:var(--n500); margin-top:4px; }
   .tk-ramp{ display:flex; height:12px; border-radius:6px; overflow:hidden; margin-top:10px; }
   .tk-ramp i{ flex:1; }
+  .tk-fill{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .tk-fill button{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding:10px; border:none; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); font:500 12.5px/1.25 'Inter',sans-serif; color:var(--n700); cursor:pointer; text-align:left; }
+  .tk-fill button[aria-pressed="true"]{ box-shadow:inset 0 0 0 2px var(--b500); background:var(--b50); color:var(--b900); font-weight:600; }
+  .tk-fill .fs{ width:100%; height:26px; border-radius:8px; }
+  .tk-fill .fs.flat{ background:var(--b600); }
+  .tk-fill .fs.deep{ background:linear-gradient(135deg, var(--b400), var(--b700) 55%, var(--b950)); }
+  .tk-fill .fs.pastel{ background:var(--pg-mesh); box-shadow:inset 0 0 0 1px rgba(10,13,20,.06); }
+  .tk-fhint{ margin-top:8px; font-size:12.5px; line-height:1.45; color:var(--n500); }
   .tk-sp{ display:flex; flex-wrap:wrap; gap:6px; }
   .tk-sp button{ height:36px; padding:0 12px; border:none; border-radius:10px; background:var(--n100); color:var(--n600); font:500 13.5px/1 'Inter',sans-serif; cursor:pointer; box-shadow:inset 0 0 0 1px var(--n200); }
   .tk-sp button[aria-pressed="true"]{ background:var(--b50); color:var(--b800); font-weight:600; box-shadow:inset 0 0 0 2px var(--b500); }
@@ -73,6 +81,27 @@
           <a class="tk-var" href="{{ v.file }}" aria-current="{{ v.cur }}"><em>{{ v.key }}</em>{{ v.label }}</a>
         </sc-for>
       </div>
+
+      <div class="tk-cap">Оформление</div>
+      <div class="tk-fill" role="group" aria-label="Оформление">
+        <sc-for list="{{ fills }}" as="f" hint-placeholder-count="3">
+          <button aria-pressed="{{ f.on }}" onClick="{{ f.onClick }}" title="{{ f.hint }}"><span class="{{ f.swCls }}"></span>{{ f.short }}</button>
+        </sc-for>
+      </div>
+      <div class="tk-fhint">{{ fillHint }}</div>
+
+      <sc-if value="{{ isPastel }}" hint-placeholder-val="{{ false }}">
+        <div class="tk-cap">Пастельный градиент · {{ pastelCount }}</div>
+        <div class="tk-pals">
+          <sc-for list="{{ pastels }}" as="p" hint-placeholder-count="10">
+            <button class="tk-pal" style="{{ p.style }}" aria-pressed="{{ p.on }}" onClick="{{ p.onClick }}" title="{{ p.name }}" aria-label="{{ p.name }}">
+              <sc-if value="{{ p.star }}" hint-placeholder-val="{{ false }}"><i class="ri-star-fill star" style="color:#8A5A0B;text-shadow:none;"></i></sc-if>
+              <sc-if value="{{ p.brand }}" hint-placeholder-val="{{ false }}"><i class="ri-palette-line star" style="color:var(--n700);text-shadow:none;"></i></sc-if>
+            </button>
+          </sc-for>
+        </div>
+        <div class="tk-pinfo"><b>{{ psName }}</b><span>{{ psHint }}</span></div>
+      </sc-if>
 
       <div class="tk-cap">Цвет бренда · 10 палитр</div>
       <div class="tk-pals">
@@ -115,22 +144,34 @@ class Component extends DCLogic {
     window.addEventListener('mp-home-ready', this._ready);
     this._theme = (e) => this.setState({ theme: e && e.detail });
     window.addEventListener('mp-theme-change', this._theme);
+    this._fill = () => this.setState({ fillTick: Date.now() });
+    window.addEventListener('mp-fill-change', this._fill);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-theme-change', this._theme); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-theme-change', this._theme); window.removeEventListener('mp-fill-change', this._fill); }
   setOpen(v){ this.setState({ open:v }); try { sessionStorage.setItem('mp-tk-open', v ? '1' : '0'); } catch(e){} }
   renderVals(){
     const H = window.mpHome, s = this.state;
-    if(!H) return { open:false, openStr:'false', toggle:()=>{}, close:()=>{}, btnSub:'', variants:[], pals:[], ramp:[], splashes:[], pName:'', pHint:'', pStar:false, play:()=>{} };
+    if(!H) return { fills:[], fillHint:'', isPastel:false, pastels:[], pastelCount:'', psName:'', psHint:'', open:false, openStr:'false', toggle:()=>{}, close:()=>{}, btnSub:'', variants:[], pals:[], ramp:[], splashes:[], pName:'', pHint:'', pStar:false, play:()=>{} };
     const tid = s.theme || H.themeId();
     const cur = H.palette(tid);
     const keys = ['b50','b100','b200','b300','b400','b500','b600','b700','b800','b900'];
+    const fill = H.fillId(), pid = H.pastelId();
+    const SHORT = { flat:'Без градиентов', deep:'Глубокие', pastel:'Пастель' };
+    const mesh = (st) => `background:radial-gradient(70% 90% at 0% 0%, ${st[0]}, transparent 70%), radial-gradient(70% 90% at 100% 0%, ${st[1]}, transparent 70%), radial-gradient(80% 80% at 60% 100%, ${st[2]}, transparent 72%), ${st[3]};`;
+    const ps = H.PASTELS.find(x => x.id === pid);
     return {
+      fills: H.FILLS.map(f => ({ ...f, short:SHORT[f.id], swCls:'fs ' + f.id, on: f.id === fill ? 'true' : 'false', onClick:() => { H.setFill(f.id); this.setState({ fillTick:Date.now() }); } })),
+      fillHint: H.FILLS.find(f => f.id === fill).hint,
+      isPastel: fill === 'pastel', pastelCount: H.PASTELS.length + ' вариантов',
+      pastels: H.PASTELS.map(p => ({ name:p.name, star:!!p.star, brand:!p.p, on: p.id === pid ? 'true' : 'false', style: mesh(H.pastelStops(p.id)) + 'box-shadow:inset 0 0 0 1px rgba(10,13,20,.08);',
+        onClick:() => { H.setPastel(p.id); this.setState({ fillTick:Date.now() }); } })),
+      psName: ps.name, psHint: ps.hint,
       open: s.open, openStr: s.open ? 'true' : 'false',
       toggle: () => this.setOpen(!s.open), close: () => this.setOpen(false),
-      btnSub: cur.name,
+      btnSub: cur.name + ' · ' + SHORT[fill].toLowerCase(),
       variants: H.VARIANTS.map(v => ({ ...v, key: v.key || '—', cur: v.id === this.props.current ? 'page' : 'false' })),
       pals: H.PALETTES.map(p => ({ name:p.name, star:!!p.star, on: p.id === tid ? 'true' : 'false',
-        style: `background:linear-gradient(145deg, ${p.c.b400} 0%, ${p.c.b600} 48%, ${p.c.b900} 100%);`,
+        style: fill === 'deep' ? `background:linear-gradient(145deg, ${p.c.b400} 0%, ${p.c.b600} 48%, ${p.c.b900} 100%);` : `background:${p.c.b600};`,
         dot: `background:${p.c.bacc};`,
         onClick: () => { H.setTheme(p.id); this.setState({ theme:p.id }); } })),
       pName: cur.name, pHint: cur.hint, pStar: !!cur.star,

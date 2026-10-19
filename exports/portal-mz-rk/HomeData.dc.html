@@ -106,6 +106,155 @@
   html.mp-ready .hm-in{ animation:hm-up .7s var(--hm-ease) both; }
   html.mp-ready .hm-in.d1{ animation-delay:.06s; } html.mp-ready .hm-in.d2{ animation-delay:.12s; } html.mp-ready .hm-in.d3{ animation-delay:.18s; } html.mp-ready .hm-in.d4{ animation-delay:.24s; }
   @media (prefers-reduced-motion:reduce){ .hm-root *, .hm-root *::before, .hm-root *::after{ animation:none !important; transition:none !important; } }
+  .hm-band-soft{ background:linear-gradient(180deg, #fff, var(--n50)); }
+
+  /* ================================================================
+     ОФОРМЛЕНИЕ: <html data-fill="deep | flat | pastel">  (localStorage['mp-fill'])
+     deep   — глубокие градиенты бренда (исходные стили страниц, переопределений нет)
+     flat   — «без градиентов»: только сплошные цвета бренда, декоративные свечения скрыты
+     pastel — пастельные градиенты: тёмные баннеры становятся светлыми, текст — тёмный.
+              Цвета — пресет --pa, --pb, --pc, --pd (localStorage['mp-pastel']; пресеты — PASTELS ниже).
+              На пастели только n900 / n600 / b900: контраст ≥ 6:1 на любой точке градиента.
+     ================================================================ */
+  :root{ --pa:#BAE6FD; --pb:#C7D2FE; --pc:#E0F2FE; --pd:#F5F8FF;
+    --pg-mesh: radial-gradient(70% 90% at 6% 0%, var(--pa), transparent 72%), radial-gradient(60% 85% at 96% 6%, var(--pb), transparent 72%), radial-gradient(70% 80% at 55% 105%, var(--pc), transparent 74%), var(--pd);
+    --pg-lin: linear-gradient(135deg, var(--pa) 0%, var(--pc) 50%, var(--pb) 100%); }
+
+  /* ——— без градиентов ——— */
+  html[data-fill="flat"] .hm-band-soft{ background:var(--n50); }
+  html[data-fill="flat"] .va-hero{ background:var(--b50); }
+  html[data-fill="flat"] .va-glow,
+  html[data-fill="flat"] .va-gov::after,
+  html[data-fill="flat"] .vb-blob, html[data-fill="flat"] .vb-sky .fade,
+  html[data-fill="flat"] .vb-feat::after,
+  html[data-fill="flat"] .vb-glassband::before, html[data-fill="flat"] .vb-glassband::after,
+  html[data-fill="flat"] .vc-sit::after,
+  html[data-fill="flat"] .vd-deco::after,
+  html[data-fill="flat"] .pf::after,
+  html[data-fill="flat"] .hv-hero::after{ display:none; }
+  html[data-fill="flat"] .va-gov, html[data-fill="flat"] .vb-feat, html[data-fill="flat"] .vb-pcta{ background:var(--b700); }
+  html[data-fill="flat"] .vb-sky::before{ background:var(--b900); }
+  html[data-fill="flat"] .vb-h1{ background:none; color:#fff; }
+  html[data-fill="flat"] .vb-tile{ background:rgba(255,255,255,.1); }
+  html[data-fill="flat"] .vb-tile:hover{ background:rgba(255,255,255,.18); }
+  html[data-fill="flat"] .vb-tile[aria-expanded="true"]{ background:#fff; }
+  html[data-fill="flat"] .vb-tile.gov{ background:var(--b600); }
+  html[data-fill="flat"] .vb-glassband{ background:var(--b50); }
+  html[data-fill="flat"] .vb-fresh a{ background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  html[data-fill="flat"] .vc-hero{ background:var(--b50); }
+  html[data-fill="flat"] .vc-role[aria-checked="true"]{ background:var(--b50); }
+  html[data-fill="flat"] .vd-hero{ background:var(--b900); }
+  html[data-fill="flat"] .vd-hero::before{ background:var(--bacc); }
+  html[data-fill="flat"] .vd-cover{ background:var(--b600); }
+  html[data-fill="flat"] .vd-stats{ background:var(--b50); }
+  html[data-fill="flat"] .ve-hero::before{ background:var(--b50); }
+  html[data-fill="flat"] .ve-orb, html[data-fill="flat"] .ai-hello .big{ background:var(--b600); }
+  html[data-fill="flat"] .ve-h1 span{ background:none; color:var(--b700); }
+  html[data-fill="flat"] .ve-field{ background:var(--b300); }
+  html[data-fill="flat"] .sb-ai .sb-ico, html[data-fill="flat"] .ai-logo, html[data-fill="flat"] .fq-more .ic{ background:var(--b600); }
+  html[data-fill="flat"] .ai-fab{ background:var(--b600); }
+  html[data-fill="flat"] .fq-more{ background:var(--b50); }
+  html[data-fill="flat"] .nw-cover{ background:var(--b600); }
+  html[data-fill="flat"] .sp-line{ background:var(--bacc); }
+  html[data-fill="flat"] .sp-emblem{ background:#fff; }
+  html[data-fill="flat"] .sp-ornament{ background:var(--b900); }
+  html[data-fill="flat"] .sp-leaf{ background:var(--b800); }
+  html[data-fill="flat"] .hv-hero{ background:var(--b900); }
+  html[data-fill="flat"] .mk-a, html[data-fill="flat"] .mk-c, html[data-fill="flat"] .mk-e{ background:var(--b50); }
+  html[data-fill="flat"] .mk-b{ background:var(--b900); }
+  html[data-fill="flat"] .mk-d{ background:var(--b900); }
+
+  /* ——— пастельные градиенты ——— */
+  html[data-fill="pastel"] .va-hero, html[data-fill="pastel"] .vc-hero{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .va-glow{ display:none; }
+  html[data-fill="pastel"] .ve-hero::before{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .hm-band-soft, html[data-fill="pastel"] .vb-glassband, html[data-fill="pastel"] .vd-stats{ background:linear-gradient(180deg, var(--pd), #fff); }
+  html[data-fill="pastel"] .vb-glassband::before{ background:radial-gradient(closest-side, var(--pa), transparent); }
+  html[data-fill="pastel"] .vb-glassband::after{ background:radial-gradient(closest-side, var(--pb), transparent); }
+  html[data-fill="pastel"] .vc-role[aria-checked="true"]{ background:linear-gradient(120deg, var(--pc), #fff); }
+  html[data-fill="pastel"] .ve-field{ background:linear-gradient(120deg, var(--pa), var(--pb), var(--pc)); }
+  html[data-fill="pastel"] .ve-orb, html[data-fill="pastel"] .ai-hello .big{ background:radial-gradient(120% 120% at 25% 15%, var(--pa), var(--b500) 55%, var(--b700)); }
+  html[data-fill="pastel"] .fq-more{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .nw-cover{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .nw-cover::before{ background:var(--b700); opacity:.08; }
+  html[data-fill="pastel"] .nw-cover i{ color:var(--b800); }
+  /* карточки-акценты: пастель + тёмный текст */
+  html[data-fill="pastel"] .va-gov, html[data-fill="pastel"] .vb-feat, html[data-fill="pastel"] .vb-pcta{ background:var(--pg-lin); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.7); }
+  html[data-fill="pastel"] .va-gov::before, html[data-fill="pastel"] .vb-feat::before, html[data-fill="pastel"] .vb-pcta::before{ background:var(--b700); opacity:.06; }
+  html[data-fill="pastel"] .va-gov::after, html[data-fill="pastel"] .vb-feat::after{ background:radial-gradient(closest-side, rgba(255,255,255,.7), transparent); }
+  html[data-fill="pastel"] .va-gov p, html[data-fill="pastel"] .vb-feat p, html[data-fill="pastel"] .vb-pcta span{ color:var(--n600); }
+  html[data-fill="pastel"] .va-gov .hm-ico, html[data-fill="pastel"] .vb-feat .ic{ background:rgba(255,255,255,.75); color:var(--b700); box-shadow:none; }
+  html[data-fill="pastel"] .va-gov .count, html[data-fill="pastel"] .vb-feat .cnt{ background:rgba(255,255,255,.7); color:var(--b900); }
+  html[data-fill="pastel"] .va-gov-links a{ background:rgba(255,255,255,.62); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); color:var(--n900); }
+  html[data-fill="pastel"] .va-gov-links a:hover{ background:#fff; }
+  html[data-fill="pastel"] .va-gov-all, html[data-fill="pastel"] .vb-feat .go, html[data-fill="pastel"] .vb-pcta a{ background:var(--b600); color:#fff; }
+  /* B — светлое сияние вместо тёмного */
+  html[data-fill="pastel"] .vb-hero{ background:var(--pd); color:var(--n900); }
+  html[data-fill="pastel"] .vb-sky::before{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .vb-blob{ opacity:1; filter:blur(20px); }
+  html[data-fill="pastel"] .vb-blob.b1{ background:radial-gradient(closest-side, var(--pa), transparent); }
+  html[data-fill="pastel"] .vb-blob.b2{ background:radial-gradient(closest-side, var(--pb), transparent); }
+  html[data-fill="pastel"] .vb-blob.b3{ background:radial-gradient(closest-side, var(--pc), transparent); }
+  html[data-fill="pastel"] .vb-sky .grain{ background:var(--b700); opacity:.05; }
+  html[data-fill="pastel"] .vb-sky .fade{ background:linear-gradient(180deg, transparent, rgba(255,255,255,.6)); }
+  html[data-fill="pastel"] .vb-h1{ background:none; color:var(--n900); }
+  html[data-fill="pastel"] .vb-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .vb-badge{ background:rgba(255,255,255,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); color:var(--n600); }
+  html[data-fill="pastel"] .vb-badge span{ background:#fff; color:var(--b900); }
+  html[data-fill="pastel"] .vb-tile{ background:rgba(255,255,255,.55); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9), 0 10px 30px -18px rgba(10,13,20,.25); }
+  html[data-fill="pastel"] .vb-tile:hover{ background:rgba(255,255,255,.8); }
+  html[data-fill="pastel"] .vb-tile[aria-expanded="true"]{ background:#fff; }
+  html[data-fill="pastel"] .vb-tile .ic{ background:#fff; color:var(--b700); box-shadow:none; }
+  html[data-fill="pastel"] .vb-tile.gov{ background:var(--b600); color:#fff; }
+  html[data-fill="pastel"] .vb-tile.gov .ic{ background:rgba(255,255,255,.16); color:#fff; }
+  html[data-fill="pastel"] .vb-tile.red .ic{ background:var(--red-l); color:var(--red); }
+  html[data-fill="pastel"] .vb-panel{ box-shadow:0 30px 60px -28px rgba(10,13,20,.3); }
+  /* D — светлый официальный баннер */
+  html[data-fill="pastel"] .vd-hero{ background:var(--pg-mesh); color:var(--n900); }
+  html[data-fill="pastel"] .vd-deco::before{ background:var(--b700); opacity:.04; }
+  html[data-fill="pastel"] .vd-deco::after{ display:none; }
+  html[data-fill="pastel"] .vd-eye{ color:var(--b900); }
+  html[data-fill="pastel"] .vd-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .vd-show{ background:rgba(255,255,255,.45); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); }
+  html[data-fill="pastel"] .vd-cover{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .vd-cover::before{ background:var(--b700); opacity:.07; }
+  html[data-fill="pastel"] .vd-cover i{ color:var(--b800); }
+  html[data-fill="pastel"] .vd-cover .lbl{ background:rgba(255,255,255,.75); color:var(--b900); }
+  /* поиск и шапка поверх светлого баннера */
+  html[data-fill="pastel"] .sb-glass .sb-chips > span{ color:var(--n600); }
+  html[data-fill="pastel"] .sb-glass .sb-chip{ background:rgba(255,255,255,.6); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); color:var(--n700); }
+  html[data-fill="pastel"] .sb-glass .sb-chip:hover{ background:#fff; color:var(--b800); }
+  html[data-fill="pastel"] .sb-glass .sb-field{ box-shadow:0 0 0 1px rgba(255,255,255,.9), 0 24px 48px -24px rgba(10,13,20,.25); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid){ background:rgba(255,255,255,.35); border-bottom-color:rgba(255,255,255,.7); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-name b{ color:var(--n900); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-name span{ color:var(--n600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role{ color:var(--n600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role:hover, html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]{ color:var(--b900); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]::after{ background:var(--b600); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-ibtn{ background:rgba(255,255,255,.7); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); color:var(--n700); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-ibtn i{ color:var(--n500); }
+  html[data-fill="pastel"] .ph-glass:not(.ph-solid) .ph-login{ background:var(--b600); color:#fff; }
+  /* заставки и витрина */
+  html[data-fill="pastel"] .sp-emblem{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .sp-ornament{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .sp-ornament::before{ background:var(--b700); }
+  html[data-fill="pastel"] .sp-ornament .sp-name b, html[data-fill="pastel"] .sp-curtain .sp-name b{ color:var(--n900); }
+  html[data-fill="pastel"] .sp-ornament .sp-name span, html[data-fill="pastel"] .sp-curtain .sp-name span{ color:var(--b900); }
+  html[data-fill="pastel"] .sp-ornament .sp-cap, html[data-fill="pastel"] .sp-curtain .sp-cap{ color:var(--n600); }
+  html[data-fill="pastel"] .sp-ornament .sp-skip, html[data-fill="pastel"] .sp-curtain .sp-skip{ background:rgba(255,255,255,.7); color:var(--n700); }
+  html[data-fill="pastel"] .sp-orn path{ stroke:var(--b600); }
+  html[data-fill="pastel"] .sp-orn .soft path{ stroke:color-mix(in srgb, var(--b500) 45%, transparent); }
+  html[data-fill="pastel"] .sp-leaf{ background:var(--pg-lin); }
+  html[data-fill="pastel"] .sp-leaf::before{ background:var(--b700); }
+  html[data-fill="pastel"] .sp-curtain .sp-ring circle{ stroke:var(--b500); }
+  html[data-fill="pastel"] .sp-pulse{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .hv-hero{ background:var(--pg-mesh); color:var(--n900); }
+  html[data-fill="pastel"] .hv-hero::before{ background:var(--b700); }
+  html[data-fill="pastel"] .hv-hero::after{ display:none; }
+  html[data-fill="pastel"] .hv-brand span, html[data-fill="pastel"] .hv-lead{ color:var(--n600); }
+  html[data-fill="pastel"] .hv-pills span{ background:rgba(255,255,255,.65); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); }
+  html[data-fill="pastel"] .hv-pills i{ color:var(--b700); }
+  html[data-fill="pastel"] .mk-a, html[data-fill="pastel"] .mk-c, html[data-fill="pastel"] .mk-e, html[data-fill="pastel"] .mk-b, html[data-fill="pastel"] .mk-d{ background:var(--pg-mesh); }
 </style>
 </helmet>
 </x-dc>
@@ -144,12 +293,50 @@ const H = (() => {
     const st = document.documentElement.style;
     Object.entries(p.c).forEach(([k, v]) => st.setProperty('--' + k, v));
     document.documentElement.dataset.theme = p.id;
+    if(fillId() === 'pastel' && pastelId() === 'brand') applyFill();
     return p;
   };
   const setTheme = (id) => {
     const p = applyTheme(id); ls('mp-theme', p.id);
     try { window.dispatchEvent(new CustomEvent('mp-theme-change', { detail:p.id })); } catch(e){}
   };
+
+  // ——— Оформление: глубокие градиенты / без градиентов / пастельные градиенты ———
+  const FILLS = [
+    { id:'flat', name:'Без градиентов', hint:'Только сплошные цвета бренда — строго и спокойно' },
+    { id:'deep', name:'Глубокие градиенты', hint:'Тёмные переливы цвета бренда, стекло и сияние' },
+    { id:'pastel', name:'Пастельные градиенты', hint:'Светлые нежные переливы, тёмный текст, лёгкое стекло' },
+  ];
+  // Пастельные пресеты: 4 точки — три пятна сетки (a, b, c) и фон (d). Проверено скриптом:
+  // текст n900 / n600 и акценты b900 на любой точке — контраст ≥ 6:1 (WCAG AA с запасом, местами AAA)
+  const PASTELS = [
+    { id:'brand', name:'Из цвета бренда', hint:'Пастель на основе выбранной палитры — всегда в тон кнопкам', p:null },
+    { id:'sky', name:'Утреннее небо', hint:'Небесно-голубой и лёгкий перивинкл', p:['#BAE6FD','#C7D2FE','#E0F2FE','#F5F8FF'], star:true },
+    { id:'lagoon', name:'Лагуна', hint:'Бирюза и аква — свежо и по-медицински', p:['#99F6E4','#A5F3FC','#BFDBFE','#F0FDFA'] },
+    { id:'steppe', name:'Небо Казахстана', hint:'Голубой флага и тёплое солнце — национально и светло', p:['#7DD3FC','#A5F3FC','#FDE68A','#F0F9FF'] },
+    { id:'aqualav', name:'Аква и лаванда', hint:'Бирюзовый с сиреневым — чуть ярче, современно', p:['#A5F3FC','#C4B5FD','#BFDBFE','#FAF7FF'] },
+    { id:'haze', name:'Голубая дымка', hint:'Насыщенный пастельный синий — заметнее остальных', p:['#93C5FD','#A5B4FC','#BAE6FD','#EFF6FF'] },
+    { id:'silk', name:'Сапфировый шёлк', hint:'Сине-фиолетовый перелив, благородно', p:['#A5B4FC','#93C5FD','#C7D2FE','#EEF2FF'] },
+    { id:'mint', name:'Ледяная мята', hint:'Мята и голубой — максимально легко и чисто', p:['#BBF7D0','#A5F3FC','#DBEAFE','#F2FDF6'] },
+    { id:'dawn', name:'Бирюзовый рассвет', hint:'Аква, голубой и капля тёплого света', p:['#99F6E4','#BAE6FD','#FDE68A','#F5FBFF'] },
+    { id:'pearl', name:'Перламутр', hint:'Голубой, лаванда и нежный розовый — как перламутр', p:['#BFDBFE','#FBCFE8','#DDD6FE','#F8FAFC'] },
+  ];
+  const fillId = () => { const f = ls('mp-fill'); return FILLS.some(x => x.id === f) ? f : 'deep'; };
+  const pastelId = () => { const p = ls('mp-pastel'); return PASTELS.some(x => x.id === p) ? p : 'sky'; };
+  const pastelStops = (id) => {
+    const ps = PASTELS.find(x => x.id === (id || pastelId())) || PASTELS[1];
+    if(ps.p) return ps.p;
+    const c = palette(themeId()).c;
+    return [c.b200, c.b100, 'color-mix(in srgb, ' + c.bacc + ' 28%, #fff)', c.b50];
+  };
+  function applyFill(){
+    const el = document.documentElement, f = fillId();
+    el.dataset.fill = f;
+    const st = pastelStops();
+    ['--pa','--pb','--pc','--pd'].forEach((k, i) => el.style.setProperty(k, st[i]));
+  }
+  const setFill = (id) => { ls('mp-fill', id); applyFill(); try { window.dispatchEvent(new CustomEvent('mp-fill-change', { detail:id })); } catch(e){} };
+  const setPastel = (id) => { ls('mp-pastel', id); ls('mp-fill', 'pastel'); applyFill(); try { window.dispatchEvent(new CustomEvent('mp-fill-change', { detail:'pastel' })); } catch(e){} };
 
   // ——— Орнамент «қошқар мүйіз» (бараний рог) — svg-плитка для маски ———
   const ORN = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
@@ -177,9 +364,12 @@ const H = (() => {
   // ссылки для показа: ?role=business, ?theme=teal — сразу открывают нужную роль и палитру
   try { const qs = new URLSearchParams(location.search); const qr = qs.get('role'), qt = qs.get('theme');
     if(['citizens','business','medical'].includes(qr)) ls('mp-role', qr);
-    if(qt && PALETTES.some(p => p.id === qt)) ls('mp-theme', qt); } catch(e){}
+    if(qt && PALETTES.some(p => p.id === qt)) ls('mp-theme', qt);
+    const qf = qs.get('fill'), qp = qs.get('pastel');
+    if(['flat','deep','pastel'].includes(qf)) ls('mp-fill', qf);
+    if(qp && PASTELS.some(p => p.id === qp)){ ls('mp-pastel', qp); if(!qf) ls('mp-fill', 'pastel'); } } catch(e){}
   // применяем сразу при загрузке компонента — до первой отрисовки страницы
-  try { applyTheme(); document.documentElement.style.setProperty('--hm-orn', ORN_URL); applyA11y(); } catch(e){}
+  try { applyTheme(); applyFill(); document.documentElement.style.setProperty('--hm-orn', ORN_URL); applyA11y(); } catch(e){}
 
   // ——— Роли и навигация ———
   const ROLES = [
@@ -566,7 +756,7 @@ const H = (() => {
     { id:'e', key:'E', label:'AI-помощник', name:'AI-помощник в центре', file:'Главная E - AI-помощник.dc.html' },
   ];
 
-  return { PALETTES, palette, themeId, applyTheme, setTheme, ORN_URL, a11y, setA11y, applyA11y,
+  return { PALETTES, palette, themeId, applyTheme, setTheme, FILLS, PASTELS, fillId, pastelId, pastelStops, applyFill, setFill, setPastel, ORN_URL, a11y, setA11y, applyA11y,
     ROLES, getRole, setRole, HOME, hasGov, govPage, bizEntry, COMPOSITE, EGOV, P, GOV, GOV_COUNT, SECTIONS, govCard, LIBRARY,
     HERO, CHIPS, FRESH, USEFUL, SITUATIONS, FAQ_AUD, FAQ, faqAudOf, NEWS_TABS, NEWS, AI_SUGGEST, botReply, search, ask, plural, VARIANTS };
 })();
@@ -578,7 +768,7 @@ class Component extends DCLogic {
     window.mpHome = H;
     try { window.dispatchEvent(new CustomEvent('mp-home-ready')); } catch(e){}
     // другая вкладка сменила палитру / доступность
-    this._st = (e) => { if(e.key === 'mp-theme') H.applyTheme(); if(e.key === 'mp-a11y') H.applyA11y(); };
+    this._st = (e) => { if(e.key === 'mp-theme') H.applyTheme(); if(e.key === 'mp-fill' || e.key === 'mp-pastel') H.applyFill(); if(e.key === 'mp-a11y') H.applyA11y(); };
     window.addEventListener('storage', this._st);
   }
   componentWillUnmount(){ window.removeEventListener('storage', this._st); }

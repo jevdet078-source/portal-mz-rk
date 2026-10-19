@@ -74,6 +74,19 @@
   .hv-pal b{ display:flex; align-items:center; gap:8px; font-size:15.5px; font-weight:600; color:var(--n900); }
   .hv-pal b em{ font-style:normal; font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; background:#FEF7EC; color:#8A5A0B; }
   .hv-pal small{ font-size:13px; line-height:1.45; color:var(--n500); }
+  .hv-pal b em.new{ background:var(--green-l); color:var(--green-d); }
+  .hv-flat{ height:120px; border-radius:14px; padding:10px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:inset 0 0 0 1px rgba(10,13,20,.05); }
+  .hv-flat .ban{ height:46px; border-radius:10px; display:flex; align-items:center; padding:0 12px; }
+  .hv-flat .ban i{ font-style:normal; font-size:13px; font-weight:600; color:#fff; }
+  .hv-flat .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 2px; }
+  .hv-flat .lnk{ font-size:12.5px; font-weight:600; }
+  .hv-flat .btn, .hv-past .btn{ height:30px; padding:0 12px; border-radius:8px; color:#fff; font-size:12.5px; font-weight:600; display:inline-flex; align-items:center; }
+  .hv-past{ height:120px; border-radius:14px; padding:14px; display:flex; flex-direction:column; align-items:flex-start; box-shadow:inset 0 0 0 1px rgba(10,13,20,.06); }
+  .hv-past .t{ font-size:15px; font-weight:600; letter-spacing:-.01em; color:var(--n900); }
+  .hv-past .s{ font-size:12.5px; color:var(--n600); margin-top:3px; }
+  .hv-past .btn{ margin-top:auto; background:var(--b600); }
+  .hv-chips{ display:flex; gap:6px; }
+  .hv-chips span{ flex:1; height:14px; border-radius:5px; box-shadow:inset 0 0 0 1px rgba(10,13,20,.06); }
   .hv-aa{ display:flex; gap:6px; flex-wrap:wrap; }
   .hv-aa span{ font-size:11.5px; font-weight:600; padding:3px 8px; border-radius:6px; background:var(--green-l); color:var(--green-d); }
 
@@ -100,10 +113,11 @@
     <div class="hm-wrap hv-in">
       <div class="hv-brand"><span class="hv-emb"><img src="uploads/images.jpg" alt="Государственный герб Республики Казахстан"></span><span><b>Министерство здравоохранения</b><span>Республики Казахстан</span></span></div>
       <h1 class="hv-h1">Новая главная страница портала — варианты</h1>
-      <p class="hv-lead">Пять вариантов первого экрана и структуры главной: весь текущий состав (роли, госуслуги, разделы, «Новое», FAQ, новости, AI-помощник) сохранён, меняются подача и удобство. Цвет бренда и заставка переключаются в любом варианте — кнопка «Варианты дизайна» слева внизу.</p>
+      <p class="hv-lead">Пять вариантов первого экрана и структуры главной: весь текущий состав (роли, госуслуги, разделы, «Новое», FAQ, новости, AI-помощник) сохранён, меняются подача и удобство. Цвет бренда, оформление (без градиентов, пастель, глубокие) и заставка переключаются в любом варианте — кнопка «Варианты дизайна» слева внизу.</p>
       <div class="hv-pills">
         <span><i class="ri-layout-masonry-line"></i>5 вариантов + текущая</span>
-        <span><i class="ri-palette-line"></i>10 палитр бренда</span>
+        <span><i class="ri-palette-line"></i>10 цветов бренда без градиентов</span>
+        <span><i class="ri-contrast-drop-2-line"></i>10 пастельных и 10 глубоких градиентов</span>
         <span><i class="ri-play-circle-line"></i>4 заставки при входе</span>
         <span><i class="ri-eye-line"></i>Версия для слабовидящих</span>
         <span><i class="ri-speed-up-line"></i>Без 3D и тяжёлых медиа</span>
@@ -132,15 +146,18 @@
 
   <section class="hm-sec" style="background:#fff;border-block:1px solid var(--n200);">
     <div class="hm-wrap">
-      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 2</span><h2 class="hm-h2">Цвет бренда</h2><p class="hm-lead">Нажмите на палитру — она применится ко всем вариантам. Для каждой проверен контраст по WCAG 2.1: кнопки и ссылки читаются не хуже уровня AA.</p></div></div>
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 2</span><h2 class="hm-h2">Цвет бренда — без градиентов</h2><p class="hm-lead">Только сплошные цвета: кнопки, ссылки, баннеры и карточки — одним цветом бренда. Нажмите на палитру — она применится ко всем вариантам в режиме «Без градиентов». Контраст проверен по WCAG 2.1.</p></div></div>
       <div class="hv-pals">
-        <sc-for list="{{ pals }}" as="p" hint-placeholder-count="10">
+        <sc-for list="{{ flats }}" as="p" hint-placeholder-count="10">
           <button class="hv-pal" aria-pressed="{{ p.on }}" onClick="{{ p.onClick }}">
-            <div class="hv-sw" style="{{ p.sw }}"><span class="acc" style="{{ p.acc }}"></span><span class="btn" style="{{ p.btn }}">Получить услугу</span></div>
-            <div class="hv-ramp"><sc-for list="{{ p.ramp }}" as="r" hint-placeholder-count="10"><span style="{{ r }}"></span></sc-for></div>
+            <div class="hv-flat" style="{{ p.bg }}">
+              <span class="ban" style="{{ p.ban }}"><i>Медицинские услуги — в одном окне</i></span>
+              <span class="row"><span class="lnk" style="{{ p.link }}">Все услуги →</span><span class="btn" style="{{ p.btn }}">Получить услугу</span></span>
+            </div>
+            <div class="hv-chips"><sc-for list="{{ p.chips }}" as="c" hint-placeholder-count="4"><span style="{{ c.style }}" title="{{ c.title }}"></span></sc-for></div>
             <b>{{ p.name }}<sc-if value="{{ p.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if></b>
             <small>{{ p.hint }}</small>
-            <div class="hv-aa"><span>{{ p.c1 }}</span><span>{{ p.c2 }}</span></div>
+            <div class="hv-aa"><span>{{ p.c1 }}</span><span>{{ p.c2 }}</span><span>{{ p.c3 }}</span></div>
           </button>
         </sc-for>
       </div>
@@ -149,7 +166,48 @@
 
   <section class="hm-sec">
     <div class="hm-wrap">
-      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 3</span><h2 class="hm-h2">Заставка при входе</h2><p class="hm-lead">Показывается один раз за сеанс, ≈ 2 секунды, пропускается кликом или Esc. Для тех, у кого в системе отключена анимация, — короткое проявление без движения.</p></div></div>
+      <div class="hm-sec-head">
+        <div><span class="hm-eyebrow">Шаг 3</span><h2 class="hm-h2">Градиенты</h2><p class="hm-lead">Отдельный набор для показа. Пастельные — новые светлые переливы с тёмным текстом; глубокие — тёмные переливы цвета бренда. Кнопки и ссылки в обоих наборах — сплошным цветом бренда.</p></div>
+        <div class="hm-seg" role="group" aria-label="Набор градиентов">
+          <sc-for list="{{ gtabs }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" aria-pressed="{{ t.on }}">{{ t.label }}</button></sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ showPastel }}" hint-placeholder-val="{{ true }}">
+        <div class="hv-pals">
+          <sc-for list="{{ pastels }}" as="g" hint-placeholder-count="10">
+            <button class="hv-pal" aria-pressed="{{ g.on }}" onClick="{{ g.onClick }}">
+              <div class="hv-past" style="{{ g.mesh }}">
+                <span class="t">Здоровье — в одном окне</span>
+                <span class="s">Госуслуги, запись к врачу, справки</span>
+                <span class="btn">Получить услугу</span>
+              </div>
+              <div class="hv-chips"><sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="4"><span style="{{ c }}"></span></sc-for></div>
+              <b>{{ g.name }}<sc-if value="{{ g.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if><sc-if value="{{ g.isNew }}" hint-placeholder-val="{{ true }}"><em class="new">Новый</em></sc-if></b>
+              <small>{{ g.hint }}</small>
+              <div class="hv-aa"><span>{{ g.c1 }}</span><span>{{ g.c2 }}</span></div>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showDeep }}" hint-placeholder-val="{{ false }}">
+        <div class="hv-pals">
+          <sc-for list="{{ pals }}" as="p" hint-placeholder-count="10">
+            <button class="hv-pal" aria-pressed="{{ p.on }}" onClick="{{ p.onClick }}">
+              <div class="hv-sw" style="{{ p.sw }}"><span class="acc" style="{{ p.acc }}"></span><span class="btn" style="{{ p.btn }}">Получить услугу</span></div>
+              <div class="hv-ramp"><sc-for list="{{ p.ramp }}" as="r" hint-placeholder-count="10"><span style="{{ r }}"></span></sc-for></div>
+              <b>{{ p.name }}<sc-if value="{{ p.star }}" hint-placeholder-val="{{ false }}"><em>Рекомендуем</em></sc-if></b>
+              <small>{{ p.hint }}</small>
+              <div class="hv-aa"><span>{{ p.c1 }}</span><span>{{ p.c2 }}</span></div>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <section class="hm-sec" style="background:#fff;border-top:1px solid var(--n200);">
+    <div class="hm-wrap">
+      <div class="hm-sec-head"><div><span class="hm-eyebrow">Шаг 4</span><h2 class="hm-h2">Заставка при входе</h2><p class="hm-lead">Показывается один раз за сеанс, ≈ 2 секунды, пропускается кликом или Esc. Для тех, у кого в системе отключена анимация, — короткое проявление без движения.</p></div></div>
       <div class="hv-sps">
         <sc-for list="{{ splashes }}" as="x" hint-placeholder-count="4">
           <div class="hv-sp">
@@ -162,7 +220,7 @@
     </div>
   </section>
 
-  <section class="hm-sec" style="background:#fff;border-top:1px solid var(--n200);">
+  <section class="hm-sec">
     <div class="hm-wrap">
       <div class="hm-sec-head"><div><span class="hm-eyebrow">Во всех вариантах</span><h2 class="hm-h2">Что улучшено по UX</h2></div></div>
       <div class="hv-ux">
@@ -221,19 +279,39 @@ class Component extends DCLogic {
   componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); }
   renderVals(){
     const H = window.mpHome, s = this.state;
-    if(!H) return { variants:[], pals:[], splashes:[], ux:UX };
+    if(!H) return { variants:[], pals:[], flats:[], pastels:[], gtabs:[], showPastel:false, showDeep:false, splashes:[], ux:UX };
     const tid = s.theme || H.themeId();
+    const fill = H.fillId(), pid = H.pastelId(), gtab = s.gtab || (fill === 'deep' ? 'deep' : 'pastel');
+    // точки пастели в hex (для пресета «Из цвета бренда» смешиваем акцент с белым 28 / 72)
+    const mix = (hex, w) => '#' + hex.match(/\w\w/g).map(h => Math.round(parseInt(h, 16) * w + 255 * (1 - w)).toString(16).padStart(2, '0')).join('');
+    const stops = (id) => { const g = H.PASTELS.find(x => x.id === id); if(g.p) return g.p; const c = H.palette(tid).c; return [c.b200, c.b100, mix(c.bacc, .28), c.b50]; };
+    const worst = (fg, st) => { const v = Math.min(...st.map(b => { const x = lum(fg), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); })); return v.toFixed(1).replace('.', ','); };
     const keys = ['b50','b100','b200','b300','b400','b500','b600','b700','b800','b900'];
     return {
       variants: H.VARIANTS.map(v => { const id = v.id; const info = IDEAS[id];
         return { ...v, k: v.key || '—', keyCls: v.key ? '' : 'cur', mk: 'mk mk-' + id, idea: info.idea, pts: info.pts,
           bars: MK[id].map(([l, t, w, h, c]) => `left:${l}%;top:${t}%;width:${w}%;height:${h}%;background:${c};box-shadow:0 2px 6px rgba(10,13,20,.06);`) }; }),
-      pals: H.PALETTES.map(p => ({ name:p.name, hint:p.hint, star:!!p.star, on: p.id === tid ? 'true' : 'false',
+      // без градиентов: баннер — сплошной 800, плашка — 50, ссылка — 700, кнопка — 600
+      flats: H.PALETTES.map(p => ({ name:p.name, hint:p.hint, star:!!p.star, on: fill === 'flat' && p.id === tid ? 'true' : 'false',
+        bg: `background:${p.c.b50};`, ban: `background:${p.c.b800};`, link: `color:${p.c.b700};`, btn: `background:${p.c.b600};`,
+        chips: ['b50','b200','b600','b800'].map(k => ({ style:`background:${p.c[k]};`, title:k.replace('b', '') + ' · ' + p.c[k] })),
+        c1: 'Кнопка ' + cr('#FFFFFF', p.c.b600) + ':1', c2: 'Ссылка ' + cr(p.c.b700, p.c.b50) + ':1', c3: 'Баннер ' + cr('#FFFFFF', p.c.b800) + ':1',
+        onClick:() => { H.setTheme(p.id); H.setFill('flat'); this.setState({ theme:p.id, tick:Date.now() }); } })),
+      gtabs: [ { id:'pastel', label:'Пастельные · ' + H.PASTELS.length + ' новых' }, { id:'deep', label:'Глубокие · ' + H.PALETTES.length } ]
+        .map(t => ({ ...t, on: gtab === t.id ? 'true' : 'false', onClick:() => this.setState({ gtab:t.id }) })),
+      showPastel: gtab === 'pastel', showDeep: gtab === 'deep',
+      pastels: H.PASTELS.map(g => { const st = stops(g.id);
+        return { name:g.name, hint:g.hint, star:!!g.star, isNew: !!g.p, on: fill === 'pastel' && pid === g.id ? 'true' : 'false',
+          mesh: `background:radial-gradient(70% 90% at 0% 0%, ${st[0]}, transparent 70%), radial-gradient(70% 90% at 100% 0%, ${st[1]}, transparent 70%), radial-gradient(80% 80% at 60% 100%, ${st[2]}, transparent 72%), ${st[3]};`,
+          chips: st.map(c => `background:${c};`),
+          c1: 'Заголовки ' + worst('#0A0D14', st) + ':1 · AAA', c2: 'Текст ' + worst('#31353F', st) + ':1 · AA',
+          onClick:() => { H.setPastel(g.id); this.setState({ tick:Date.now() }); } }; }),
+      pals: H.PALETTES.map(p => ({ name:p.name, hint:p.hint, star:!!p.star, on: fill === 'deep' && p.id === tid ? 'true' : 'false',
         sw: `background:radial-gradient(120% 140% at 0% 0%, ${p.c.b400}, ${p.c.b700} 55%, ${p.c.b950});`,
         acc: `background:${p.c.bacc};`, btn: `background:${p.c.b600};box-shadow:0 0 0 1px rgba(255,255,255,.35);`,
         ramp: keys.map(k => `background:${p.c[k]};`),
         c1: 'Кнопка ' + cr('#FFFFFF', p.c.b600) + ':1 · AA', c2: 'Ссылка ' + cr(p.c.b700, '#FFFFFF') + ':1 · AA',
-        onClick:() => { H.setTheme(p.id); this.setState({ theme:p.id }); } })),
+        onClick:() => { H.setTheme(p.id); H.setFill('deep'); this.setState({ theme:p.id, tick:Date.now() }); } })),
       splashes: SPLASH.map(x => ({ ...x, on: s.sp === x.id ? 'true' : 'false', useLabel: s.sp === x.id ? 'Выбрана' : 'Выбрать',
         play:() => { try { window.dispatchEvent(new CustomEvent('mp-splash-replay', { detail:x.id })); } catch(e){} },
         use:() => { this.setState({ sp:x.id }); try { localStorage.setItem('mp-splash', x.id); } catch(e){} } })),
