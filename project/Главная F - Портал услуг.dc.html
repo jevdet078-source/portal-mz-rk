@@ -21,181 +21,153 @@
   .hm-root{ opacity:0; }
   html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
 
-  .vf{ display:grid; grid-template-columns:272px minmax(0,1fr); min-height:100vh; background:var(--n100); transition:grid-template-columns .25s var(--hm-ease); }
-  .vf.rail{ grid-template-columns:84px minmax(0,1fr); }
+  .vf{ display:grid; grid-template-columns:256px minmax(0,1fr); min-height:100vh; background:var(--n100); transition:grid-template-columns .25s var(--hm-ease); }
+  .vf.rail{ grid-template-columns:76px minmax(0,1fr); }
 
-  /* ——— боковое меню ——— */
-  .vf-side{ position:sticky; top:0; height:100vh; overflow-y:auto; overflow-x:hidden; background:#fff; border-right:1px solid var(--n200); display:flex; flex-direction:column; gap:6px; padding:16px 12px 14px; scrollbar-width:thin; z-index:30; }
-  .vf-brand{ display:flex; align-items:center; gap:12px; padding:4px 6px 14px; text-decoration:none; color:var(--n900); border-bottom:1px solid var(--n200); margin-bottom:6px; }
-  .vf-brand .emb{ width:44px; height:44px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
-  .vf-brand .emb img{ width:44px; height:44px; object-fit:contain; }
+  /* ——— боковое меню: только навигация; «Для кого» — в верхней панели, экстренные номера — кнопка 103 там же ——— */
+  .vf-side{ position:sticky; top:0; height:100vh; overflow-y:auto; overflow-x:hidden; background:#fff; border-right:1px solid var(--n200); display:flex; flex-direction:column; gap:2px; padding:0 12px 12px; scrollbar-width:thin; z-index:30; }
+  .vf-brand{ display:flex; align-items:center; gap:12px; height:72px; flex:0 0 auto; padding:0 4px; margin-bottom:10px; text-decoration:none; color:var(--n900); border-bottom:1px solid var(--n200); }
+  .vf-brand .emb{ width:42px; height:42px; border-radius:50%; overflow:hidden; background:#fff; flex:0 0 auto; display:flex; align-items:center; justify-content:center; }
+  .vf-brand .emb img{ width:42px; height:42px; object-fit:contain; }
   .vf-brand b{ display:block; font-size:13.5px; font-weight:600; line-height:1.25; letter-spacing:-.01em; }
   .vf-brand span.s{ display:block; font-size:12px; color:var(--n400); margin-top:2px; }
-  .vf-cap{ padding:10px 10px 4px; font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--n400); white-space:nowrap; }
-  .vf-roles{ display:flex; flex-direction:column; gap:4px; padding:4px; border-radius:14px; background:var(--n100); }
-  .vf-role{ display:flex; align-items:center; gap:10px; width:100%; height:38px; padding:0 10px; border:none; border-radius:10px; background:transparent; font:500 14px/1 'Inter',sans-serif; color:var(--n600); cursor:pointer; text-align:left; white-space:nowrap; transition:.15s; }
-  .vf-role i{ font-size:19px; flex:0 0 auto; }
-  .vf-role:hover{ color:var(--n900); background:rgba(255,255,255,.6); }
-  .vf-role[aria-checked="true"]{ background:#fff; color:var(--b800); font-weight:600; box-shadow:0 1px 3px rgba(10,13,20,.1); }
-  .vf-role[aria-checked="true"] i{ color:var(--b600); }
+  .vf-div{ height:1px; background:var(--n200); margin:10px 6px; flex:0 0 auto; }
   .vf-nav{ display:flex; flex-direction:column; gap:2px; }
-  .vf-item{ position:relative; display:flex; align-items:center; gap:12px; height:40px; padding:0 10px; border:none; border-radius:10px; background:none; color:var(--n600); text-decoration:none; font:500 14.5px/1 'Inter',sans-serif; cursor:pointer; white-space:nowrap; text-align:left; width:100%; transition:background .15s, color .15s; }
+  .vf-item{ position:relative; display:flex; align-items:center; gap:12px; height:40px; padding:0 10px; border:none; border-radius:10px; background:none; color:var(--n600); text-decoration:none; font:500 14.5px/1 'Inter',sans-serif; cursor:pointer; white-space:nowrap; text-align:left; width:100%; flex:0 0 auto; transition:background .15s, color .15s; }
   .vf-item i{ font-size:20px; flex:0 0 auto; color:var(--n400); transition:color .15s; }
   .vf-item:hover{ background:var(--n100); color:var(--n900); }
   .vf-item:hover i{ color:var(--n600); }
   .vf-item[aria-current="page"]{ background:var(--b50); color:var(--b800); font-weight:600; }
   .vf-item[aria-current="page"] i{ color:var(--b600); }
-  .vf-item[aria-current="page"]::before{ content:''; position:absolute; left:-12px; top:9px; bottom:9px; width:3px; border-radius:0 3px 3px 0; background:var(--b600); }
   .vf-item .lbl{ flex:1; overflow:hidden; text-overflow:ellipsis; }
-  .vf-item em{ font-style:normal; font-size:12px; font-weight:600; min-width:24px; height:22px; padding:0 7px; border-radius:999px; background:var(--n100); color:var(--n500); display:inline-flex; align-items:center; justify-content:center; }
-  .vf-sub{ display:flex; flex-direction:column; gap:2px; padding-left:14px; margin:0 0 2px 20px; border-left:1px solid var(--n200); animation:hm-fade .2s ease; }
+  .vf-item em{ font-style:normal; font-size:12px; font-weight:600; color:var(--n400); }
+  .vf-sub{ display:flex; flex-direction:column; gap:2px; padding-left:12px; margin:0 0 2px 20px; border-left:1px solid var(--n200); animation:hm-fade .2s ease; }
   .vf-sub .vf-item{ height:36px; font-size:14px; }
   .vf-item .chev{ font-size:18px; color:var(--n400); transition:transform .2s; }
   .vf-item[aria-expanded="true"] .chev{ transform:rotate(180deg); }
   .vf.rail .vf-sub{ margin-left:0; padding-left:0; border-left:none; }
   .vf.rail .vf-item .chev{ display:none; }
-  .vf-item[aria-current="page"] em{ background:#fff; color:var(--b700); }
-  .vf-sos{ margin-top:auto; border-radius:14px; padding:10px 10px 10px 12px; display:flex; align-items:center; gap:10px; background:var(--red-l); box-shadow:inset 0 0 0 1px #F9C4CF; }
-  .vf-sos b{ flex:1; display:flex; align-items:center; gap:8px; font-size:13px; line-height:1.25; color:var(--red-d); white-space:nowrap; }
-  .vf-sos b i{ font-size:18px; color:var(--red); }
-  .vf-sos p{ display:none; }
-  .vf-sos div{ display:flex; gap:6px; }
-  .vf-sos a{ min-width:52px; padding:0 8px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; background:var(--red); color:#fff; font-weight:700; font-size:15px; text-decoration:none; }
-  .vf-sos a.alt{ background:#fff; color:var(--red-d); box-shadow:inset 0 0 0 1px #F9C4CF; }
-  .vf-sos-mini{ display:none; margin-top:auto; width:52px; height:52px; border-radius:14px; background:var(--red); color:#fff; align-items:center; justify-content:center; text-decoration:none; font-weight:700; font-size:15px; align-self:center; }
-  .vf-fold{ margin-top:8px; }
-  .vf.rail .vf-brand .t, .vf.rail .vf-cap, .vf.rail .vf-item .lbl, .vf.rail .vf-item em, .vf.rail .vf-role span, .vf.rail .vf-sos{ display:none; }
-  .vf.rail .vf-brand{ justify-content:center; padding:4px 0 14px; }
-  .vf.rail .vf-item, .vf.rail .vf-role{ justify-content:center; padding:0; }
-  .vf.rail .vf-sos-mini{ display:flex; }
+  .vf-fold{ margin-top:auto; color:var(--n500); }
+  .vf.rail .vf-brand .t, .vf.rail .vf-item .lbl, .vf.rail .vf-item em{ display:none; }
+  .vf.rail .vf-brand{ justify-content:center; padding:0; }
+  .vf.rail .vf-item{ justify-content:center; padding:0; }
   .vf.rail .vf-fold i{ transform:rotate(180deg); }
 
   /* ——— рабочая область ——— */
   .vf-main{ min-width:0; display:flex; flex-direction:column; }
-  .vf-bar{ position:sticky; top:0; z-index:25; display:flex; align-items:center; gap:14px; padding:0 clamp(16px,2vw,32px); background:rgba(246,248,250,.86); -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px); border-bottom:1px solid var(--n200); }
+  .vf-bar{ position:sticky; top:0; z-index:25; height:72px; display:flex; align-items:center; gap:14px; padding:0 clamp(16px,2vw,32px); background:rgba(246,248,250,.88); -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px); border-bottom:1px solid var(--n200); }
   .vf-burger{ display:none; width:42px; height:42px; border:none; border-radius:11px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n700); font-size:22px; cursor:pointer; align-items:center; justify-content:center; flex:0 0 auto; }
-  .vf-hello{ min-width:0; }
-  .vf-hello b{ display:block; font-size:16px; font-weight:600; letter-spacing:-.01em; color:var(--n900); white-space:nowrap; }
-  .vf-hello span{ display:block; font-size:12.5px; color:var(--n500); margin-top:2px; white-space:nowrap; }
-  .vf-bar .acts{ margin-left:auto; }
+  /* «Для кого» — сегменты в верхней панели (одна точка выбора роли на странице) */
+  .vf-seg{ display:flex; gap:4px; padding:4px; border-radius:14px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); min-width:0; overflow-x:auto; scrollbar-width:none; }
+  .vf-seg::-webkit-scrollbar{ display:none; }
+  .vf-seg button{ display:inline-flex; align-items:center; gap:8px; height:38px; padding:0 14px; border:none; border-radius:10px; background:none; color:var(--n500); font:500 14.5px/1 'Inter',sans-serif; cursor:pointer; white-space:nowrap; transition:.15s; }
+  .vf-seg button i{ font-size:18px; }
+  .vf-seg button:hover{ color:var(--n900); background:var(--n100); }
+  .vf-seg button[aria-checked="true"]{ background:var(--b600); color:#fff; font-weight:600; }
+  .vf-bar .acts{ margin-left:auto; display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .vf-103{ display:inline-flex; align-items:center; gap:6px; height:40px; padding:0 14px; border-radius:10px; background:var(--red-l); color:var(--red-d); font:700 14.5px/1 'Inter',sans-serif; text-decoration:none; box-shadow:inset 0 0 0 1px #F9C4CF; transition:.15s; }
+  .vf-103 i{ font-size:17px; color:var(--red); }
+  .vf-103:hover{ background:var(--red); color:#fff; box-shadow:none; }
+  .vf-103:hover i{ color:#fff; }
   .vf-in{ width:100%; max-width:1680px; margin:0 auto; padding:clamp(16px,1.8vw,28px) clamp(16px,2vw,32px) clamp(28px,3vw,48px); display:flex; flex-direction:column; gap:clamp(16px,1.6vw,24px); }
 
   .vf-card{ background:#fff; border-radius:24px; box-shadow:inset 0 0 0 1px var(--n200); padding:clamp(18px,1.8vw,28px); }
   .vf-head{ display:flex; align-items:center; justify-content:space-between; gap:12px 20px; flex-wrap:wrap; margin-bottom:18px; }
   .vf-head h2{ margin:0; font-size:clamp(20px,.6vw + 15px,26px); font-weight:600; letter-spacing:-.02em; color:var(--n900); }
-  .vf-head p{ margin:4px 0 0; font-size:14px; color:var(--n500); }
 
   /* баннер */
-  .vf-hero{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(320px,1fr); gap:clamp(16px,1.6vw,24px); }
-  .vf-hcard{ position:relative; border-radius:28px; padding:clamp(24px,2.6vw,44px); color:#fff; background:linear-gradient(125deg, var(--b950) 0%, var(--b800) 55%, var(--b600) 100%); isolation:isolate; }
+  .vf-hero{ display:grid; grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr); gap:clamp(16px,1.6vw,24px); }
+  .vf-hcard{ position:relative; border-radius:28px; padding:clamp(28px,3vw,52px) clamp(24px,2.8vw,48px); color:#fff; background:linear-gradient(125deg, var(--b950) 0%, var(--b800) 55%, var(--b600) 100%); isolation:isolate; display:flex; flex-direction:column; justify-content:center; }
   .vf-hcard .deco{ position:absolute; inset:0; border-radius:inherit; overflow:hidden; z-index:-1; }
   .vf-hcard .deco::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.06; }
   .vf-hcard .deco::after{ content:''; position:absolute; width:620px; height:620px; right:-200px; top:-300px; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b400) 45%, transparent), transparent); }
-  .vf-eye{ display:inline-flex; align-items:center; gap:10px; font-size:12.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:color-mix(in srgb, var(--bacc) 80%, #fff); }
-  .vf-eye::before{ content:''; width:24px; height:1.5px; background:var(--bacc); }
-  .vf-h1{ margin:14px 0 10px; font-size:clamp(28px,1.6vw + 12px,46px); line-height:1.1; font-weight:600; letter-spacing:-.03em; max-width:24ch; text-wrap:balance; }
-  .vf-lead{ margin:0 0 22px; font-size:clamp(15px,.3vw + 12px,18px); line-height:1.55; color:rgba(255,255,255,.75); max-width:60ch; }
-  .vf-trust{ display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:18px; font-size:13px; color:rgba(255,255,255,.75); }
-  .vf-trust span{ display:inline-flex; align-items:center; gap:7px; }
-  .vf-trust i{ font-size:16px; color:var(--bacc); }
+  .vf-h1{ margin:0 0 24px; font-size:clamp(28px,1.6vw + 12px,46px); line-height:1.1; font-weight:600; letter-spacing:-.03em; max-width:24ch; text-wrap:balance; }
 
   .vf-acc{ border-radius:28px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); padding:clamp(20px,2vw,28px); display:flex; flex-direction:column; }
   .vf-acc-hd{ display:flex; align-items:center; gap:14px; }
-  .vf-acc-hd .ic{ width:52px; height:52px; border-radius:16px; background:var(--b50); color:var(--b600); display:flex; align-items:center; justify-content:center; font-size:26px; flex:0 0 auto; }
-  .vf-acc-hd div > b{ display:block; font-size:18px; font-weight:600; letter-spacing:-.015em; }
-  .vf-acc-hd div > span{ display:block; font-size:13.5px; color:var(--n500); margin-top:3px; }
-  .vf-acc ul{ list-style:none; margin:18px 0; padding:0; display:flex; flex-direction:column; gap:12px; }
-  .vf-acc li{ display:flex; gap:12px; align-items:flex-start; font-size:14.5px; line-height:1.45; color:var(--n700); }
+  .vf-acc-hd .ic{ width:48px; height:48px; border-radius:14px; background:var(--b50); color:var(--b600); display:flex; align-items:center; justify-content:center; font-size:24px; flex:0 0 auto; }
+  .vf-acc-hd b{ font-size:18px; font-weight:600; letter-spacing:-.015em; }
+  .vf-acc ul{ list-style:none; margin:20px 0; padding:0; display:flex; flex-direction:column; gap:12px; }
+  .vf-acc li{ display:flex; gap:12px; align-items:center; font-size:14.5px; line-height:1.4; color:var(--n700); }
   .vf-acc li i{ width:28px; height:28px; border-radius:8px; background:var(--n100); color:var(--b600); display:flex; align-items:center; justify-content:center; font-size:16px; flex:0 0 auto; }
-  .vf-acc .btns{ margin-top:auto; display:flex; flex-direction:column; gap:8px; }
-  .vf-acc .btns .hm-btn{ width:100%; }
-  .vf-acc .note{ display:flex; align-items:center; gap:6px; margin-top:10px; font-size:12.5px; color:var(--n400); }
+  .vf-acc .btns{ margin-top:auto; display:flex; align-items:center; gap:16px; }
+  .vf-acc .btns .hm-btn{ flex:1; }
+  .vf-reg{ font-size:14.5px; font-weight:600; color:var(--b700); text-decoration:none; white-space:nowrap; }
+  .vf-reg:hover{ text-decoration:underline; }
 
   /* популярные услуги */
   .vf-filters{ display:flex; gap:6px; flex-wrap:wrap; }
-  .vf-filters button{ height:36px; padding:0 14px; border:none; border-radius:999px; background:var(--n100); color:var(--n600); font:500 14px/1 'Inter',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:8px; transition:.15s; }
-  .vf-filters button em{ font-style:normal; font-size:12px; font-weight:600; color:var(--n400); }
+  .vf-filters button{ height:36px; padding:0 14px; border:none; border-radius:999px; background:var(--n100); color:var(--n600); font:500 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; }
   .vf-filters button:hover{ background:var(--n200); color:var(--n900); }
-  .vf-filters button[aria-pressed="true"]{ background:var(--b600); color:#fff; }
-  .vf-filters button[aria-pressed="true"] em{ color:rgba(255,255,255,.75); }
-  .vf-svcs{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,232px),1fr)); gap:12px; }
-  .vf-svc{ display:flex; flex-direction:column; gap:14px; min-height:168px; padding:16px; border-radius:18px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:background .18s, box-shadow .18s, transform .18s; animation:hm-fade .3s ease; }
+  .vf-filters button[aria-pressed="true"]{ background:var(--n900); color:#fff; }
+  .vf-svcs{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,220px),1fr)); gap:12px; }
+  .vf-svc{ display:flex; flex-direction:column; gap:16px; min-height:144px; padding:16px; border-radius:18px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:background .18s, box-shadow .18s, transform .18s; animation:hm-fade .3s ease; }
   .vf-svc:hover{ background:#fff; box-shadow:inset 0 0 0 1px var(--b200), 0 18px 36px -24px rgba(10,13,20,.35); transform:translateY(-2px); }
   .vf-svc .top{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
-  .vf-svc .ic{ width:46px; height:46px; border-radius:14px; background:#fff; color:var(--b600); box-shadow:inset 0 0 0 1px var(--n200); display:flex; align-items:center; justify-content:center; font-size:23px; transition:.18s; }
+  .vf-svc .ic{ width:44px; height:44px; border-radius:13px; background:#fff; color:var(--b600); box-shadow:inset 0 0 0 1px var(--n200); display:flex; align-items:center; justify-content:center; font-size:22px; transition:.18s; }
   .vf-svc:hover .ic{ background:var(--b600); color:#fff; box-shadow:none; }
-  .vf-svc .where{ font-size:11.5px; font-weight:600; padding:4px 8px; border-radius:999px; background:#fff; color:var(--n500); box-shadow:inset 0 0 0 1px var(--n200); white-space:nowrap; }
-  .vf-svc .where.portal{ background:var(--b50); color:var(--b800); box-shadow:none; }
-  .vf-svc b{ font-size:15px; font-weight:600; line-height:1.35; letter-spacing:-.008em; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-  .vf-svc small{ margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--n500); }
-  .vf-svc small i{ font-size:17px; color:var(--n300); transition:.18s; }
-  .vf-svc:hover small i{ color:var(--b600); transform:translateX(2px); }
+  .vf-svc:hover .hm-ext{ color:var(--b600); }
+  .vf-svc b{ margin-top:auto; font-size:15px; font-weight:600; line-height:1.35; letter-spacing:-.008em; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
 
   /* каталог «темы → содержимое» */
-  .vf-cat{ display:grid; grid-template-columns:minmax(240px,300px) minmax(0,1fr); gap:20px; }
+  .vf-cat{ display:grid; grid-template-columns:minmax(220px,280px) minmax(0,1fr); gap:20px; }
   .vf-tabs{ display:flex; flex-direction:column; gap:4px; }
-  .vf-tab{ display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px; border:none; border-radius:14px; background:none; font:500 14.5px/1.3 'Inter',sans-serif; color:var(--n700); cursor:pointer; text-align:left; transition:.15s; }
-  .vf-tab .hm-ico{ width:38px; height:38px; border-radius:11px; font-size:19px; background:var(--n100); color:var(--n500); }
+  .vf-tab{ display:flex; align-items:center; gap:12px; width:100%; padding:8px 12px 8px 8px; border:none; border-radius:14px; background:none; font:500 14.5px/1.3 'Inter',sans-serif; color:var(--n700); cursor:pointer; text-align:left; transition:.15s; }
+  .vf-tab .hm-ico{ width:36px; height:36px; border-radius:10px; font-size:18px; background:var(--n100); color:var(--n500); }
   .vf-tab span.l{ flex:1; }
   .vf-tab em{ font-style:normal; font-size:12px; font-weight:600; color:var(--n400); }
   .vf-tab:hover{ background:var(--n50); }
   .vf-tab[aria-selected="true"]{ background:var(--b50); color:var(--b900); font-weight:600; }
   .vf-tab[aria-selected="true"] .hm-ico{ background:var(--b600); color:#fff; }
   .vf-tab.red .hm-ico{ background:var(--red-l); color:var(--red); }
-  .vf-pane{ border-radius:20px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); padding:clamp(18px,1.8vw,28px); animation:hm-fade .25s ease; min-height:340px; display:flex; flex-direction:column; }
-  .vf-pane h3{ margin:0 0 6px; font-size:20px; font-weight:600; letter-spacing:-.015em; }
-  .vf-pane > p{ margin:0 0 18px; font-size:14.5px; line-height:1.55; color:var(--n500); max-width:70ch; }
+  .vf-pane{ border-radius:20px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); padding:clamp(18px,1.8vw,24px); animation:hm-fade .25s ease; min-height:300px; }
+  .vf-pane-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .vf-pane h3{ margin:0; font-size:19px; font-weight:600; letter-spacing:-.015em; }
   .vf-group{ margin-bottom:16px; }
+  .vf-group:last-child{ margin-bottom:0; }
   .vf-group .gcap{ font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); margin:0 0 8px; }
-  .vf-links{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,280px),1fr)); gap:8px; }
+  .vf-links{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,260px),1fr)); gap:8px; }
   .vf-links a{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n800,#1b1e26); text-decoration:none; font-size:14.5px; font-weight:500; line-height:1.35; transition:.15s; }
   .vf-links a:hover{ box-shadow:inset 0 0 0 1px var(--b300); color:var(--b800); }
-  .vf-links a i{ font-size:17px; color:var(--n400); flex:0 0 auto; }
-  .vf-pane .go{ margin-top:auto; padding-top:8px; }
+  .vf-links a i{ font-size:17px; color:var(--n300); flex:0 0 auto; }
 
   /* новое + помощь */
-  .vf-two{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr); gap:clamp(16px,1.6vw,24px); }
-  .vf-new{ display:flex; align-items:center; gap:14px; padding:12px; border-radius:16px; text-decoration:none; color:var(--n900); transition:background .15s; }
+  .vf-two{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr); gap:clamp(16px,1.6vw,24px); }
+  .vf-new{ display:flex; align-items:center; gap:14px; padding:10px; margin:0 -10px; border-radius:14px; text-decoration:none; color:var(--n900); transition:background .15s; }
   .vf-new:hover{ background:var(--n50); }
-  .vf-new + .vf-new{ margin-top:2px; }
   .vf-new div{ flex:1; min-width:0; }
   .vf-new b{ display:block; font-size:15px; font-weight:600; line-height:1.35; }
-  .vf-new span.d{ display:block; font-size:13.5px; color:var(--n500); margin-top:2px; }
   .vf-new .tag{ font-size:11.5px; font-weight:600; color:var(--b700); background:var(--b50); padding:4px 9px; border-radius:999px; white-space:nowrap; }
-  .vf-help{ display:flex; flex-direction:column; gap:10px; }
-  .vf-hrow{ display:flex; align-items:center; gap:14px; padding:14px; border-radius:16px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); border:none; font-family:inherit; text-align:left; cursor:pointer; width:100%; transition:.15s; }
+  .vf-help{ display:flex; flex-direction:column; gap:8px; }
+  .vf-hrow{ display:flex; align-items:center; gap:14px; padding:10px 14px 10px 10px; border-radius:14px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); border:none; font-family:inherit; text-align:left; cursor:pointer; width:100%; transition:.15s; }
   .vf-hrow:hover{ background:#fff; box-shadow:inset 0 0 0 1px var(--b200); }
   .vf-hrow div{ flex:1; min-width:0; }
   .vf-hrow div > b{ display:block; font-size:15px; font-weight:600; }
-  .vf-hrow div > span{ display:block; font-size:13px; color:var(--n500); margin-top:2px; }
   .vf-hrow > i{ font-size:20px; color:var(--n300); }
   .vf-hrow.ai .hm-ico{ background:var(--b600); color:#fff; }
 
   /* экосистема */
-  .vf-eco{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,300px),1fr)); gap:12px; }
-  .vf-eco a{ display:flex; align-items:center; gap:14px; padding:14px; border-radius:16px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:.15s; }
+  .vf-eco{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,220px),1fr)); gap:10px; }
+  .vf-eco a{ display:flex; align-items:center; gap:12px; padding:10px 14px 10px 10px; border-radius:14px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:.15s; }
   .vf-eco a:hover{ background:#fff; box-shadow:inset 0 0 0 1px var(--b200); }
-  .vf-eco .logo{ width:48px; height:48px; border-radius:12px; overflow:hidden; background:#fff; flex:0 0 auto; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px var(--n200); color:var(--b600); font-size:24px; }
-  .vf-eco div.t{ flex:1; min-width:0; }
-  .vf-eco div.t > b{ display:block; font-size:14.5px; font-weight:600; line-height:1.3; }
-  .vf-eco div.t > span{ display:block; font-size:12.5px; color:var(--n500); margin-top:3px; line-height:1.4; }
-  .vf-eco a > i{ font-size:17px; color:var(--n400); }
+  .vf-eco .logo{ width:44px; height:44px; border-radius:12px; overflow:hidden; background:#fff; flex:0 0 auto; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px var(--n200); color:var(--b600); font-size:22px; }
+  .vf-eco b{ flex:1; min-width:0; font-size:14.5px; font-weight:600; line-height:1.3; }
 
   .vf-scrim{ display:none; }
   /* кнопка «Варианты дизайна» (только прототип) — правее меню, чтобы не закрывать его низ */
   @media (min-width:1024px){
-    .hm-root:has(.vf:not(.rail)) .tk-btn, .hm-root:has(.vf:not(.rail)) .tk-panel{ left:296px; }
-    .hm-root:has(.vf.rail) .tk-btn, .hm-root:has(.vf.rail) .tk-panel{ left:108px; }
+    .hm-root:has(.vf:not(.rail)) .tk-btn, .hm-root:has(.vf:not(.rail)) .tk-panel{ left:280px; }
+    .hm-root:has(.vf.rail) .tk-btn, .hm-root:has(.vf.rail) .tk-panel{ left:100px; }
   }
-  @media (max-width:1280px){ .vf-hero, .vf-two{ grid-template-columns:minmax(0,1fr); } .vf-acc{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; } .vf-acc ul{ grid-row:span 2; } }
+  @media (max-width:1280px){ .vf-hero, .vf-two{ grid-template-columns:minmax(0,1fr); } .vf-acc{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; align-items:center; } .vf-acc ul{ grid-row:span 2; margin:0; } .vf-acc .btns{ margin-top:16px; } }
+  @media (max-width:1180px){ .vf-seg button{ padding:0 12px; } .vf-seg button i{ display:none; } }
   @media (max-width:1023px){
     .vf, .vf.rail{ grid-template-columns:minmax(0,1fr); }
-    .vf-side{ position:fixed; left:0; top:0; bottom:0; width:288px; transform:translateX(-102%); transition:transform .25s var(--hm-ease); box-shadow:0 30px 60px -20px rgba(10,13,20,.4); z-index:96; }
+    .vf-side{ position:fixed; left:0; top:0; bottom:0; width:280px; transform:translateX(-102%); transition:transform .25s var(--hm-ease); box-shadow:0 30px 60px -20px rgba(10,13,20,.4); z-index:96; }
     .vf.drawer .vf-side{ transform:none; }
     .vf.drawer .vf-scrim{ display:block; position:fixed; inset:0; z-index:95; background:rgba(10,13,20,.4); }
-    .vf.rail .vf-brand .t, .vf.rail .vf-cap, .vf.rail .vf-item .lbl, .vf.rail .vf-item em, .vf.rail .vf-role span{ display:revert; }
-    .vf.rail .vf-sos{ display:block; } .vf.rail .vf-sos-mini{ display:none; }
-    .vf.rail .vf-item, .vf.rail .vf-role{ justify-content:flex-start; padding:0 10px; }
+    .vf.rail .vf-brand .t, .vf.rail .vf-item .lbl, .vf.rail .vf-item em{ display:revert; }
+    .vf.rail .vf-item{ justify-content:flex-start; padding:0 10px; }
     .vf-fold{ display:none !important; }
     .vf-burger{ display:flex; }
     .vf-cat{ grid-template-columns:minmax(0,1fr); }
@@ -203,7 +175,13 @@
     .vf-tab{ flex:0 0 auto; width:auto; }
     .vf-acc{ display:flex; }
   }
-  @media (max-width:640px){ .vf-hello span{ display:none; } .vf-tab .hm-ico{ display:none; } }
+  @media (max-width:767px){
+    .vf-bar{ flex-wrap:wrap; height:auto; padding-block:10px; row-gap:10px; gap:8px; }
+    .vf-seg{ order:3; flex:1 0 100%; }
+    .vf-seg button{ flex:1; justify-content:center; padding:0 8px; }
+    .vf-103{ padding:0 10px; }
+    .vf-tab .hm-ico{ display:none; }
+  }
 </style>
 </helmet>
 
@@ -219,48 +197,41 @@
         <span class="t"><b>Министерство здравоохранения</b><span class="s">Республики Казахстан</span></span>
       </a>
 
-      <div class="vf-cap">Для кого</div>
-      <div class="vf-roles" role="radiogroup" aria-label="Для кого">
-        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
-          <button class="vf-role" role="radio" aria-checked="{{ r.on }}" onClick="{{ r.onClick }}" title="{{ r.label }}"><i class="{{ r.icon }}"></i><span>{{ r.label }}</span></button>
-        </sc-for>
-      </div>
-
-      <div class="vf-cap">Портал</div>
       <nav class="vf-nav" aria-label="Разделы">
         <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
-          <a class="vf-item" href="{{ n.href }}" aria-current="{{ n.cur }}" title="{{ n.label }}"><i class="{{ n.icon }}"></i><span class="lbl">{{ n.label }}</span><sc-if value="{{ n.hasCount }}" hint-placeholder-val="{{ false }}"><em>{{ n.count }}</em></sc-if></a>
+          <a class="vf-item" href="{{ n.href }}" aria-current="{{ n.cur }}" data-tip="{{ n.tip }}" data-tip-pos="right"><i class="{{ n.icon }}"></i><span class="lbl">{{ n.label }}</span><sc-if value="{{ n.hasCount }}" hint-placeholder-val="{{ false }}"><em>{{ n.count }}</em></sc-if></a>
         </sc-for>
-        <button class="vf-item" onClick="{{ toggleLib }}" aria-expanded="{{ libOpen }}" title="Справочники"><i class="ri-book-open-line"></i><span class="lbl">Справочники</span><i class="ri-arrow-down-s-line chev"></i></button>
+        <button class="vf-item" onClick="{{ toggleLib }}" aria-expanded="{{ libOpen }}" data-tip="{{ libTip }}" data-tip-pos="right"><i class="ri-book-open-line"></i><span class="lbl">Справочники</span><i class="ri-arrow-down-s-line chev"></i></button>
         <sc-if value="{{ libShow }}" hint-placeholder-val="{{ false }}">
           <div class="vf-sub">
-            <sc-for list="{{ lib }}" as="n" hint-placeholder-count="4"><a class="vf-item" href="{{ n.href }}" title="{{ n.label }}"><i class="{{ n.icon }}"></i><span class="lbl">{{ n.label }}</span></a></sc-for>
+            <sc-for list="{{ lib }}" as="n" hint-placeholder-count="4"><a class="vf-item" href="{{ n.href }}" data-tip="{{ n.tip }}" data-tip-pos="right"><i class="{{ n.icon }}"></i><span class="lbl">{{ n.label }}</span></a></sc-for>
           </div>
         </sc-if>
       </nav>
 
-      <div class="vf-cap">Помощь</div>
+      <div class="vf-div"></div>
       <div class="vf-nav">
-        <button class="vf-item" onClick="{{ askAi }}" title="AI-помощник"><i class="ri-sparkling-2-line"></i><span class="lbl">AI-помощник</span></button>
-        <a class="vf-item" href="#vf-faq" onClick="{{ closeDrawer }}" title="Частые вопросы"><i class="ri-question-answer-line"></i><span class="lbl">Частые вопросы</span></a>
-        <a class="vf-item" href="tel:1414" title="Служба поддержки 1414"><i class="ri-customer-service-2-line"></i><span class="lbl">Поддержка · 1414</span></a>
+        <button class="vf-item" onClick="{{ askAi }}" data-tip="{{ railTip.ai }}" data-tip-pos="right"><i class="ri-sparkling-2-line"></i><span class="lbl">AI-помощник</span></button>
+        <a class="vf-item" href="#vf-faq" onClick="{{ closeDrawer }}" data-tip="{{ railTip.faq }}" data-tip-pos="right"><i class="ri-question-answer-line"></i><span class="lbl">Частые вопросы</span></a>
+        <a class="vf-item" href="tel:1414" data-tip="Служба поддержки · круглосуточно" data-tip-pos="right"><i class="ri-customer-service-2-line"></i><span class="lbl">Поддержка 1414</span></a>
       </div>
 
-      <div class="vf-sos" style="margin-top:auto;">
-        <b><i class="ri-alarm-warning-fill"></i>Экстренно</b>
-        <p>При угрозе жизни звоните сразу — бесплатно, круглосуточно.</p>
-        <div><a href="tel:103"><i class="ri-phone-fill"></i>103</a><a class="alt" href="tel:112">112</a></div>
-      </div>
-      <a class="vf-sos-mini" href="tel:103" title="Скорая помощь — 103">103</a>
-      <button class="vf-item vf-fold" onClick="{{ toggleRail }}" title="{{ foldLabel }}" aria-label="{{ foldLabel }}"><i class="ri-arrow-left-double-line"></i><span class="lbl">Свернуть меню</span></button>
+      <button class="vf-item vf-fold" onClick="{{ toggleRail }}" aria-label="{{ foldLabel }}" data-tip="{{ foldLabel }}" data-tip-pos="right"><i class="ri-arrow-left-double-line"></i><span class="lbl">Свернуть</span></button>
     </aside>
 
     <!-- РАБОЧАЯ ОБЛАСТЬ -->
     <div class="vf-main">
       <div class="vf-bar">
         <button class="vf-burger" onClick="{{ openDrawer }}" aria-label="Открыть меню"><i class="ri-menu-line"></i></button>
-        <div class="vf-hello"><b>{{ greet }}</b><span>{{ today }}</span></div>
-        <div class="acts"><dc-import name="PortalHeader" look="bare" brand="0" roles="0" hint-size="420px,64px"></dc-import></div>
+        <nav class="vf-seg" role="radiogroup" aria-label="Для кого">
+          <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+            <button role="radio" aria-checked="{{ r.on }}" onClick="{{ r.onClick }}"><i class="{{ r.icon }}"></i><span>{{ r.label }}</span></button>
+          </sc-for>
+        </nav>
+        <div class="acts">
+          <a class="vf-103" href="tel:103" aria-label="Скорая помощь 103" data-tip="Угроза жизни — звоните 103 · скорая, бесплатно, круглосуточно. Служба спасения — 112"><i class="ri-phone-fill"></i>103</a>
+          <dc-import name="PortalHeader" look="bare" brand="0" roles="0" hint-size="420px,64px"></dc-import>
+        </div>
       </div>
 
       <main class="vf-in">
@@ -268,38 +239,33 @@
         <section class="vf-hero">
           <div class="vf-hcard hm-in">
             <div class="deco" aria-hidden="true"></div>
-            <span class="vf-eye">Единый портал здравоохранения</span>
             <h1 class="vf-h1">{{ heroTitle }}</h1>
-            <p class="vf-lead">{{ heroLead }}</p>
             <div class="hm-search"><dc-import name="SearchBox" look="glass" hotkey="1" hint-size="100%,120px"></dc-import></div>
-            <div class="vf-trust"><span><i class="ri-shield-check-line"></i>Официальный ресурс МЗ РК</span><span><i class="ri-key-2-line"></i>Вход по ЭЦП</span><span><i class="ri-time-line"></i>Онлайн круглосуточно</span></div>
           </div>
           <aside class="vf-acc hm-in d1" aria-label="{{ acc.title }}">
-            <div class="vf-acc-hd"><span class="ic"><i class="{{ acc.icon }}"></i></span><div><b>{{ acc.title }}</b><span>{{ acc.sub }}</span></div></div>
+            <div class="vf-acc-hd"><span class="ic"><i class="{{ acc.icon }}"></i></span><b>{{ acc.title }}</b></div>
             <ul><sc-for list="{{ acc.pts }}" as="p" hint-placeholder-count="3"><li><i class="{{ p.icon }}"></i><span>{{ p.text }}</span></li></sc-for></ul>
             <div class="btns">
-              <a class="hm-btn" href="{{ acc.href }}"><i class="{{ acc.btnIcon }}"></i>{{ acc.btn }}</a>
-              <sc-if value="{{ acc.hasReg }}" hint-placeholder-val="{{ true }}"><a class="hm-btn hm-btn-line" href="Регистрация.dc.html">Зарегистрироваться</a></sc-if>
+              <a class="hm-btn" href="{{ acc.href }}" data-tip="{{ acc.tip }}"><i class="{{ acc.btnIcon }}"></i>{{ acc.btn }}</a>
+              <sc-if value="{{ acc.hasReg }}" hint-placeholder-val="{{ true }}"><a class="vf-reg" href="Регистрация.dc.html">Регистрация</a></sc-if>
             </div>
-            <div class="note"><i class="ri-lock-line"></i>{{ acc.note }}</div>
           </aside>
         </section>
 
         <!-- ПОПУЛЯРНЫЕ УСЛУГИ -->
         <section class="vf-card hm-in d2">
           <div class="vf-head">
-            <div><h2>{{ popTitle }}</h2><p>{{ popSub }}</p></div>
+            <div><h2>{{ popTitle }}</h2></div>
             <a class="hm-link" href="{{ allHref }}">{{ allLabel }}<i class="ri-arrow-right-line"></i></a>
           </div>
           <div class="vf-filters" role="group" aria-label="Тема услуг" style="margin-bottom:16px;">
-            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5"><button onClick="{{ f.onClick }}" aria-pressed="{{ f.on }}">{{ f.label }}<em>{{ f.n }}</em></button></sc-for>
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5"><button onClick="{{ f.onClick }}" aria-pressed="{{ f.on }}">{{ f.label }}</button></sc-for>
           </div>
           <div class="vf-svcs">
             <sc-for list="{{ svcs }}" as="g" hint-placeholder-count="8">
-              <a class="vf-svc" href="{{ g.href }}" target="{{ g.target }}" title="{{ g.name }}">
-                <span class="top"><span class="ic"><i class="{{ g.icon }}"></i></span><span class="{{ g.whereCls }}">{{ g.where }}</span></span>
+              <a class="vf-svc" href="{{ g.href }}" target="{{ g.target }}" data-tip="{{ g.tip }}">
+                <span class="top"><span class="ic"><i class="{{ g.icon }}"></i></span><i class="{{ g.arrow }}"></i></span>
                 <b>{{ g.short }}</b>
-                <small><span>{{ g.cat }}</span><i class="{{ g.arrow }}"></i></small>
               </a>
             </sc-for>
           </div>
@@ -307,7 +273,7 @@
 
         <!-- КАТАЛОГ -->
         <section class="vf-card">
-          <div class="vf-head"><div><h2>Каталог портала</h2><p>Выберите тему слева — справа все услуги и материалы раздела.</p></div></div>
+          <div class="vf-head"><div><h2>Разделы портала</h2></div></div>
           <div class="vf-cat">
             <div class="vf-tabs" role="tablist" aria-label="Темы каталога">
               <sc-for list="{{ cats }}" as="c" hint-placeholder-count="7">
@@ -315,15 +281,16 @@
               </sc-for>
             </div>
             <div class="vf-pane" role="tabpanel" key="{{ paneKey }}">
-              <h3>{{ pane.label }}</h3>
-              <p>{{ pane.desc }}</p>
+              <div class="vf-pane-hd">
+                <h3>{{ pane.label }}</h3>
+                <sc-if value="{{ pane.hasGo }}" hint-placeholder-val="{{ true }}"><a class="hm-link" href="{{ pane.href }}">{{ pane.goLabel }}<i class="ri-arrow-right-line"></i></a></sc-if>
+              </div>
               <sc-for list="{{ pane.groups }}" as="gr" hint-placeholder-count="2">
                 <div class="vf-group">
                   <sc-if value="{{ gr.hasCap }}" hint-placeholder-val="{{ true }}"><div class="gcap">{{ gr.cap }}</div></sc-if>
-                  <div class="vf-links"><sc-for list="{{ gr.links }}" as="l" hint-placeholder-count="4"><a href="{{ l.href }}" target="{{ l.target }}" title="{{ l.title }}"><span>{{ l.label }}</span><i class="{{ l.icon }}"></i></a></sc-for></div>
+                  <div class="vf-links"><sc-for list="{{ gr.links }}" as="l" hint-placeholder-count="4"><a href="{{ l.href }}" target="{{ l.target }}" data-tip="{{ l.tip }}"><span>{{ l.label }}</span><i class="{{ l.icon }}"></i></a></sc-for></div>
                 </div>
               </sc-for>
-              <sc-if value="{{ pane.hasGo }}" hint-placeholder-val="{{ true }}"><div class="go"><a class="hm-btn hm-btn-soft hm-btn-sm" href="{{ pane.href }}">{{ pane.goLabel }}<i class="ri-arrow-right-line"></i></a></div></sc-if>
             </div>
           </div>
         </section>
@@ -331,18 +298,18 @@
         <!-- НОВОЕ + ПОМОЩЬ -->
         <section class="vf-two">
           <div class="vf-card">
-            <div class="vf-head"><div><h2>Новое на портале</h2><p>Запущенные и обновлённые сервисы</p></div></div>
+            <div class="vf-head"><div><h2>Новое на портале</h2></div></div>
             <sc-for list="{{ fresh }}" as="c" hint-placeholder-count="4">
-              <a class="vf-new" href="{{ c.href }}"><span class="hm-ico"><i class="{{ c.icon }}"></i></span><div><b>{{ c.title }}</b><span class="d">{{ c.desc }}</span></div><span class="tag">{{ c.tag }}</span></a>
+              <a class="vf-new" href="{{ c.href }}" data-tip="{{ c.desc }}"><span class="hm-ico sm"><i class="{{ c.icon }}"></i></span><div><b>{{ c.title }}</b></div><span class="tag">{{ c.tag }}</span></a>
             </sc-for>
           </div>
           <div class="vf-card">
-            <div class="vf-head"><div><h2>Нужна помощь?</h2><p>Ответим и подскажем, куда обратиться</p></div></div>
+            <div class="vf-head"><div><h2>Нужна помощь?</h2></div></div>
             <div class="vf-help">
-              <button class="vf-hrow ai" onClick="{{ askAi }}"><span class="hm-ico"><i class="ri-sparkling-2-fill"></i></span><div><b>Спросить AI-помощника</b><span>Своими словами — подскажет услугу или раздел</span></div><i class="ri-arrow-right-s-line"></i></button>
-              <a class="vf-hrow" href="#vf-faq"><span class="hm-ico"><i class="ri-question-answer-line"></i></span><div><b>Частые вопросы</b><span>ОСМС, права пациентов, справки, лицензии</span></div><i class="ri-arrow-right-s-line"></i></a>
-              <a class="vf-hrow" href="tel:1414"><span class="hm-ico"><i class="ri-customer-service-2-line"></i></span><div><b>Служба поддержки 1414</b><span>Круглосуточно, без выходных</span></div><i class="ri-phone-line"></i></a>
-              <a class="vf-hrow" href="Экстренная помощь.dc.html"><span class="hm-ico red"><i class="ri-alarm-warning-line"></i></span><div><b>Экстренная помощь — 103 / 112</b><span>Что делать до приезда скорой</span></div><i class="ri-arrow-right-s-line"></i></a>
+              <button class="vf-hrow ai" onClick="{{ askAi }}" data-tip="Своими словами — подскажет услугу или раздел"><span class="hm-ico sm"><i class="ri-sparkling-2-fill"></i></span><div><b>Спросить AI-помощника</b></div><i class="ri-arrow-right-s-line"></i></button>
+              <a class="vf-hrow" href="#vf-faq" data-tip="ОСМС, права пациентов, справки, лицензии"><span class="hm-ico sm"><i class="ri-question-answer-line"></i></span><div><b>Частые вопросы</b></div><i class="ri-arrow-right-s-line"></i></a>
+              <a class="vf-hrow" href="tel:1414" data-tip="Круглосуточно, без выходных"><span class="hm-ico sm"><i class="ri-customer-service-2-line"></i></span><div><b>Служба поддержки 1414</b></div><i class="ri-phone-line"></i></a>
+              <a class="vf-hrow" href="Экстренная помощь.dc.html" data-tip="Что делать до приезда скорой · 103 / 112"><span class="hm-ico sm red"><i class="ri-alarm-warning-line"></i></span><div><b>Экстренная помощь</b></div><i class="ri-arrow-right-s-line"></i></a>
             </div>
           </div>
         </section>
@@ -352,12 +319,12 @@
 
         <!-- ЭКОСИСТЕМА -->
         <section class="vf-card">
-          <div class="vf-head"><div><h2>Экосистема здравоохранения</h2><p>Порталы и организации, через которые работают услуги</p></div></div>
+          <div class="vf-head"><div><h2>Экосистема здравоохранения</h2></div></div>
           <div class="vf-eco">
-            <a href="https://egov.kz/ru" target="_blank" rel="noopener"><span class="logo"><i class="ri-government-line"></i></span><div class="t"><b>Портал eGov.kz</b><span>Государственные услуги онлайн — справки, запись, прикрепление</span></div><i class="ri-external-link-line"></i></a>
-            <a href="https://elicense.kz/" target="_blank" rel="noopener"><span class="logo"><i class="ri-award-line"></i></span><div class="t"><b>«Е‑лицензирование»</b><span>Лицензии и разрешения в сфере здравоохранения</span></div><i class="ri-external-link-line"></i></a>
+            <a href="https://egov.kz/ru" target="_blank" rel="noopener" data-tip="Государственные услуги онлайн — справки, запись, прикрепление"><span class="logo"><i class="ri-government-line"></i></span><b>eGov.kz</b><i class="ri-external-link-line hm-ext"></i></a>
+            <a href="https://elicense.kz/" target="_blank" rel="noopener" data-tip="Лицензии и разрешения в сфере здравоохранения"><span class="logo"><i class="ri-award-line"></i></span><b>«Е‑лицензирование»</b><i class="ri-external-link-line hm-ext"></i></a>
             <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
-              <a href="#"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="48px,48px"></x-import></span><div class="t"><b>{{ u.short }}</b><span>{{ u.name }}</span></div><i class="ri-external-link-line"></i></a>
+              <a href="#" data-tip="{{ u.name }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.short }}</b><i class="ri-external-link-line hm-ext"></i></a>
             </sc-for>
           </div>
         </section>
@@ -374,21 +341,20 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
 const ext = (href) => /^https?:/.test(href);
-const where = (g) => g.portal ? 'Портал' : (/elicense/.test(g.href) ? 'Е‑лицензирование' : 'eGov.kz');
 // темы популярных услуг: индекс услуги в HomeData.GOV[роль] → тема
 const TOPICS = {
   citizens:{ list:['Приём и прикрепление','Справки','ОСМС','Семья и прививки'], of:[0,0,0,1,1,1,2,1,3,3,0,1] },
   business:{ list:['Фармацевтика','Лицензии','Аккредитация и сертификаты'], of:[0,1,1,2,0,1,1,2] },
   medical:{ list:['Квалификация','Протоколы и стандарты','Документация'], of:[0,0,0,1,1,2] },
 };
-// карточка входа — по роли (кабинеты, которые уже есть в прототипе)
+// карточка входа — по роли (кабинеты, которые уже есть в прототипе); пункты — коротко, по 2–4 слова
 const ACC = {
-  citizens:{ icon:'ri-user-heart-line', title:'Личный кабинет', sub:'Ваши медицинские данные в одном месте',
-    pts:[ { icon:'ri-file-list-3-line', text:'Личная медицинская карта и электронный паспорт здоровья' }, { icon:'ri-calendar-check-line', text:'Записи к врачу, направления и справки' }, { icon:'ri-notification-3-line', text:'Уведомления о статусе заявок' } ], href:'Вход.dc.html' },
-  business:{ icon:'ri-briefcase-4-line', title:'Кабинет бизнеса «Единое окно»', sub:'Заявки на лекарственные средства и медицинские изделия',
-    pts:[ { icon:'ri-stack-line', text:'Регистрация ЛС и МИ, цены и включение в перечень ЕД' }, { icon:'ri-file-paper-2-line', text:'Договоры с экспертными организациями и платежи' }, { icon:'ri-timer-line', text:'Сроки, статусы и решения по каждой заявке' } ], href:'Вход.dc.html?profile=business' },
-  medical:{ icon:'ri-stethoscope-line', title:'Кабинет врача', sub:'Профессиональные сервисы медработника',
-    pts:[ { icon:'ri-user-star-line', text:'Профиль, квалификация и сертификаты из СУР' }, { icon:'ri-heart-pulse-line', text:'Электронный паспорт здоровья пациента — с его согласия' }, { icon:'ri-file-edit-line', text:'Электронные формы и отчётность' } ], href:'Вход.dc.html' },
+  citizens:{ icon:'ri-user-heart-line', title:'Личный кабинет',
+    pts:[ { icon:'ri-file-list-3-line', text:'Медицинская карта' }, { icon:'ri-calendar-check-line', text:'Записи, направления, справки' }, { icon:'ri-notification-3-line', text:'Статусы заявок' } ], href:'Вход.dc.html' },
+  business:{ icon:'ri-briefcase-4-line', title:'Кабинет «Единое окно»',
+    pts:[ { icon:'ri-stack-line', text:'Регистрация ЛС и МИ' }, { icon:'ri-file-paper-2-line', text:'Договоры и платежи' }, { icon:'ri-timer-line', text:'Статусы и сроки заявок' } ], href:'Вход.dc.html?profile=business' },
+  medical:{ icon:'ri-stethoscope-line', title:'Кабинет врача',
+    pts:[ { icon:'ri-user-star-line', text:'Профиль и сертификаты' }, { icon:'ri-heart-pulse-line', text:'Паспорт здоровья пациента' }, { icon:'ri-file-edit-line', text:'Формы и отчётность' } ], href:'Вход.dc.html' },
 };
 class Component extends DCLogic {
   constructor(props){
@@ -397,7 +363,8 @@ class Component extends DCLogic {
     this.state = { role: lsRole(), ready: !!window.mpHome, topic:'all', cat:null, rail, drawer:false };
   }
   componentDidMount(){
-    this._ready = () => this.setState({ ready:true });
+    // роль из ссылки (?role=…) HomeData кладёт в хранилище при загрузке — перечитываем, когда он готов
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
     window.addEventListener('mp-home-ready', this._ready);
     this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail, topic:'all', cat:null }); };
     window.addEventListener('mp-role-change', this._role);
@@ -408,51 +375,47 @@ class Component extends DCLogic {
   componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._role); window.removeEventListener('keydown', this._esc); clearTimeout(this._fb); }
   renderVals(){
     const H = window.mpHome, s = this.state, role = s.role;
-    const now = new Date(), hh = now.getHours();
-    const greet = hh >= 5 && hh < 12 ? 'Доброе утро!' : hh < 18 && hh >= 12 ? 'Добрый день!' : hh >= 18 && hh < 23 ? 'Добрый вечер!' : 'Доброй ночи!';
-    const dt = now.toLocaleDateString('ru-RU', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    const base = { shellCls: 'vf' + (s.rail ? ' rail' : '') + (s.drawer ? ' drawer' : ''), greet, today: dt.charAt(0).toUpperCase() + dt.slice(1),
+    // в свёрнутом меню подписи скрыты — название пункта показывает подсказка; в развёрнутом подсказка не нужна
+    const railTip = (t) => s.rail ? t : '';
+    const base = { shellCls: 'vf' + (s.rail ? ' rail' : '') + (s.drawer ? ' drawer' : ''),
+      railTip: { ai: railTip('AI-помощник'), faq: railTip('Частые вопросы') }, libTip: railTip('Справочники'),
       openDrawer: () => this.setState({ drawer:true }), closeDrawer: () => this.setState({ drawer:false }),
       toggleRail: () => { const v = !s.rail; this.setState({ rail:v }); try { localStorage.setItem('mp-f-rail', v ? '1' : '0'); } catch(e){} },
-      foldLabel: s.rail ? 'Развернуть меню' : 'Свернуть меню',
+      foldLabel: s.rail ? 'Развернуть меню' : '',
       askAi: () => { this.setState({ drawer:false }); if(H) H.ask(''); } };
-    const emptyAcc = { icon:'', title:'', sub:'', pts:[], href:'#', btn:'', btnIcon:'', hasReg:false, note:'' };
-    if(!H) return { ...base, roles:[], nav:[], lib:[], libShow:false, libOpen:'false', toggleLib:()=>{}, heroTitle:'', heroLead:'', acc:emptyAcc, popTitle:'', popSub:'', allHref:'#', allLabel:'', filters:[], svcs:[], cats:[], pane:{ groups:[] }, paneKey:'', fresh:[], useful:[] };
+    const emptyAcc = { icon:'', title:'', pts:[], href:'#', btn:'', btnIcon:'', hasReg:false, tip:'' };
+    if(!H) return { ...base, roles:[], nav:[], lib:[], libShow:false, libOpen:'false', toggleLib:()=>{}, heroTitle:'', acc:emptyAcc, popTitle:'', allHref:'#', allLabel:'', filters:[], svcs:[], cats:[], pane:{ groups:[] }, paneKey:'', fresh:[], useful:[] };
 
     const hero = H.HERO[role], gov = H.hasGov(role);
-    const link = (l) => ({ ...l, title: l.name || l.label, target: ext(l.href) ? '_blank' : '_self', icon: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' });
+    const link = (l) => ({ ...l, tip: H.tipOf({ short:l.label, name:l.name, href:l.href, portal:!ext(l.href) }), target: ext(l.href) ? '_blank' : '_self', icon: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' });
 
     // меню
     const nav = [
       { label:'Главная', icon:'ri-home-5-line', href:'#', cur:'page' },
-      ...(gov ? [{ label:'Государственные услуги', icon:'ri-government-line', href:H.govPage(role), count:H.GOV_COUNT[role] }] : []),
+      ...(gov ? [{ label:'Госуслуги', icon:'ri-government-line', href:H.govPage(role), count:H.GOV_COUNT[role] }] : []),
       ...H.SECTIONS[role].map(x => ({ label:x.label, icon:x.icon, href:x.href })),
-    ].map(n => ({ ...n, cur: n.cur || 'false', hasCount: !!n.count, count: n.count || '' }));
+    ].map(n => ({ ...n, cur: n.cur || 'false', hasCount: !!n.count, count: n.count || '', tip: n.label.length > 22 ? n.label : railTip(n.label) }));
 
-    const lib = H.LIBRARY.filter(l => !H.SECTIONS[role].some(x => x.label === l.label));
+    const lib = H.LIBRARY.filter(l => !H.SECTIONS[role].some(x => x.label === l.label)).map(l => ({ ...l, tip: railTip(l.label) }));
 
     // кабинет
     const biz = (() => { try { return localStorage.getItem('mp-profile') === 'business'; } catch(e){ return false; } })();
     const a = ACC[role];
     const acc = { ...a, btn: role === 'business' && biz ? 'Перейти в кабинет' : 'Войти с ЭЦП', btnIcon: role === 'business' && biz ? 'ri-arrow-right-line' : 'ri-shield-user-line',
       href: role === 'business' && biz ? 'Кабинет бизнеса.dc.html' : a.href, hasReg: !(role === 'business' && biz),
-      note: 'Вход и подпись — электронной цифровой подписью (ЭЦП)' };
+      tip: role === 'business' && biz ? '' : 'Вход и подпись — электронной цифровой подписью' };
 
     // популярные услуги с темами
     const T = TOPICS[role];
     const all = H.GOV[role].map((g, i) => ({ ...g, topic:T.list[T.of[i]] }));
-    const shown = s.topic === 'all' ? all : all.filter(g => g.topic === s.topic);
-    const filters = [{ id:'all', label:'Все', n:all.length }, ...T.list.map(t => ({ id:t, label:t, n:all.filter(g => g.topic === t).length }))]
+    // «Все» — восемь самых востребованных (два ряда); полный список — по ссылке «Все госуслуги»
+    const shown = s.topic === 'all' ? all.slice(0, 8) : all.filter(g => g.topic === s.topic);
+    const filters = [{ id:'all', label:'Все' }, ...T.list.map(t => ({ id:t, label:t }))]
       .map(f => ({ ...f, on: s.topic === f.id ? 'true' : 'false', onClick:() => this.setState({ topic:f.id }) }));
 
-    // каталог: темы слева
-    const gc = H.govCard(role);
+    // разделы: темы слева, содержимое справа (госуслуги — выше, в «Популярных услугах», здесь не повторяем)
     const catList = [
-      ...(gc ? [{ id:'gov', label:'Государственные услуги', icon:'ri-government-line', n:gc.count, desc:gc.desc + '. Услуга откроется на eGov.kz или в кабинете портала.', href:gc.href, goLabel:'Все государственные услуги',
-        groups: T.list.map(t => ({ cap:t, links: all.filter(g => g.topic === t).map(g => link({ label:g.short, name:g.name, href:g.href })) })) }] : []),
-      ...(role === 'medical' ? [{ id:'svc', label:'Сервисы для медработников', icon:'ri-user-star-line', n:all.length, desc:'Квалификация, протоколы и электронная документация.', href:H.P.proto + '#protocols', goLabel:'Клинические протоколы',
-        groups: T.list.map(t => ({ cap:t, links: all.filter(g => g.topic === t).map(g => link({ label:g.short, name:g.name, href:g.href })) })) }] : []),
-      ...H.SECTIONS[role].map(x => ({ id:x.id, label:x.label, icon:x.icon, tone:x.tone, desc:x.desc + '.', href:x.href, goLabel:'Открыть раздел «' + x.label + '»', groups:[{ cap:'', links:x.links.map(link) }] })),
+      ...H.SECTIONS[role].map(x => ({ id:x.id, label:x.label, icon:x.icon, tone:x.tone, desc:x.desc + '.', href:x.href, goLabel:'Открыть раздел', groups:[{ cap:'', links:x.links.map(link) }] })),
       { id:'lib', label:'Справочники', icon:'ri-book-open-line', desc:'Медицинские организации, лекарства, заболевания, клинические протоколы и новости здравоохранения.', groups:[{ cap:'', links:H.LIBRARY.map(l => link({ label:l.label, href:l.href })) }] },
     ];
     const curCat = catList.find(c => c.id === s.cat) || catList[0];
@@ -462,11 +425,11 @@ class Component extends DCLogic {
       ...base,
       roles: H.ROLES.map(r => ({ ...r, on: r.id === role ? 'true' : 'false', onClick:() => { this.setState({ role:r.id, topic:'all', cat:null }); H.setRole(r.id); } })),
       nav, lib, libShow: !!s.lib, libOpen: s.lib ? 'true' : 'false', toggleLib: () => this.setState({ lib:!s.lib }),
-      heroTitle: hero.title, heroLead: hero.lead, acc,
-      popTitle: hero.popTitle, popSub: gov ? 'Самые востребованные услуги — с официальными названиями и местом оформления' : 'Самые востребованные сервисы для медицинских работников',
+      heroTitle: hero.title, acc,
+      popTitle: hero.popTitle,
       allHref: gov ? H.govPage(role) : H.P.proto + '#protocols', allLabel: gov ? hero.allLabel + ' · ' + H.GOV_COUNT[role] : hero.allLabel,
       filters,
-      svcs: shown.map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', where: where(g), whereCls: 'where' + (g.portal ? ' portal' : ''), cat: g.topic, arrow: ext(g.href) ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
+      svcs: shown.map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', tip: H.tipOf(g), arrow: ext(g.href) ? 'ri-external-link-line hm-ext' : 'ri-arrow-right-up-line hm-ext' })),
       cats, paneKey: role + curCat.id,
       pane: { ...curCat, groups: curCat.groups.map(g => ({ ...g, hasCap: !!g.cap })), hasGo: !!curCat.href },
       fresh: H.FRESH[role], useful: H.USEFUL,

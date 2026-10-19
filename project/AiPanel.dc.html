@@ -7,124 +7,154 @@
 </head>
 <body>
 <!--
-  AI-помощник новой главной — одна точка входа вместо двух (на текущей главной были и AI-оверлей поиска,
-  и отдельный плавающий Assistant со своим чатом). Боковая панель справа, страница остаётся видна.
-  Открывается: плавающей кнопкой (fab != "0"), событием window 'mp-ai-open' { detail:{ q } } —
-  его шлют поиск, чипсы и подсказки (HomeData.ask). Ответы прототипа — HomeData.botReply.
+  AI-помощник новой главной — одна точка входа на все варианты.
+  Открывается плавающей кнопкой (fab != "0") или событием window 'mp-ai-open' { detail:{ q } } —
+  его шлют поиск, чипсы и подсказки (HomeData.ask).
+  Два вида: боковая панель (страница остаётся видна) и развёрнутый — во весь экран, разговор по центру,
+  как AI-оверлей текущей главной. Выбор запоминается: localStorage['mp-ai-wide'].
+  Ответ (HomeData.botReply): текст печатается постепенно, затем кнопки перехода к услуге (первая — основная),
+  найденное на портале и уточняющие вопросы. Диалог живёт в пределах сеанса: sessionStorage['mp-ai-chat'].
 -->
 <x-dc>
 <helmet>
 <style>
   .ai *{ box-sizing:border-box; }
   .ai{ font-family:'Inter',system-ui,sans-serif; }
-  .ai-fab{ position:fixed; right:clamp(16px,2vw,32px); bottom:clamp(16px,2vw,32px); z-index:50; display:flex; align-items:center; gap:10px; height:56px; padding:0 22px 0 8px; border:none; border-radius:999px; background:linear-gradient(135deg,var(--b600),var(--b800)); color:#fff; font:600 15px/1 'Inter',sans-serif; cursor:pointer; box-shadow:0 18px 36px -14px color-mix(in srgb, var(--b800) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.18); transition:transform .18s, box-shadow .18s; }
-  .ai-fab:hover{ transform:translateY(-2px); }
-  .ai-fab .orb{ width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:21px; position:relative; }
+  .ai-fab{ position:fixed; right:clamp(16px,2vw,32px); bottom:clamp(16px,2vw,32px); z-index:50; display:flex; align-items:center; gap:10px; height:52px; padding:0 20px 0 6px; border:none; border-radius:999px; background:var(--b600); color:#fff; font:600 15px/1 'Inter',sans-serif; cursor:pointer; box-shadow:0 16px 32px -14px color-mix(in srgb, var(--b800) 70%, transparent); transition:transform .18s, background .18s; }
+  .ai-fab:hover{ transform:translateY(-2px); background:var(--b700); }
+  .ai-fab .orb{ width:40px; height:40px; border-radius:50%; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; font-size:20px; position:relative; }
   .ai-fab .orb::after{ content:''; position:absolute; inset:-3px; border-radius:50%; border:1.5px solid rgba(255,255,255,.35); animation:ai-ring 2.8s ease-out infinite; }
   @keyframes ai-ring{ 0%{ transform:scale(.85); opacity:.9; } 70%,100%{ transform:scale(1.35); opacity:0; } }
 
-  .ai-scrim{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.32); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); animation:ai-fade .2s ease; }
+  .ai-scrim{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.28); animation:ai-fade .2s ease; }
   @keyframes ai-fade{ from{ opacity:0; } to{ opacity:1; } }
-  .ai-panel{ position:fixed; top:12px; right:12px; bottom:12px; z-index:91; width:min(480px, calc(100vw - 24px)); display:flex; flex-direction:column; border-radius:24px; overflow:hidden; background:rgba(255,255,255,.9); -webkit-backdrop-filter:saturate(1.6) blur(24px); backdrop-filter:saturate(1.6) blur(24px); box-shadow:0 0 0 1px rgba(255,255,255,.6), 0 40px 80px -24px rgba(10,13,20,.45); animation:ai-slide .32s cubic-bezier(.2,.8,.2,1); }
-  @keyframes ai-slide{ from{ opacity:0; transform:translateX(32px); } to{ opacity:1; transform:none; } }
-  .ai-head{ display:flex; align-items:center; gap:12px; padding:16px 16px 16px 20px; border-bottom:1px solid rgba(10,13,20,.06); }
-  .ai-logo{ width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,var(--b500),var(--b800)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:21px; flex:0 0 auto; box-shadow:inset 0 1px 0 rgba(255,255,255,.25); }
-  .ai-title{ flex:1; min-width:0; }
-  .ai-title b{ display:block; font-size:16px; font-weight:600; letter-spacing:-.01em; color:var(--n900); }
-  .ai-title span{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--n500); }
-  .ai-title span::before{ content:''; width:7px; height:7px; border-radius:50%; background:var(--green); }
-  .ai-x{ height:36px; padding:0 12px; border:none; border-radius:10px; background:var(--n100); color:var(--n600); font:500 13.5px/1 'Inter',sans-serif; cursor:pointer; display:flex; align-items:center; gap:6px; }
-  .ai-x:hover{ background:var(--n200); }
-  .ai-x i{ font-size:18px; }
-  .ai-body{ flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:14px; scrollbar-width:thin; }
-  .ai-hello{ text-align:center; padding:16px 8px 8px; }
-  .ai-hello .big{ width:72px; height:72px; margin:0 auto 18px; border-radius:22px; background:radial-gradient(120% 120% at 20% 10%, var(--b300), var(--b600) 55%, var(--b900)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:34px; box-shadow:0 18px 32px -14px color-mix(in srgb, var(--b700) 80%, transparent), inset 0 2px 0 rgba(255,255,255,.3); }
-  .ai-hello h3{ margin:0 0 8px; font-size:20px; font-weight:600; letter-spacing:-.015em; color:var(--n900); }
-  .ai-hello p{ margin:0 auto; max-width:360px; font-size:14.5px; line-height:1.55; color:var(--n500); }
-  .ai-sugg{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
-  .ai-sg{ display:flex; align-items:center; gap:12px; width:100%; padding:14px 14px 14px 16px; border:none; border-radius:16px; background:#fff; box-shadow:0 0 0 1px var(--n200), 0 1px 2px rgba(10,13,20,.04); font-family:inherit; text-align:left; cursor:pointer; transition:.15s; }
-  .ai-sg:hover{ box-shadow:0 0 0 1px var(--b300), 0 8px 20px -12px rgba(10,13,20,.25); transform:translateY(-1px); }
-  .ai-sg > span{ flex:1; min-width:0; }
-  .ai-sg b{ display:block; font-size:14.5px; font-weight:600; color:var(--n900); line-height:1.35; }
-  .ai-sg small{ display:block; font-size:12.5px; color:var(--n400); margin-top:3px; }
-  .ai-sg i{ width:30px; height:30px; border-radius:50%; background:var(--n100); color:var(--n500); display:flex; align-items:center; justify-content:center; font-size:18px; flex:0 0 auto; }
-  .ai-row{ display:flex; }
-  .ai-row.me{ justify-content:flex-end; }
-  .ai-me{ max-width:85%; background:var(--b600); color:#fff; border-radius:18px 18px 6px 18px; padding:12px 16px; font-size:15px; line-height:1.5; white-space:pre-line; }
-  .ai-bot{ max-width:94%; background:#fff; border-radius:6px 18px 18px 18px; padding:14px 16px; box-shadow:0 0 0 1px var(--n200); }
-  .ai-bot.warn{ box-shadow:0 0 0 1px #F9C4CF; background:#FFF8F9; }
-  .ai-bot .who{ display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--b700); margin-bottom:6px; }
-  .ai-bot .txt{ font-size:15px; line-height:1.6; color:var(--n700); white-space:pre-line; }
-  .ai-cta{ margin-top:12px; display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:11px; background:var(--b600); color:#fff !important; font-size:14px; font-weight:600; text-decoration:none; }
-  .ai-cta:hover{ background:var(--b700); }
-  .ai-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .ai-chips button{ height:34px; padding:0 12px; border:none; border-radius:999px; background:var(--b50); color:var(--b800); font:500 13.5px/1 'Inter',sans-serif; cursor:pointer; }
-  .ai-typing{ display:inline-flex; gap:4px; padding:16px; background:#fff; border-radius:6px 18px 18px 18px; box-shadow:0 0 0 1px var(--n200); }
+  .ai-panel{ position:fixed; top:12px; right:12px; bottom:12px; z-index:91; width:min(500px, calc(100vw - 24px)); display:flex; flex-direction:column; border-radius:24px; overflow:hidden; background:#fff; box-shadow:0 0 0 1px rgba(10,13,20,.06), 0 40px 80px -24px rgba(10,13,20,.45); animation:ai-slide .3s cubic-bezier(.2,.8,.2,1); transition:width .28s cubic-bezier(.2,.8,.2,1), left .28s; }
+  .ai-panel.wide{ left:12px; width:auto; }
+  @keyframes ai-slide{ from{ opacity:0; transform:translateX(28px); } to{ opacity:1; transform:none; } }
+
+  .ai-head{ display:flex; align-items:center; gap:12px; padding:14px 14px 14px 18px; border-bottom:1px solid var(--n200); flex:0 0 auto; }
+  .ai-logo{ width:38px; height:38px; border-radius:12px; background:var(--b600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; }
+  .ai-title{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; font-size:16px; font-weight:600; letter-spacing:-.01em; color:var(--n900); }
+  .ai-title .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 3px var(--green-l); }
+  .ai-ib{ width:38px; height:38px; border:none; border-radius:10px; background:none; color:var(--n500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; transition:.15s; }
+  .ai-ib:hover{ background:var(--n100); color:var(--n900); }
+
+  .ai-body{ flex:1; overflow-y:auto; scrollbar-width:thin; }
+  .ai-col{ width:100%; max-width:780px; margin:0 auto; padding:20px; display:flex; flex-direction:column; gap:16px; min-height:100%; }
+  .ai-hello{ margin:auto 0; display:flex; flex-direction:column; align-items:center; text-align:center; gap:20px; padding:12px 0 24px; }
+  .ai-hello .big{ width:64px; height:64px; border-radius:20px; background:radial-gradient(120% 120% at 20% 10%, var(--b400), var(--b600) 55%, var(--b800)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30px; box-shadow:0 18px 32px -16px color-mix(in srgb, var(--b700) 80%, transparent); }
+  .ai-hello h3{ margin:0; font-size:22px; font-weight:600; letter-spacing:-.02em; color:var(--n900); }
+  .ai-sugg{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; max-width:560px; }
+  .ai-sg{ height:40px; padding:0 16px; border:none; border-radius:999px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n700); font:500 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; }
+  .ai-sg:hover{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); color:var(--b800); }
+
+  .ai-me{ align-self:flex-end; max-width:82%; background:var(--b600); color:#fff; border-radius:18px 18px 6px 18px; padding:11px 16px; font-size:15px; line-height:1.5; white-space:pre-line; animation:ai-in .2s ease; }
+  .ai-bot{ display:flex; gap:12px; align-items:flex-start; animation:ai-in .25s ease; }
+  @keyframes ai-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  .ai-av{ width:30px; height:30px; border-radius:10px; background:var(--b50); color:var(--b600); display:flex; align-items:center; justify-content:center; font-size:16px; flex:0 0 auto; margin-top:2px; }
+  .ai-bot.warn .ai-av{ background:var(--red-l); color:var(--red); }
+  .ai-msg{ flex:1; min-width:0; }
+  .ai-txt{ font-size:15px; line-height:1.65; color:var(--n700); white-space:pre-line; }
+  .ai-bot.warn .ai-txt{ color:var(--n900); }
+  .ai-caret{ display:inline-block; width:7px; height:16px; margin-left:2px; vertical-align:-2px; border-radius:2px; background:var(--b500); animation:ai-blink 1s steps(2) infinite; }
+  @keyframes ai-blink{ to{ opacity:0; } }
+  .ai-acts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; animation:ai-in .25s ease; }
+  .ai-cta{ display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:11px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n800,#1b1e26) !important; font-size:14px; font-weight:600; text-decoration:none; transition:.15s; }
+  .ai-cta:hover{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); }
+  .ai-cta i{ font-size:18px; color:var(--b600); }
+  .ai-cta.main{ background:var(--b600); box-shadow:none; color:#fff !important; }
+  .ai-cta.main i{ color:#fff; }
+  .ai-cta.main:hover{ background:var(--b700); }
+  .ai-cta.sos{ background:var(--red); color:#fff !important; }
+  .ai-cta.sos:hover{ background:var(--red-d); }
+  .ai-links{ margin-top:12px; display:flex; flex-direction:column; border-radius:14px; box-shadow:inset 0 0 0 1px var(--n200); overflow:hidden; animation:ai-in .25s ease; }
+  .ai-link{ display:flex; align-items:center; gap:12px; padding:10px 12px; text-decoration:none; color:var(--n900); transition:background .15s; }
+  .ai-link + .ai-link{ border-top:1px solid var(--n200); }
+  .ai-link:hover{ background:var(--b50); }
+  .ai-link .ic{ width:32px; height:32px; border-radius:9px; background:var(--n100); color:var(--b600); display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 auto; }
+  .ai-link b{ flex:1; min-width:0; font-size:14px; font-weight:600; line-height:1.35; }
+  .ai-link > i{ font-size:17px; color:var(--n300); }
+  .ai-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; animation:ai-in .25s ease; }
+  .ai-chips button{ height:34px; padding:0 13px; border:none; border-radius:999px; background:var(--b50); color:var(--b800); font:500 13.5px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; }
+  .ai-chips button:hover{ background:var(--b100); }
+  .ai-typing{ display:inline-flex; gap:4px; padding:10px 2px; }
   .ai-typing span{ width:7px; height:7px; border-radius:50%; background:var(--b400); animation:ai-dot 1s infinite ease-in-out; }
   .ai-typing span:nth-child(2){ animation-delay:.15s; } .ai-typing span:nth-child(3){ animation-delay:.3s; }
   @keyframes ai-dot{ 0%,80%,100%{ transform:translateY(0); opacity:.5; } 40%{ transform:translateY(-4px); opacity:1; } }
-  .ai-foot{ padding:12px 16px 16px; border-top:1px solid rgba(10,13,20,.06); }
-  .ai-input{ display:flex; align-items:center; gap:8px; background:#fff; border-radius:16px; padding:6px 6px 6px 16px; box-shadow:0 0 0 1px var(--n200); }
-  .ai-input:focus-within{ box-shadow:0 0 0 2px var(--b500); }
-  .ai-input input{ flex:1; min-width:0; height:44px; border:none; outline:none; background:none; font:400 15px/1 'Inter',sans-serif; color:var(--n900); }
-  .ai-send{ width:44px; height:44px; border:none; border-radius:12px; background:var(--b600); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; }
+
+  .ai-foot{ flex:0 0 auto; border-top:1px solid var(--n200); }
+  .ai-foot .ai-col{ min-height:0; padding:12px 16px 14px; gap:8px; }
+  .ai-input{ display:flex; align-items:center; gap:8px; background:var(--n50); border-radius:16px; padding:6px 6px 6px 16px; box-shadow:inset 0 0 0 1px var(--n200); transition:box-shadow .15s, background .15s; }
+  .ai-input:focus-within{ background:#fff; box-shadow:inset 0 0 0 2px var(--b500); }
+  .ai-input input{ flex:1; min-width:0; height:42px; border:none; outline:none; background:none; font:400 15px/1 'Inter',sans-serif; color:var(--n900); }
+  .ai-send{ width:42px; height:42px; border:none; border-radius:12px; background:var(--b600); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:20px; flex:0 0 auto; transition:background .15s, opacity .15s; }
   .ai-send:hover{ background:var(--b700); }
-  .ai-note{ display:flex; gap:6px; margin-top:10px; font-size:11.5px; line-height:1.45; color:var(--n400); }
-  .ai-note i{ font-size:14px; flex:0 0 auto; margin-top:1px; }
-  @media (max-width:640px){ .ai-fab .ai-t{ display:none; } .ai-fab{ padding:0 8px; height:56px; } .ai-panel{ top:0; right:0; bottom:0; width:100vw; border-radius:0; } }
+  .ai-send[disabled]{ opacity:.35; cursor:default; }
+  .ai-note{ text-align:center; font-size:11.5px; color:var(--n400); }
+  @media (max-width:640px){ .ai-fab .ai-t{ display:none; } .ai-fab{ padding:0 6px; } .ai-panel, .ai-panel.wide{ top:0; right:0; bottom:0; left:0; width:auto; border-radius:0; } .ai-wide-btn{ display:none !important; } }
+  @media (prefers-reduced-motion:reduce){ .ai *{ animation:none !important; } }
 </style>
 </helmet>
 <div class="ai">
   <sc-if value="{{ showFab }}" hint-placeholder-val="{{ true }}">
-    <button class="ai-fab" onClick="{{ openEmpty }}" title="Задайте вопрос о здоровье или работе портала"><span class="orb"><i class="ri-sparkling-2-fill"></i></span><span class="ai-t">AI-помощник</span></button>
+    <button class="ai-fab" onClick="{{ openEmpty }}" aria-label="AI-помощник" data-tip="Спросите своими словами — подскажу услугу, раздел или специалиста"><span class="orb"><i class="ri-sparkling-2-fill"></i></span><span class="ai-t">AI-помощник</span></button>
   </sc-if>
   <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
     <div class="ai-scrim" onClick="{{ close }}"></div>
-    <aside class="ai-panel" role="dialog" aria-modal="true" aria-label="AI-помощник портала">
+    <aside class="{{ panelCls }}" role="dialog" aria-modal="true" aria-label="AI-помощник портала">
       <div class="ai-head">
         <div class="ai-logo"><i class="ri-sparkling-2-fill"></i></div>
-        <div class="ai-title"><b>AI-помощник портала</b><span>Отвечает сразу, круглосуточно</span></div>
+        <div class="ai-title">AI-помощник<span class="dot" data-tip="В сети · отвечает сразу, круглосуточно"></span></div>
         <sc-if value="{{ hasMsgs }}" hint-placeholder-val="{{ false }}">
-          <button class="ai-x" onClick="{{ reset }}" title="Начать заново"><i class="ri-refresh-line"></i></button>
+          <button class="ai-ib" onClick="{{ reset }}" aria-label="Новый диалог" data-tip="Новый диалог"><i class="ri-chat-new-line"></i></button>
         </sc-if>
-        <button class="ai-x" onClick="{{ close }}"><span>Закрыть</span><i class="ri-close-line"></i></button>
+        <button class="ai-ib ai-wide-btn" onClick="{{ toggleWide }}" aria-label="{{ wideLabel }}" data-tip="{{ wideLabel }}"><i class="{{ wideIcon }}"></i></button>
+        <button class="ai-ib" onClick="{{ close }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
       </div>
-      <div class="ai-body" ref="{{ bodyRef }}">
-        <sc-if value="{{ noMsgs }}" hint-placeholder-val="{{ true }}">
-          <div class="ai-hello">
-            <div class="big"><i class="ri-sparkling-2-fill"></i></div>
-            <h3>Здравствуйте! Чем помочь?</h3>
-            <p>Подскажу нужную государственную услугу, раздел портала или специалиста. Спросите своими словами.</p>
-          </div>
-          <div class="ai-sugg">
-            <sc-for list="{{ sugg }}" as="g" hint-placeholder-count="4">
-              <button class="ai-sg" onClick="{{ g.onClick }}"><span><b>{{ g.q }}</b><small>{{ g.hint }}</small></span><i class="ri-arrow-right-s-line"></i></button>
-            </sc-for>
-          </div>
-        </sc-if>
-        <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="0">
-          <div class="{{ m.rowCls }}">
+      <div class="ai-body" ref="{{ bodyRef }}" aria-live="polite">
+        <div class="ai-col">
+          <sc-if value="{{ noMsgs }}" hint-placeholder-val="{{ true }}">
+            <div class="ai-hello">
+              <div class="big"><i class="ri-sparkling-2-fill"></i></div>
+              <h3>Здравствуйте! Чем помочь?</h3>
+              <div class="ai-sugg">
+                <sc-for list="{{ sugg }}" as="g" hint-placeholder-count="4">
+                  <button class="ai-sg" onClick="{{ g.onClick }}">{{ g.q }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="0">
             <sc-if value="{{ m.me }}" hint-placeholder-val="{{ true }}"><div class="ai-me">{{ m.text }}</div></sc-if>
             <sc-if value="{{ m.bot }}" hint-placeholder-val="{{ false }}">
-              <div class="{{ m.botCls }}">
-                <div class="who"><i class="ri-sparkling-2-fill"></i>AI-помощник</div>
-                <div class="txt">{{ m.text }}</div>
-                <sc-if value="{{ m.hasCta }}" hint-placeholder-val="{{ false }}"><a class="ai-cta" href="{{ m.ctaHref }}" target="{{ m.ctaTarget }}"><i class="{{ m.ctaIcon }}"></i>{{ m.ctaLabel }}</a></sc-if>
-                <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
-                  <div class="ai-chips"><sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.onClick }}">{{ c.label }}</button></sc-for></div>
-                </sc-if>
+              <div class="{{ m.cls }}">
+                <span class="ai-av"><i class="{{ m.avIcon }}"></i></span>
+                <div class="ai-msg">
+                  <div class="ai-txt">{{ m.text }}<sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span class="ai-caret"></span></sc-if></div>
+                  <sc-if value="{{ m.hasActs }}" hint-placeholder-val="{{ false }}">
+                    <div class="ai-acts"><sc-for list="{{ m.acts }}" as="a" hint-placeholder-count="2"><a class="{{ a.cls }}" href="{{ a.href }}" target="{{ a.target }}" rel="noopener" data-tip="{{ a.tip }}"><i class="{{ a.icon }}"></i>{{ a.label }}</a></sc-for></div>
+                  </sc-if>
+                  <sc-if value="{{ m.hasLinks }}" hint-placeholder-val="{{ false }}">
+                    <div class="ai-links"><sc-for list="{{ m.links }}" as="l" hint-placeholder-count="3"><a class="ai-link" href="{{ l.href }}" target="{{ l.target }}" rel="noopener" data-tip="{{ l.tip }}"><span class="ic"><i class="{{ l.icon }}"></i></span><b>{{ l.label }}</b><i class="{{ l.arrow }}"></i></a></sc-for></div>
+                  </sc-if>
+                  <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                    <div class="ai-chips"><sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.onClick }}">{{ c.label }}</button></sc-for></div>
+                  </sc-if>
+                </div>
               </div>
             </sc-if>
-          </div>
-        </sc-for>
-        <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}"><div class="ai-row"><div class="ai-typing" aria-label="Помощник печатает"><span></span><span></span><span></span></div></div></sc-if>
+          </sc-for>
+          <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}"><div class="ai-bot"><span class="ai-av"><i class="ri-sparkling-2-fill"></i></span><div class="ai-typing" aria-label="Помощник печатает"><span></span><span></span><span></span></div></div></sc-if>
+        </div>
       </div>
       <div class="ai-foot">
-        <form class="ai-input" onSubmit="{{ onSubmit }}">
-          <input ref="{{ inputRef }}" value="{{ input }}" onChange="{{ onInput }}" placeholder="Спросите о здоровье или услуге…" aria-label="Вопрос AI-помощнику">
-          <button type="submit" class="ai-send" title="Отправить" aria-label="Отправить"><i class="ri-send-plane-2-fill"></i></button>
-        </form>
-        <div class="ai-note"><i class="ri-information-line"></i>Информация носит справочный характер и не заменяет консультацию медицинского работника. При угрозе жизни звоните 103.</div>
+        <div class="ai-col">
+          <form class="ai-input" onSubmit="{{ onSubmit }}">
+            <input ref="{{ inputRef }}" value="{{ input }}" onChange="{{ onInput }}" placeholder="{{ placeholder }}" aria-label="Вопрос AI-помощнику">
+            <button type="submit" class="ai-send" aria-label="Отправить" disabled="{{ sendOff }}"><i class="ri-arrow-up-line"></i></button>
+          </form>
+          <div class="ai-note">Справочная информация, не заменяет консультацию врача</div>
+        </div>
       </div>
     </aside>
   </sc-if>
@@ -132,44 +162,87 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:520,&quot;height&quot;:760}}">
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const ssGet = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch(e){ return null; } };
+const ext = (href) => /^https?:/.test(href || '');
+const calm = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } };
 class Component extends DCLogic {
   constructor(props){
     super(props);
     this.bodyRef = React.createRef(); this.inputRef = React.createRef();
-    this.state = { open:false, msgs:[], input:'', typing:false, role: lsGet('mp-role') || 'citizens' };
+    const saved = ssGet('mp-ai-chat');
+    this.state = { open:false, msgs: Array.isArray(saved) ? saved : [], input:'', typing:false, wide: lsGet('mp-ai-wide') === '1', role: lsGet('mp-role') || 'citizens' };
   }
   componentDidMount(){
-    this._open = (e) => { const q = e && e.detail && e.detail.q; this.setState({ open:true }); if(q) this.send(q); else setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 80); };
+    this._open = (e) => { const q = e && e.detail && e.detail.q; this.setState({ open:true }); if(q) this.send(q); else this.focus(); };
     window.addEventListener('mp-ai-open', this._open);
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
+    this._ready = () => { if(window.mpHome) this.setState({ role: window.mpHome.getRole() }); };
+    window.addEventListener('mp-home-ready', this._ready);
     this._esc = (e) => { if(e.key === 'Escape' && this.state.open) this.setState({ open:false }); };
     window.addEventListener('keydown', this._esc);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-ai-open', this._open); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('keydown', this._esc); clearTimeout(this._t); }
-  componentDidUpdate(){ const b = this.bodyRef.current; if(b) b.scrollTop = b.scrollHeight; }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-ai-open', this._open); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('keydown', this._esc); clearTimeout(this._t); clearInterval(this._iv); }
+  // dc-runtime вызывает componentDidUpdate без prevState — сравниваем с последним сохранённым диалогом
+  componentDidUpdate(){
+    const b = this.bodyRef.current; if(b) b.scrollTop = b.scrollHeight;
+    const msgs = this.state.msgs;
+    if(this._saved !== msgs && !msgs.some(m => m.streaming)){ this._saved = msgs; try { sessionStorage.setItem('mp-ai-chat', JSON.stringify(msgs.slice(-30))); } catch(e){} }
+  }
+  focus(){ setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 80); }
+  // ответ печатается постепенно (≈ 1 с на абзац); кнопки и ссылки появляются, когда текст готов
   send(text){
     const H = window.mpHome; const q = String(text != null ? text : this.state.input).trim();
-    if(!q || !H) return;
+    if(!q || !H || this.state.typing || this.state.msgs.some(m => m.streaming)) return;
     this.setState(s => ({ msgs:[...s.msgs, { me:true, text:q }], input:'', typing:true }));
-    clearTimeout(this._t);
-    this._t = setTimeout(() => this.setState(s => ({ typing:false, msgs:[...s.msgs, { bot:true, ...H.botReply(q, s.role) }] })), 650);
+    clearTimeout(this._t); clearInterval(this._iv);
+    this._t = setTimeout(() => {
+      const r = H.botReply(q, this.state.role);
+      const full = r.text || '';
+      if(calm()){ this.setState(s => ({ typing:false, msgs:[...s.msgs, { bot:true, ...r, shown:full.length }] })); this.focus(); return; }
+      this.setState(s => ({ typing:false, msgs:[...s.msgs, { bot:true, ...r, shown:0, streaming:true }] }));
+      const step = Math.max(2, Math.round(full.length / 70));
+      this._iv = setInterval(() => {
+        this.setState(s => {
+          const msgs = s.msgs.slice(), i = msgs.length - 1, m = msgs[i];
+          if(!m || !m.streaming){ clearInterval(this._iv); return null; }
+          const shown = Math.min(full.length, m.shown + step);
+          msgs[i] = { ...m, shown, streaming: shown < full.length };
+          if(shown >= full.length) clearInterval(this._iv);
+          return { msgs };
+        });
+      }, 16);
+      this.focus();
+    }, 550);
   }
   renderVals(){
-    const s = this.state, H = window.mpHome;
-    const sugg = (H ? H.AI_SUGGEST[s.role] || [] : []).map(g => ({ ...g, onClick:() => this.send(g.q) }));
-    const msgs = s.msgs.map(m => ({ me:!!m.me, bot:!!m.bot, text:m.text, rowCls: 'ai-row' + (m.me ? ' me' : ''), botCls: 'ai-bot' + (m.warn ? ' warn' : ''),
-      hasCta: !!m.cta, ctaHref: m.cta ? m.cta.href : '#', ctaLabel: m.cta ? m.cta.label : '', ctaIcon: m.cta ? m.cta.icon : '', ctaTarget: m.cta && /^https?:/.test(m.cta.href) ? '_blank' : '_self',
-      hasChips: !!(m.chips && m.chips.length), chips:(m.chips || []).map(label => ({ label, onClick:() => this.send(label) })) }));
+    const s = this.state, H = window.mpHome, role = s.role;
+    const sugg = (H ? H.AI_SUGGEST[role] || [] : []).map(g => ({ ...g, onClick:() => this.send(g.q) }));
+    const msgs = s.msgs.map(m => {
+      const done = !m.streaming;
+      const acts = done ? (m.actions || []).map((a, i) => ({ ...a, target: ext(a.href) ? '_blank' : '_self', tip: H ? H.whereTip(a.href) : '',
+        cls: 'ai-cta' + (/^tel:/.test(a.href) ? ' main sos' : i === 0 ? ' main' : '') })) : [];
+      const links = done ? (m.links || []).map(l => ({ ...l, target: ext(l.href) ? '_blank' : '_self', tip: H ? H.whereTip(l.href) : '', arrow: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' })) : [];
+      const chips = done ? (m.chips || []).map(label => ({ label, onClick:() => this.send(label) })) : [];
+      return { me:!!m.me, bot:!!m.bot, text: m.bot ? String(m.text || '').slice(0, m.shown == null ? undefined : m.shown) : m.text,
+        streaming: !!m.streaming, cls: 'ai-bot' + (m.warn ? ' warn' : ''), avIcon: m.warn ? 'ri-alarm-warning-fill' : 'ri-sparkling-2-fill',
+        acts, hasActs: acts.length > 0, links, hasLinks: links.length > 0, chips, hasChips: chips.length > 0 };
+    });
+    const busy = s.typing || s.msgs.some(m => m.streaming);
     return {
       showFab: this.props.fab !== '0' && !s.open,
-      openEmpty: () => { this.setState({ open:true }); setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 80); },
+      openEmpty: () => { this.setState({ open:true }); this.focus(); },
       open: s.open, close: () => this.setState({ open:false }),
-      reset: () => this.setState({ msgs:[], typing:false }),
+      panelCls: 'ai-panel' + (s.wide ? ' wide' : ''),
+      toggleWide: () => { const w = !s.wide; this.setState({ wide:w }); try { localStorage.setItem('mp-ai-wide', w ? '1' : '0'); } catch(e){} this.focus(); },
+      wideLabel: s.wide ? 'Свернуть в панель' : 'Развернуть на весь экран', wideIcon: s.wide ? 'ri-contract-left-right-line' : 'ri-expand-left-right-line',
+      reset: () => { clearInterval(this._iv); clearTimeout(this._t); this.setState({ msgs:[], typing:false }); this.focus(); },
       hasMsgs: s.msgs.length > 0, noMsgs: s.msgs.length === 0 && !s.typing,
       sugg, msgs, typing: s.typing,
       bodyRef: this.bodyRef, inputRef: this.inputRef,
+      placeholder: role === 'business' ? 'Например: лицензия на аптеку' : role === 'medical' ? 'Например: протокол по гипертонии' : 'Спросите о здоровье или услуге',
       input: s.input, onInput: (e) => this.setState({ input:e.target.value }),
+      sendOff: busy || !s.input.trim(),
       onSubmit: (e) => { e.preventDefault(); this.send(); },
     };
   }

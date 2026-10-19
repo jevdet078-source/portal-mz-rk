@@ -30,7 +30,7 @@
   .nw-tag i{ font-size:14px; }
   .nw-t{ font-size:17px; font-weight:600; line-height:1.4; letter-spacing:-.012em; margin:12px 0 8px; color:var(--n900); }
   .nw-d{ font-size:14.5px; line-height:1.55; color:var(--n500); flex:1; }
-  .nw-meta{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; font-size:13px; color:var(--n400); }
+  .nw-meta{ display:flex; align-items:center; justify-content:space-between; margin-top:auto; padding-top:14px; font-size:13px; color:var(--n400); }
   .nw-meta span.more{ display:inline-flex; align-items:center; gap:4px; font-weight:600; color:var(--b700); }
 
   .nw-ed{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:clamp(16px,1.6vw,24px); }
@@ -52,7 +52,6 @@
 <div class="nw">
   <div class="hm-sec-head">
     <div>
-      <span class="hm-eyebrow">Пресс-центр</span>
       <h2 class="hm-h2">{{ title }}</h2>
     </div>
     <div class="hm-seg" role="group" aria-label="Рубрика новостей">
@@ -73,8 +72,7 @@
           <div class="nw-body">
             <span class="nw-tag"><i class="{{ n.icon }}"></i>{{ n.category }}</span>
             <div class="nw-t">{{ n.title }}</div>
-            <div class="nw-d">{{ n.desc }}</div>
-            <div class="nw-meta"><span>{{ n.date }}</span><span class="more">Подробнее<i class="ri-arrow-right-line"></i></span></div>
+            <div class="nw-meta"><span>{{ n.date }}</span></div>
           </div>
         </a>
       </sc-for>
@@ -92,7 +90,7 @@
           <span class="nw-tag"><i class="{{ lead.icon }}"></i>{{ lead.category }}</span>
           <div class="nw-t">{{ lead.title }}</div>
           <div class="nw-d">{{ lead.desc }}</div>
-          <div class="nw-meta"><span>{{ lead.date }}</span><span class="more">Читать<i class="ri-arrow-right-line"></i></span></div>
+          <div class="nw-meta"><span>{{ lead.date }}</span></div>
         </div>
       </a>
       <div class="nw-list">
@@ -105,7 +103,6 @@
             <div style="flex:1;min-width:0;">
               <span class="nw-tag"><i class="{{ n.icon }}"></i>{{ n.category }}</span>
               <div class="nw-t">{{ n.title }}</div>
-              <div class="nw-d">{{ n.desc }}</div>
               <div class="nw-meta" style="margin-top:8px;"><span>{{ n.date }}</span></div>
             </div>
           </a>

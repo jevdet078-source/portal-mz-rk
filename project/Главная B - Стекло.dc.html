@@ -35,11 +35,7 @@
   .vb-sky .fade{ position:absolute; left:0; right:0; bottom:0; height:120px; background:linear-gradient(180deg, transparent, color-mix(in srgb, var(--b950) 60%, transparent)); }
 
   .vb-in{ position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; padding-block:clamp(40px,5vw,96px) clamp(36px,4vw,72px); }
-  .vb-badge{ display:inline-flex; align-items:center; gap:10px; height:36px; padding:0 16px 0 6px; border-radius:999px; background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 1px rgba(255,255,255,.16); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); font-size:13.5px; font-weight:500; color:rgba(255,255,255,.85); }
-  .vb-badge span{ display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:999px; background:rgba(255,255,255,.14); color:#fff; font-weight:600; }
-  .vb-badge span::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--bacc); box-shadow:0 0 10px var(--bacc); }
-  .vb-h1{ margin:22px 0 14px; max-width:24ch; font-size:clamp(34px,2.4vw + 12px,64px); line-height:1.06; font-weight:600; letter-spacing:-.034em; text-wrap:balance; background:linear-gradient(180deg,#fff 30%, color-mix(in srgb, var(--b100) 85%, #fff)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .vb-lead{ margin:0 0 30px; max-width:60ch; font-size:clamp(16px,.35vw + 13px,19px); line-height:1.55; color:rgba(255,255,255,.72); }
+  .vb-h1{ margin:0 0 30px; max-width:24ch; font-size:clamp(34px,2.4vw + 12px,64px); line-height:1.06; font-weight:600; letter-spacing:-.034em; text-wrap:balance; background:linear-gradient(180deg,#fff 30%, color-mix(in srgb, var(--b100) 85%, #fff)); -webkit-background-clip:text; background-clip:text; color:transparent; }
   .vb-search{ width:min(100%, 880px); }
 
   .vb-tiles{ margin-top:clamp(32px,3.6vw,56px); width:100%; display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:12px; max-width:1240px; }
@@ -57,21 +53,17 @@
   .vb-tile.gov .cnt{ position:absolute; right:14px; top:16px; font-size:12px; font-weight:600; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.18); }
   .vb-tile.red .ic{ background:color-mix(in srgb, var(--red) 40%, transparent); }
 
-  .vb-panel{ width:100%; max-width:1240px; margin-top:12px; text-align:left; border-radius:24px; padding:clamp(20px,2vw,28px); background:rgba(255,255,255,.96); color:var(--n900); box-shadow:0 30px 60px -24px rgba(0,0,0,.55); display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr); gap:28px; animation:vb-drop .22s ease; }
+  .vb-panel{ width:100%; max-width:1240px; margin-top:12px; text-align:left; border-radius:24px; padding:clamp(18px,1.8vw,24px); background:rgba(255,255,255,.97); color:var(--n900); box-shadow:0 30px 60px -24px rgba(0,0,0,.55); animation:vb-drop .22s ease; }
+  .vb-phd{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .vb-phd h3{ flex:1; }
+  .vb-pclose{ width:36px; height:36px; border:none; border-radius:10px; background:var(--n100); color:var(--n500); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:19px; }
+  .vb-pclose:hover{ background:var(--n200); }
   @keyframes vb-drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
-  .vb-panel h3{ margin:0 0 4px; font-size:20px; font-weight:600; letter-spacing:-.015em; }
-  .vb-panel p{ margin:0 0 16px; font-size:14.5px; color:var(--n500); line-height:1.5; }
-  .vb-plinks{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .vb-panel h3{ margin:0; font-size:20px; font-weight:600; letter-spacing:-.015em; }
+  .vb-plinks{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,260px),1fr)); gap:8px; }
   .vb-plinks a{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-radius:12px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n800,#1a1d24); text-decoration:none; font-size:14.5px; font-weight:500; transition:.15s; }
   .vb-plinks a:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); }
   .vb-plinks i{ font-size:17px; color:var(--n400); }
-  .vb-pcta{ border-radius:18px; padding:20px; background:linear-gradient(150deg, var(--b600), var(--b800)); color:#fff; display:flex; flex-direction:column; gap:10px; position:relative; overflow:hidden; }
-  .vb-pcta::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:110px; mask-size:110px; opacity:.08; }
-  .vb-pcta > *{ position:relative; }
-  .vb-pcta b{ font-size:16px; font-weight:600; }
-  .vb-pcta span{ font-size:13.5px; color:rgba(255,255,255,.75); line-height:1.5; }
-  .vb-pcta a{ align-self:flex-start; margin-top:auto; display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:11px; background:#fff; color:var(--b800); font-weight:600; font-size:14.5px; text-decoration:none; }
-  .vb-pclose{ position:absolute; right:14px; top:14px; }
 
   /* популярные услуги — бенто */
   .vb-bento{ display:grid; grid-template-columns:minmax(0,1.25fr) repeat(3, minmax(0,1fr)); grid-auto-rows:minmax(150px,auto); gap:clamp(12px,1.2vw,18px); }
@@ -81,13 +73,13 @@
   .vb-feat > *{ position:relative; z-index:1; }
   .vb-feat .ic{ width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; background:rgba(255,255,255,.14); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); }
   .vb-feat h3{ margin:auto 0 8px; font-size:clamp(24px,.8vw + 16px,32px); font-weight:600; letter-spacing:-.022em; }
-  .vb-feat p{ margin:0 0 20px; font-size:15px; line-height:1.55; color:rgba(255,255,255,.78); max-width:42ch; }
   .vb-feat .go{ align-self:flex-start; display:inline-flex; align-items:center; gap:8px; height:46px; padding:0 18px; border-radius:12px; background:#fff; color:var(--b800); font-weight:600; font-size:15px; }
   .vb-feat .cnt{ position:absolute; right:clamp(22px,2vw,32px); top:clamp(22px,2vw,32px); font-size:13px; font-weight:600; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,.16); }
-  .vb-svc{ display:flex; flex-direction:column; gap:14px; padding:20px; border-radius:22px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:transform .2s, box-shadow .2s; }
+  .vb-svc{ position:relative; display:flex; flex-direction:column; gap:14px; padding:20px; border-radius:22px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); transition:transform .2s, box-shadow .2s; }
   .vb-svc:hover{ transform:translateY(-3px); box-shadow:inset 0 0 0 1px var(--b200), 0 24px 44px -28px rgba(10,13,20,.35); }
   .vb-svc b{ font-size:16px; font-weight:600; line-height:1.35; letter-spacing:-.01em; margin-top:auto; }
-  .vb-svc small{ display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--n400); }
+  .vb-svc > .hm-ext{ position:absolute; right:18px; top:18px; transition:color .15s; }
+  .vb-svc:hover > .hm-ext{ color:var(--b600); }
   .vb-svc .hm-ico{ transition:.2s; }
   .vb-svc:hover .hm-ico{ background:var(--b600); color:#fff; }
 
@@ -96,18 +88,12 @@
   .vb-glassband::before{ content:''; position:absolute; width:50vw; height:50vw; left:-10vw; top:-20vw; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b200) 80%, transparent), transparent); }
   .vb-glassband::after{ content:''; position:absolute; width:40vw; height:40vw; right:-8vw; bottom:-24vw; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--bacc) 22%, transparent), transparent); }
   .vb-glassband > *{ position:relative; z-index:1; }
-  .vb-fresh{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-  .vb-fresh a{ display:flex; flex-direction:column; gap:12px; padding:22px; min-height:200px; border-radius:22px; text-decoration:none; color:var(--n900); background:rgba(255,255,255,.62); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9), 0 16px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); -webkit-backdrop-filter:blur(16px) saturate(1.3); backdrop-filter:blur(16px) saturate(1.3); transition:transform .2s; }
+  .vb-fresh{ display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:16px; }
+  .vb-fresh a{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:22px; min-height:164px; border-radius:22px; text-decoration:none; color:var(--n900); background:rgba(255,255,255,.62); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9), 0 16px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); -webkit-backdrop-filter:blur(16px) saturate(1.3); backdrop-filter:blur(16px) saturate(1.3); transition:transform .2s; }
   .vb-fresh a:hover{ transform:translateY(-3px); }
-  .vb-fresh .tag{ align-self:flex-start; font-size:12px; font-weight:600; color:var(--b800); background:color-mix(in srgb, var(--b100) 80%, #fff); padding:5px 10px; border-radius:999px; }
-  .vb-fresh b{ font-size:17px; font-weight:600; line-height:1.35; margin-top:auto; }
-  .vb-fresh span.d{ font-size:14px; line-height:1.5; color:var(--n500); }
+  .vb-fresh .tag{ margin-top:auto; font-size:12px; font-weight:600; color:var(--b800); background:color-mix(in srgb, var(--b100) 80%, #fff); padding:5px 10px; border-radius:999px; }
+  .vb-fresh b{ font-size:17px; font-weight:600; line-height:1.35; }
 
-  .vb-useful{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
-  .vb-useful > div{ display:flex; gap:14px; padding:18px; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
-  .vb-logo{ width:52px; height:52px; flex:0 0 auto; border-radius:12px; overflow:hidden; background:var(--n100); }
-  .vb-useful b{ display:block; font-size:15px; font-weight:600; line-height:1.35; }
-  .vb-useful p{ margin:6px 0 10px; font-size:13.5px; line-height:1.5; color:var(--n500); }
 
   @media (max-width:1280px){ .vb-bento{ grid-template-columns:repeat(3, minmax(0,1fr)); } .vb-feat{ grid-column:span 3; grid-row:auto; min-height:280px; } }
   @media (max-width:1100px){ .vb-tiles, .vb-tiles.n4, .vb-tiles.n5{ grid-template-columns:repeat(3, minmax(0,1fr)); } .vb-panel{ grid-template-columns:minmax(0,1fr); } }
@@ -124,10 +110,8 @@
     <section class="vb-hero">
       <div class="vb-sky" aria-hidden="true"><span class="vb-blob b1"></span><span class="vb-blob b2"></span><span class="vb-blob b3"></span><span class="grain"></span><span class="fade"></span></div>
       <div class="hm-wrap vb-in">
-        <div class="vb-badge hm-in"><span>Официально</span>Портал Министерства здравоохранения Республики Казахстан</div>
         <h1 class="vb-h1 hm-in d1">{{ heroTitle }}</h1>
-        <p class="vb-lead hm-in d2">{{ heroLead }}</p>
-        <div class="vb-search hm-in d3 hm-search"><dc-import name="SearchBox" look="glass" center="1" hotkey="1" hint-size="100%,120px"></dc-import></div>
+        <div class="vb-search hm-in d2 hm-search"><dc-import name="SearchBox" look="glass" center="1" hotkey="1" hint-size="100%,120px"></dc-import></div>
 
         <div class="{{ tilesCls }}">
           <sc-if value="{{ hasGov }}" hint-placeholder-val="{{ true }}">
@@ -139,20 +123,15 @@
         </div>
 
         <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
-          <div class="vb-panel" style="position:relative;">
-            <div>
+          <div class="vb-panel">
+            <div class="vb-phd">
               <h3>{{ panel.label }}</h3>
-              <p>{{ panel.desc }}</p>
-              <div class="vb-plinks">
-                <sc-for list="{{ panel.links }}" as="l" hint-placeholder-count="4"><a href="{{ l.href }}" target="{{ l.target }}"><span>{{ l.label }}</span><i class="{{ l.icon }}"></i></a></sc-for>
-              </div>
+              <a class="hm-btn hm-btn-soft hm-btn-sm" href="{{ panel.href }}">Открыть раздел<i class="ri-arrow-right-line"></i></a>
+              <button class="vb-pclose" onClick="{{ closePanel }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
             </div>
-            <div class="vb-pcta">
-              <b>Раздел «{{ panel.label }}»</b>
-              <span>Все материалы, сервисы и контакты раздела — на отдельной странице.</span>
-              <a href="{{ panel.href }}">Открыть раздел<i class="ri-arrow-right-line"></i></a>
+            <div class="vb-plinks">
+              <sc-for list="{{ panel.links }}" as="l" hint-placeholder-count="4"><a href="{{ l.href }}" target="{{ l.target }}" data-tip="{{ l.tip }}"><span>{{ l.label }}</span><i class="{{ l.icon }}"></i></a></sc-for>
             </div>
-            <button class="vb-pclose" onClick="{{ closePanel }}" aria-label="Закрыть панель" style="height:34px;min-width:34px;padding:0;border:none;border-radius:10px;background:var(--n100);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:19px;color:var(--n500);"></i></button>
           </div>
         </sc-if>
       </div>
@@ -161,17 +140,16 @@
     <!-- ПОПУЛЯРНЫЕ УСЛУГИ — БЕНТО -->
     <section class="hm-sec">
       <div class="hm-wrap">
-        <div class="hm-sec-head"><div><span class="hm-eyebrow">{{ roleShort }}</span><h2 class="hm-h2">{{ popTitle }}</h2></div><a class="hm-link" href="{{ allHref }}">{{ allLabel }}<i class="ri-arrow-right-line"></i></a></div>
+        <div class="hm-sec-head"><div><h2 class="hm-h2">{{ popTitle }}</h2></div><a class="hm-link" href="{{ allHref }}">{{ allLabel }}<i class="ri-arrow-right-line"></i></a></div>
         <div class="vb-bento">
           <a class="vb-feat" href="{{ feat.href }}">
             <span class="ic"><i class="{{ feat.icon }}"></i></span>
             <sc-if value="{{ feat.hasCnt }}" hint-placeholder-val="{{ true }}"><span class="cnt">{{ feat.cnt }}</span></sc-if>
             <h3>{{ feat.title }}</h3>
-            <p>{{ feat.desc }}</p>
             <span class="go">{{ feat.go }}<i class="ri-arrow-right-line"></i></span>
           </a>
           <sc-for list="{{ popular }}" as="g" hint-placeholder-count="6">
-            <a class="vb-svc" href="{{ g.href }}" target="{{ g.target }}" title="{{ g.name }}"><span class="hm-ico"><i class="{{ g.icon }}"></i></span><b>{{ g.short }}</b><small>{{ g.where }}</small></a>
+            <a class="vb-svc" href="{{ g.href }}" target="{{ g.target }}" data-tip="{{ g.tip }}"><span class="hm-ico"><i class="{{ g.icon }}"></i></span><i class="{{ g.arrow }}"></i><b>{{ g.short }}</b></a>
           </sc-for>
         </div>
       </div>
@@ -180,10 +158,10 @@
     <!-- НОВОЕ -->
     <section class="hm-sec vb-glassband">
       <div class="hm-wrap">
-        <div class="hm-sec-head"><div><span class="hm-eyebrow">Что изменилось</span><h2 class="hm-h2">Новое на портале</h2></div></div>
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Новое на портале</h2></div></div>
         <div class="vb-fresh">
           <sc-for list="{{ fresh }}" as="c" hint-placeholder-count="5">
-            <a href="{{ c.href }}"><span class="tag">{{ c.tag }}</span><span class="hm-ico"><i class="{{ c.icon }}"></i></span><b>{{ c.title }}</b><span class="d">{{ c.desc }}</span></a>
+            <a href="{{ c.href }}" data-tip="{{ c.desc }}"><span class="hm-ico"><i class="{{ c.icon }}"></i></span><b>{{ c.title }}</b><span class="tag">{{ c.tag }}</span></a>
           </sc-for>
         </div>
       </div>
@@ -192,13 +170,10 @@
     <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
       <section class="hm-sec">
         <div class="hm-wrap">
-          <div class="hm-sec-head"><div><span class="hm-eyebrow">Отрасль</span><h2 class="hm-h2">Полезные ссылки</h2><p class="hm-lead">Профильные организации и ведомства в сфере здравоохранения.</p></div></div>
-          <div class="vb-useful">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
             <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
-              <div>
-                <div class="vb-logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="52px,52px"></x-import></div>
-                <div><b>{{ u.name }}</b><p>{{ u.desc }}</p><a class="hm-link" href="#">Перейти<i class="ri-external-link-line"></i></a></div>
-              </div>
+              <a href="#" data-tip="{{ u.desc }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i></a>
             </sc-for>
           </div>
         </div>
@@ -218,11 +193,11 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
 const ext = (href) => /^https?:/.test(href);
-const where = (g) => g.portal ? 'На портале' : (/elicense/.test(g.href) ? '«Е‑лицензирование» ↗' : 'eGov.kz ↗');
 class Component extends DCLogic {
   constructor(props){ super(props); this.state = { role: lsRole(), ready: !!window.mpHome, tab:null }; }
   componentDidMount(){
-    this._ready = () => this.setState({ ready:true });
+    // роль из ссылки (?role=…) HomeData кладёт в хранилище при загрузке — перечитываем, когда он готов
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
     window.addEventListener('mp-home-ready', this._ready);
     this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail, tab:null }); };
     window.addEventListener('mp-role-change', this._role);
@@ -238,7 +213,7 @@ class Component extends DCLogic {
     const hero = H.HERO[role];
     const secs = H.SECTIONS[role];
     const gov = H.hasGov(role);
-    const link = (l) => ({ ...l, target: ext(l.href) ? '_blank' : '_self', icon: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' });
+    const link = (l) => ({ ...l, target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href), icon: ext(l.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' });
     const active = secs.find(x => x.id === s.tab);
     const nTiles = secs.length + (gov ? 1 : 0);
     const gc = H.govCard(role);
@@ -247,15 +222,15 @@ class Component extends DCLogic {
       ? { href:gc.href, icon:'ri-government-line', hasCnt:true, cnt:H.plural(gc.count, 'услуга', 'услуги', 'услуг'), title:'Государственные услуги', desc:gc.desc, go:'Все госуслуги' }
       : { href:secs[0].href, icon:secs[0].icon, hasCnt:false, cnt:'', title:secs[0].label, desc:secs[0].desc, go:'Открыть раздел' };
     return {
-      heroTitle: hero.title, heroLead: hero.lead,
+      heroTitle: hero.title,
       tilesCls: 'vb-tiles hm-in d4 n' + Math.min(nTiles, 6),
       hasGov: gov, govHref: gov ? H.govPage(role) : '#', govCount: gov ? H.GOV_COUNT[role] : '',
       tiles: secs.map(x => ({ ...x, exp: s.tab === x.id ? 'true' : 'false', cls:'vb-tile' + (x.tone === 'red' ? ' red' : ''), onClick:() => this.setState(st => ({ tab: st.tab === x.id ? null : x.id })) })),
       panelOpen: !!active, panel: active ? { ...active, links: active.links.map(link) } : { links:[] },
       closePanel: () => this.setState({ tab:null }),
-      roleShort: hero.short, popTitle: hero.popTitle,
+      popTitle: hero.popTitle,
       allHref: gov ? H.govPage(role) : H.P.proto + '#protocols', allLabel: hero.allLabel,
-      feat, popular: H.GOV[role].slice(0, 6).map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', where: where(g) })),
+      feat, popular: H.GOV[role].slice(0, 6).map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', tip: H.tipOf(g), arrow: ext(g.href) ? 'ri-external-link-line hm-ext' : 'ri-arrow-right-up-line hm-ext' })),
       fresh: H.FRESH[role], isBusiness: role === 'business', useful: H.USEFUL,
     };
   }

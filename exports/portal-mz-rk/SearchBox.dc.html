@@ -64,7 +64,7 @@
   .sb-glass .sb-chips > span{ color:rgba(255,255,255,.75); }
   .sb-glass .sb-chip{ background:rgba(255,255,255,.12); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); color:#fff; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
   .sb-glass .sb-chip:hover{ background:rgba(255,255,255,.22); }
-  @media (max-width:640px){ .sb-go .sb-t{ display:none; } .sb-go{ padding:0 14px; } .sb-field{ height:56px; padding-left:14px; } .sb-input{ font-size:16px; } }
+  @media (max-width:640px){ .sb-chips{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; margin-top:12px; } .sb-chips::-webkit-scrollbar{ display:none; } .sb-chip{ flex:0 0 auto; } .sb-go .sb-t{ display:none; } .sb-go{ padding:0 14px; } .sb-field{ height:56px; padding-left:14px; } .sb-input{ font-size:16px; } }
 </style>
 </helmet>
 <div class="{{ cls }}">
@@ -89,12 +89,12 @@
         </a>
       </sc-for>
       <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
-        <div class="sb-empty">По запросу ничего не нашлось в разделах — спросите AI-помощника, он подскажет.</div>
+        <div class="sb-empty">Ничего не нашлось — спросите AI-помощника</div>
       </sc-if>
       <div class="sb-ai">
         <button type="button" class="sb-item" role="option" aria-selected="{{ aiSel }}" onClick="{{ askAi }}" onMouseEnter="{{ aiHover }}">
           <span class="sb-ico"><i class="ri-sparkling-2-fill"></i></span>
-          <span class="sb-txt"><b>{{ aiLabel }}</b><span>Ответит на вопрос о здоровье или подскажет нужную услугу</span></span>
+          <span class="sb-txt"><b>{{ aiLabel }}</b></span>
           <i class="ri-corner-down-left-line" style="font-size:18px;color:var(--n400);"></i>
         </button>
       </div>
@@ -103,7 +103,6 @@
 
   <sc-if value="{{ showChips }}" hint-placeholder-val="{{ true }}">
     <div class="sb-chips">
-      <span>Часто ищут:</span>
       <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
         <button type="button" class="sb-chip" onClick="{{ c.onClick }}">{{ c.label }}</button>
       </sc-for>
@@ -120,7 +119,8 @@ class Component extends DCLogic {
     this.state = { q:'', open:false, sel:-1, role: lsGet('mp-role') || 'citizens', ready: !!window.mpHome };
   }
   componentDidMount(){
-    this._ready = () => this.setState({ ready:true });
+    // роль из ссылки (?role=…) HomeData кладёт в хранилище при загрузке — перечитываем, когда он готов
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
     window.addEventListener('mp-home-ready', this._ready);
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);

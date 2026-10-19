@@ -25,16 +25,13 @@
   .vc-hero{ position:relative; background:radial-gradient(80% 120% at 100% 0%, var(--b50), #fff 60%); border-bottom:1px solid var(--n200); }
   .vc-hero .hm-orn{ opacity:.06; -webkit-mask-image:var(--hm-orn), linear-gradient(270deg, #000, transparent 55%); mask-image:var(--hm-orn), linear-gradient(270deg, #000, transparent 55%); -webkit-mask-composite:source-in; mask-composite:intersect; }
   .vc-grid{ position:relative; display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:clamp(28px,4vw,80px); align-items:center; padding-block:clamp(36px,4.4vw,76px); }
-  .vc-h1{ margin:14px 0 12px; font-size:clamp(34px,2.2vw + 12px,58px); line-height:1.06; font-weight:600; letter-spacing:-.034em; }
-  .vc-lead{ margin:0 0 26px; font-size:clamp(16px,.35vw + 13px,19px); line-height:1.55; color:var(--n500); max-width:52ch; }
+  .vc-h1{ margin:0 0 28px; font-size:clamp(34px,2.2vw + 12px,58px); line-height:1.06; font-weight:600; letter-spacing:-.034em; }
   .vc-who{ display:flex; flex-direction:column; gap:10px; }
-  .vc-who-cap{ font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--n400); margin-bottom:2px; }
-  .vc-role{ display:flex; align-items:center; gap:16px; width:100%; padding:18px 20px; border:none; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200), 0 1px 2px rgba(10,13,20,.04); font-family:inherit; text-align:left; cursor:pointer; transition:box-shadow .18s, transform .18s, background .18s; }
+  .vc-role{ display:flex; align-items:center; gap:16px; width:100%; padding:14px 18px 14px 14px; border:none; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200), 0 1px 2px rgba(10,13,20,.04); font-family:inherit; text-align:left; cursor:pointer; transition:box-shadow .18s, transform .18s, background .18s; }
   .vc-role:hover{ box-shadow:inset 0 0 0 1px var(--b300), 0 16px 32px -22px rgba(10,13,20,.35); transform:translateY(-1px); }
   .vc-role .hm-ico{ width:52px; height:52px; border-radius:15px; font-size:25px; transition:.18s; }
   .vc-role div{ flex:1; min-width:0; }
   .vc-role b{ display:block; font-size:17px; font-weight:600; color:var(--n900); letter-spacing:-.01em; }
-  .vc-role small{ display:block; font-size:14px; color:var(--n500); margin-top:3px; }
   .vc-role .rd{ width:24px; height:24px; border-radius:50%; box-shadow:inset 0 0 0 2px var(--n300); flex:0 0 auto; display:flex; align-items:center; justify-content:center; transition:.18s; }
   .vc-role[aria-checked="true"]{ background:linear-gradient(120deg, var(--b50), #fff); box-shadow:inset 0 0 0 2px var(--b500), 0 18px 36px -24px color-mix(in srgb, var(--b700) 70%, transparent); }
   .vc-role[aria-checked="true"] .hm-ico{ background:var(--b600); color:#fff; }
@@ -50,12 +47,11 @@
   .vc-act{ position:relative; z-index:1; display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; text-decoration:none; color:var(--n800,#1b1e26); background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); margin-top:8px; transition:.15s; }
   .vc-act:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); }
   .vc-act span{ flex:1; font-size:14.5px; font-weight:500; line-height:1.35; }
-  .vc-act small{ font-size:12px; font-weight:600; color:var(--n400); white-space:nowrap; }
   .vc-act i{ font-size:18px; color:var(--n400); }
   .vc-sit.red .hm-ico{ background:var(--red-l); color:var(--red); }
   .vc-sit.red::after{ background:radial-gradient(closest-side, var(--red-l), transparent); }
   .vc-sit.red .vc-act:first-of-type{ background:var(--red); color:#fff; box-shadow:none; }
-  .vc-sit.red .vc-act:first-of-type i, .vc-sit.red .vc-act:first-of-type small{ color:rgba(255,255,255,.85); }
+  .vc-sit.red .vc-act:first-of-type i{ color:rgba(255,255,255,.85); }
 
   .vc-strip{ display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:10px; }
   .vc-strip a{ display:flex; align-items:center; gap:12px; padding:14px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); text-decoration:none; color:var(--n900); font-size:15px; font-weight:600; transition:.15s; }
@@ -65,17 +61,11 @@
   .vc-strip a.gov:hover{ background:var(--b700); }
 
   .vc-news{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%,420px),1fr)); gap:12px; }
-  .vc-new{ display:flex; gap:16px; align-items:flex-start; padding:18px; border-radius:18px; text-decoration:none; color:var(--n900); background:#fff; box-shadow:inset 0 0 0 1px var(--n200); transition:.15s; }
+  .vc-new{ display:flex; gap:16px; align-items:center; padding:16px 18px 16px 16px; border-radius:18px; text-decoration:none; color:var(--n900); background:#fff; box-shadow:inset 0 0 0 1px var(--n200); transition:.15s; }
   .vc-new:hover{ box-shadow:inset 0 0 0 1px var(--b200); }
-  .vc-new b{ display:block; font-size:16px; font-weight:600; line-height:1.35; }
-  .vc-new span.d{ display:block; font-size:14px; color:var(--n500); margin-top:4px; line-height:1.5; }
-  .vc-new .tag{ display:inline-block; font-size:11.5px; font-weight:600; color:var(--b700); background:var(--b50); padding:4px 9px; border-radius:999px; margin-bottom:8px; }
+  .vc-new b{ flex:1; min-width:0; font-size:16px; font-weight:600; line-height:1.35; }
+  .vc-new .tag{ flex:0 0 auto; font-size:11.5px; font-weight:600; color:var(--b700); background:var(--b50); padding:4px 9px; border-radius:999px; }
 
-  .vc-useful{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
-  .vc-useful > div{ display:flex; gap:14px; padding:18px; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
-  .vc-logo{ width:52px; height:52px; flex:0 0 auto; border-radius:12px; overflow:hidden; background:var(--n100); }
-  .vc-useful b{ display:block; font-size:15px; font-weight:600; line-height:1.35; }
-  .vc-useful p{ margin:6px 0 10px; font-size:13.5px; line-height:1.5; color:var(--n500); }
   @media (max-width:1100px){ .vc-grid{ grid-template-columns:minmax(0,1fr); } }
 </style>
 </helmet>
@@ -89,17 +79,14 @@
       <div class="hm-orn"></div>
       <div class="hm-wrap vc-grid">
         <div>
-          <span class="hm-eyebrow hm-in">Единый портал здравоохранения</span>
           <h1 class="vc-h1 hm-in d1">Что вам нужно сделать?</h1>
-          <p class="vc-lead hm-in d2">Выберите, кто вы, и найдите свою ситуацию — портал подскажет нужные услуги. Или опишите задачу своими словами.</p>
-          <div class="hm-in d3 hm-search"><dc-import name="SearchBox" look="light" hotkey="1" hint-size="100%,120px"></dc-import></div>
+          <div class="hm-in d2 hm-search"><dc-import name="SearchBox" look="light" hotkey="1" hint-size="100%,120px"></dc-import></div>
         </div>
         <div class="vc-who hm-in d2" role="radiogroup" aria-label="Кто вы">
-          <div class="vc-who-cap">Кто вы?</div>
           <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
-            <button class="vc-role" role="radio" aria-checked="{{ r.on }}" onClick="{{ r.onClick }}">
+            <button class="vc-role" role="radio" aria-checked="{{ r.on }}" onClick="{{ r.onClick }}" data-tip="{{ r.whoDesc }}">
               <span class="hm-ico"><i class="{{ r.icon }}"></i></span>
-              <div><b>{{ r.who }}</b><small>{{ r.whoDesc }}</small></div>
+              <div><b>{{ r.who }}</b></div>
               <span class="rd"></span>
             </button>
           </sc-for>
@@ -110,7 +97,7 @@
     <section class="hm-sec">
       <div class="hm-wrap">
         <div class="hm-sec-head">
-          <div><span class="hm-eyebrow">{{ roleShort }}</span><h2 class="hm-h2">Жизненные ситуации</h2></div>
+          <div><h2 class="hm-h2">Жизненные ситуации</h2></div>
           <sc-if value="{{ hasGov }}" hint-placeholder-val="{{ true }}"><a class="hm-link" href="{{ govHref }}">{{ govAll }}<i class="ri-arrow-right-line"></i></a></sc-if>
         </div>
         <div class="vc-sits">
@@ -118,7 +105,7 @@
             <div class="{{ x.cls }}">
               <div class="vc-sit-hd"><span class="hm-ico"><i class="{{ x.icon }}"></i></span><b>{{ x.title }}</b></div>
               <sc-for list="{{ x.acts }}" as="a" hint-placeholder-count="3">
-                <a class="vc-act" href="{{ a.href }}" target="{{ a.target }}" title="{{ a.title }}"><span>{{ a.short }}</span><small>{{ a.where }}</small><i class="{{ a.icon }}"></i></a>
+                <a class="vc-act" href="{{ a.href }}" target="{{ a.target }}" data-tip="{{ a.tip }}"><span>{{ a.short }}</span><i class="{{ a.icon }}"></i></a>
               </sc-for>
             </div>
           </sc-for>
@@ -128,7 +115,7 @@
 
     <section class="hm-sec" style="background:var(--n50);border-block:1px solid var(--n200);">
       <div class="hm-wrap">
-        <div class="hm-sec-head"><div><span class="hm-eyebrow">Навигация</span><h2 class="hm-h2">Все разделы портала</h2></div></div>
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Все разделы портала</h2></div></div>
         <div class="vc-strip">
           <sc-if value="{{ hasGov }}" hint-placeholder-val="{{ true }}"><a class="gov" href="{{ govHref }}"><span class="hm-ico sm"><i class="ri-government-line"></i></span>Государственные услуги</a></sc-if>
           <sc-for list="{{ sections }}" as="s" hint-placeholder-count="5"><a href="{{ s.href }}"><span class="{{ s.icoCls }}"><i class="{{ s.icon }}"></i></span>{{ s.label }}</a></sc-for>
@@ -139,10 +126,10 @@
 
     <section class="hm-sec">
       <div class="hm-wrap">
-        <div class="hm-sec-head"><div><span class="hm-eyebrow">Что изменилось</span><h2 class="hm-h2">Новое на портале</h2></div></div>
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Новое на портале</h2></div></div>
         <div class="vc-news">
           <sc-for list="{{ fresh }}" as="c" hint-placeholder-count="4">
-            <a class="vc-new" href="{{ c.href }}"><span class="hm-ico"><i class="{{ c.icon }}"></i></span><span><span class="tag">{{ c.tag }}</span><b>{{ c.title }}</b><span class="d">{{ c.desc }}</span></span></a>
+            <a class="vc-new" href="{{ c.href }}" data-tip="{{ c.desc }}"><span class="hm-ico"><i class="{{ c.icon }}"></i></span><b>{{ c.title }}</b><span class="tag">{{ c.tag }}</span></a>
           </sc-for>
         </div>
       </div>
@@ -151,13 +138,10 @@
     <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
       <section class="hm-sec" style="padding-top:0;">
         <div class="hm-wrap">
-          <div class="hm-sec-head"><div><span class="hm-eyebrow">Отрасль</span><h2 class="hm-h2">Полезные ссылки</h2><p class="hm-lead">Профильные организации и ведомства в сфере здравоохранения.</p></div></div>
-          <div class="vc-useful">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
             <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
-              <div>
-                <div class="vc-logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="52px,52px"></x-import></div>
-                <div><b>{{ u.name }}</b><p>{{ u.desc }}</p><a class="hm-link" href="#">Перейти<i class="ri-external-link-line"></i></a></div>
-              </div>
+              <a href="#" data-tip="{{ u.desc }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i></a>
             </sc-for>
           </div>
         </div>
@@ -177,11 +161,11 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
 const ext = (href) => /^https?:/.test(href);
-const where = (a) => /^tel:/.test(a.href) ? 'Позвонить' : a.portal ? 'Портал' : (/elicense/.test(a.href) ? 'Е‑лицензирование' : 'eGov.kz');
 class Component extends DCLogic {
   constructor(props){ super(props); this.state = { role: lsRole(), ready: !!window.mpHome }; }
   componentDidMount(){
-    this._ready = () => this.setState({ ready:true });
+    // роль из ссылки (?role=…) HomeData кладёт в хранилище при загрузке — перечитываем, когда он готов
+    this._ready = () => this.setState({ ready:true, role: window.mpHome ? window.mpHome.getRole() : this.state.role });
     window.addEventListener('mp-home-ready', this._ready);
     this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._role);
@@ -197,7 +181,7 @@ class Component extends DCLogic {
       hasGov: H.hasGov(role), govHref: H.hasGov(role) ? H.govPage(role) : '#',
       govAll: H.hasGov(role) ? 'Все государственные услуги · ' + H.GOV_COUNT[role] : '',
       sits: H.SITUATIONS[role].map(x => ({ ...x, cls:'vc-sit' + (x.tone === 'red' ? ' red' : ''),
-        acts: x.acts.map(a => ({ ...a, title: a.name || a.short, target: ext(a.href) ? '_blank' : '_self', where: where(a), icon: /^tel:/.test(a.href) ? 'ri-phone-fill' : ext(a.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' })) })),
+        acts: x.acts.map(a => ({ ...a, tip: /^tel:/.test(a.href) ? 'Скорая медицинская помощь · бесплатно, круглосуточно' : H.tipOf(a), target: ext(a.href) ? '_blank' : '_self', icon: /^tel:/.test(a.href) ? 'ri-phone-fill' : ext(a.href) ? 'ri-external-link-line' : 'ri-arrow-right-s-line' })) })),
       sections: H.SECTIONS[role].map(x => ({ ...x, icoCls: 'hm-ico sm' + (x.tone === 'red' ? ' red' : '') })),
       library: H.LIBRARY.filter(l => !H.SECTIONS[role].some(x => x.label === l.label)),
       fresh: H.FRESH[role], isBusiness: role === 'business', useful: H.USEFUL,
