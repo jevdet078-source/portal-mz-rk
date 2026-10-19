@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Шапка новой главной (варианты A–E). Цвета — из переменных бренда (--b*), которые ставит HomeData.
+  Пропсы:
+    look  = light    — белая шапка (по умолчанию)
+          | glass    — прозрачная поверх тёмного баннера, при прокрутке — матовое стекло
+          | official — белая + верхняя служебная строка (официальный ресурс, телефоны 103 / 112 / 1414)
+    roles = "0"      — не показывать вкладки ролей (вариант C выбирает роль в баннере)
+  Роль — localStorage['mp-role'] + событие 'mp-role-change' (как у общей шапки Header).
+  «Доступность» — размер текста и контраст (HomeData.setA11y), для старшей аудитории и слабовидящих.
+-->
+<x-dc>
+<helmet>
+<style>
+  .ph{ position:relative; font-family:'Inter',system-ui,sans-serif; transition:background .25s, box-shadow .25s, border-color .25s; border-bottom:1px solid var(--n200); background:rgba(255,255,255,.96); -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px); }
+  .ph *{ box-sizing:border-box; }
+  .ph-glass{ background:transparent; border-bottom-color:rgba(255,255,255,.14); -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .ph-glass.ph-solid{ background:rgba(255,255,255,.86); border-bottom-color:rgba(10,13,20,.08); -webkit-backdrop-filter:saturate(1.8) blur(18px); backdrop-filter:saturate(1.8) blur(18px); box-shadow:0 8px 24px -16px rgba(10,13,20,.25); }
+  .ph-bar{ width:min(100% - 2*var(--gut,40px), var(--wrap,1760px)); margin-inline:auto; height:72px; display:flex; align-items:center; gap:clamp(12px,2vw,32px); }
+  .ph-brand{ display:flex; align-items:center; gap:12px; text-decoration:none; flex:0 0 auto; border-radius:12px; }
+  .ph-emb{ width:46px; height:46px; flex:0 0 auto; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .ph-emb img{ width:46px; height:46px; object-fit:contain; display:block; }
+  .ph-glass:not(.ph-solid) .ph-emb{ box-shadow:0 0 0 3px rgba(255,255,255,.18); }
+  .ph-name{ line-height:1.2; }
+  .ph-name b{ display:block; font-size:14.5px; font-weight:600; letter-spacing:-.012em; color:var(--n900); }
+  .ph-name span{ display:block; font-size:12.5px; font-weight:500; color:var(--n400); }
+  .ph-glass:not(.ph-solid) .ph-name b{ color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-name span{ color:rgba(255,255,255,.66); }
+
+  .ph-roles{ display:flex; align-items:stretch; align-self:stretch; gap:2px; }
+  .ph-role{ position:relative; display:flex; align-items:center; gap:8px; padding:0 14px; border:none; background:none; font:500 14.5px/1 'Inter',sans-serif; color:var(--n500); cursor:pointer; white-space:nowrap; transition:color .15s; }
+  .ph-role i{ font-size:18px; }
+  .ph-role::after{ content:''; position:absolute; left:10px; right:10px; bottom:-1px; height:2.5px; border-radius:2px; background:transparent; transition:background .15s; }
+  .ph-role:hover{ color:var(--n900); }
+  .ph-role[aria-current="true"]{ color:var(--b700); font-weight:600; }
+  .ph-role[aria-current="true"]::after{ background:var(--b600); }
+  .ph-glass:not(.ph-solid) .ph-role{ color:rgba(255,255,255,.72); }
+  .ph-glass:not(.ph-solid) .ph-role:hover{ color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]{ color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]::after{ background:#fff; }
+
+  .ph-acts{ margin-left:auto; display:flex; align-items:center; gap:8px; flex:0 0 auto; }
+  .ph-ibtn{ height:40px; min-width:40px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:10px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font:600 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; white-space:nowrap; }
+  .ph-ibtn i{ font-size:18px; color:var(--n400); }
+  .ph-ibtn:hover{ background:var(--n100); }
+  .ph-ibtn[aria-expanded="true"]{ box-shadow:inset 0 0 0 1px var(--b400); background:var(--b50); color:var(--b700); }
+  .ph-glass:not(.ph-solid) .ph-ibtn{ background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-ibtn i{ color:rgba(255,255,255,.8); }
+  .ph-glass:not(.ph-solid) .ph-ibtn:hover{ background:rgba(255,255,255,.18); }
+  .ph-login{ height:40px; padding:0 18px; display:inline-flex; align-items:center; gap:8px; border-radius:10px; background:var(--b600); color:#fff; font:600 14px/1 'Inter',sans-serif; text-decoration:none; transition:background .15s; white-space:nowrap; }
+  .ph-login:hover{ background:var(--b700); }
+  .ph-login i{ font-size:18px; }
+  .ph-glass:not(.ph-solid) .ph-login{ background:#fff; color:var(--b800); }
+  .ph-glass:not(.ph-solid) .ph-login:hover{ background:var(--b50); }
+
+  .ph-pop{ position:absolute; right:0; top:calc(100% + 8px); z-index:80; background:#fff; border-radius:14px; box-shadow:0 0 0 1px rgba(10,13,20,.06),0 20px 40px -16px rgba(10,13,20,.28); padding:6px; min-width:180px; animation:ph-drop .16s ease; color:var(--n900); }
+  @keyframes ph-drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+  .ph-opt{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:none; border-radius:9px; background:none; font:500 14px/1.2 'Inter',sans-serif; color:var(--n700); cursor:pointer; text-align:left; }
+  .ph-opt:hover{ background:var(--n100); }
+  .ph-opt[aria-checked="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .ph-opt i{ font-size:18px; color:var(--b600); }
+  .ph-a11y{ width:300px; padding:16px; }
+  .ph-a11y h4{ margin:0 0 4px; font-size:15px; font-weight:600; }
+  .ph-a11y p{ margin:0 0 14px; font-size:13px; line-height:1.45; color:var(--n500); }
+  .ph-a11y .lbl{ font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); margin:0 0 8px; }
+  .ph-sizes{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-bottom:14px; }
+  .ph-size{ height:46px; border:none; border-radius:10px; background:var(--n100); color:var(--n700); font-family:'Inter',sans-serif; font-weight:600; cursor:pointer; box-shadow:inset 0 0 0 1px var(--n200); }
+  .ph-size[aria-pressed="true"]{ background:var(--b50); color:var(--b800); box-shadow:inset 0 0 0 2px var(--b500); }
+  .ph-toggle{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:none; border-radius:10px; background:var(--n100); font:500 14px/1.2 'Inter',sans-serif; color:var(--n700); cursor:pointer; box-shadow:inset 0 0 0 1px var(--n200); }
+  .ph-sw{ width:38px; height:22px; border-radius:999px; background:var(--n300); position:relative; flex:0 0 auto; transition:.15s; }
+  .ph-sw::after{ content:''; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#fff; transition:.15s; box-shadow:0 1px 2px rgba(0,0,0,.2); }
+  .ph-toggle[aria-pressed="true"] .ph-sw{ background:var(--b600); }
+  .ph-toggle[aria-pressed="true"] .ph-sw::after{ left:19px; }
+
+  /* служебная строка (look="official") */
+  .ph-util{ background:var(--b950); color:rgba(255,255,255,.78); font:500 13px/1 'Inter',sans-serif; }
+  .ph-util-in{ width:min(100% - 2*var(--gut,40px), var(--wrap,1760px)); margin-inline:auto; height:38px; display:flex; align-items:center; gap:20px; }
+  .ph-util-in .flag{ display:inline-flex; align-items:center; gap:8px; }
+  .ph-util-in .flag::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--bacc); }
+  .ph-util-in a{ color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:6px; font-weight:600; }
+  .ph-util-in a i{ font-size:15px; color:var(--bacc); }
+  .ph-util-in .ph-tel{ margin-left:auto; display:flex; gap:20px; }
+
+  @media (max-width:1180px){ .ph-name span{ display:none; } .ph-role{ padding:0 10px; } .ph-ibtn .ph-t{ display:none; } }
+  @media (max-width:960px){
+    .ph-bar{ flex-wrap:wrap; height:auto; padding-top:12px; row-gap:6px; }
+    .ph-roles{ order:3; flex:1 0 100%; height:46px; overflow-x:auto; scrollbar-width:none; margin:0 calc(-1 * var(--gut,16px)); padding:0 calc(var(--gut,16px) - 10px); border-top:1px solid var(--n200); }
+    .ph-glass:not(.ph-solid) .ph-roles{ border-top-color:rgba(255,255,255,.14); }
+    .ph-roles::-webkit-scrollbar{ display:none; }
+    .ph-role{ flex:1 0 auto; justify-content:center; }
+    .ph-util-in .flag{ display:none; }
+    .ph-util-in .ph-tel{ margin-left:0; }
+  }
+  @media (max-width:560px){ .ph-name{ display:none; } .ph-login .ph-t{ display:none; } .ph-login{ padding:0 12px; } .ph-util-in .opt{ display:none; } }
+</style>
+</helmet>
+<div>
+  <sc-if value="{{ official }}" hint-placeholder-val="{{ false }}">
+    <div class="ph-util">
+      <div class="ph-util-in">
+        <span class="flag">Официальный интернет-ресурс Министерства здравоохранения Республики Казахстан</span>
+        <span class="ph-tel">
+          <a href="tel:103" title="Скорая медицинская помощь"><i class="ri-first-aid-kit-fill"></i>103 · Скорая</a>
+          <a href="tel:112" class="opt" title="Единая дежурно-диспетчерская служба"><i class="ri-alarm-warning-fill"></i>112</a>
+          <a href="tel:1414" class="opt" title="Служба поддержки, круглосуточно"><i class="ri-customer-service-2-fill"></i>1414 · Поддержка</a>
+        </span>
+      </div>
+    </div>
+  </sc-if>
+  <header class="{{ cls }}">
+    <div class="ph-bar">
+      <a class="ph-brand" href="{{ homeHref }}" aria-label="Министерство здравоохранения Республики Казахстан — на главную">
+        <span class="ph-emb"><img src="uploads/images.jpg" alt="Государственный герб Республики Казахстан"></span>
+        <span class="ph-name"><b>Министерство здравоохранения</b><span>Республики Казахстан</span></span>
+      </a>
+
+      <sc-if value="{{ showRoles }}" hint-placeholder-val="{{ true }}">
+        <nav class="ph-roles" aria-label="Для кого">
+          <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
+            <button class="ph-role" onClick="{{ r.onClick }}" aria-current="{{ r.on }}"><i class="{{ r.icon }}"></i>{{ r.label }}</button>
+          </sc-for>
+        </nav>
+      </sc-if>
+
+      <div class="ph-acts">
+        <div style="position:relative;">
+          <button class="ph-ibtn" onClick="{{ toggleA11y }}" aria-expanded="{{ a11yOpen }}" aria-haspopup="dialog" title="Версия для слабовидящих: размер текста и контраст"><i class="ri-eye-line"></i><span class="ph-t">Доступность</span></button>
+          <sc-if value="{{ a11yOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:79;"></div>
+            <div class="ph-pop ph-a11y" role="dialog" aria-label="Настройки доступности">
+              <h4>Версия для слабовидящих</h4>
+              <p>Настройки сохраняются в этом браузере и действуют на всех страницах портала.</p>
+              <div class="lbl">Размер текста</div>
+              <div class="ph-sizes">
+                <sc-for list="{{ sizes }}" as="z" hint-placeholder-count="3">
+                  <button class="ph-size" onClick="{{ z.onClick }}" aria-pressed="{{ z.on }}" style="{{ z.style }}" title="{{ z.title }}">{{ z.label }}</button>
+                </sc-for>
+              </div>
+              <button class="ph-toggle" onClick="{{ toggleContrast }}" aria-pressed="{{ contrast }}"><span>Повышенный контраст текста</span><span class="ph-sw"></span></button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="position:relative;">
+          <button class="ph-ibtn" onClick="{{ toggleLang }}" aria-expanded="{{ langOpen }}" title="Язык интерфейса"><i class="ri-global-line"></i>{{ lang }}</button>
+          <sc-if value="{{ langOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:79;"></div>
+            <div class="ph-pop" role="menu">
+              <sc-for list="{{ langs }}" as="l" hint-placeholder-count="3">
+                <button class="ph-opt" role="menuitemradio" aria-checked="{{ l.on }}" onClick="{{ l.onClick }}"><span>{{ l.name }}</span><sc-if value="{{ l.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line"></i></sc-if></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+        <a class="ph-login" href="{{ loginHref }}"><i class="{{ loginIcon }}"></i><span class="ph-t">{{ loginLabel }}</span></a>
+      </div>
+    </div>
+  </header>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:110}}">
+const ROLES = [
+  { id:'citizens', label:'Гражданам', icon:'ri-user-3-line' },
+  { id:'business', label:'Бизнесу', icon:'ri-briefcase-4-line' },
+  { id:'medical', label:'Медперсоналу', icon:'ri-stethoscope-line' },
+];
+const LANGS = [ { code:'ҚАЗ', name:'Қазақша' }, { code:'РУС', name:'Русский' }, { code:'ENG', name:'English' } ];
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let a = { size:'md', contrast:false };
+    try { a = { ...a, ...JSON.parse(lsGet('mp-a11y') || '{}') }; } catch(e){}
+    const r = lsGet('mp-role');
+    this.state = { role: ROLES.some(x => x.id === r) ? r : 'citizens', lang: lsGet('mp-lang') || 'РУС', biz: lsGet('mp-profile') === 'business',
+      a11y:a, a11yOpen:false, langOpen:false, solid:false };
+  }
+  componentDidMount(){
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._onRole);
+    this._onA11y = (e) => { if(e && e.detail) this.setState({ a11y:e.detail }); };
+    window.addEventListener('mp-a11y-change', this._onA11y);
+    this._onScroll = () => { const s = window.scrollY > 24; if(s !== this.state.solid) this.setState({ solid:s }); };
+    window.addEventListener('scroll', this._onScroll, { passive:true });
+    this._onScroll();
+    this._esc = (e) => { if(e.key === 'Escape' && (this.state.a11yOpen || this.state.langOpen)) this.setState({ a11yOpen:false, langOpen:false }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-a11y-change', this._onA11y);
+    window.removeEventListener('scroll', this._onScroll); window.removeEventListener('keydown', this._esc);
+  }
+  setRole(id){
+    this.setState({ role:id });
+    if(window.mpHome) window.mpHome.setRole(id);
+    else { try { localStorage.setItem('mp-role', id); window.dispatchEvent(new CustomEvent('mp-role-change', { detail:id })); } catch(e){} }
+  }
+  setA11y(patch){
+    const a = { ...this.state.a11y, ...patch };
+    this.setState({ a11y:a });
+    if(window.mpHome) window.mpHome.setA11y(patch);
+  }
+  renderVals(){
+    const s = this.state, look = this.props.look || 'light';
+    const glass = look === 'glass';
+    const sizes = [ { id:'md', label:'A', title:'Обычный', fs:15 }, { id:'lg', label:'A+', title:'Крупный', fs:18 }, { id:'xl', label:'A++', title:'Очень крупный', fs:21 } ]
+      .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
+    return {
+      official: look === 'official',
+      cls: 'ph' + (glass ? ' ph-glass' : '') + (glass && s.solid ? ' ph-solid' : ''),
+      homeHref: '#',
+      showRoles: this.props.roles !== '0',
+      roles: ROLES.map(r => ({ ...r, on: s.role === r.id ? 'true' : 'false', onClick:() => this.setRole(r.id) })),
+      a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
+      toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),
+      toggleContrast: () => this.setA11y({ contrast:!s.a11y.contrast }),
+      langOpen: s.langOpen, lang: s.lang,
+      langs: LANGS.map(l => ({ ...l, on: s.lang === l.code, onClick:() => { this.setState({ lang:l.code, langOpen:false }); try { localStorage.setItem('mp-lang', l.code); } catch(e){} } })),
+      toggleLang: () => this.setState(st => ({ langOpen:!st.langOpen, a11yOpen:false })),
+      closeAll: () => this.setState({ langOpen:false, a11yOpen:false }),
+      loginHref: s.biz ? 'Кабинет бизнеса.dc.html' : 'Вход.dc.html',
+      loginLabel: s.biz ? 'Кабинет бизнеса' : 'Войти',
+      loginIcon: s.biz ? 'ri-briefcase-4-line' : 'ri-shield-user-line',
+    };
+  }
+}
+</script>
+</body>
+</html>

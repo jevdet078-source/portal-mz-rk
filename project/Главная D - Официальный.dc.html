@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Главная · вариант D «Официальный» — визитная карточка министерства.
+  Служебная строка «Официальный интернет-ресурс…» с телефонами 103 / 112 / 1414, строгий первый экран
+  в глубоком цвете бренда с национальным орнаментом и золотой линией, справа — витрина «Новое на портале».
+  Ниже — плотный «справочник» услуг тремя колонками (госуслуги, разделы, справочники), портал в цифрах,
+  FAQ и новости. Подача — как у государственных порталов, но легче и современнее.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+  .vd-top{ position:sticky; top:-38px; z-index:40; }
+
+  .vd-hero{ position:relative; color:#fff; background:linear-gradient(115deg, var(--b950) 0%, var(--b900) 45%, var(--b800) 100%); isolation:isolate; }
+  .vd-hero::before{ content:''; position:absolute; left:0; right:0; top:0; height:3px; background:linear-gradient(90deg, transparent, var(--bacc) 20%, var(--bacc) 80%, transparent); opacity:.9; }
+  .vd-deco{ position:absolute; inset:0; overflow:hidden; z-index:-1; }
+  .vd-deco::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:132px; mask-size:132px; opacity:.05; }
+  .vd-deco::after{ content:''; position:absolute; width:900px; height:900px; right:-260px; top:-420px; border-radius:50%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b400) 40%, transparent), transparent); }
+  .vd-grid{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(380px,1fr); gap:clamp(28px,4vw,80px); align-items:center; padding-block:clamp(40px,4.6vw,84px); }
+  .vd-eye{ display:inline-flex; align-items:center; gap:10px; font-size:13px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:color-mix(in srgb, var(--bacc) 80%, #fff); }
+  .vd-eye::before{ content:''; width:28px; height:1.5px; background:var(--bacc); }
+  .vd-h1{ margin:18px 0 14px; font-size:clamp(32px,2.1vw + 12px,56px); line-height:1.08; font-weight:600; letter-spacing:-.03em; max-width:24ch; text-wrap:balance; }
+  .vd-lead{ margin:0 0 28px; font-size:clamp(16px,.35vw + 13px,19px); line-height:1.55; color:rgba(255,255,255,.72); max-width:56ch; }
+
+  .vd-show{ position:relative; border-radius:28px; padding:10px; background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  .vd-card{ border-radius:20px; background:#fff; color:var(--n900); overflow:hidden; display:flex; flex-direction:column; min-height:400px; }
+  .vd-cover{ position:relative; height:180px; flex:0 0 auto; background:radial-gradient(120% 140% at 0% 0%, var(--b300), var(--b600) 50%, var(--b900)); display:flex; align-items:flex-end; justify-content:space-between; padding:20px 22px; overflow:hidden; }
+  .vd-cover::before{ content:''; position:absolute; inset:0; background:#fff; -webkit-mask-image:var(--hm-orn); mask-image:var(--hm-orn); -webkit-mask-size:110px; mask-size:110px; opacity:.12; }
+  .vd-cover i{ position:relative; font-size:46px; color:#fff; }
+  .vd-cover .lbl{ position:relative; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#fff; background:rgba(255,255,255,.18); padding:6px 10px; border-radius:999px; }
+  .vd-cbody{ padding:22px 24px 20px; display:flex; flex-direction:column; flex:1; animation:hm-fade .35s ease; }
+  .vd-cbody .tag{ align-self:flex-start; font-size:12px; font-weight:600; color:var(--b700); background:var(--b50); padding:5px 10px; border-radius:999px; }
+  .vd-cbody b{ font-size:21px; font-weight:600; line-height:1.3; letter-spacing:-.015em; margin:12px 0 8px; }
+  .vd-cbody p{ margin:0; font-size:15px; line-height:1.55; color:var(--n500); }
+  .vd-cft{ margin-top:auto; padding-top:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .vd-dots{ display:flex; gap:6px; align-items:center; }
+  .vd-dots button{ width:8px; height:8px; border:none; padding:0; border-radius:999px; background:var(--n300); cursor:pointer; transition:.2s; }
+  .vd-dots button[aria-current="true"]{ width:24px; background:var(--b600); }
+  .vd-nav{ display:flex; gap:6px; }
+  .vd-nav button{ width:38px; height:38px; border:none; border-radius:10px; background:var(--n100); color:var(--n600); font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .vd-nav button:hover{ background:var(--b50); color:var(--b700); }
+
+  .vd-cols{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(16px,1.6vw,24px); }
+  .vd-col{ border-radius:24px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); padding:8px; display:flex; flex-direction:column; }
+  .vd-col-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 16px 10px; }
+  .vd-col-hd b{ font-size:17px; font-weight:600; letter-spacing:-.01em; display:flex; align-items:center; gap:10px; }
+  .vd-col-hd b i{ font-size:20px; color:var(--b600); }
+  .vd-col-hd span{ font-size:12.5px; font-weight:600; color:var(--b700); background:var(--b50); padding:4px 9px; border-radius:999px; }
+  .vd-li{ display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:14px; text-decoration:none; color:var(--n900); transition:background .15s; }
+  .vd-li:hover{ background:var(--b50); }
+  .vd-li .hm-ico{ width:38px; height:38px; border-radius:10px; font-size:19px; }
+  .vd-li:hover .hm-ico{ background:#fff; }
+  .vd-li div{ flex:1; min-width:0; }
+  .vd-li b{ display:block; font-size:14.5px; font-weight:600; line-height:1.35; }
+  .vd-li small{ display:block; font-size:12.5px; color:var(--n400); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vd-li > i{ font-size:18px; color:var(--n300); }
+  .vd-all{ margin:auto 8px 8px; display:flex; align-items:center; justify-content:center; gap:8px; height:46px; border-radius:12px; background:var(--n100); color:var(--n700); font-weight:600; font-size:14.5px; text-decoration:none; transition:.15s; }
+  .vd-all:hover{ background:var(--b600); color:#fff; }
+  .vd-sos{ margin:8px; padding:16px; border-radius:16px; background:var(--red-l); box-shadow:inset 0 0 0 1px #F9C4CF; }
+  .vd-sos b{ display:flex; align-items:center; gap:8px; font-size:15px; color:var(--red-d); }
+  .vd-sos p{ margin:6px 0 12px; font-size:13.5px; line-height:1.5; color:var(--red-d); opacity:.85; }
+  .vd-sos div{ display:flex; gap:8px; }
+  .vd-sos a{ flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:42px; border-radius:11px; background:var(--red); color:#fff; font-weight:700; text-decoration:none; }
+  .vd-sos a.alt{ background:#fff; color:var(--red-d); box-shadow:inset 0 0 0 1px #F9C4CF; }
+
+  .vd-stats{ background:linear-gradient(115deg, var(--b50), #fff 60%); border-block:1px solid var(--n200); }
+  .vd-stats-in{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); }
+  .vd-stat{ padding:clamp(24px,2.4vw,40px) clamp(16px,2vw,32px); border-left:1px solid var(--n200); }
+  .vd-stat:first-child{ border-left:none; padding-left:0; }
+  .vd-stat b{ display:block; font-size:clamp(34px,1.6vw + 18px,52px); font-weight:600; letter-spacing:-.035em; color:var(--b800); line-height:1; font-variant-numeric:tabular-nums; }
+  .vd-stat span{ display:block; margin-top:10px; font-size:15px; line-height:1.45; color:var(--n500); max-width:26ch; }
+
+  .vd-useful{ display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:16px; }
+  .vd-useful > div{ display:flex; gap:14px; padding:18px; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .vd-logo{ width:52px; height:52px; flex:0 0 auto; border-radius:12px; overflow:hidden; background:var(--n100); }
+  .vd-useful b{ display:block; font-size:15px; font-weight:600; line-height:1.35; }
+  .vd-useful p{ margin:6px 0 10px; font-size:13.5px; line-height:1.5; color:var(--n500); }
+
+  @media (max-width:1180px){ .vd-cols{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width:1100px){ .vd-grid{ grid-template-columns:minmax(0,1fr); } }
+  @media (max-width:900px){ .vd-stats-in{ grid-template-columns:repeat(2, minmax(0,1fr)); } .vd-stat:nth-child(3){ border-left:none; padding-left:0; } }
+  @media (max-width:720px){ .vd-cols{ grid-template-columns:minmax(0,1fr); } }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="vd-top"><dc-import name="PortalHeader" look="official" hint-size="100%,110px"></dc-import></div>
+
+  <main>
+    <section class="vd-hero">
+      <div class="vd-deco" aria-hidden="true"></div>
+      <div class="hm-wrap vd-grid">
+        <div>
+          <span class="vd-eye hm-in">Единый портал здравоохранения</span>
+          <h1 class="vd-h1 hm-in d1">{{ heroTitle }}</h1>
+          <p class="vd-lead hm-in d2">{{ heroLead }}</p>
+          <div class="hm-in d3 hm-search"><dc-import name="SearchBox" look="glass" hotkey="1" hint-size="100%,120px"></dc-import></div>
+        </div>
+        <div class="vd-show hm-in d2" aria-roledescription="карусель" aria-label="Новое на портале">
+          <div class="vd-card">
+            <div class="vd-cover"><span class="lbl">Новое на портале</span><i class="{{ cur.icon }}"></i></div>
+            <div class="vd-cbody" key="{{ curKey }}">
+              <span class="tag">{{ cur.tag }}</span>
+              <b>{{ cur.title }}</b>
+              <p>{{ cur.desc }}</p>
+              <div class="vd-cft">
+                <a class="hm-link" href="{{ cur.href }}">Подробнее<i class="ri-arrow-right-line"></i></a>
+                <div style="display:flex;align-items:center;gap:14px;">
+                  <div class="vd-dots"><sc-for list="{{ dots }}" as="d" hint-placeholder-count="5"><button aria-current="{{ d.on }}" aria-label="{{ d.label }}" onClick="{{ d.onClick }}"></button></sc-for></div>
+                  <div class="vd-nav"><button onClick="{{ prev }}" aria-label="Предыдущее"><i class="ri-arrow-left-s-line"></i></button><button onClick="{{ next }}" aria-label="Следующее"><i class="ri-arrow-right-s-line"></i></button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="hm-sec">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><span class="hm-eyebrow">{{ roleShort }}</span><h2 class="hm-h2">Услуги и сервисы</h2></div></div>
+        <div class="vd-cols">
+          <div class="vd-col">
+            <div class="vd-col-hd"><b><i class="{{ c1Icon }}"></i>{{ c1Title }}</b><sc-if value="{{ hasCount }}" hint-placeholder-val="{{ true }}"><span>{{ count }}</span></sc-if></div>
+            <sc-for list="{{ popular }}" as="g" hint-placeholder-count="6">
+              <a class="vd-li" href="{{ g.href }}" target="{{ g.target }}" title="{{ g.name }}"><span class="hm-ico"><i class="{{ g.icon }}"></i></span><div><b>{{ g.short }}</b><small>{{ g.where }}</small></div><i class="ri-arrow-right-s-line"></i></a>
+            </sc-for>
+            <a class="vd-all" href="{{ allHref }}">{{ allLabel }}<i class="ri-arrow-right-line"></i></a>
+          </div>
+          <div class="vd-col">
+            <div class="vd-col-hd"><b><i class="ri-layout-grid-line"></i>Разделы портала</b></div>
+            <sc-for list="{{ sections }}" as="x" hint-placeholder-count="5">
+              <a class="vd-li" href="{{ x.href }}"><span class="{{ x.icoCls }}"><i class="{{ x.icon }}"></i></span><div><b>{{ x.label }}</b><small>{{ x.desc }}</small></div><i class="ri-arrow-right-s-line"></i></a>
+            </sc-for>
+          </div>
+          <div class="vd-col">
+            <div class="vd-col-hd"><b><i class="ri-book-open-line"></i>Справочники</b></div>
+            <sc-for list="{{ library }}" as="l" hint-placeholder-count="5">
+              <a class="vd-li" href="{{ l.href }}"><span class="hm-ico"><i class="{{ l.icon }}"></i></span><div><b>{{ l.label }}</b></div><i class="ri-arrow-right-s-line"></i></a>
+            </sc-for>
+            <div class="vd-sos">
+              <b><i class="ri-alarm-warning-fill"></i>Экстренная помощь</b>
+              <p>При угрозе жизни звоните сразу — вызов бесплатный, круглосуточно.</p>
+              <div><a href="tel:103"><i class="ri-phone-fill"></i>103</a><a class="alt" href="tel:112">112</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="vd-stats">
+      <div class="hm-wrap vd-stats-in">
+        <div class="vd-stat"><b>33</b><span>государственные услуги здравоохранения — онлайн</span></div>
+        <div class="vd-stat"><b>3</b><span>аудитории: граждане, бизнес и медицинские работники</span></div>
+        <div class="vd-stat"><b>24/7</b><span>служба поддержки 1414 и AI-помощник портала</span></div>
+        <div class="vd-stat"><b>103</b><span>скорая медицинская помощь — бесплатно, с любого телефона</span></div>
+      </div>
+    </section>
+
+    <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+      <section class="hm-sec">
+        <div class="hm-wrap">
+          <div class="hm-sec-head"><div><span class="hm-eyebrow">Отрасль</span><h2 class="hm-h2">Полезные ссылки</h2><p class="hm-lead">Профильные организации и ведомства в сфере здравоохранения.</p></div></div>
+          <div class="vd-useful">
+            <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
+              <div>
+                <div class="vd-logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="52px,52px"></x-import></div>
+                <div><b>{{ u.name }}</b><p>{{ u.desc }}</p><a class="hm-link" href="#">Перейти<i class="ri-external-link-line"></i></a></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <section class="hm-sec"><div class="hm-wrap"><dc-import name="HomeNews" layout="editorial" hint-size="100%,640px"></dc-import></div></section>
+    <section class="hm-sec" style="background:var(--n50);border-top:1px solid var(--n200);"><div class="hm-wrap"><dc-import name="HomeFaq" hint-size="100%,720px"></dc-import></div></section>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="d" hint-size="1px,1px"></dc-import>
+</div>
+<dc-import name="Splash" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href);
+const where = (g) => g.portal ? 'На портале' : (/elicense/.test(g.href) ? '«Е‑лицензирование» ↗' : 'eGov.kz ↗');
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { role: lsRole(), ready: !!window.mpHome, slide:0 }; }
+  componentDidMount(){
+    this._ready = () => this.setState({ ready:true });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail, slide:0 }); };
+    window.addEventListener('mp-role-change', this._role);
+    // автопрокрутка витрины раз в 7 с; останавливается, если вкладка скрыта
+    this._auto = setInterval(() => { if(!document.hidden && window.mpHome) this.step(1); }, 7000);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._role); clearInterval(this._auto); clearTimeout(this._fb); }
+  step(d){ const n = (window.mpHome.FRESH[this.state.role] || []).length || 1; this.setState(s => ({ slide:(s.slide + d + n) % n })); }
+  manual(fn){ clearInterval(this._auto); fn(); }
+  renderVals(){
+    const H = window.mpHome, s = this.state, role = s.role;
+    const emptyCur = { icon:'', tag:'', title:'', desc:'', href:'#' };
+    if(!H) return { heroTitle:'', heroLead:'', cur:emptyCur, curKey:'0', dots:[], prev:()=>{}, next:()=>{}, roleShort:'', c1Icon:'', c1Title:'', hasCount:false, count:'', popular:[], allHref:'#', allLabel:'', sections:[], library:[], isBusiness:false, useful:[] };
+    const hero = H.HERO[role], fresh = H.FRESH[role], gov = H.hasGov(role);
+    const cur = fresh[s.slide % fresh.length];
+    return {
+      heroTitle: hero.title, heroLead: hero.lead,
+      cur, curKey: role + s.slide,
+      dots: fresh.map((f, i) => ({ on: i === s.slide ? 'true' : 'false', label: (i + 1) + ' из ' + fresh.length + ': ' + f.title, onClick:() => this.manual(() => this.setState({ slide:i })) })),
+      prev: () => this.manual(() => this.step(-1)), next: () => this.manual(() => this.step(1)),
+      roleShort: hero.short,
+      c1Icon: gov ? 'ri-government-line' : 'ri-user-star-line', c1Title: gov ? 'Государственные услуги' : 'Сервисы для медработников',
+      hasCount: gov, count: gov ? H.plural(H.GOV_COUNT[role], 'услуга', 'услуги', 'услуг') : '',
+      popular: H.GOV[role].slice(0, 6).map(g => ({ ...g, target: ext(g.href) ? '_blank' : '_self', where: where(g) })),
+      allHref: gov ? H.govPage(role) : H.P.proto + '#protocols', allLabel: hero.allLabel,
+      sections: H.SECTIONS[role].map(x => ({ ...x, icoCls: 'hm-ico' + (x.tone === 'red' ? ' red' : '') })),
+      library: H.LIBRARY,
+      isBusiness: role === 'business', useful: H.USEFUL,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#0B3A50"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#06222F"/><rect width="1200" height="36" fill="#0B3A50"/><rect y="36" width="1200" height="4" fill="#E3A92B"/><rect x="80" y="180" width="560" height="60" rx="12" fill="#fff"/><rect x="80" y="300" width="560" height="72" rx="20" fill="#fff" opacity=".95"/><rect x="740" y="140" width="380" height="440" rx="28" fill="#fff"/><rect x="740" y="140" width="380" height="180" rx="28" fill="#1AA3CF"/></svg></template>
+</body>
+</html>
