@@ -57,6 +57,9 @@
   .hm-root :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; border-radius:10px; }
   .hm-root input:focus-visible{ outline:none; }
   .hm-search{ position:relative; z-index:20; }
+  /* Пока открыт список подсказок поиска, все его предки поднимаются над соседними блоками:
+     иначе анимация появления (.hm-in) и isolation создают свои слои, и следующий блок перекрывает список */
+  .hm-root :has(.sb-drop){ position:relative; z-index:60; }
 
   .hm-eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--b700); }
   .hm-eyebrow::before{ content:''; width:6px; height:6px; border-radius:50%; background:var(--bacc); }
