@@ -15,6 +15,7 @@
   Шапка новой главной (варианты A–E). Цвета — из переменных бренда (--b*), которые ставит HomeData.
   Пропсы:
     look  = light    — белая шапка (по умолчанию)
+          | bare     — только кнопки (доступность, язык, вход) без фона — для панели варианта F; с brand="0"
           | glass    — прозрачная поверх тёмного баннера, при прокрутке — матовое стекло
           | official — белая + верхняя служебная строка (официальный ресурс, телефоны 103 / 112 / 1414)
     roles = "0"      — не показывать вкладки ролей (вариант C выбирает роль в баннере)
@@ -26,6 +27,9 @@
 <style>
   .ph{ position:relative; font-family:'Inter',system-ui,sans-serif; transition:background .25s, box-shadow .25s, border-color .25s; border-bottom:1px solid var(--n200); background:rgba(255,255,255,.96); -webkit-backdrop-filter:saturate(1.6) blur(14px); backdrop-filter:saturate(1.6) blur(14px); }
   .ph *{ box-sizing:border-box; }
+  /* look="bare" — только кнопки действий, без фона и рамки (встраивается в чужую панель; brand="0" roles="0") */
+  .ph-bare{ background:transparent; border-bottom:none; -webkit-backdrop-filter:none; backdrop-filter:none; }
+  .ph-bare .ph-bar{ width:auto; height:64px; margin:0; }
   .ph-glass{ background:transparent; border-bottom-color:rgba(255,255,255,.14); -webkit-backdrop-filter:none; backdrop-filter:none; }
   .ph-glass.ph-solid{ background:rgba(255,255,255,.86); border-bottom-color:rgba(10,13,20,.08); -webkit-backdrop-filter:saturate(1.8) blur(18px); backdrop-filter:saturate(1.8) blur(18px); box-shadow:0 8px 24px -16px rgba(10,13,20,.25); }
   .ph-bar{ width:min(100% - 2*var(--gut,40px), var(--wrap,1760px)); margin-inline:auto; height:72px; display:flex; align-items:center; gap:clamp(12px,2vw,32px); }
@@ -121,10 +125,12 @@
   </sc-if>
   <header class="{{ cls }}">
     <div class="ph-bar">
+      <sc-if value="{{ showBrand }}" hint-placeholder-val="{{ true }}">
       <a class="ph-brand" href="{{ homeHref }}" aria-label="Министерство здравоохранения Республики Казахстан — на главную">
         <span class="ph-emb"><img src="uploads/images.jpg" alt="Государственный герб Республики Казахстан"></span>
         <span class="ph-name"><b>Министерство здравоохранения</b><span>Республики Казахстан</span></span>
       </a>
+      </sc-if>
 
       <sc-if value="{{ showRoles }}" hint-placeholder-val="{{ true }}">
         <nav class="ph-roles" aria-label="Для кого">
@@ -218,9 +224,10 @@ class Component extends DCLogic {
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
       official: look === 'official',
-      cls: 'ph' + (glass ? ' ph-glass' : '') + (glass && s.solid ? ' ph-solid' : ''),
+      cls: 'ph' + (look === 'bare' ? ' ph-bare' : '') + (glass ? ' ph-glass' : '') + (glass && s.solid ? ' ph-solid' : ''),
       homeHref: '#',
       showRoles: this.props.roles !== '0',
+      showBrand: this.props.brand !== '0',
       roles: ROLES.map(r => ({ ...r, on: s.role === r.id ? 'true' : 'false', onClick:() => this.setRole(r.id) })),
       a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
       toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),

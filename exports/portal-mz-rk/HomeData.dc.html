@@ -160,6 +160,9 @@
   html[data-fill="flat"] .sp-ornament{ background:var(--b900); }
   html[data-fill="flat"] .sp-leaf{ background:var(--b800); }
   html[data-fill="flat"] .hv-hero{ background:var(--b900); }
+  html[data-fill="flat"] .vf-hcard{ background:var(--b900); }
+  html[data-fill="flat"] .vf-hcard .deco::after{ display:none; }
+  html[data-fill="flat"] .mk-f .hc{ background:var(--b900) !important; }
   html[data-fill="flat"] .mk-a, html[data-fill="flat"] .mk-c, html[data-fill="flat"] .mk-e{ background:var(--b50); }
   html[data-fill="flat"] .mk-b{ background:var(--b900); }
   html[data-fill="flat"] .mk-d{ background:var(--b900); }
@@ -248,6 +251,13 @@
   html[data-fill="pastel"] .sp-leaf::before{ background:var(--b700); }
   html[data-fill="pastel"] .sp-curtain .sp-ring circle{ stroke:var(--b500); }
   html[data-fill="pastel"] .sp-pulse{ background:var(--pg-mesh); }
+  html[data-fill="pastel"] .vf-hcard{ background:var(--pg-mesh); color:var(--n900); box-shadow:inset 0 0 0 1px rgba(255,255,255,.8); }
+  html[data-fill="pastel"] .vf-hcard .deco::before{ background:var(--b700); opacity:.05; }
+  html[data-fill="pastel"] .vf-hcard .deco::after{ display:none; }
+  html[data-fill="pastel"] .vf-eye{ color:var(--b900); }
+  html[data-fill="pastel"] .vf-lead, html[data-fill="pastel"] .vf-trust{ color:var(--n600); }
+  html[data-fill="pastel"] .vf-trust i{ color:var(--b700); }
+  html[data-fill="pastel"] .mk-f .hc{ background:var(--pg-lin) !important; }
   html[data-fill="pastel"] .hv-hero{ background:var(--pg-mesh); color:var(--n900); }
   html[data-fill="pastel"] .hv-hero::before{ background:var(--b700); }
   html[data-fill="pastel"] .hv-hero::after{ display:none; }
@@ -754,6 +764,7 @@ const H = (() => {
     { id:'c', key:'C', label:'Ситуации', name:'Жизненные ситуации', file:'Главная C - Жизненные ситуации.dc.html' },
     { id:'d', key:'D', label:'Официальный', name:'Официальный — визитная карточка', file:'Главная D - Официальный.dc.html' },
     { id:'e', key:'E', label:'AI-помощник', name:'AI-помощник в центре', file:'Главная E - AI-помощник.dc.html' },
+    { id:'f', key:'F', label:'Портал услуг', name:'Портал услуг — меню и каталог', file:'Главная F - Портал услуг.dc.html' },
   ];
 
   return { PALETTES, palette, themeId, applyTheme, setTheme, FILLS, PASTELS, fillId, pastelId, pastelStops, applyFill, setFill, setPastel, ORN_URL, a11y, setA11y, applyA11y,
