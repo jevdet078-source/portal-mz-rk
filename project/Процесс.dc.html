@@ -24,9 +24,15 @@
   Процесс — #ls / #mi. Состояние процесса (этап) — панель прототипа внизу справа,
   хранится в localStorage['mp-proc-<id>'] = p1 | p2 | p3 | p45 | done.
   Этап 2 интерактивный (UC11.03, оплата через ПШЭП — UC9.16 / UC9.15 — или Halyk Bank): вид пошлины →
-  способ оплаты → сумма к оплате → «Перейти к оплате» → статус платежа (10 состояний, раздел 6) →
+  способ оплаты → сумма → «Перейти к оплате» → статус платежа (10 состояний, раздел 6) →
   доверенность → «Отправить» → модалка. Реквизиты на экране не показываются — ЕО передаёт их в банк сам.
-  Ответ банка и уведомление об оплате эмулируются строкой «Платёж» панели прототипа, «МРП» — справочник.
+  Два варианта (замечания по дизайну блока оплаты): 1 — ПШЭП и Halyk Bank на выбор, 2 — только Halyk Bank
+  (выбирать нечего, способ показан карточкой без радиокнопки). ПШЭП открывает свою страницу в новой вкладке
+  («Сумма пошлины», комиссию берёт банк там), Halyk Bank — окно оплаты на портале: QR-код или карта
+  («Сумма к оплате» с комиссией 4%). Логотипы: assets/epay-mark.png (знак с epay.gov.kz, фон убран),
+  assets/halyk-logo.svg и halyk-mark.svg (halykbank.kz).
+  Ответ банка и уведомление об оплате эмулируются строкой «Платёж» панели прототипа, «МРП» — справочник,
+  «Способы» — вариант 1 или 2 (localStorage['mp-pay-only']).
 -->
 <x-dc>
 <helmet>
@@ -45,6 +51,28 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-spin{to{transform:rotate(360deg)}}
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes mp-pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  /* выбор вида пошлины и способа оплаты, окно оплаты Halyk Bank */
+  .pf-opt:not([aria-disabled="true"]):not([aria-checked="true"]):hover{border-color:var(--n300) !important;}
+  .pf-opt:focus-visible,.pf-tab:focus-visible,.pf-ib:focus-visible,.pf-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  /* логотип задан фоном: <img src="{{ }}"> браузер запрашивает до подстановки шаблона (404) */
+  .pf-logo{display:block;height:20px;flex:0 0 auto;align-self:center;background:center right/contain no-repeat;}
+  .pf-ib{width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .pf-ib:hover{background:var(--n100);color:var(--n900);}
+  .pf-tab{flex:1;height:32px;border:none;border-radius:8px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;}
+  .pf-inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;font-variant-numeric:tabular-nums;transition:border-color .15s,box-shadow .15s;}
+  .pf-inp::placeholder{color:var(--n400);}
+  .pf-inp:hover{border-color:var(--n300);}
+  .pf-inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .pf-inp[aria-invalid="true"]{border-color:var(--red);}
+  .pf-inp[aria-invalid="true"]:focus{box-shadow:0 0 0 2px #fff,0 0 0 4px #F8C9D2;}
+  /* узкий экран: логотип уходит отдельной строкой под текст, чтобы длинное название не наезжало на него */
+  @media (max-width:520px){
+    .pf-method{flex-wrap:wrap;}
+    .pf-method .pf-logo{order:3;height:16px;flex:0 0 calc(100% - 26px);margin-left:26px;background-position:left center;}
+    .pf-one .pf-logo{flex-basis:100%;margin-left:0;}
+  }
 </style>
 </helmet>
 
@@ -152,7 +180,7 @@
                           <div id="fee-label" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ st.feeLabel }}<span style="color:var(--red);">{{ st.star }}</span></div>
                           <div role="radiogroup" aria-labelledby="fee-label" aria-required="{{ st.req }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:8px;">
                             <sc-for list="{{ st.fees }}" as="f" hint-placeholder-count="3">
-                              <button role="radio" aria-checked="{{ f.checked }}" aria-disabled="{{ f.locked }}" title="{{ f.tip }}" onClick="{{ f.onPick }}" style="{{ f.style }}">
+                              <button role="radio" class="pf-opt" aria-checked="{{ f.checked }}" aria-disabled="{{ f.locked }}" title="{{ f.tip }}" onClick="{{ f.onPick }}" style="{{ f.style }}">
                                 <span style="{{ f.ring }}"><span style="{{ f.dot }}"></span></span>
                                 <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
                                   <span style="{{ f.titleStyle }}">{{ f.title }}</span>
@@ -169,17 +197,31 @@
                         <sc-if value="{{ st.hasMethod }}" hint-placeholder-val="{{ true }}">
                           <div style="display:flex;flex-direction:column;gap:12px;animation:mp-slidein .2s ease;">
                             <div id="method-label" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ st.methodLabel }}<span style="color:var(--red);">{{ st.star }}</span></div>
-                            <div role="radiogroup" aria-labelledby="method-label" aria-required="{{ st.req }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px;">
+                            <div role="radiogroup" aria-labelledby="method-label" aria-required="{{ st.req }}" style="display:flex;flex-direction:column;gap:8px;">
                               <sc-for list="{{ st.methods }}" as="m" hint-placeholder-count="2">
-                                <button role="radio" aria-checked="{{ m.checked }}" aria-disabled="{{ m.locked }}" title="{{ m.tip }}" onClick="{{ m.onPick }}" style="{{ m.style }}">
+                                <button role="radio" class="pf-opt pf-method" aria-checked="{{ m.checked }}" aria-disabled="{{ m.locked }}" title="{{ m.tip }}" onClick="{{ m.onPick }}" style="{{ m.style }}">
                                   <span style="{{ m.ring }}"><span style="{{ m.dot }}"></span></span>
                                   <span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;">
                                     <span style="{{ m.titleStyle }}">{{ m.title }}</span>
                                     <span style="{{ m.subStyle }}">{{ m.sub }}</span>
                                   </span>
-                                  <span style="{{ m.tileStyle }}"><i class="{{ m.tileIcon }}" style="{{ m.tileIconStyle }}"></i></span>
+                                  <span class="pf-logo" style="{{ m.logoStyle }}"></span>
                                 </button>
                               </sc-for>
+                            </div>
+                          </div>
+                        </sc-if>
+
+                        <!-- вариант 2: способ один — выбирать нечего, показываем его без радиокнопки -->
+                        <sc-if value="{{ st.hasOneMethod }}" hint-placeholder-val="{{ false }}">
+                          <div style="display:flex;flex-direction:column;gap:12px;animation:mp-slidein .2s ease;">
+                            <div style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">Способ оплаты</div>
+                            <div class="pf-method pf-one" style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);box-shadow:var(--sh-xs);">
+                              <span style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;">
+                                <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ st.one.title }}</span>
+                                <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ st.one.sub }}</span>
+                              </span>
+                              <span class="pf-logo" style="{{ st.one.logoStyle }}"></span>
                             </div>
                           </div>
                         </sc-if>
@@ -188,10 +230,10 @@
                           <div style="display:flex;flex-direction:column;gap:12px;">
                             <sc-if value="{{ st.hasSum }}" hint-placeholder-val="{{ false }}">
                               <div title="{{ st.sum.tip }}" style="display:flex;flex-direction:column;gap:2px;animation:mp-slidein .2s ease;">
-                                <span style="font-size:12px;line-height:16px;color:var(--n500);">Сумма к оплате</span>
+                                <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ st.sum.label }}</span>
                                 <div style="display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;row-gap:4px;">
                                   <span style="font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.017em;color:var(--n900);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ st.sum.total }}</span>
-                                  <span style="{{ st.sum.noteStyle }}">{{ st.sum.note }}</span>
+                                  <sc-if value="{{ st.sum.hasNote }}" hint-placeholder-val="{{ true }}"><span style="{{ st.sum.noteStyle }}">{{ st.sum.note }}</span></sc-if>
                                 </div>
                               </div>
                             </sc-if>
@@ -317,8 +359,87 @@
     </div>
   </sc-if>
 
+  <!-- Окно оплаты Halyk Bank: QR-код или карта; платёж уже создан ЕО, сумма с комиссией банка -->
+  <sc-if value="{{ pm.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ pm.onClose }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:mp-fade .15s ease;">
+      <div role="dialog" aria-modal="true" aria-label="Оплата через Halyk Bank" onClick="{{ stop }}" style="width:400px;max-width:100%;max-height:100%;overflow:auto;background:var(--n0);border-radius:16px;box-shadow:var(--sh-lg);animation:mp-pop .2s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 14px 14px 20px;border-bottom:1px solid var(--stroke);">
+          <img src="assets/halyk-logo.svg" alt="Halyk Bank" style="display:block;height:24px;width:auto;" />
+          <button class="pf-ib" onClick="{{ pm.onClose }}" aria-label="Закрыть" title="Закрыть"><i class="ri-close-line" style="font-size:20px;"></i></button>
+        </div>
+
+        <sc-if value="{{ pm.form }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:20px;display:flex;flex-direction:column;gap:20px;">
+            <div title="{{ pm.sumTip }}" style="display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:12px;line-height:16px;color:var(--n500);">Сумма к оплате</span>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;row-gap:4px;">
+                <span style="font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.017em;color:var(--n900);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ pm.total }}</span>
+                <span style="{{ pm.noteStyle }}">{{ pm.note }}</span>
+              </div>
+            </div>
+
+            <div role="tablist" aria-label="Способ оплаты" style="display:flex;gap:2px;padding:2px;border-radius:10px;background:var(--n100);">
+              <sc-for list="{{ pm.tabs }}" as="t" hint-placeholder-count="2">
+                <button role="tab" class="pf-tab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ pm.isQr }}" hint-placeholder-val="{{ true }}">
+              <div role="tabpanel" aria-label="QR-код" style="min-height:272px;display:flex;flex-direction:column;align-items:center;gap:12px;animation:mp-fade .2s ease;">
+                <div style="position:relative;padding:12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;">
+                  <!-- QR задан фоном: <img src="{{ }}"> браузер запрашивает до подстановки шаблона (404) -->
+                  <div role="img" aria-label="QR-код для оплаты" style="{{ pm.qrStyle }}"></div>
+                  <span style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:38px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;"><img src="assets/halyk-mark.svg" alt="" style="display:block;width:30px;height:30px;" /></span>
+                </div>
+                <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);text-align:center;">Отсканируйте в приложении банка</div>
+                <div role="status" style="{{ pm.waitStyle }}"><span style="{{ pm.waitDot }}"></span>{{ pm.waitText }}</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ pm.isCard }}" hint-placeholder-val="{{ false }}">
+              <div role="tabpanel" aria-label="Банковская карта" style="min-height:272px;display:flex;flex-direction:column;gap:12px;animation:mp-fade .2s ease;">
+                <label style="display:flex;flex-direction:column;gap:6px;">
+                  <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">Номер карты</span>
+                  <input class="pf-inp" value="{{ pm.cardNo }}" onChange="{{ pm.onCardNo }}" inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000" disabled="{{ pm.busy }}" />
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <label style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                    <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">Срок действия</span>
+                    <input class="pf-inp" value="{{ pm.cardExp }}" onChange="{{ pm.onCardExp }}" inputMode="numeric" autoComplete="cc-exp" placeholder="ММ/ГГ" aria-invalid="{{ pm.expErr }}" aria-describedby="pf-exp-msg" disabled="{{ pm.busy }}" />
+                  </label>
+                  <label style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+                    <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">CVC</span>
+                    <input class="pf-inp" type="password" value="{{ pm.cardCvc }}" onChange="{{ pm.onCardCvc }}" inputMode="numeric" autoComplete="cc-csc" placeholder="•••" disabled="{{ pm.busy }}" />
+                  </label>
+                </div>
+                <sc-if value="{{ pm.hasExpErr }}" hint-placeholder-val="{{ false }}">
+                  <div id="pf-exp-msg" role="alert" style="display:flex;align-items:center;gap:4px;margin-top:-4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;"></i>Проверьте срок действия карты</div>
+                </sc-if>
+                <button class="pf-btn" onClick="{{ pm.onPay }}" aria-disabled="{{ pm.payOff }}" aria-busy="{{ pm.busy }}" title="{{ pm.payTip }}" style="{{ pm.payStyle }}">
+                  <sc-if value="{{ pm.busy }}" hint-placeholder-val="{{ false }}"><span style="width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:mp-spin .8s linear infinite;"></span></sc-if>
+                  <span>{{ pm.payLabel }}</span>
+                </button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ pm.done }}" hint-placeholder-val="{{ false }}">
+          <div role="status" style="padding:32px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:mp-fade .2s ease;">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--green-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-checkbox-circle-fill" style="font-size:32px;color:var(--green);"></i></div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.015em;color:var(--n900);">Пошлина оплачена</div>
+              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);font-variant-numeric:tabular-nums;">{{ pm.total }}</div>
+            </div>
+            <button class="pf-btn" onClick="{{ pm.onClose }}" autoFocus="{{ true }}" style="width:100%;height:40px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);">Готово</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Панель прототипа: процесс и его этап -->
-  <div data-proto-panel style="position:fixed;right:20px;bottom:20px;z-index:50;max-width:calc(100% - 40px);background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:8px 8px 8px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+  <div data-proto-panel style="position:fixed;right:20px;bottom:20px;z-index:70;max-width:calc(100% - 40px);background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:8px 8px 8px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
     <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;">
       <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
       <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
@@ -334,6 +455,15 @@
     </div>
     <!-- этап 2: ответ банка / уведомление об оплате, наличие МРП в справочнике, требование доверенности -->
     <sc-if value="{{ demoFeeOn }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+      <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;">
+        <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Способы</span>
+        <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+          <sc-for list="{{ demoOnly }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button>
+          </sc-for>
+        </div>
+      </div>
       <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;">
         <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Платёж</span>
         <div style="display:flex;flex-wrap:wrap;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
@@ -354,6 +484,7 @@
           </sc-for>
         </div>
       </div>
+      </div>
     </sc-if>
   </div>
 </div>
@@ -364,47 +495,105 @@ class Component extends DCLogic {
     super(props);
     // fee — вид пошлины (reg | rereg | free), method — способ оплаты (pshep | halyk),
     // pay — статус платежа в ЕО (UC11.03, раздел 6): none · created · pending · hold · paid · error · check;
-    // mrp — есть ли МРП текущего года в справочнике; poaReq — доверенность обязательна
-    this.state = { id:'ls', phase:'p1', open:null, ...this.fresh() };
+    // mrp — есть ли МРП текущего года в справочнике; poaReq — доверенность обязательна;
+    // only — вариант 2: доступен только Halyk Bank; payModal / payTab / card* — окно оплаты Halyk Bank
+    let only = false;
+    try { only = localStorage.getItem('mp-pay-only') === '1'; } catch(e){}
+    this.state = { id:'ls', phase:'p1', open:null, only, ...this.fresh() };
   }
-  fresh(){ return { fee:null, method:null, pay:'none', mrp:true, poa:false, poaReq:false, sent:false, modal:false }; }
+  fresh(){ return { fee:null, method:null, pay:'none', mrp:true, poa:false, poaReq:false, sent:false, modal:false, ...this.freshPm() }; }
+  freshPm(){ return { payModal:false, payTab:'qr', cardNo:'', cardExp:'', cardCvc:'', cardBusy:false }; }
   componentDidMount(){
     this.readHash();
     this._onHash = () => this.readHash();
+    this._onKey = (e) => { if(e.key === 'Escape' && (this.state.modal || this.state.payModal)) this.setState({ modal:false, payModal:false }); };
     window.addEventListener('hashchange', this._onHash);
+    window.addEventListener('keydown', this._onKey);
   }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); clearTimeout(this._payTimer); }
+  componentWillUnmount(){
+    window.removeEventListener('hashchange', this._onHash);
+    window.removeEventListener('keydown', this._onKey);
+    this.stopTimers();
+  }
+  stopTimers(){ clearTimeout(this._payTimer); clearTimeout(this._cardTimer); }
 
   readHash(){
     const id = (location.hash || '').replace('#','') === 'mi' ? 'mi' : 'ls';
     let phase = id === 'mi' ? 'p45' : 'p1';
     try { const v = localStorage.getItem('mp-proc-' + id); if(['p1','p2','p3','p45','done'].includes(v)) phase = v; } catch(e){}
-    clearTimeout(this._payTimer);
+    this.stopTimers();
     this.setState({ id, phase, open:null, ...this.fresh() });
   }
   setPhase(phase){
-    clearTimeout(this._payTimer);
+    this.stopTimers();
     this.setState({ phase, open:null, ...this.fresh() });
     try { localStorage.setItem('mp-proc-' + this.state.id, phase); } catch(e){}
   }
+  // способ оплаты с учётом варианта: в варианте 2 он единственный и выбран сразу
+  method(){ return this.state.only ? 'halyk' : this.state.method; }
+  setOnly(only){
+    if(only === this.state.only) return;
+    this.stopTimers();
+    this.setState({ only, method:null, pay:'none', ...this.freshPm() });
+    try { localStorage.setItem('mp-pay-only', only ? '1' : '0'); } catch(e){}
+  }
   // «Перейти к оплате»: ЕО создаёт платёж и запрашивает ссылку в выбранном банке (ПШЭП — UC9.16,
-  // Halyk Bank — отдельная интеграция), страница оплаты открывается в новой вкладке. Статус обновляется
-  // по уведомлению банка (ПШЭП — callback UC9.15) опросом ЕО, без кнопки «Обновить».
-  // В прототипе ответ банка и уведомление эмулируются панелью «Платёж».
+  // Halyk Bank — отдельная интеграция). ПШЭП открывает свою страницу в новой вкладке, Halyk Bank —
+  // окно оплаты на портале (QR-код или карта). Статус обновляется по уведомлению банка (ПШЭП —
+  // callback UC9.15) опросом ЕО, без кнопки «Обновить». В прототипе — панель «Платёж».
   startPay(){
-    const { fee, method, mrp, pay } = this.state;
+    const { fee, mrp, pay } = this.state, method = this.method();
     if(!fee || fee === 'free' || !method || !mrp) return;
-    if(pay === 'pending') return;                         // та же ссылка, новый платёж не создаётся
+    if(pay === 'pending'){                                // тот же платёж, новый не создаётся
+      if(method === 'halyk') this.setState({ payModal:true });
+      return;
+    }
     if(pay !== 'none' && pay !== 'error') return;
     clearTimeout(this._payTimer);
     this.setState({ pay:'created' });
-    this._payTimer = setTimeout(() => this.setState({ pay:'pending' }), 1600);
+    this._payTimer = setTimeout(() => this.setState({ pay:'pending', payModal: method === 'halyk', payTab:'qr' }), 1600);
+  }
+  // оплата картой в окне Halyk Bank: банк списывает сумму и присылает уведомление
+  payByCard(){
+    if(this.state.cardBusy) return;
+    this.setState({ cardBusy:true });
+    this._cardTimer = setTimeout(() => this.setState({ cardBusy:false, pay:'paid' }), 1600);
   }
   demoSetPay(pay){
-    clearTimeout(this._payTimer);
+    this.stopTimers();
     const s = this.state;
-    if(pay === 'none') return this.setState({ pay });
-    this.setState({ pay, fee: s.fee && s.fee !== 'free' ? s.fee : 'reg', method: s.method || 'pshep', mrp: pay === 'error' ? s.mrp : true });
+    // окно Halyk Bank остаётся открытым, пока платёж существует; иначе закрывается
+    const keep = s.payModal && ['pending','hold','paid','check'].includes(pay);
+    const pm = { payModal: keep, cardBusy:false };
+    if(pay === 'none') return this.setState({ pay, ...pm });
+    this.setState({ pay, ...pm, fee: s.fee && s.fee !== 'free' ? s.fee : 'reg', method: s.method || 'pshep', mrp: pay === 'error' ? s.mrp : true });
+  }
+  // Псевдо-QR для прототипа: 29×29 модулей (версия 3) — поисковые и выравнивающий узоры, тайминг,
+  // данные из детерминированного ГПСЧ, центр свободен под знак банка
+  qrUrl(){
+    if(this._qr) return this._qr;
+    const N = 29, m = Array.from({ length:N }, () => Array(N).fill(null));
+    const finder = (r, c) => {
+      for(let i = -1; i <= 7; i++) for(let j = -1; j <= 7; j++){
+        const y = r + i, x = c + j;
+        if(y < 0 || x < 0 || y >= N || x >= N) continue;
+        m[y][x] = i >= 0 && i <= 6 && j >= 0 && j <= 6 && (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4));
+      }
+    };
+    finder(0, 0); finder(0, N - 7); finder(N - 7, 0);
+    for(let i = 8; i < N - 8; i++){ m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0; }
+    for(let i = -2; i <= 2; i++) for(let j = -2; j <= 2; j++) m[22 + i][22 + j] = Math.max(Math.abs(i), Math.abs(j)) !== 1;
+    let seed = 20260403;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    let d = '';
+    for(let y = 0; y < N; y++) for(let x = 0; x < N; x++){
+      let v = m[y][x];
+      if(v === null) v = y >= 11 && y <= 17 && x >= 11 && x <= 17 ? false : rnd() < .5;
+      if(v) d += `M${x} ${y}h1v1h-1z`;
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${N} ${N}" shape-rendering="crispEdges"><path fill="#0A0D14" d="${d}"/></svg>`;
+    // без «;charset» — строка стилей в dc-рантайме делится по «;»
+    return this._qr = 'data:image/svg+xml,' + encodeURIComponent(svg);
   }
   openList(){
     if(this.state.open) return this.state.open;
@@ -494,10 +683,17 @@ class Component extends DCLogic {
     // Количество МРП, процент комиссии и МРП года — конфигурация сервиса и справочник МРП (раздел 4)
     const MRP = 4325, MRP_YEAR = 2026, PAY_DATE = '03.04.2026';
     const FEES = { reg:['На регистрацию', 11], rereg:['На перерегистрацию', 5], free:['Внесение изменений', 0] };
+    // название и подпись — по замечаниям к дизайну блока оплаты; комиссию ПШЭП берёт банк на странице оплаты
     const METHODS = {
-      pshep:{ title:'ПШЭП', full:'Платёжный шлюз «электронного правительства»', pct:0, icon:'ri-government-line', bg:'var(--primary-lighter)', fg:'var(--primary)' },
-      halyk:{ title:'Halyk Bank', full:'Halyk Bank', pct:4, icon:'ri-bank-line', bg:'var(--green-lighter)', fg:'#2D9F75' },
+      pshep:{ title:'Платежный шлюз электронного правительства', sub:'Банк может взимать комиссию на странице оплаты', pct:0,
+        via:'платежный шлюз электронного правительства', site:'Откроется на странице платежного шлюза', logo:'assets/epay-mark.png' },
+      halyk:{ title:'Halyk Bank', sub:'Комиссия банка 4%', pct:4,
+        via:'Halyk Bank', site:'Откроется на сайте Halyk Bank', logo:'assets/halyk-logo.svg' },
     };
+    // пропорции логотипов: знак e-pay 210×61, Halyk Bank — viewBox 164×45.5
+    const RATIO = { pshep:'210 / 61', halyk:'164 / 45.5' };
+    const logoStyle = (id, dim) => `aspect-ratio:${RATIO[id]};background-image:url(${METHODS[id].logo});opacity:${dim ? .5 : 1};`;
+    const method = this.method();
     const money = (n) => n.toLocaleString('ru-RU') + ' ₸';
     const calc = (fee, method) => {
       const base = MRP * FEES[fee][1], com = Math.round(base * METHODS[method].pct / 100);
@@ -524,19 +720,18 @@ class Component extends DCLogic {
       onPick: () => { if(!selLocked) this.setState({ fee:id }); },
     }));
     const methodOptions = () => Object.entries(METHODS).map(([id, m]) => ({
-      title: m.title, sub: m.pct ? `Комиссия ${m.pct}%` : 'Без комиссии', ...radio(s.method === id, selLocked),
-      tip: selLocked ? lockTip : m.full,
+      title: m.title, sub: m.sub, ...radio(s.method === id, selLocked),
+      tip: selLocked ? lockTip : '',
       onPick: () => { if(!selLocked) this.setState({ method:id }); },
-      tileStyle:`width:32px;height:32px;border-radius:8px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${m.bg};opacity:${selLocked && s.method !== id ? .6 : 1};`,
-      tileIcon: m.icon, tileIconStyle:`font-size:18px;color:${m.fg};`,
+      logoStyle: logoStyle(id, selLocked && s.method !== id),
     }));
+    // ПШЭП — «Сумма пошлины» (комиссию, если есть, покажет банк), Halyk Bank — «Сумма к оплате» с комиссией
     const sumOf = (fee, method) => {
       const c = calc(fee, method), m = METHODS[method];
-      return { total: money(c.total),
-        note: m.pct ? `Комиссия ${m.pct}% · ${money(c.com)}` : 'Без комиссии',
-        noteStyle:`display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`
-          + (m.pct ? 'background:var(--n100);color:var(--n500);' : 'background:var(--green-lighter);color:#176448;'),
-        tip: `Пошлина ${FEES[fee][1]} МРП — ${money(c.base)}` + (m.pct ? `, комиссия ${m.title} ${m.pct}% — ${money(c.com)}` : '') };
+      return { label: m.pct ? 'Сумма к оплате' : 'Сумма пошлины', total: money(c.total),
+        hasNote: !!m.pct, note: m.pct ? `Комиссия ${m.pct}% · ${money(c.com)}` : '',
+        noteStyle:'display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;background:var(--n100);color:var(--n500);',
+        tip: `${FEES[fee][1]} × ${money(MRP)} — МРП ${MRP_YEAR} года` + (m.pct ? `, комиссия ${m.title} ${m.pct}% — ${money(c.com)}` : '') };
     };
     const PS = {
       pending:['#FEF3EB','ri-time-line','#F17B2C','Ожидается оплата государственной пошлины'],
@@ -548,10 +743,10 @@ class Component extends DCLogic {
       free:   ['#EEF2FF','ri-information-line','#4D42E9','Оплата государственной пошлины не требуется'],
     };
     const payStatus = (key, method) => {
-      const T = PS[key], bank = method ? METHODS[method].title : '';
+      const T = PS[key], m = method ? METHODS[method] : null;
       return { text:T[3], icon:T[1], paid: key === 'paid',
-        tip: key === 'paid' && bank ? `Оплачено ${PAY_DATE} через ${bank}` : '',
-        checkTip: bank ? `Откроется на сайте ${bank}` : '',
+        tip: key === 'paid' && m ? `Оплачено ${PAY_DATE} через ${m.via}` : '',
+        checkTip: m ? m.site : '',
         style:`display:inline-flex;align-items:flex-start;align-self:flex-start;gap:8px;max-width:100%;padding:8px 10px;border-radius:8px;background:${T[0]};font-size:14px;line-height:20px;letter-spacing:-.006em;color:#0A0D14;animation:mp-fade .2s ease;`,
         iconStyle:`font-size:20px;color:${T[2]};flex:0 0 auto;${key === 'hold' ? 'animation:mp-spin 1.4s linear infinite;' : ''}` };
     };
@@ -559,24 +754,25 @@ class Component extends DCLogic {
       + (on || busy ? `background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);cursor:${busy ? 'progress' : 'pointer'};${busy ? 'opacity:.72;' : ''}`
                     : 'background:var(--n100);color:var(--n400);box-shadow:none;cursor:not-allowed;');
     const feeWork = (b) => {
-      const isFree = s.fee === 'free', paying = !!s.fee && !isFree, ready = paying && !!s.method;
+      const isFree = s.fee === 'free', paying = !!s.fee && !isFree, ready = paying && !!method;
       const mrpErr = ready && !s.mrp && ['none','error'].includes(s.pay);   // нет МРП на текущий год — платёж не создаётся
       const busy = s.pay === 'created', paid = s.pay === 'paid';
       const payOn = ready && !mrpErr && ['none','pending','error'].includes(s.pay);
       const sendOn = (!s.poaReq || s.poa) && (isFree || (paying && paid));
       const psKey = mrpErr ? 'mrp' : paying && PS[s.pay] ? s.pay : null;
-      const bank = s.method ? METHODS[s.method].title : '';
+      const tab = method === 'pshep' ? (s.pay === 'pending' ? 'Откроется та же страница оплаты' : 'Страница оплаты откроется в новой вкладке') : '';
+      const one = METHODS.halyk;
       Object.assign(b, {
         hasFee:true, fees: feeOptions(), isFree, req: String(!selLocked), star: selLocked ? '' : '*',
         feeLabel: selLocked ? 'Вид пошлины' : 'Выберите вид пошлины', methodLabel: selLocked ? 'Способ оплаты' : 'Выберите способ оплаты', freeNote: payStatus('free'),
-        hasMethod: paying, methods: methodOptions(),
-        hasPayRow: !isFree, hasSum: ready && !mrpErr, sum: ready ? sumOf(s.fee, s.method) : b.sum,
+        hasMethod: paying && !s.only, methods: methodOptions(),
+        hasOneMethod: paying && s.only, one: { title: one.title, sub: one.sub, logoStyle: logoStyle('halyk', false) },
+        hasPayRow: !isFree, hasSum: ready && !mrpErr, sum: ready ? sumOf(s.fee, method) : b.sum,
         payLoading: busy, payOff: String(!payOn), payBusy: String(busy),
-        payTip: busy ? '' : !s.fee ? 'Выберите вид пошлины' : !s.method ? 'Выберите способ оплаты' : mrpErr ? ''
-          : s.pay === 'pending' ? `Откроется та же страница оплаты ${bank}` : payOn ? `Страница оплаты ${bank} откроется в новой вкладке` : '',
+        payTip: busy ? '' : !s.fee ? 'Выберите вид пошлины' : !method ? 'Выберите способ оплаты' : mrpErr ? '' : payOn ? tab : '',
         payStyle: btn(payOn, busy),
         onPay: () => { if(payOn) this.startPay(); },
-        hasPs: !!psKey, ps: payStatus(psKey || 'free', s.method),
+        hasPs: !!psKey, ps: payStatus(psKey || 'free', method),
         hasSend:true, sendOff: String(!sendOn), sendStyle: btn(sendOn, false),
         sendTip: sendOn ? '' : !s.fee ? 'Выберите вид пошлины' : !(isFree || paid) ? 'Станет доступна после оплаты пошлины' : 'Загрузите доверенность',
         onSend: () => { if(sendOn) this.setState({ modal:true }); },
@@ -595,7 +791,8 @@ class Component extends DCLogic {
     const body = (st, status) => {
       const b = { bannersTop:[], bannersBottom:[], steps:[], slots:[], hasSend:false, cards:[], hasGo:false,
         hasFee:false, fees:[], req:'false', star:'', feeLabel:'', methodLabel:'', isFree:false, freeNote:payStatus('free'), hasMethod:false, methods:[],
-        hasPayRow:false, hasSum:false, sum:{ total:'', note:'', noteStyle:'', tip:'' },
+        hasOneMethod:false, one:{ title:'', sub:'', logoStyle:'' },
+        hasPayRow:false, hasSum:false, sum:{ label:'', total:'', hasNote:false, note:'', noteStyle:'', tip:'' },
         payLoading:false, payOff:'true', payBusy:'false', payTip:'', payStyle:'', onPay:noop, hasPs:false, ps:payStatus('free'),
         hasFeeResult:false, feeFacts:[], sendOff:'true', sendTip:'', sendStyle:'', onSend:noop };
       if(st.kind === 'expert'){
@@ -615,7 +812,7 @@ class Component extends DCLogic {
         } else {
           const done = status === 'done';
           if(!done) b.bannersTop = [banner('ok', 'Отправлено — ' + PAY_DATE + '. Этап 3 будет запущен автоматически.')];
-          feeResult(b, done ? 'reg' : s.fee, done ? 'pshep' : s.method);
+          feeResult(b, done ? 'reg' : s.fee, done && !s.only ? 'pshep' : method);
           if(done || s.poa) b.cards = [card(FILE, 'PDF ∙ 1.2 МБ ∙ ' + PAY_DATE, 'Скачать', 'Доверенность', ' (Для иностранных производителей)')];
         }
       }
@@ -670,6 +867,44 @@ class Component extends DCLogic {
       current = { icon:st.icon, title:st.title, nums:[idx] };
     }
 
+    // окно оплаты Halyk Bank: QR-код или карта → «Пошлина оплачена»
+    const pmSum = s.fee && s.fee !== 'free' ? sumOf(s.fee, 'halyk') : sumOf('reg', 'halyk');
+    const no = s.cardNo, exp = s.cardExp, cvc = s.cardCvc;
+    const mm = +exp.slice(0, 2), yy = +exp.slice(2), now = new Date();
+    const expBad = (exp.length >= 2 && (mm < 1 || mm > 12))
+      || (exp.length === 4 && (2000 + yy) * 12 + mm < now.getFullYear() * 12 + now.getMonth() + 1);
+    const cardOk = no.length === 16 && exp.length === 4 && !expBad && cvc.length === 3;
+    const WAIT = { pending:['Ожидается оплата','#FEF3EB','#F17B2C',true], hold:['Платеж обрабатывается','#EEF2FF','#4D42E9',true],
+                   check:['Платеж проверяется','#FEF3EB','#F17B2C',false] }[s.pay] || ['Ожидается оплата','#FEF3EB','#F17B2C',true];
+    const digits = (e, n) => String(e && e.target ? e.target.value : '').replace(/\D/g, '').slice(0, n);
+    const pm = {
+      open: s.payModal && method === 'halyk',
+      form: s.pay !== 'paid', done: s.pay === 'paid',
+      total: pmSum.total, note: pmSum.note, noteStyle: pmSum.noteStyle, sumTip: pmSum.tip,
+      tabs: [['qr','QR-код'], ['card','Банковская карта']].map(([id, label]) => ({ label, selected: String(s.payTab === id),
+        style: s.payTab === id ? 'background:#fff;color:var(--n900);box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:var(--n500);',
+        onClick: () => this.setState({ payTab:id }) })),
+      isQr: s.payTab === 'qr', isCard: s.payTab === 'card',
+      qrStyle:`width:174px;height:174px;background:url("${this.qrUrl()}") center/174px 174px no-repeat;image-rendering:pixelated;`,
+      waitText: WAIT[0],
+      waitStyle:`display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border-radius:999px;background:${WAIT[1]};font-size:12px;line-height:16px;font-weight:500;color:var(--n900);`,
+      waitDot:`width:6px;height:6px;border-radius:50%;background:${WAIT[2]};${WAIT[3] ? 'animation:mp-pulse 1.4s ease-in-out infinite;' : ''}`,
+      cardNo: no.replace(/(\d{4})(?=\d)/g, '$1 '),
+      cardExp: exp.length > 2 ? exp.slice(0, 2) + '/' + exp.slice(2) : exp,
+      cardCvc: cvc,
+      onCardNo: (e) => this.setState({ cardNo: digits(e, 16) }),
+      onCardExp: (e) => { let v = digits(e, 4); if(v.length === 1 && +v > 1) v = '0' + v; this.setState({ cardExp: v }); },
+      onCardCvc: (e) => this.setState({ cardCvc: digits(e, 3) }),
+      expErr: String(expBad), hasExpErr: expBad,
+      busy: s.cardBusy, payOff: String(!cardOk || s.cardBusy), payLabel: 'Оплатить ' + pmSum.total,
+      payTip: cardOk || s.cardBusy ? '' : 'Заполните данные карты',
+      payStyle:'width:100%;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;margin-top:auto;border:none;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;font-variant-numeric:tabular-nums;transition:background .15s;'
+        + (cardOk || s.cardBusy ? `background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);cursor:${s.cardBusy ? 'progress' : 'pointer'};${s.cardBusy ? 'opacity:.72;' : ''}`
+                                : 'background:var(--n100);color:var(--n400);cursor:not-allowed;'),
+      onPay: () => { if(cardOk) this.payByCard(); },
+      onClose: () => this.setState({ payModal:false }),
+    };
+
     const seg = (on) => `height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     const demoProc = [['ls','ЛС'], ['mi','МИ']].map(([id, label]) => ({ label, style:seg(s.id === id), onClick: () => { location.hash = id; } }));
     const demoPhase = [['p1','Этап 1'], ['p2','Этап 2'], ['p3','Этап 3'], ['p45', s.id === 'ls' ? 'Этапы 4–5' : 'Этап 4'], ['done','Завершён']]
@@ -688,7 +923,9 @@ class Component extends DCLogic {
       stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
       confirmSend: () => this.setState({ modal:false, sent:true }),
       demoProc, demoPhase,
+      pm,
       demoFeeOn: phase === 'p2' && !s.sent,
+      demoOnly: [[false,'ПШЭП и Halyk Bank'], [true,'Только Halyk Bank']].map(([v, label]) => ({ label, style:seg(s.only === v), onClick: () => this.setOnly(v) })),
       demoPay: [['none','Не создан'], ['created','Создан'], ['pending','Ожидает'], ['hold','Удержан'], ['paid','Оплачен'], ['error','Ошибка'], ['check','Проверка']]
         .map(([id, label]) => ({ label, style:seg(s.pay === id), onClick: () => this.demoSetPay(id) })),
       demoMrp: [[true,'Есть'], [false,'Нет']].map(([v, label]) => ({ label, style:seg(s.mrp === v), onClick: () => this.setState({ mrp:v }) })),
