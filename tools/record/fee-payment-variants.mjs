@@ -16,7 +16,7 @@ export const fileName = '18. Кабинет бизнеса — оплата го
 export const start = 'Процесс.dc.html';
 
 export default async function record(ctx) {
-  const { page, sleep, say, caption, title: card, click, point, waitText, open, section, type } = ctx;
+  const { page, sleep, say, caption, title: card, click, point, waitText, open, section, type, clearField } = ctx;
 
   const sim = async (label) => {
     await page.evaluate((t) => {
@@ -62,9 +62,12 @@ export default async function record(ctx) {
     await click('Банковская карта', '[role="tab"]');
     await say('Банковская карта', 'Или ввести данные карты. Высота окна не меняется при переключении', 4200);
     await type('input[autocomplete="cc-number"]', '4400430012345678', 60);
+    await type('input[autocomplete="cc-exp"]', '13', 160);
+    await say('Проверка срока', 'Номер группируется по 4 цифры. Месяца 13 не бывает — поле подсвечивается сразу, «Оплатить» неактивна', 5200);
+    await clearField('input[autocomplete="cc-exp"]');
     await type('input[autocomplete="cc-exp"]', '0828', 110);
     await type('input[autocomplete="cc-csc"]', '123', 110);
-    await say('Данные карты', 'Номер группируется по 4 цифры, срок — ММ/ГГ, неверный или истёкший срок подсвечивается сразу', 5200);
+    await say('Данные карты', 'Срок в формате ММ/ГГ, CVC скрыт. Все поля заполнены — «Оплатить 49 478 ₸» активна', 4800);
     await click('Оплатить', 'button');
     await waitText('Пошлина оплачена', 6000);
     await say('Оплачено', 'Банк подтвердил платёж — в окне итог, «Готово» закрывает его', 4400);
