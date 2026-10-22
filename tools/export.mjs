@@ -177,8 +177,8 @@ const FETCH_SHIM = `
 `;
 
 const GROUPS = [
-  { title: 'Новая главная · варианты', desc: 'Семь вариантов главной, 10 палитр бренда и заставки — начните с витрины', icon: 'ri-layout-masonry-line', pages: [
-    'Главная - варианты', 'Главная A - Ясный', 'Главная B - Стекло', 'Главная C - Жизненные ситуации', 'Главная D - Официальный', 'Главная E - AI-помощник', 'Главная F - Портал услуг', 'Главная G - Строгий' ] },
+  { title: 'Новая главная · варианты', desc: 'Девять вариантов главной, 10 палитр бренда и заставки — начните с витрины', icon: 'ri-layout-masonry-line', pages: [
+    'Главная - варианты', 'Главная A - Ясный', 'Главная B - Стекло', 'Главная C - Жизненные ситуации', 'Главная D - Официальный', 'Главная E - AI-помощник', 'Главная F - Портал услуг', 'Главная G - Строгий', 'Главная H - Витрина', 'Главная I - Премиум' ] },
   { title: 'Портал', desc: 'Публичная часть для граждан, бизнеса и медперсонала', icon: 'ri-government-line', pages: [
     'Портал Минздрава - Главная', 'Вход', 'Паспорт услуги', 'Каталог услуг', 'Медорганизации', 'ОСМС', 'Лекарства',
     'Заболевания', 'Вакцинация', 'Беременность', 'Здоровье детей', 'Экстренная помощь', 'Новости',
@@ -192,7 +192,7 @@ const GROUPS = [
   { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Личная медицинская карта', 'Профиль врача', 'Кабинет врача' ] },
   { title: 'Компоненты', desc: 'Общие блоки и витрины компонентов дизайн-системы', icon: 'ri-shapes-line', pages: [
     'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'EdSign', 'EdData', 'EdArm', 'EdDocView', 'ArmHeader', 'ArmNav', 'ArmNotifications', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast', 'EpzAmbulatory',
-    'HomeData', 'PortalHeader', 'PortalFooter', 'SearchBox', 'AiPanel', 'HomeFaq', 'HomeNews', 'Splash', 'ThemeKit' ] },
+    'HomeData', 'PortalHeader', 'PortalFooter', 'SearchBox', 'AiPanel', 'HomeFaq', 'HomeNews', 'Splash', 'ThemeKit', 'HomeArt', 'HomeBanners', 'HomeAssist' ] },
 ];
 
 function indexHtml(pages) {

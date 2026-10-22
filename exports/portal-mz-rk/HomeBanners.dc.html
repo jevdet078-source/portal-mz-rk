@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Баннеры услуг на первом экране — карусель с автопрокруткой (варианты главной H и I).
+  <dc-import name="HomeBanners" look="light | deck" hint-size="100%,560px">
+    light — светлые плашки в тон услуги, смена — плавным наплывом; под баннером подписанные вкладки-таймеры
+            (видно, что ещё есть в карусели и когда она переключится — как у BCC и Альфа-Банка)
+    deck  — «колода»: глубокие цветные карточки, следующие выглядывают сверху; сегменты-таймеры и счётчик внутри
+  Контент — mpArt.banners(role) из HomeArt (ключевые услуги роли), роль следует за шапкой.
+
+  Поведение (WCAG 2.2.2, APG Carousel):
+    • смена каждые 7 с; полоска-таймер заполняется и сама переключает слайд (событие animationend);
+    • пауза при наведении мыши, при фокусе с клавиатуры, в фоновой вкладке; кнопка «Остановить / Включить автопрокрутку»;
+    • при «уменьшить движение» автопрокрутка выключена изначально, переходы без анимации;
+    • стрелки, ←/→ с клавиатуры, свайп на телефоне; скрытые слайды убраны из фокуса и от экранного диктора;
+    • вся плашка — ссылка на услугу (кнопка растянута на плашку), внешний сайт — значок и подсказка.
+-->
+<x-dc>
+<helmet>
+<style>
+  /* обёртка dc-import (div.sc-host) тянется на высоту ячейки страницы */
+  .sc-host:has(> .hb){ height:100%; }
+  .hb{ --hb-dur:7s; position:relative; display:flex; flex-direction:column; gap:14px; height:100%; min-height:0; font-family:'Inter',system-ui,sans-serif; }
+  .hb *, .hb *::before, .hb *::after{ box-sizing:border-box; }
+  .hb-stage{ position:relative; flex:1 1 auto; min-height:0; container-type:size; touch-action:pan-y; -webkit-tap-highlight-color:transparent; }
+  .hb-slide{ position:absolute; inset:0; overflow:hidden; isolation:isolate; border-radius:28px; display:flex; flex-direction:column; justify-content:center; padding:clamp(28px,2.8vw,56px); }
+  .hb-copy{ position:relative; z-index:2; max-width:min(50%, 560px); display:flex; flex-direction:column; align-items:flex-start; }
+  .hb-tag{ display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px; margin-bottom:18px; border-radius:999px; font-size:13px; font-weight:600; letter-spacing:-.003em; }
+  .hb-tag i{ font-size:15px; }
+  .hb-title{ margin:0; font-size:clamp(26px,5.2cqi,56px); line-height:1.08; font-weight:600; letter-spacing:-.032em; text-wrap:balance; -webkit-hyphens:auto; hyphens:auto; }
+  .hb-sub{ margin:16px 0 0; font-size:clamp(15px,2.15cqi,20px); line-height:1.5; max-width:34ch; text-wrap:pretty; }
+  .hb-cta{ position:static; display:inline-flex; align-items:center; gap:10px; height:52px; margin-top:clamp(22px,2.2vw,34px); padding:0 22px 0 24px; border-radius:14px; font-size:16px; font-weight:600; text-decoration:none; white-space:nowrap; transition:background .2s, box-shadow .2s, transform .2s; }
+  .hb-cta i{ font-size:19px; transition:transform .2s; }
+  .hb-cta:hover i{ transform:translateX(3px); }
+  .hb-cta i.ri-external-link-line{ font-size:17px; }
+  .hb-cta:hover i.ri-external-link-line{ transform:translate(2px,-2px); }
+  /* вся плашка кликабельна: псевдоэлемент кнопки растянут на слайд */
+  .hb-cta::after{ content:''; position:absolute; inset:0; z-index:1; border-radius:inherit; }
+  .hb-cta:focus-visible{ outline:3px solid currentColor; outline-offset:3px; }
+  .hb-art{ position:absolute; z-index:1; right:clamp(6px,2.4vw,48px); top:50%; width:min(46%, 86cqh, 520px); aspect-ratio:240/200; pointer-events:none; }
+
+  /* ——— кнопки ——— */
+  .hb-btns{ display:flex; gap:8px; flex:0 0 auto; }
+  .hb-btn{ width:44px; height:44px; border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; cursor:pointer; transition:background .15s, color .15s, transform .15s; }
+  .hb-btn:active{ transform:scale(.94); }
+
+  /* ================= LIGHT ================= */
+  .hb-light .hb-slide{ color:var(--n900); background:
+      radial-gradient(46% 66% at 76% 50%, rgba(255,255,255,.85), rgba(255,255,255,0) 72%),
+      radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--a2) 55%, transparent), transparent 70%),
+      linear-gradient(125deg, var(--bg1) 0%, var(--bg2) 55%, color-mix(in srgb, var(--a2) 45%, var(--bg2)) 100%);
+    opacity:0; visibility:hidden; transition:opacity .7s ease, visibility 0s linear .7s; }
+  .hb-light .hb-slide::before{ content:''; position:absolute; z-index:0; right:calc(clamp(6px,2.4vw,48px) + min(23.5%, 235px)); top:50%; width:min(64%, 560px); aspect-ratio:1; border-radius:50%;
+    transform:translate(50%,-50%); background:radial-gradient(closest-side, rgba(255,255,255,.75), rgba(255,255,255,0)); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.7); }
+  .hb-light .hb-slide::after{ content:''; position:absolute; z-index:0; right:calc(clamp(6px,2.4vw,48px) + min(23.5%, 235px)); top:50%; width:min(86%, 760px); aspect-ratio:1; border-radius:50%;
+    transform:translate(50%,-50%); box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.45); }
+  .hb-light .hb-slide.on{ opacity:1; visibility:visible; z-index:2; transition:opacity .7s ease; }
+  .hb-light .hb-title{ color:var(--n900); }
+  .hb-light .hb-sub{ color:var(--n600); }
+  .hb-light .hb-tag{ background:rgba(255,255,255,.75); color:var(--a5); box-shadow:inset 0 0 0 1px rgba(255,255,255,.9); }
+  .hb-light .hb-cta{ background:var(--a5); color:#fff; box-shadow:0 14px 28px -14px var(--a5); }
+  .hb-light .hb-cta:hover{ background:color-mix(in srgb, var(--a5) 86%, #fff); box-shadow:0 18px 32px -14px var(--a5); }
+  .hb-light .hb-cta:focus-visible{ outline-color:var(--a5); }
+  /* появление содержимого: текст поднимается по очереди, иллюстрация выплывает справа */
+  .hb-light .hb-copy > *{ opacity:0; transform:translateY(16px); transition:opacity .5s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .hb-light .hb-slide.on .hb-copy > *{ opacity:1; transform:none; }
+  .hb-light .hb-slide.on .hb-copy > *:nth-child(2){ transition-delay:.08s; } .hb-light .hb-slide.on .hb-copy > *:nth-child(3){ transition-delay:.16s; } .hb-light .hb-slide.on .hb-copy > *:nth-child(4){ transition-delay:.24s; }
+  .hb-light .hb-art{ opacity:0; transform:translate(36px,-50%) scale(.92); transition:opacity .6s ease, transform 1s cubic-bezier(.2,.7,.2,1); }
+  .hb-light .hb-slide.on .hb-art{ opacity:1; transform:translate(0,-50%); transition-delay:.1s; }
+
+  /* вкладки-таймеры под баннером + кнопки */
+  .hb-bar{ display:flex; align-items:center; gap:clamp(12px,1.4vw,24px); flex:0 0 auto; }
+  .hb-tabs{ flex:1 1 auto; min-width:0; display:flex; gap:clamp(10px,.9vw,16px); }
+  .hb-tab{ flex:1 1 auto; display:flex; flex-direction:column; align-items:stretch; gap:10px; min-width:0; padding:8px 0 4px; border:none; background:none; text-align:left; cursor:pointer; font:inherit; color:var(--n500); border-radius:6px; }
+  .hb-track{ position:relative; display:block; height:3px; border-radius:2px; background:var(--n200); overflow:hidden; }
+  .hb-tl{ font-size:14px; font-weight:500; line-height:1.25; letter-spacing:-.006em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .15s; }
+  .hb-tab:hover{ color:var(--n900); }
+  .hb-tab[aria-current="true"]{ color:var(--n900); }
+  .hb-tab[aria-current="true"] .hb-tl{ font-weight:600; }
+  .hb-light .hb-btn{ width:40px; height:40px; font-size:19px; background:var(--n100); color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .hb-light .hb-btn:hover{ background:var(--n0); color:var(--b700); box-shadow:inset 0 0 0 1px var(--b300); }
+
+  /* ——— полоска-таймер (общая) ——— */
+  .hb-fill{ position:absolute; left:0; top:0; bottom:0; width:0; border-radius:inherit; background:var(--b600); }
+  .hb-done .hb-fill{ width:100%; }
+  .hb-cur .hb-fill{ animation:hb-run-a var(--hb-dur) linear forwards; }
+  .hb-cur.kb .hb-fill{ animation-name:hb-run-b; }
+  @keyframes hb-run-a{ from{ width:0; } to{ width:100%; } }
+  @keyframes hb-run-b{ from{ width:0; } to{ width:100%; } }
+  /* пауза: наведение мыши, фокус с клавиатуры, фоновая вкладка, кнопка «Остановить» */
+  .hb.is-paused .hb-fill, .hb.is-hidden .hb-fill, .hb:has(:focus-visible) .hb-fill{ animation-play-state:paused; }
+  @media (hover:hover){ .hb:hover .hb-fill{ animation-play-state:paused; } }
+  .hb.is-still .hb-cur .hb-fill{ animation:none; width:100%; }
+
+  /* ================= DECK ================= */
+  .hb-deck .hb-stage{ margin-top:30px; }
+  .hb-deck .hb-slide{ color:#fff; border-radius:30px; transform-origin:50% 0; will-change:transform, opacity;
+    background:
+      radial-gradient(52% 78% at 80% 48%, color-mix(in srgb, var(--a3) 70%, transparent), transparent 72%),
+      radial-gradient(40% 50% at 100% 100%, color-mix(in srgb, var(--a4) 60%, transparent), transparent 70%),
+      linear-gradient(132deg, var(--a5) 0%, color-mix(in srgb, var(--a5) 80%, var(--a4)) 100%);
+    box-shadow:0 1px 0 rgba(255,255,255,.18) inset, 0 40px 80px -40px rgba(0,0,0,.6);
+    transition:transform .85s cubic-bezier(.2,.75,.2,1), opacity .6s ease, filter .6s ease; }
+  .hb-deck .hb-slide::after{ content:''; position:absolute; inset:0; z-index:3; border-radius:inherit; background:#0A0D14; opacity:0; pointer-events:none; transition:opacity .6s ease; }
+  .hb-deck .hb-slide.p0{ z-index:4; }
+  .hb-deck .hb-slide.p1{ z-index:3; transform:translateY(-16px) scale(.95); }
+  .hb-deck .hb-slide.p1::after{ opacity:.25; }
+  .hb-deck .hb-slide.p2{ z-index:2; transform:translateY(-30px) scale(.9); }
+  .hb-deck .hb-slide.p2::after{ opacity:.45; }
+  .hb-deck .hb-slide.px{ z-index:1; transform:translateY(-30px) scale(.9); opacity:0; }
+  .hb-deck .hb-slide.pout{ z-index:5; transform:translate(-14%, 24px) rotate(-5deg) scale(.96); opacity:0; pointer-events:none; }
+  .hb-deck .hb-slide:not(.p0) .hb-copy, .hb-deck .hb-slide:not(.p0) .hb-art{ visibility:hidden; opacity:0; }
+  .hb-deck .hb-copy, .hb-deck .hb-art{ transition:opacity .5s ease .15s, visibility 0s; }
+  .hb-deck .hb-copy{ padding-bottom:58px; }
+  .hb-deck .hb-art{ transform:translateY(-58%); }
+  .hb-deck .hb-title{ color:#fff; }
+  .hb-deck .hb-sub{ color:rgba(255,255,255,.82); }
+  .hb-deck .hb-tag{ background:rgba(255,255,255,.14); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); }
+  .hb-deck .hb-cta{ background:#fff; color:var(--a5); box-shadow:0 16px 30px -16px rgba(0,0,0,.6); }
+  .hb-deck .hb-cta:hover{ background:color-mix(in srgb, var(--a1) 35%, #fff); }
+  .hb-deck .hb-cta:focus-visible{ outline-color:#fff; }
+  /* управление внутри передней карточки */
+  .hb-ctrl{ position:absolute; z-index:6; left:clamp(28px,2.8vw,56px); right:clamp(20px,2vw,36px); bottom:clamp(20px,2vw,32px); display:flex; align-items:center; justify-content:space-between; gap:16px; pointer-events:none; }
+  .hb-ctrl > *{ pointer-events:auto; }
+  .hb-segs{ display:flex; align-items:center; gap:8px; }
+  .hb-seg{ position:relative; width:clamp(26px,2.4vw,40px); height:24px; padding:0; border:none; background:none; cursor:pointer; border-radius:4px; }
+  .hb-seg .hb-track{ position:absolute; left:0; right:0; top:50%; height:4px; margin-top:-2px; background:rgba(255,255,255,.26); }
+  .hb-deck .hb-fill{ background:#fff; }
+  .hb-count{ margin-left:8px; font-size:13px; font-weight:600; letter-spacing:.02em; color:rgba(255,255,255,.82); font-variant-numeric:tabular-nums; }
+  .hb-deck .hb-btn{ background:rgba(255,255,255,.14); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+  .hb-deck .hb-btn:hover{ background:rgba(255,255,255,.26); }
+  .hb-deck .hb-btn:focus-visible, .hb-seg:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  /* без градиентов */
+  html[data-fill="flat"] .hb-light .hb-slide{ background:var(--bg1); }
+  html[data-fill="flat"] .hb-light .hb-slide::before{ background:rgba(255,255,255,.6); }
+  html[data-fill="flat"] .hb-deck .hb-slide{ background:var(--a5); }
+
+  @media (prefers-reduced-motion:reduce){
+    .hb-slide, .hb-copy > *, .hb-art, .hb-copy{ transition:none !important; }
+  }
+  /* узкий баннер — подписи вкладок не помещаются: остаются полоски-таймеры (название — в aria-label) */
+  @media (max-width:1180px){
+    .hb-tl{ display:none; }
+    .hb-tab{ gap:0; padding:18px 0; }
+  }
+  @media (max-width:760px){
+    .hb-stage{ flex:none; height:clamp(390px, 104vw, 470px); }
+    .hb-slide{ justify-content:flex-start; padding:26px 22px; border-radius:24px; }
+    .hb-copy{ max-width:100%; }
+    .hb-title{ font-size:26px; }
+    .hb-sub{ font-size:15px; margin-top:10px; }
+    .hb-cta{ height:48px; margin-top:18px; font-size:15px; padding:0 18px 0 20px; }
+    .hb-art{ top:auto; bottom:10px; right:10px; width:min(52%, 230px); }
+    .hb-light .hb-art{ transform:translate(30px,0) scale(.92); }
+    .hb-light .hb-slide.on .hb-art{ transform:none; }
+    .hb-light .hb-slide::before, .hb-light .hb-slide::after{ top:auto; bottom:-10%; transform:translate(50%,0); right:30%; }
+    .hb-deck .hb-art{ transform:none; bottom:62px; width:min(50%, 220px); }
+    .hb-deck .hb-copy{ padding-bottom:0; }
+    .hb-tl{ display:none; }
+    .hb-tab{ gap:0; padding:12px 0; }
+    .hb-ctrl{ left:22px; right:14px; bottom:14px; gap:10px; }
+    .hb-segs{ gap:6px; }
+    .hb-seg{ width:20px; }
+    .hb-btns{ gap:6px; }
+    .hb-btn, .hb-light .hb-btn{ width:40px; height:40px; font-size:18px; }
+    .hb-count{ display:none; }
+  }
+</style>
+</helmet>
+
+<section class="{{ rootCls }}" ref="{{ rootRef }}" lang="ru" aria-roledescription="карусель" aria-label="Услуги портала">
+  <div class="hb-stage" ref="{{ stageRef }}" aria-live="{{ live }}">
+    <sc-for list="{{ slides }}" as="s" hint-placeholder-count="1">
+      <article class="{{ s.cls }}" style="{{ s.vars }}" role="group" aria-roledescription="слайд" aria-label="{{ s.label }}" aria-hidden="{{ s.hidden }}">
+        <div class="hb-copy">
+          <sc-if value="{{ s.hasTag }}" hint-placeholder-val="{{ false }}"><span class="hb-tag"><i class="ri-sparkling-2-fill"></i>{{ s.tag }}</span></sc-if>
+          <h2 class="hb-title">{{ s.title }}</h2>
+          <p class="hb-sub">{{ s.sub }}</p>
+          <a class="hb-cta" href="{{ s.href }}" target="{{ s.target }}" rel="noopener" tabIndex="{{ s.ti }}" data-tip="{{ s.tip }}">{{ s.cta }}<i class="{{ s.ctaIcon }}"></i></a>
+        </div>
+        <span class="{{ s.artCls }}" data-art="{{ s.art }}"></span>
+      </article>
+    </sc-for>
+    <sc-if value="{{ isDeck }}" hint-placeholder-val="{{ false }}">
+      <div class="hb-ctrl">
+        <div class="hb-segs">
+          <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+            <button type="button" class="{{ d.cls }}" aria-label="{{ d.aria }}" aria-current="{{ d.cur }}" onClick="{{ d.onClick }}"><span class="hb-track"><span class="hb-fill"></span></span></button>
+          </sc-for>
+          <span class="hb-count" aria-hidden="true">{{ counter }}</span>
+        </div>
+        <div class="hb-btns">
+          <button type="button" class="hb-btn" aria-label="{{ pauseLabel }}" data-tip="{{ pauseLabel }}" onClick="{{ toggle }}"><i class="{{ pauseIcon }}"></i></button>
+          <button type="button" class="hb-btn" aria-label="Предыдущий слайд" onClick="{{ prev }}"><i class="ri-arrow-left-line"></i></button>
+          <button type="button" class="hb-btn" aria-label="Следующий слайд" onClick="{{ next }}"><i class="ri-arrow-right-line"></i></button>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}">
+    <div class="hb-bar">
+      <div class="hb-tabs">
+        <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
+          <button type="button" class="{{ d.tabCls }}" aria-label="{{ d.aria }}" aria-current="{{ d.cur }}" onClick="{{ d.onClick }}"><span class="hb-track"><span class="hb-fill"></span></span><span class="hb-tl" aria-hidden="true">{{ d.tab }}</span></button>
+        </sc-for>
+      </div>
+      <div class="hb-btns">
+        <button type="button" class="hb-btn" aria-label="{{ pauseLabel }}" data-tip="{{ pauseLabel }}" onClick="{{ toggle }}"><i class="{{ pauseIcon }}"></i></button>
+        <button type="button" class="hb-btn" aria-label="Предыдущий слайд" onClick="{{ prev }}"><i class="ri-arrow-left-line"></i></button>
+        <button type="button" class="hb-btn" aria-label="Следующий слайд" onClick="{{ next }}"><i class="ri-arrow-right-line"></i></button>
+      </div>
+    </div>
+  </sc-if>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:860,&quot;height&quot;:620}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const calm = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } };
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.rootRef = React.createRef(); this.stageRef = React.createRef();
+    // «уменьшить движение» — автопрокрутка выключена, пока человек сам её не включит
+    this.state = { role: lsRole(), i:0, k:0, paused: calm(), hidden:false, tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.setState({ tick:Date.now(), role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    window.addEventListener('mp-art-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail, i:0, k:this.state.k + 1 }); };
+    window.addEventListener('mp-role-change', this._role);
+    this._vis = () => this.setState({ hidden: document.hidden });
+    document.addEventListener('visibilitychange', this._vis);
+    const root = this.rootRef.current, stage = this.stageRef.current;
+    // полоска-таймер дошла до конца — следующий слайд
+    this._end = (e) => { if(/^hb-run/.test(e.animationName)) this.go(this.state.i + 1); };
+    this._key = (e) => {
+      if(e.target && e.target.closest && e.target.closest('input,textarea')) return;
+      if(e.key === 'ArrowRight'){ e.preventDefault(); this.go(this.state.i + 1); }
+      else if(e.key === 'ArrowLeft'){ e.preventDefault(); this.go(this.state.i - 1); }
+    };
+    // свайп пальцем; после свайпа клик по плашке не открывает услугу
+    this._pd = (e) => { if(e.pointerType === 'mouse') return; this._sx = e.clientX; this._sy = e.clientY; };
+    this._pu = (e) => {
+      if(this._sx == null) return;
+      const dx = e.clientX - this._sx, dy = e.clientY - this._sy; this._sx = null;
+      if(Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.3){ this._swiped = Date.now(); this.go(this.state.i + (dx < 0 ? 1 : -1)); }
+    };
+    this._clk = (e) => { if(this._swiped && Date.now() - this._swiped < 450){ e.preventDefault(); e.stopPropagation(); } };
+    if(root){ root.addEventListener('animationend', this._end); root.addEventListener('keydown', this._key); }
+    if(stage){ stage.addEventListener('pointerdown', this._pd); stage.addEventListener('pointerup', this._pu); stage.addEventListener('pointercancel', () => { this._sx = null; }); stage.addEventListener('click', this._clk, true); }
+    this.paint();
+  }
+  componentDidUpdate(){ this.paint(); }
+  componentWillUnmount(){
+    window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready);
+    window.removeEventListener('mp-role-change', this._role); document.removeEventListener('visibilitychange', this._vis);
+  }
+  paint(){ if(window.mpArt) window.mpArt.paint(this.rootRef.current); }
+  list(){ return (window.mpArt && window.mpHome) ? window.mpArt.banners(this.state.role) : []; }
+  go(n){
+    const N = this.list().length; if(!N) return;
+    this.setState({ i: ((n % N) + N) % N, k: this.state.k + 1 });
+  }
+  renderVals(){
+    const s = this.state, look = this.props.look === 'deck' ? 'deck' : 'light', deck = look === 'deck';
+    const list = this.list(), N = list.length, i = Math.min(s.i, Math.max(0, N - 1));
+    const still = s.paused || N < 2;
+    const pos = (idx) => { const o = (idx - i + N) % N; return o === 0 ? 'p0' : o === N - 1 && N > 2 ? 'pout' : o === 1 ? 'p1' : o === 2 ? 'p2' : 'px'; };
+    const slides = list.map((b, idx) => {
+      const on = idx === i;
+      return { ...b, hasTag: !!b.tag, hidden: on ? 'false' : 'true', ti: on ? 0 : -1,
+        label: (idx + 1) + ' из ' + N + ': ' + b.title,
+        cls: 'hb-slide ' + (deck ? pos(idx) : (on ? 'on' : 'off')),
+        artCls: 'art hb-art' + (on ? ' float' : ''),
+        ctaIcon: b.ext ? 'ri-external-link-line' : 'ri-arrow-right-line' };
+    });
+    const kc = s.k % 2 ? ' kb' : ' ka';
+    const dots = list.map((b, idx) => {
+      const st = idx === i ? ' hb-cur' + kc : (deck && idx < i ? ' hb-done' : '');
+      return { tab: b.tab, cur: idx === i ? 'true' : 'false', aria: 'Слайд ' + (idx + 1) + ' из ' + N + ': ' + b.tab,
+        cls: 'hb-seg' + st, tabCls: 'hb-tab' + st, onClick: () => this.go(idx) };
+    });
+    const pad = (x) => String(x).padStart(2, '0');
+    return {
+      rootRef: this.rootRef, stageRef: this.stageRef,
+      rootCls: 'hb hb-' + look + (s.paused ? ' is-paused' : '') + (s.hidden ? ' is-hidden' : '') + (still ? ' is-still' : ''),
+      isDeck: deck, isLight: !deck,
+      live: still ? 'polite' : 'off',
+      slides, dots, counter: pad(i + 1) + ' / ' + pad(N),
+      pauseLabel: s.paused ? 'Включить автопрокрутку' : 'Остановить автопрокрутку',
+      pauseIcon: s.paused ? 'ri-play-line' : 'ri-pause-line',
+      toggle: () => this.setState({ paused: !s.paused, k: s.k + 1 }),
+      prev: () => this.go(i - 1), next: () => this.go(i + 1),
+    };
+  }
+}
+</script>
+</body>
+</html>

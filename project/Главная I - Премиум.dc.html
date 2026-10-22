@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Главная · вариант I «Премиум» (по итогам показа руководству 22.10.2026, пара к H «Витрина»).
+  Статусный тёмный первый экран в глубоком цвете бренда под стеклянной шапкой: слева — AI-помощник прямо на фоне
+  (крупное приветствие, стеклянные строки, белое поле), справа — «колода» насыщенных баннеров ключевых услуг:
+  следующие карточки выглядывают сверху, смена каждые 7 с, сегменты-таймеры и счётчик внутри карточки.
+  Ниже, на белом, — остальные услуги высокими цветными карточками с 3D-объектами (как у Forte и Halyk),
+  разделы портала строками, новости (редакционная подача), FAQ.
+  Общие блоки: HomeData, HomeArt, PortalHeader (glass), HomeAssist (dark), HomeBanners (deck), HomeNews, HomeFaq, PortalFooter, AiPanel, Splash, ThemeKit.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+  .hm-root{ --hdr:72px; }
+  .vi-top{ position:sticky; top:0; z-index:40; height:var(--hdr); }
+
+  /* ——— ПЕРВЫЙ ЭКРАН: глубокий цвет бренда, сияние, орнамент ——— */
+  .vi-hero{ position:relative; isolation:isolate; overflow:hidden; margin-top:calc(-1 * var(--hdr)); padding-top:var(--hdr); color:#fff;
+    border-radius:0 0 clamp(28px,3vw,48px) clamp(28px,3vw,48px);
+    background:
+      radial-gradient(48% 62% at 12% 8%, color-mix(in srgb, var(--b600) 62%, transparent), transparent 72%),
+      radial-gradient(36% 46% at 92% 6%, color-mix(in srgb, var(--bacc) 24%, transparent), transparent 70%),
+      radial-gradient(62% 56% at 64% 112%, color-mix(in srgb, var(--b500) 46%, transparent), transparent 72%),
+      linear-gradient(180deg, var(--b950), color-mix(in srgb, var(--b950) 80%, var(--b900)));
+  }
+  /* орнамент — едва заметной фактурой и только по краям, чтобы не спорить с баннерами */
+  .vi-hero .hm-orn{ z-index:-1; background:#fff; opacity:.03; -webkit-mask-image:var(--hm-orn), radial-gradient(70% 80% at 40% 50%, transparent 35%, #000 85%); mask-image:var(--hm-orn), radial-gradient(70% 80% at 40% 50%, transparent 35%, #000 85%); -webkit-mask-size:150px, 100% 100%; mask-size:150px, 100% 100%; -webkit-mask-repeat:repeat, no-repeat; mask-repeat:repeat, no-repeat; -webkit-mask-composite:source-in; mask-composite:intersect; }
+  .vi-hero::after{ content:''; position:absolute; z-index:-1; left:0; right:0; top:var(--hdr); height:1px; background:linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent); }
+  .vi-grid{ display:grid; grid-template-columns:minmax(360px,5fr) minmax(0,7fr); gap:clamp(24px,3vw,64px);
+    height:clamp(540px, calc(100svh - var(--hdr) - 100px), 760px); padding-block:clamp(14px,1.6vw,28px) clamp(32px,3vw,56px); }
+  .vi-grid > *{ min-width:0; min-height:0; }
+  .vi-ai{ padding-top:clamp(8px,1vw,18px); }
+  html[data-fill="flat"] .vi-hero{ background:var(--b950); }
+  html[data-fill="flat"] .vi-hero::after{ display:none; }
+  html[data-fill="pastel"] .vi-hero{ background:var(--pg-mesh); color:var(--n900); }
+  html[data-fill="pastel"] .vi-hero .hm-orn{ background:var(--b700); opacity:.05; }
+
+  /* ——— УСЛУГИ: высокие цветные карточки с объёмными иллюстрациями ——— */
+  .vi-cards{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:clamp(12px,1vw,18px); }
+  .vi-cards.n4{ grid-template-columns:repeat(5, minmax(0,1fr)); }
+  .vi-card{ position:relative; overflow:hidden; isolation:isolate; display:flex; flex-direction:column; min-height:clamp(250px,18vw,340px); padding:clamp(20px,1.6vw,28px);
+    border-radius:28px; color:var(--n900); text-decoration:none; background:linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+    transition:transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease; }
+  .vi-card::before{ content:''; position:absolute; z-index:-1; right:-20%; bottom:-30%; width:90%; aspect-ratio:1; border-radius:50%; background:radial-gradient(closest-side, rgba(255,255,255,.75), rgba(255,255,255,0)); }
+  .vi-card:hover{ transform:translateY(-4px); box-shadow:0 30px 50px -34px color-mix(in srgb, var(--a5) 70%, transparent); }
+  .vi-card-hd{ display:flex; align-items:flex-start; gap:12px; position:relative; z-index:2; }
+  .vi-card b{ flex:1; font-size:clamp(17px,.4vw + 12px,20px); line-height:1.3; font-weight:600; letter-spacing:-.016em; text-wrap:balance; }
+  .vi-card .go{ width:40px; height:40px; flex:0 0 auto; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.8); color:var(--a5); font-size:18px; transition:background .2s, color .2s; }
+  .vi-card:hover .go{ background:var(--a5); color:#fff; }
+  .vi-card .art{ position:relative; z-index:1; width:min(92%, 300px); aspect-ratio:240/200; margin:auto -6% -8% auto; transition:transform .5s cubic-bezier(.2,.7,.2,1); }
+  .vi-card:hover .art{ transform:translateY(-6px) scale(1.04); }
+  .vi-all{ position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; min-height:clamp(250px,18vw,340px); padding:clamp(20px,1.6vw,28px); border-radius:28px;
+    color:#fff; text-decoration:none; background:radial-gradient(80% 70% at 100% 100%, color-mix(in srgb, var(--b500) 55%, transparent), transparent 70%), var(--b900); transition:transform .35s cubic-bezier(.2,.7,.2,1); }
+  .vi-all:hover{ transform:translateY(-4px); }
+  .vi-all b{ font-size:clamp(19px,.5vw + 13px,24px); line-height:1.25; font-weight:600; letter-spacing:-.018em; }
+  .vi-all em{ display:block; margin-top:8px; font-style:normal; font-size:15px; color:rgba(255,255,255,.75); }
+  .vi-all .go{ width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#fff; color:var(--b900); font-size:22px; transition:transform .2s; }
+  .vi-all:hover .go{ transform:translateX(4px); }
+  .vi-all .hm-orn{ background:#fff; opacity:.06; }
+  html[data-fill="flat"] .vi-card{ background:var(--bg1); }
+  html[data-fill="flat"] .vi-all{ background:var(--b900); }
+
+  /* ——— РАЗДЕЛЫ: строки «раздел — его ссылки» ——— */
+  .vi-rows{ border-top:1px solid var(--n200); }
+  .vi-row{ display:grid; grid-template-columns:minmax(240px,3.4fr) minmax(0,8fr) 44px; align-items:center; gap:14px clamp(20px,2.4vw,40px); padding:clamp(16px,1.4vw,22px) 0; border-bottom:1px solid var(--n200); }
+  .vi-row-hd{ display:flex; align-items:center; gap:14px; color:var(--n900); text-decoration:none; min-width:0; }
+  .vi-row-hd .hm-ico{ width:46px; height:46px; border-radius:14px; font-size:22px; }
+  .vi-row-hd b{ font-size:clamp(17px,.3vw + 13px,20px); font-weight:600; letter-spacing:-.014em; line-height:1.25; transition:color .15s; }
+  .vi-row-hd:hover b{ color:var(--b700); }
+  .vi-row.red .hm-ico{ background:var(--red-l); color:var(--red); }
+  .vi-links{ display:flex; flex-wrap:wrap; gap:8px; min-width:0; }
+  .vi-links a{ display:inline-flex; align-items:center; gap:6px; height:38px; padding:0 15px; border-radius:999px; background:var(--n100); color:var(--n700); font-size:14.5px; font-weight:500; text-decoration:none; transition:background .15s, color .15s; }
+  .vi-links a:hover{ background:var(--b50); color:var(--b800); }
+  .vi-links a .hm-ext{ font-size:14px; }
+  .vi-go{ width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font-size:20px; text-decoration:none; transition:background .15s, color .15s, box-shadow .15s; }
+  .vi-go:hover{ background:var(--b600); color:#fff; box-shadow:none; }
+
+  @media (max-width:1180px){
+    .vi-cards, .vi-cards.n4{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+  }
+  @media (max-width:960px){
+    .hm-root{ --hdr:118px; }
+    .vi-grid{ grid-template-columns:minmax(0,1fr); height:auto; gap:28px; }
+    .vi-ban{ order:-1; height:clamp(470px, 66vw, 560px); }
+    .vi-ai{ min-height:500px; }
+    .vi-row{ grid-template-columns:minmax(0,1fr); }
+    .vi-go{ display:none; }
+  }
+  @media (max-width:760px){
+    .vi-ban{ height:auto; }
+    .vi-ai{ min-height:0; padding-top:0; }
+    .vi-cards, .vi-cards.n4{ grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:76%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; margin-inline:calc(-1 * var(--gut)); padding-inline:var(--gut); scroll-padding-inline:var(--gut); }
+    .vi-cards::-webkit-scrollbar{ display:none; }
+    .vi-card, .vi-all{ scroll-snap-align:start; min-height:300px; }
+  }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="HomeArt" gallery="0" hint-size="0px,0px"></dc-import>
+  <div class="vi-top"><dc-import name="PortalHeader" look="glass" hint-size="100%,72px"></dc-import></div>
+
+  <main ref="{{ mainRef }}">
+    <!-- ПЕРВЫЙ ЭКРАН -->
+    <section class="vi-hero">
+      <div class="hm-orn"></div>
+      <div class="hm-wrap vi-grid">
+        <div class="vi-ai hm-in d1"><dc-import name="HomeAssist" look="dark" hint-size="100%,100%"></dc-import></div>
+        <div class="vi-ban hm-in d2"><dc-import name="HomeBanners" look="deck" hint-size="100%,100%"></dc-import></div>
+      </div>
+    </section>
+
+    <!-- УСЛУГИ -->
+    <section class="hm-sec">
+      <div class="hm-wrap">
+        <div class="hm-sec-head">
+          <div><h2 class="hm-h2">{{ svcTitle }}</h2></div>
+          <sc-if value="{{ headAll }}" hint-placeholder-val="{{ true }}"><a class="hm-link" href="{{ all.href }}">{{ all.label }}<i class="ri-arrow-right-line"></i></a></sc-if>
+        </div>
+        <div class="{{ cardsCls }}">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="7">
+            <a class="vi-card" href="{{ t.href }}" target="{{ t.target }}" rel="noopener" style="{{ t.vars }}" data-tip="{{ t.tip }}">
+              <span class="vi-card-hd"><b>{{ t.short }}</b><span class="go" aria-hidden="true"><i class="{{ t.arrow }}"></i></span></span>
+              <span class="art" data-art="{{ t.art }}"></span>
+            </a>
+          </sc-for>
+          <a class="vi-all" href="{{ all.href }}"><span class="hm-orn"></span><div><b>{{ all.label }}</b><sc-if value="{{ hasCount }}" hint-placeholder-val="{{ true }}"><em>{{ all.count }}</em></sc-if></div><span class="go"><i class="ri-arrow-right-line"></i></span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- РАЗДЕЛЫ ПОРТАЛА -->
+    <section class="hm-sec" style="padding-top:0;">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Разделы портала</h2></div></div>
+        <div class="vi-rows">
+          <sc-for list="{{ secs }}" as="x" hint-placeholder-count="6">
+            <div class="{{ x.cls }}">
+              <a class="vi-row-hd" href="{{ x.href }}" data-tip="{{ x.desc }}"><span class="hm-ico"><i class="{{ x.icon }}"></i></span><b>{{ x.label }}</b></a>
+              <nav class="vi-links" aria-label="{{ x.label }}">
+                <sc-for list="{{ x.links }}" as="l" hint-placeholder-count="4">
+                  <a href="{{ l.href }}" target="{{ l.target }}" rel="noopener" data-tip="{{ l.tip }}">{{ l.label }}<sc-if value="{{ l.ext }}" hint-placeholder-val="{{ false }}"><i class="ri-external-link-line hm-ext"></i></sc-if></a>
+                </sc-for>
+              </nav>
+              <a class="vi-go" href="{{ x.href }}" aria-label="{{ x.goLabel }}"><i class="ri-arrow-right-line"></i></a>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- ПОЛЕЗНЫЕ ССЫЛКИ (бизнес) -->
+    <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+      <section class="hm-sec" style="padding-top:0;">
+        <div class="hm-wrap">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
+            <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
+              <a href="#" data-tip="{{ u.desc }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i></a>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- НОВОСТИ -->
+    <section class="hm-sec" style="background:var(--n50);border-top:1px solid var(--n200);">
+      <div class="hm-wrap"><dc-import name="HomeNews" layout="editorial" hint-size="100%,640px"></dc-import></div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="hm-sec">
+      <div class="hm-wrap"><dc-import name="HomeFaq" hint-size="100%,720px"></dc-import></div>
+    </section>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="i" hint-size="1px,1px"></dc-import>
+</div>
+<dc-import name="Splash" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href || '');
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.mainRef = React.createRef();
+    this.state = { role: lsRole(), tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.setState({ tick:Date.now(), role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    window.addEventListener('mp-art-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._role);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+    this.paint();
+  }
+  componentDidUpdate(){ this.paint(); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready); window.removeEventListener('mp-role-change', this._role); clearTimeout(this._fb); }
+  paint(){ if(window.mpArt) window.mpArt.paint(this.mainRef.current); }
+  renderVals(){
+    const H = window.mpHome, A = window.mpArt, role = this.state.role;
+    const base = { mainRef:this.mainRef };
+    if(!H || !A) return { ...base, svcTitle:'', headAll:false, hasCount:false, all:{ href:'#', label:'', count:'' }, cardsCls:'vi-cards', tiles:[], secs:[], isBusiness:false, useful:[] };
+    const list = A.tiles(role);
+    const link = (l) => ({ ...l, ext: ext(l.href), target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href) });
+    return {
+      ...base,
+      svcTitle: H.hasGov(role) ? 'Государственные услуги' : 'Сервисы для медработников',
+      all: A.allTile(role), hasCount: H.hasGov(role), headAll: false,
+      // 7 услуг + «Все услуги» — 4 × 2; 4 услуги + «Все» — один ряд из пяти
+      cardsCls: 'vi-cards' + (list.length < 6 ? ' n4' : ''),
+      tiles: list.map(t => ({ ...t, arrow: t.ext ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
+      secs: [ ...H.SECTIONS[role], { id:'lib', icon:'ri-book-open-line', label:'Справочники', desc:'', href:H.P.drugs, links:H.LIBRARY } ]
+        .map(x => ({ ...x, cls: 'vi-row' + (x.tone === 'red' ? ' red' : ''), goLabel: 'Открыть раздел «' + x.label + '»', links: x.links.map(link) })),
+      isBusiness: role === 'business', useful: H.USEFUL,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#06222F"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#fff"/><rect width="1200" height="600" rx="40" fill="#06222F"/><circle cx="160" cy="80" r="260" fill="#0B7AA6" opacity=".45"/><rect x="60" y="150" width="340" height="44" rx="8" fill="#fff"/><rect x="60" y="206" width="260" height="44" rx="8" fill="#ACDCEE"/><g fill="#fff" opacity=".12"><rect x="60" y="320" width="400" height="44" rx="14"/><rect x="60" y="374" width="400" height="44" rx="14"/><rect x="60" y="428" width="400" height="44" rx="14"/></g><rect x="60" y="490" width="400" height="56" rx="18" fill="#fff"/><rect x="560" y="100" width="560" height="440" rx="30" fill="#164564" opacity=".6"/><rect x="530" y="120" width="620" height="440" rx="30" fill="#0B3A50"/><rect x="570" y="230" width="280" height="40" rx="8" fill="#fff"/><rect x="570" y="320" width="160" height="48" rx="12" fill="#fff"/><rect x="900" y="200" width="200" height="190" rx="40" fill="#1AA3CF"/><g fill="#EEF8FC"><rect x="60" y="640" width="250" height="140" rx="24"/><rect x="330" y="640" width="250" height="140" rx="24"/><rect x="600" y="640" width="250" height="140" rx="24"/><rect x="870" y="640" width="270" height="140" rx="24"/></g></svg></template>
+</body>
+</html>
