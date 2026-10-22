@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  AI-помощник на первом экране (варианты главной H и I) — левая половина рядом с баннерами.
+  <dc-import name="HomeAssist" look="light | dark" hint-size="100%,560px">
+    light — белая карточка; dark — прямо на тёмном баннере, стеклянные строки, белое поле.
+
+  Одно поле = поиск + помощник:
+    • пока поле пустое — частые вопросы роли (HomeData.AI_SUGGEST);
+    • при вводе — сразу подходящие услуги и разделы (HomeData.search) — переход в один клик;
+    • Enter / кнопка — ответ помощника прямо в карточке (HomeData.botReply, печатается постепенно,
+      кнопки к услуге — после текста), как в варианте E.
+  Диалог общий с боковой панелью AiPanel (sessionStorage 'mp-ai-chat'): «Открыть в панели» продолжает его там.
+  Пока карточка на экране, плавающая кнопка AI-помощника скрыта (класс html.hm-ai-inview) — без дублей.
+  Заголовок страницы (h1) — приветствие помощника.
+-->
+<x-dc>
+<helmet>
+<style>
+  .sc-host:has(> .as){ height:100%; }
+  .as{ position:relative; height:100%; min-height:0; container-type:inline-size; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif; }
+  .as *, .as *::before, .as *::after{ box-sizing:border-box; }
+  .as-head{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  .as-orb{ position:relative; width:40px; height:40px; flex:0 0 auto; border-radius:13px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:20px;
+    background:radial-gradient(120% 120% at 25% 15%, var(--b300), var(--b600) 52%, var(--b900)); box-shadow:0 10px 20px -10px color-mix(in srgb, var(--b700) 80%, transparent), inset 0 1.5px 0 rgba(255,255,255,.35); }
+  .as-orb::after{ content:''; position:absolute; inset:-5px; border-radius:17px; border:1.5px solid color-mix(in srgb, var(--b400) 55%, transparent); animation:as-breath 3.2s ease-in-out infinite; }
+  @keyframes as-breath{ 0%,100%{ transform:scale(.94); opacity:.25; } 50%{ transform:scale(1.04); opacity:.9; } }
+  .as-name{ font-size:15px; font-weight:600; letter-spacing:-.01em; }
+  .as-sp{ flex:1; }
+  .as-ib{ width:40px; height:40px; border:none; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:19px; cursor:pointer; transition:background .15s, color .15s; }
+  .as .hm-info{ width:28px; height:28px; font-size:18px; }
+
+  .as-body{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; margin:0 -6px; padding:0 6px; }
+  .as-h1{ margin:auto 0 0; padding-top:clamp(16px,2.4vh,34px); font-size:clamp(32px,8.2cqi,60px); line-height:1.04; font-weight:600; letter-spacing:-.036em; }
+  .as-h1 span{ background:linear-gradient(90deg, var(--b600), var(--b800)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .as-h1.hm-sr{ margin:0; padding:0; }
+  .as-list{ padding-top:clamp(18px,2.6vh,30px); display:flex; flex-direction:column; gap:8px; }
+  .as-row{ display:flex; align-items:center; gap:12px; width:100%; min-height:52px; padding:8px 14px 8px 12px; border:none; border-radius:14px; text-align:left; font:500 15px/1.35 'Inter',sans-serif; text-decoration:none; cursor:pointer; transition:background .15s, box-shadow .15s, color .15s; }
+  .as-row > span:not(.hm-ico){ flex:1; min-width:0; }
+  .as-row > i:first-child{ font-size:19px; flex:0 0 auto; }
+  .as-row > i:last-child{ font-size:18px; flex:0 0 auto; transition:transform .15s; }
+  .as-row:hover > i:last-child{ transform:translateX(3px); }
+  .as-row .hm-ico{ width:34px; height:34px; border-radius:10px; font-size:18px; }
+  .as-row.q{ min-height:clamp(52px,7.4vh,62px); }
+  .as-row.q .hm-ico{ width:38px; height:38px; border-radius:11px; font-size:19px; background:#fff; }
+  .as-row b{ font-weight:600; }
+  .as-cap{ margin:2px 2px 2px; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; }
+
+  /* диалог */
+  .as-chat{ display:flex; flex-direction:column; gap:12px; padding:18px 0 6px; margin-top:auto; }
+  .as-me{ align-self:flex-end; max-width:86%; padding:11px 16px; border-radius:18px 18px 6px 18px; background:var(--b600); color:#fff; font-size:15px; line-height:1.5; }
+  .as-bot{ align-self:flex-start; max-width:96%; padding:14px 16px; border-radius:6px 18px 18px 18px; animation:hm-up .35s ease both; }
+  .as-bot .txt{ font-size:15px; line-height:1.6; white-space:pre-line; }
+  .as-acts{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .as-cta{ display:inline-flex; align-items:center; gap:8px; height:42px; padding:0 16px; border-radius:12px; background:var(--b600); color:#fff; font-size:14.5px; font-weight:600; text-decoration:none; }
+  .as-cta:hover{ background:var(--b700); }
+  .as-cta i{ font-size:18px; }
+  .as-cta.sos{ background:var(--red); } .as-cta.sos:hover{ background:var(--red-d); }
+  .as-links{ margin-top:12px; display:flex; flex-direction:column; border-radius:14px; overflow:hidden; }
+  .as-links a{ display:flex; align-items:center; gap:12px; padding:9px 12px; text-decoration:none; }
+  .as-links b{ flex:1; min-width:0; font-size:14px; font-weight:600; }
+  .as-chip{ height:38px; padding:0 14px; border:none; border-radius:999px; font:500 14px/1 'Inter',sans-serif; cursor:pointer; }
+  .as-caret{ display:inline-block; width:7px; height:16px; margin-left:2px; vertical-align:-2px; border-radius:2px; background:var(--b500); animation:as-blink 1s steps(2) infinite; }
+  @keyframes as-blink{ to{ opacity:0; } }
+  .as-typing{ align-self:flex-start; display:inline-flex; gap:4px; padding:15px 16px; border-radius:6px 18px 18px 18px; }
+  .as-typing span{ width:7px; height:7px; border-radius:50%; background:var(--b400); animation:as-dot 1s infinite ease-in-out; }
+  .as-typing span:nth-child(2){ animation-delay:.15s; } .as-typing span:nth-child(3){ animation-delay:.3s; }
+  @keyframes as-dot{ 0%,80%,100%{ transform:translateY(0); opacity:.5; } 40%{ transform:translateY(-4px); opacity:1; } }
+
+  /* поле */
+  .as-field{ flex:0 0 auto; display:flex; align-items:flex-end; gap:8px; margin-top:14px; padding:8px 8px 8px 18px; border-radius:20px; background:#fff; transition:box-shadow .2s; }
+  .as-field textarea{ flex:1; min-width:0; height:48px; max-height:120px; resize:none; border:none; outline:none; background:none; padding:13px 0; font:400 16px/1.4 'Inter',sans-serif; color:var(--n900); }
+  .as-field textarea::placeholder{ color:var(--n400); }
+  .as-send{ width:48px; height:48px; flex:0 0 auto; border:none; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; background:var(--b600); cursor:pointer; transition:background .15s, opacity .15s; }
+  .as-send:hover{ background:var(--b700); }
+  .as-send[aria-disabled="true"]{ opacity:.45; cursor:default; }
+
+  /* ===== LIGHT: белая карточка ===== */
+  .as-light{ padding:clamp(20px,1.8vw,30px); border-radius:28px; background:#fff; color:var(--n900); box-shadow:0 0 0 1px var(--n200), 0 30px 60px -40px color-mix(in srgb, var(--b900) 45%, transparent); }
+  .as-light .as-ib{ background:transparent; color:var(--n500); }
+  .as-light .as-ib:hover{ background:var(--n100); color:var(--n900); }
+  .as-light .as-row{ background:var(--n100); color:var(--n700); }
+  .as-light .as-row > i:first-child{ color:var(--b600); }
+  .as-light .as-row > i:last-child{ color:var(--n300); }
+  .as-light .as-row:hover{ background:var(--b50); color:var(--n900); box-shadow:inset 0 0 0 1px var(--b200); }
+  .as-light .as-row:hover > i:last-child{ color:var(--b600); }
+  .as-light .as-row.ask{ background:transparent; box-shadow:inset 0 0 0 1px var(--n200); }
+  .as-light .as-row.ask:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); }
+  .as-light .as-cap{ color:var(--n400); }
+  .as-light .as-bot{ background:var(--n100); }
+  .as-light .as-bot .txt{ color:var(--n700); }
+  .as-light .as-bot.warn{ background:#FFF8F9; box-shadow:0 0 0 1px #F9C4CF; }
+  .as-light .as-links{ box-shadow:inset 0 0 0 1px var(--n200); background:#fff; }
+  .as-light .as-links a{ color:var(--n900); } .as-light .as-links a + a{ border-top:1px solid var(--n200); } .as-light .as-links a:hover{ background:var(--b50); }
+  .as-light .as-chip{ background:var(--b50); color:var(--b800); }
+  .as-light .as-typing{ background:var(--n100); }
+  .as-light .as-cta.line{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .as-light .as-cta.line i{ color:var(--b600); }
+  .as-light .as-cta.line:hover{ background:var(--b50); }
+  .as-light .as-field{ box-shadow:inset 0 0 0 1.5px var(--n200); }
+  .as-light .as-field:focus-within{ box-shadow:inset 0 0 0 1.5px var(--b400), 0 0 0 4px color-mix(in srgb, var(--b200) 55%, transparent); }
+
+  /* ===== DARK: на тёмном баннере ===== */
+  .as-dark{ color:#fff; }
+  .as-dark .as-orb{ background:radial-gradient(120% 120% at 25% 15%, #fff, var(--b300) 40%, var(--b600)); color:var(--b900); }
+  .as-dark .as-orb::after{ border-color:rgba(255,255,255,.4); }
+  .as-dark .as-name{ color:#fff; }
+  .as-dark .hm-info{ color:rgba(255,255,255,.6); } .as-dark .hm-info:hover{ color:#fff; }
+  .as-dark .as-ib{ background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.18); }
+  .as-dark .as-ib:hover{ background:rgba(255,255,255,.2); }
+  .as-dark .as-h1{ color:#fff; }
+  .as-dark .as-h1 span{ background:linear-gradient(90deg, var(--b200), color-mix(in srgb, var(--bacc) 70%, #fff)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .as-dark .as-row{ background:rgba(255,255,255,.07); color:rgba(255,255,255,.92); box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+  .as-dark .as-row > i:first-child{ color:var(--b200); }
+  .as-dark .as-row > i:last-child{ color:rgba(255,255,255,.45); }
+  .as-dark .as-row:hover{ background:rgba(255,255,255,.14); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.28); }
+  .as-dark .as-row:hover > i:last-child{ color:#fff; }
+  .as-dark .as-row .hm-ico{ background:rgba(255,255,255,.12); color:#fff; }
+  .as-dark .as-row.q .hm-ico{ background:rgba(255,255,255,.12); }
+  .as-dark .as-row.ask{ background:transparent; }
+  .as-dark .as-cap{ color:rgba(255,255,255,.6); }
+  .as-dark .as-me{ background:#fff; color:var(--b900); }
+  .as-dark .as-bot{ background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+  .as-dark .as-bot .txt{ color:rgba(255,255,255,.92); }
+  .as-dark .as-bot.warn{ background:rgba(223,28,65,.18); box-shadow:inset 0 0 0 1px rgba(248,201,210,.5); }
+  .as-dark .as-cta{ background:#fff; color:var(--b900); } .as-dark .as-cta:hover{ background:var(--b50); }
+  .as-dark .as-cta.sos{ background:var(--red); color:#fff; }
+  .as-dark .as-cta.line{ background:rgba(255,255,255,.1); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.24); }
+  .as-dark .as-links{ box-shadow:inset 0 0 0 1px rgba(255,255,255,.16); }
+  .as-dark .as-links a{ color:#fff; } .as-dark .as-links a + a{ border-top:1px solid rgba(255,255,255,.12); } .as-dark .as-links a:hover{ background:rgba(255,255,255,.08); }
+  .as-dark .as-links .hm-ico{ background:rgba(255,255,255,.12); color:#fff; }
+  .as-dark .as-links .hm-ext{ color:rgba(255,255,255,.5); }
+  .as-dark .as-chip{ background:rgba(255,255,255,.12); color:#fff; }
+  .as-dark .as-typing{ background:rgba(255,255,255,.1); }
+  .as-dark .as-typing span{ background:#fff; }
+  .as-dark .as-field{ box-shadow:0 24px 48px -24px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.4); }
+  .as-dark .as-field:focus-within{ box-shadow:0 24px 48px -24px rgba(0,0,0,.55), 0 0 0 4px color-mix(in srgb, var(--b300) 55%, transparent); }
+  .as-dark :focus-visible{ outline-color:#fff !important; }
+
+  /* пастельные градиенты: тёмный вариант становится светлым — текст тёмный */
+  html[data-fill="pastel"] .as-dark{ color:var(--n900); }
+  html[data-fill="pastel"] .as-dark .as-name, html[data-fill="pastel"] .as-dark .as-h1{ color:var(--n900); }
+  html[data-fill="pastel"] .as-dark .as-h1 span{ background:none; color:var(--b900); }
+  html[data-fill="pastel"] .as-dark .as-row{ background:rgba(255,255,255,.6); color:var(--n700); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); }
+  html[data-fill="pastel"] .as-dark .as-row > i:first-child{ color:var(--b700); }
+  html[data-fill="pastel"] .as-dark .as-row > i:last-child, html[data-fill="pastel"] .as-dark .hm-info{ color:var(--n500); }
+  html[data-fill="pastel"] .as-dark .as-row:hover{ background:#fff; color:var(--n900); }
+  html[data-fill="pastel"] .as-dark .as-row .hm-ico{ background:var(--b50); color:var(--b700); }
+  html[data-fill="pastel"] .as-dark .as-cap{ color:var(--n600); }
+  html[data-fill="pastel"] .as-dark .as-ib{ background:rgba(255,255,255,.7); color:var(--n700); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); }
+  html[data-fill="pastel"] .as-dark .as-me{ background:var(--b600); color:#fff; }
+  html[data-fill="pastel"] .as-dark .as-bot{ background:rgba(255,255,255,.75); box-shadow:inset 0 0 0 1px rgba(255,255,255,.95); }
+  html[data-fill="pastel"] .as-dark .as-bot .txt{ color:var(--n700); }
+  html[data-fill="pastel"] .as-dark .as-cta{ background:var(--b600); color:#fff; }
+  html[data-fill="pastel"] .as-dark .as-links a{ color:var(--n900); }
+  html[data-fill="pastel"] .as-dark .as-chip{ background:#fff; color:var(--b800); }
+  html[data-fill="pastel"] .as-dark .as-typing span{ background:var(--b500); }
+  html[data-fill="pastel"] .as-dark :focus-visible{ outline-color:var(--b600) !important; }
+  html[data-fill="flat"] .as-orb{ background:var(--b600); }
+  html[data-fill="flat"] .as-h1 span{ background:none; color:var(--b700); }
+  html[data-fill="flat"] .as-dark .as-h1 span{ color:var(--b200); }
+
+  /* пока карточка помощника на экране — плавающая кнопка не нужна */
+  .ai-fab{ transition:transform .18s, background .18s, opacity .25s; }
+  html.hm-ai-inview .ai-fab{ opacity:0; transform:translateY(16px) scale(.96); pointer-events:none; }
+
+  @media (prefers-reduced-motion:reduce){ .as-orb::after, .as-caret{ animation:none; } }
+  @media (max-width:760px){
+    .as-h1{ font-size:34px; margin-top:14px; }
+    .as-light{ border-radius:24px; padding:20px 16px 16px; }
+    .as-body{ min-height:auto; }
+  }
+</style>
+</helmet>
+
+<section class="{{ cls }}" ref="{{ rootRef }}" aria-label="AI-помощник">
+  <div class="as-head">
+    <span class="as-orb" aria-hidden="true"><i class="ri-sparkling-2-fill"></i></span>
+    <b class="as-name">AI-помощник</b>
+    <span class="hm-info" tabIndex="0" role="note" aria-label="{{ note }}" data-tip="{{ note }}"><i class="ri-information-line"></i></span>
+    <span class="as-sp"></span>
+    <sc-if value="{{ hasMsgs }}" hint-placeholder-val="{{ false }}"><button type="button" class="as-ib" aria-label="Новый диалог" data-tip="Новый диалог" onClick="{{ reset }}"><i class="ri-chat-new-line"></i></button></sc-if>
+    <button type="button" class="as-ib" aria-label="Открыть в отдельной панели" data-tip="Открыть в отдельной панели" onClick="{{ expand }}"><i class="ri-expand-diagonal-line"></i></button>
+  </div>
+
+  <div class="as-body" ref="{{ bodyRef }}">
+    <h1 class="{{ h1Cls }}">Здравствуйте!<br><span>Чем помочь?</span></h1>
+
+    <sc-if value="{{ noMsgs }}" hint-placeholder-val="{{ true }}">
+      <div class="as-list" aria-live="polite">
+        <sc-if value="{{ showSugg }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ sugg }}" as="g" hint-placeholder-count="4">
+            <button type="button" class="as-row q" onClick="{{ g.onClick }}"><span class="hm-ico"><i class="{{ g.icon }}"></i></span><span>{{ g.q }}</span><i class="ri-arrow-right-line"></i></button>
+          </sc-for>
+        </sc-if>
+        <sc-if value="{{ showFound }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ found }}" as="f" hint-placeholder-count="3">
+            <a class="as-row" href="{{ f.href }}" target="{{ f.target }}" rel="noopener" data-tip="{{ f.tip }}"><span class="hm-ico"><i class="{{ f.icon }}"></i></span><span>{{ f.label }}</span><i class="{{ f.arrow }}"></i></a>
+          </sc-for>
+          <button type="button" class="as-row ask" onClick="{{ askNow }}"><i class="ri-sparkling-2-line"></i><span>Спросить помощника: <b>{{ inputShort }}</b></span><i class="ri-corner-down-left-line"></i></button>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasMsgs }}" hint-placeholder-val="{{ false }}">
+      <div class="as-chat" aria-live="polite">
+        <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="0">
+          <sc-if value="{{ m.me }}" hint-placeholder-val="{{ true }}"><div class="as-me">{{ m.text }}</div></sc-if>
+          <sc-if value="{{ m.bot }}" hint-placeholder-val="{{ false }}">
+            <div class="{{ m.cls }}">
+              <div class="txt">{{ m.text }}<sc-if value="{{ m.streaming }}" hint-placeholder-val="{{ false }}"><span class="as-caret"></span></sc-if></div>
+              <sc-if value="{{ m.hasActs }}" hint-placeholder-val="{{ false }}">
+                <div class="as-acts"><sc-for list="{{ m.acts }}" as="a" hint-placeholder-count="2"><a class="{{ a.cls }}" href="{{ a.href }}" target="{{ a.target }}" rel="noopener" data-tip="{{ a.tip }}"><i class="{{ a.icon }}"></i>{{ a.label }}</a></sc-for></div>
+              </sc-if>
+              <sc-if value="{{ m.hasLinks }}" hint-placeholder-val="{{ false }}">
+                <div class="as-links"><sc-for list="{{ m.links }}" as="l" hint-placeholder-count="3"><a href="{{ l.href }}" target="{{ l.target }}" rel="noopener" data-tip="{{ l.tip }}"><span class="hm-ico sm"><i class="{{ l.icon }}"></i></span><b>{{ l.label }}</b><i class="{{ l.arrow }}"></i></a></sc-for></div>
+              </sc-if>
+              <sc-if value="{{ m.hasChips }}" hint-placeholder-val="{{ false }}">
+                <div class="as-acts"><sc-for list="{{ m.chips }}" as="c" hint-placeholder-count="2"><button type="button" class="as-chip" onClick="{{ c.onClick }}">{{ c.label }}</button></sc-for></div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </sc-for>
+        <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}"><div class="as-typing" aria-label="Помощник печатает"><span></span><span></span><span></span></div></sc-if>
+      </div>
+    </sc-if>
+  </div>
+
+  <form class="as-field" onSubmit="{{ onSubmit }}" role="search">
+    <textarea ref="{{ inputRef }}" rows="1" value="{{ input }}" onChange="{{ onInput }}" onKeyDown="{{ onKey }}" placeholder="{{ placeholder }}" aria-label="Вопрос помощнику или название услуги"></textarea>
+    <button type="submit" class="as-send" aria-label="Спросить" aria-disabled="{{ sendOff }}"><i class="ri-arrow-up-line"></i></button>
+  </form>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:600}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href || '');
+const calm = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } };
+const STORE = 'mp-ai-chat';
+const readStore = () => { try { const v = JSON.parse(sessionStorage.getItem(STORE) || 'null'); return Array.isArray(v) ? v : []; } catch(e){ return []; } };
+// дописываем завершённый вопрос-ответ в общий диалог с AiPanel
+const appendStore = (pair) => { try { sessionStorage.setItem(STORE, JSON.stringify(readStore().concat(pair).slice(-30))); } catch(e){} };
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.rootRef = React.createRef(); this.bodyRef = React.createRef(); this.inputRef = React.createRef();
+    this.state = { role: lsRole(), msgs:[], input:'', typing:false, tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.setState({ tick:Date.now(), role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._role);
+    // плавающая кнопка AI-помощника скрыта, пока эта карточка видна
+    const root = this.rootRef.current;
+    if(root && 'IntersectionObserver' in window){
+      this._io = new IntersectionObserver(([en]) => document.documentElement.classList.toggle('hm-ai-inview', en.isIntersecting && en.intersectionRatio > .25), { threshold:[0, .25, .5] });
+      this._io.observe(root);
+    }
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-role-change', this._role);
+    if(this._io) this._io.disconnect(); document.documentElement.classList.remove('hm-ai-inview');
+    clearTimeout(this._t); clearInterval(this._iv);
+  }
+  componentDidUpdate(){ const b = this.bodyRef.current; if(b && this.state.msgs.length) b.scrollTop = b.scrollHeight; }
+  focus(){ setTimeout(() => this.inputRef.current && this.inputRef.current.focus({ preventScroll:true }), 60); }
+  busy(){ return this.state.typing || this.state.msgs.some(m => m.streaming); }
+  // ответ печатается постепенно; кнопки и найденное на портале — когда текст готов (как AiPanel и вариант E)
+  send(text){
+    const H = window.mpHome; const q = String(text != null ? text : this.state.input).trim();
+    if(!q || !H || this.busy()) return;
+    this.setState(s => ({ msgs:[...s.msgs, { me:true, text:q }], input:'', typing:true }));
+    clearTimeout(this._t); clearInterval(this._iv);
+    this._t = setTimeout(() => {
+      const r = H.botReply(q, this.state.role), full = r.text || '';
+      const done = { bot:true, ...r, shown:full.length };
+      if(calm()){ this.setState(s => ({ typing:false, msgs:[...s.msgs, done] })); appendStore([{ me:true, text:q }, done]); return; }
+      this.setState(s => ({ typing:false, msgs:[...s.msgs, { bot:true, ...r, shown:0, streaming:true }] }));
+      const step = Math.max(2, Math.round(full.length / 70));
+      this._iv = setInterval(() => this.setState(s => {
+        const msgs = s.msgs.slice(), i = msgs.length - 1, m = msgs[i];
+        if(!m || !m.streaming){ clearInterval(this._iv); return null; }
+        const shown = Math.min(full.length, m.shown + step);
+        msgs[i] = { ...m, shown, streaming: shown < full.length };
+        if(shown >= full.length){ clearInterval(this._iv); appendStore([{ me:true, text:q }, done]); }
+        return { msgs };
+      }), 16);
+    }, 550);
+  }
+  renderVals(){
+    const H = window.mpHome, s = this.state, role = s.role;
+    const q = s.input.trim(), dark = this.props.look === 'dark';
+    const hasMsgs = s.msgs.length > 0 || s.typing;
+    const base = {
+      cls: 'as ' + (dark ? 'as-dark' : 'as-light'), rootRef:this.rootRef, bodyRef:this.bodyRef, inputRef:this.inputRef,
+      note: 'Отвечает на вопросы о здоровье и услугах портала. Справочная информация — не заменяет консультацию врача',
+      input: s.input, inputShort: q.length > 42 ? q.slice(0, 40) + '…' : q, typing: s.typing,
+      hasMsgs, noMsgs: !hasMsgs, h1Cls: 'as-h1' + (hasMsgs ? ' hm-sr' : ''),
+      sendOff: this.busy() || !q ? 'true' : 'false',
+      onInput: (e) => this.setState({ input:e.target.value }),
+      onKey: (e) => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); this.send(); } else if(e.key === 'Escape' && s.input){ this.setState({ input:'' }); } },
+      onSubmit: (e) => { e.preventDefault(); this.send(); },
+      askNow: () => this.send(),
+      reset: () => { clearInterval(this._iv); clearTimeout(this._t); this.setState({ msgs:[], typing:false }); this.focus(); },
+      expand: () => { try { window.dispatchEvent(new CustomEvent('mp-ai-open', { detail:{ sync:true } })); } catch(e){} },
+      placeholder: 'Спросите или найдите услугу',
+    };
+    if(!H) return { ...base, sugg:[], showSugg:false, showFound:false, found:[], msgs:[] };
+    const found = q.length >= 2 ? H.search(q, role).slice(0, 4) : [];
+    return {
+      ...base,
+      showSugg: q.length < 2, showFound: q.length >= 2,
+      // значок строки — от самой подходящей услуги или раздела (поиск по порталу), иначе — «вопрос»
+      sugg: (H.AI_SUGGEST[role] || []).map(g => { const hit = H.search(g.q, role)[0]; return { ...g, icon: hit && hit.icon ? hit.icon : 'ri-question-answer-line', onClick:() => this.send(g.q) }; }),
+      found: found.map(f => ({ ...f, target: ext(f.href) ? '_blank' : '_self', tip: [f.kind, H.whereTip(f.href)].filter(Boolean).join(' · '),
+        arrow: ext(f.href) ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
+      msgs: s.msgs.map(m => {
+        const done = !m.streaming;
+        const acts = done ? (m.actions || []).map((a, i) => ({ ...a, target: ext(a.href) ? '_blank' : '_self', tip: H.whereTip(a.href), cls: 'as-cta' + (/^tel:/.test(a.href) ? ' sos' : i === 0 ? '' : ' line') })) : [];
+        const links = done ? (m.links || []).map(l => ({ ...l, target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href), arrow: ext(l.href) ? 'ri-external-link-line hm-ext' : 'ri-arrow-right-s-line hm-ext' })) : [];
+        const chips = done ? (m.chips || []).map(label => ({ label, onClick:() => this.send(label) })) : [];
+        return { me:!!m.me, bot:!!m.bot, text: m.bot ? String(m.text || '').slice(0, m.shown == null ? undefined : m.shown) : m.text, streaming: !!m.streaming,
+          cls:'as-bot' + (m.warn ? ' warn' : ''), acts, hasActs: acts.length > 0, links, hasLinks: links.length > 0, chips, hasChips: chips.length > 0 };
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

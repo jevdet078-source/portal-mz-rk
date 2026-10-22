@@ -173,7 +173,7 @@ class Component extends DCLogic {
     this.state = { open:false, msgs: Array.isArray(saved) ? saved : [], input:'', typing:false, wide: lsGet('mp-ai-wide') === '1', role: lsGet('mp-role') || 'citizens' };
   }
   componentDidMount(){
-    this._open = (e) => { const q = e && e.detail && e.detail.q; this.setState({ open:true }); if(q) this.send(q); else this.focus(); };
+    this._open = (e) => { const q = e && e.detail && e.detail.q; this.sync(); this.setState({ open:true }); if(q) this.send(q); else this.focus(); };
     window.addEventListener('mp-ai-open', this._open);
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
@@ -188,6 +188,12 @@ class Component extends DCLogic {
     const b = this.bodyRef.current; if(b) b.scrollTop = b.scrollHeight;
     const msgs = this.state.msgs;
     if(this._saved !== msgs && !msgs.some(m => m.streaming)){ this._saved = msgs; try { sessionStorage.setItem('mp-ai-chat', JSON.stringify(msgs.slice(-30))); } catch(e){} }
+  }
+  // диалог могли продолжить в другом месте страницы (карточка помощника HomeAssist в вариантах H, I) — подхватываем его
+  sync(){
+    if(this.state.typing || this.state.msgs.some(m => m.streaming)) return;
+    const saved = ssGet('mp-ai-chat');
+    if(Array.isArray(saved) && saved.length !== this.state.msgs.length){ this._saved = saved; this.setState({ msgs:saved }); }
   }
   focus(){ setTimeout(() => this.inputRef.current && this.inputRef.current.focus(), 80); }
   // ответ печатается постепенно (≈ 1 с на абзац); кнопки и ссылки появляются, когда текст готов
@@ -231,7 +237,7 @@ class Component extends DCLogic {
     const busy = s.typing || s.msgs.some(m => m.streaming);
     return {
       showFab: this.props.fab !== '0' && !s.open,
-      openEmpty: () => { this.setState({ open:true }); this.focus(); },
+      openEmpty: () => { this.sync(); this.setState({ open:true }); this.focus(); },
       open: s.open, close: () => this.setState({ open:false }),
       panelCls: 'ai-panel' + (s.wide ? ' wide' : ''),
       toggleWide: () => { const w = !s.wide; this.setState({ wide:w }); try { localStorage.setItem('mp-ai-wide', w ? '1' : '0'); } catch(e){} this.focus(); },

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Главная · вариант H «Витрина» (по итогам показа руководству 22.10.2026: баннеры услуг на первом экране,
+  автопрокрутка, «как у банков», AI-помощник рядом).
+  Светлый и воздушный, как главные Альфа-Банка и BCC: белая страница, цвет — в баннерах и объёмных иллюстрациях.
+  Первый экран: слева — AI-помощник (одно поле: поиск услуг при вводе + ответ помощника), справа — карусель
+  ключевых услуг роли со сменой каждые 7 с и подписанными вкладками-таймерами. Ниже — остальные услуги
+  бенто-плитками с 3D-объектами (без повторов с баннерами), разделы портала, новости, FAQ.
+  Общие блоки: HomeData, HomeArt, PortalHeader, HomeAssist, HomeBanners, HomeNews, HomeFaq, PortalFooter, AiPanel, Splash, ThemeKit.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+  .vh-top{ position:sticky; top:0; z-index:40; }
+
+  /* ——— ПЕРВЫЙ ЭКРАН: помощник + баннеры ——— */
+  .vh-hero{ position:relative; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 70%, #fff) 0%, #fff 78%); }
+  html[data-fill="flat"] .vh-hero{ background:#fff; }
+  html[data-fill="pastel"] .vh-hero{ background:linear-gradient(180deg, var(--pd), #fff 85%); }
+  .vh-grid{ display:grid; grid-template-columns:minmax(360px,5fr) minmax(0,7fr); gap:clamp(14px,1.3vw,28px);
+    height:clamp(500px, calc(100svh - 72px - 168px), 720px); padding-top:clamp(14px,1.4vw,28px); }
+  .vh-grid > *{ min-width:0; min-height:0; }
+
+  /* ——— УСЛУГИ: бенто-плитки с объёмными иллюстрациями ——— */
+  .vh-bento{ display:grid; gap:clamp(12px,1vw,18px); grid-template-columns:repeat(4, minmax(0,1fr)); grid-auto-rows:clamp(186px, 12.6vw, 250px); }
+  .vh-bento.n4{ grid-template-columns:repeat(5, minmax(0,1fr)); grid-auto-rows:clamp(240px, 17vw, 320px); }
+  .vh-tile{ position:relative; overflow:hidden; isolation:isolate; display:flex; flex-direction:column; align-items:flex-start; padding:clamp(18px,1.4vw,26px); border-radius:24px;
+    background:var(--n100); color:var(--n900); text-decoration:none; transition:background .3s ease, box-shadow .3s ease; }
+  .vh-tile::before{ content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(140deg, var(--bg1), var(--bg2)); opacity:0; transition:opacity .35s ease; }
+  .vh-tile:hover::before, .vh-tile:focus-visible::before{ opacity:1; }
+  .vh-tile:hover{ box-shadow:0 24px 44px -30px color-mix(in srgb, var(--a5) 60%, transparent); }
+  .vh-tile b{ position:relative; z-index:2; max-width:62%; font-size:clamp(16px,.35vw + 12px,19px); line-height:1.3; font-weight:600; letter-spacing:-.014em; text-wrap:balance; }
+  .vh-tile .go{ position:relative; z-index:2; margin-top:auto; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#fff; color:var(--n700); font-size:18px;
+    box-shadow:0 1px 2px rgba(10,13,20,.06); transition:background .2s, color .2s, transform .2s; }
+  .vh-tile:hover .go{ background:var(--a5); color:#fff; }
+  .vh-tile:hover .go i.ri-arrow-right-line{ transform:translateX(1px); }
+  .vh-tile .art{ position:absolute; z-index:1; right:-4%; bottom:-6%; width:min(64%, 230px); aspect-ratio:240/200; transition:transform .5s cubic-bezier(.2,.7,.2,1); }
+  .vh-tile:hover .art{ transform:translate(-4px,-8px) scale(1.05); }
+  .vh-tile.big{ grid-row:span 2; padding:clamp(24px,2vw,34px); }
+  .vh-tile.big b{ font-size:clamp(22px,.7vw + 14px,30px); max-width:80%; letter-spacing:-.024em; }
+  .vh-tile.big .art{ width:min(92%, 400px); right:-6%; bottom:-2%; }
+  .n4 .vh-tile b{ max-width:100%; }
+  .n4 .vh-tile .art{ width:min(86%, 280px); right:-6%; }
+  /* «Все услуги» — плитка в цвете бренда */
+  .vh-all{ position:relative; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; padding:clamp(18px,1.4vw,26px); border-radius:24px; background:var(--b600); color:#fff; text-decoration:none; transition:background .2s; }
+  .vh-all:hover{ background:var(--b700); }
+  .vh-all b{ font-size:clamp(18px,.4vw + 13px,22px); line-height:1.25; font-weight:600; letter-spacing:-.016em; }
+  .vh-all em{ font-style:normal; display:block; margin-top:8px; font-size:15px; color:rgba(255,255,255,.78); }
+  .vh-all .go{ width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.16); font-size:22px; transition:transform .2s; }
+  .vh-all:hover .go{ transform:translateX(4px); }
+  .vh-all::after{ content:''; position:absolute; right:-30%; top:-40%; width:90%; aspect-ratio:1; border-radius:50%; box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.18), 0 0 0 28px rgba(255,255,255,.04); pointer-events:none; }
+  html[data-fill="flat"] .vh-tile::before{ background:var(--bg1); }
+
+  /* ——— РАЗДЕЛЫ ——— */
+  .vh-secs{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(12px,1vw,18px); }
+  .vh-secs.n4{ grid-template-columns:repeat(4, minmax(0,1fr)); }
+  .vh-sec{ display:flex; flex-direction:column; gap:16px; padding:clamp(20px,1.6vw,28px); border-radius:24px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); transition:box-shadow .2s; }
+  .vh-sec:hover{ box-shadow:inset 0 0 0 1px var(--b200), 0 24px 44px -34px rgba(10,13,20,.35); }
+  .vh-sec-hd{ display:flex; align-items:center; gap:14px; color:var(--n900); text-decoration:none; }
+  .vh-sec-hd b{ flex:1; font-size:18px; font-weight:600; letter-spacing:-.014em; line-height:1.3; }
+  .vh-sec-hd > i{ font-size:20px; color:var(--n300); transition:transform .2s, color .2s; }
+  .vh-sec-hd:hover b{ color:var(--b700); } .vh-sec-hd:hover > i{ color:var(--b600); transform:translateX(3px); }
+  .vh-sec.red .hm-ico{ background:var(--red-l); color:var(--red); }
+  .vh-links{ display:flex; flex-wrap:wrap; gap:8px; }
+  .vh-links a{ display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border-radius:999px; background:var(--n100); color:var(--n700); font-size:14px; font-weight:500; text-decoration:none; transition:background .15s, color .15s; }
+  .vh-links a:hover{ background:var(--b50); color:var(--b800); }
+  .vh-links a .hm-ext{ font-size:14px; }
+
+  @media (max-width:1100px){
+    .vh-secs, .vh-secs.n4{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .vh-bento{ grid-template-columns:repeat(3, minmax(0,1fr)); grid-auto-rows:200px; }
+    .vh-bento.n4{ grid-template-columns:repeat(3, minmax(0,1fr)); grid-auto-rows:220px; }
+    .vh-tile.big{ grid-row:span 1; grid-column:span 2; }
+    .vh-tile.big .art{ width:min(52%, 300px); }
+  }
+  @media (max-width:960px){
+    .vh-grid{ grid-template-columns:minmax(0,1fr); height:auto; }
+    .vh-ban{ order:-1; height:clamp(440px, 62vw, 540px); }
+    .vh-ai{ min-height:520px; }
+  }
+  @media (max-width:760px){
+    .vh-ban{ height:auto; }
+    .vh-ai{ min-height:0; }
+    .vh-bento, .vh-bento.n4{ grid-template-columns:repeat(2, minmax(0,1fr)); grid-auto-rows:190px; }
+    .vh-tile.big{ grid-column:span 2; }
+    .vh-secs, .vh-secs.n4{ grid-template-columns:minmax(0,1fr); }
+    .vh-tile b{ max-width:100%; font-size:15.5px; }
+    .vh-tile .art{ width:72%; right:-10%; bottom:-10%; }
+  }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="HomeArt" gallery="0" hint-size="0px,0px"></dc-import>
+  <div class="vh-top"><dc-import name="PortalHeader" look="light" hint-size="100%,72px"></dc-import></div>
+
+  <main ref="{{ mainRef }}">
+    <!-- ПЕРВЫЙ ЭКРАН -->
+    <section class="vh-hero">
+      <div class="hm-wrap vh-grid">
+        <div class="vh-ai hm-in d1"><dc-import name="HomeAssist" look="light" hint-size="100%,100%"></dc-import></div>
+        <div class="vh-ban hm-in d2"><dc-import name="HomeBanners" look="light" hint-size="100%,100%"></dc-import></div>
+      </div>
+    </section>
+
+    <!-- УСЛУГИ -->
+    <section class="hm-sec">
+      <div class="hm-wrap">
+        <div class="hm-sec-head">
+          <div><h2 class="hm-h2">{{ svcTitle }}</h2></div>
+          <sc-if value="{{ headAll }}" hint-placeholder-val="{{ true }}"><a class="hm-link" href="{{ all.href }}">{{ all.label }}<i class="ri-arrow-right-line"></i></a></sc-if>
+        </div>
+        <div class="{{ bentoCls }}">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="7">
+            <a class="{{ t.cls }}" href="{{ t.href }}" target="{{ t.target }}" rel="noopener" style="{{ t.vars }}" data-tip="{{ t.tip }}">
+              <b>{{ t.short }}</b>
+              <span class="go" aria-hidden="true"><i class="{{ t.arrow }}"></i></span>
+              <span class="art" data-art="{{ t.art }}"></span>
+            </a>
+          </sc-for>
+          <sc-if value="{{ tileAll }}" hint-placeholder-val="{{ false }}">
+            <a class="vh-all" href="{{ all.href }}"><div><b>{{ all.label }}</b><sc-if value="{{ hasCount }}" hint-placeholder-val="{{ true }}"><em>{{ all.count }}</em></sc-if></div><span class="go"><i class="ri-arrow-right-line"></i></span></a>
+          </sc-if>
+        </div>
+      </div>
+    </section>
+
+    <!-- РАЗДЕЛЫ ПОРТАЛА -->
+    <section class="hm-sec" style="padding-top:0;">
+      <div class="hm-wrap">
+        <div class="hm-sec-head"><div><h2 class="hm-h2">Разделы портала</h2></div></div>
+        <div class="{{ secsCls }}">
+          <sc-for list="{{ secs }}" as="x" hint-placeholder-count="6">
+            <div class="{{ x.cls }}">
+              <a class="vh-sec-hd" href="{{ x.href }}" data-tip="{{ x.desc }}"><span class="hm-ico"><i class="{{ x.icon }}"></i></span><b>{{ x.label }}</b><i class="ri-arrow-right-line"></i></a>
+              <nav class="vh-links" aria-label="{{ x.label }}">
+                <sc-for list="{{ x.links }}" as="l" hint-placeholder-count="4">
+                  <a href="{{ l.href }}" target="{{ l.target }}" rel="noopener" data-tip="{{ l.tip }}">{{ l.label }}<sc-if value="{{ l.ext }}" hint-placeholder-val="{{ false }}"><i class="ri-external-link-line hm-ext"></i></sc-if></a>
+                </sc-for>
+              </nav>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <!-- ПОЛЕЗНЫЕ ССЫЛКИ (бизнес) -->
+    <sc-if value="{{ isBusiness }}" hint-placeholder-val="{{ false }}">
+      <section class="hm-sec" style="padding-top:0;">
+        <div class="hm-wrap">
+          <div class="hm-sec-head"><div><h2 class="hm-h2">Полезные ссылки</h2></div></div>
+          <div class="hm-orgs">
+            <sc-for list="{{ useful }}" as="u" hint-placeholder-count="4">
+              <a href="#" data-tip="{{ u.desc }}"><span class="logo"><x-import component-from-global-scope="image-slot" from="./image-slot.js" id="{{ u.slot }}" shape="rounded" radius="12" placeholder="Лого" hint-size="44px,44px"></x-import></span><b>{{ u.name }}</b><i class="ri-external-link-line hm-ext"></i></a>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- НОВОСТИ -->
+    <section class="hm-sec" style="background:var(--n50);border-top:1px solid var(--n200);">
+      <div class="hm-wrap"><dc-import name="HomeNews" layout="grid" hint-size="100%,620px"></dc-import></div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="hm-sec">
+      <div class="hm-wrap"><dc-import name="HomeFaq" hint-size="100%,720px"></dc-import></div>
+    </section>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="h" hint-size="1px,1px"></dc-import>
+</div>
+<dc-import name="Splash" hint-size="1px,1px"></dc-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
+const ext = (href) => /^https?:/.test(href || '');
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.mainRef = React.createRef();
+    this.state = { role: lsRole(), tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.setState({ tick:Date.now(), role: window.mpHome ? window.mpHome.getRole() : this.state.role });
+    window.addEventListener('mp-home-ready', this._ready);
+    window.addEventListener('mp-art-ready', this._ready);
+    this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
+    window.addEventListener('mp-role-change', this._role);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+    this.paint();
+  }
+  componentDidUpdate(){ this.paint(); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready); window.removeEventListener('mp-role-change', this._role); clearTimeout(this._fb); }
+  paint(){ if(window.mpArt) window.mpArt.paint(this.mainRef.current); }
+  renderVals(){
+    const H = window.mpHome, A = window.mpArt, role = this.state.role;
+    const base = { mainRef:this.mainRef };
+    if(!H || !A) return { ...base, secsCls:'vh-secs', svcTitle:'', headAll:false, tileAll:false, hasCount:false, all:{ href:'#', label:'', count:'' }, bentoCls:'vh-bento', tiles:[], secs:[], isBusiness:false, useful:[] };
+    const list = A.tiles(role), big = list.length >= 6;
+    const link = (l) => ({ ...l, ext: ext(l.href), target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href) });
+    return {
+      ...base,
+      svcTitle: H.hasGov(role) ? 'Государственные услуги' : 'Сервисы для медработников',
+      all: A.allTile(role), hasCount: H.hasGov(role),
+      // 7 услуг — бенто с большой первой плиткой и ссылкой «Все» в заголовке; 4 услуги — ряд из пяти плиток с «Все услуги»
+      headAll: big, tileAll: !big, bentoCls: 'vh-bento' + (big ? '' : ' n4'),
+      tiles: list.map((t, i) => ({ ...t, cls: 'vh-tile' + (big && i === 0 ? ' big' : ''), arrow: t.ext ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
+      secs: [ ...H.SECTIONS[role], { id:'lib', icon:'ri-book-open-line', label:'Справочники', desc:'', href:H.P.drugs, links:H.LIBRARY } ]
+        .map(x => ({ ...x, cls: 'vh-sec' + (x.tone === 'red' ? ' red' : ''), links: x.links.map(link) })),
+      secsCls: 'vh-secs' + (H.SECTIONS[role].length + 1 === 4 ? ' n4' : ''),
+      isBusiness: role === 'business', useful: H.USEFUL,
+    };
+  }
+}
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#EEF8FC"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#fff"/><rect x="40" y="90" width="440" height="470" rx="28" fill="#fff" stroke="#E2E4E9" stroke-width="3"/><rect x="72" y="150" width="300" height="44" rx="8" fill="#0A0D14"/><rect x="72" y="208" width="240" height="44" rx="8" fill="#0B7AA6"/><g fill="#F6F8FA"><rect x="72" y="330" width="376" height="40" rx="12"/><rect x="72" y="380" width="376" height="40" rx="12"/><rect x="72" y="430" width="376" height="40" rx="12"/></g><rect x="72" y="490" width="376" height="48" rx="16" fill="#fff" stroke="#E2E4E9" stroke-width="3"/><rect x="504" y="90" width="656" height="420" rx="28" fill="#D6EEF7"/><rect x="544" y="200" width="300" height="40" rx="8" fill="#0A0D14"/><rect x="544" y="300" width="160" height="48" rx="12" fill="#0B3A50"/><rect x="880" y="180" width="220" height="200" rx="40" fill="#1AA3CF"/><g fill="#E2E4E9"><rect x="504" y="530" width="120" height="4" rx="2"/><rect x="640" y="530" width="120" height="4" rx="2"/><rect x="776" y="530" width="120" height="4" rx="2"/></g><rect x="504" y="530" width="80" height="4" rx="2" fill="#0B7AA6"/><g fill="#F6F8FA"><rect x="40" y="620" width="270" height="160" rx="24"/><rect x="326" y="620" width="270" height="160" rx="24"/><rect x="612" y="620" width="270" height="160" rx="24"/><rect x="898" y="620" width="262" height="160" rx="24"/></g></svg></template>
+</body>
+</html>

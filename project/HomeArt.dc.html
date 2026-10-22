@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Объёмные иллюстрации и контент баннеров для вариантов главной H «Витрина» и I «Премиум».
+  Невизуальный компонент (как HomeData): <dc-import name="HomeArt" gallery="0" hint-size="0px,0px">
+  кладёт API в window.mpArt и рассылает событие 'mp-art-ready'. Открытый сам по себе — витрина всех иллюстраций.
+
+  Иллюстрации — «мягкое 3D» как у банков-референсов (BCC, Альфа-Банк, Forte), но без картинок и 3D-движка:
+  SVG из скруглённых форм с градиентами, толщиной (повтор формы со сдвигом), бликом и мягкой тенью.
+  Цвет — тон через CSS-переменные --a1 … --a5 на контейнере (палитра бренда или акценты AlignUI),
+  поэтому иллюстрации меняются вместе с палитрой бренда и не требуют загрузки файлов (≈ 1–2 КБ каждая).
+
+  Разметка: <span class="art" data-art="calendar" style="--a1:…"></span>, затем mpArt.paint(корень) —
+  рисует SVG во все пустые / изменившиеся [data-art]. Тоны: mpArt.tone('green') → строка CSS-переменных.
+  Контент: mpArt.banners(role) — услуги для баннеров первого экрана, mpArt.tiles(role) — остальные услуги
+  для блоков ниже (без повторов с баннерами), mpArt.allTile(role) — «Все госуслуги».
+-->
+<x-dc>
+<helmet>
+<style>
+  .art{ display:block; position:relative; }
+  .art svg{ display:block; width:100%; height:100%; overflow:visible; }
+  /* «живые» иллюстрации: медленное покачивание; выключается при «уменьшить движение» */
+  .art.float svg{ animation:art-float 6.5s ease-in-out infinite; }
+  @keyframes art-float{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-6px); } }
+  @media (prefers-reduced-motion:reduce){ .art.float svg{ animation:none; } }
+
+  /* витрина иллюстраций (компонент, открытый сам по себе) */
+  .ag{ font-family:'Inter',system-ui,sans-serif; padding:32px; background:#fff; color:#0A0D14; }
+  .ag h1{ margin:0 0 6px; font-size:28px; letter-spacing:-.02em; }
+  .ag p{ margin:0 0 24px; color:#525866; font-size:14px; }
+  .ag-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:14px; }
+  .ag-cell{ border-radius:20px; padding:14px 14px 10px; }
+  .ag-cell .art{ aspect-ratio:240/200; }
+  .ag-cell b{ display:block; margin-top:6px; font-size:13px; font-weight:600; }
+  .ag-tones{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:20px; }
+  .ag-tones button{ height:34px; padding:0 14px; border:none; border-radius:999px; font:500 13px 'Inter',sans-serif; cursor:pointer; background:#F6F8FA; box-shadow:inset 0 0 0 1px #E2E4E9; }
+  .ag-tones button[aria-pressed="true"]{ background:#0A0D14; color:#fff; box-shadow:none; }
+</style>
+</helmet>
+<sc-if value="{{ gallery }}" hint-placeholder-val="{{ true }}">
+  <div class="ag" ref="{{ rootRef }}">
+    <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+    <h1>Объёмные иллюстрации</h1>
+    <p>{{ count }} иллюстраций · тон меняется вместе с палитрой бренда</p>
+    <div class="ag-tones"><sc-for list="{{ tones }}" as="t" hint-placeholder-count="8"><button aria-pressed="{{ t.on }}" onClick="{{ t.onClick }}">{{ t.label }}</button></sc-for></div>
+    <div class="ag-grid">
+      <sc-for list="{{ arts }}" as="a" hint-placeholder-count="12">
+        <div class="ag-cell" style="{{ a.style }}"><span class="art float" data-art="{{ a.id }}"></span><b>{{ a.id }}</b></div>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
+const A = (() => {
+  // ——— Тоны: бренд (следует за палитрой) + акценты AlignUI (lighter / light / base / dark / darker) ———
+  // a1 — светлые грани, a2 — переход, a3 — основной цвет, a4 — тень, a5 — глубокий (текст кнопок, тёмные фоны);
+  // bg1 / bg2 — светлый фон плашки (вариант H)
+  const mix = (a, p, b) => 'color-mix(in srgb, ' + a + ' ' + p + '%, ' + b + ')';
+  const hue = (lighter, light, base, dark, darker) => ({ a1:light, a2:mix(base, 55, light), a3:base, a4:dark, a5:darker, bg1:lighter, bg2:light });
+  const TONES = {
+    brand:{ a1:'var(--b200)', a2:'var(--b300)', a3:'var(--b500)', a4:'var(--b700)', a5:'var(--b900)', bg1:'var(--b50)', bg2:'var(--b100)' },
+    teal:  hue('#EBFAFF', '#C2EFFF', '#35B9E9', '#1F87AD', '#164564'),
+    green: hue('#EFFAF6', '#CBF5E5', '#38C793', '#2D9F75', '#176448'),
+    purple:hue('#EEEBFF', '#CAC2FF', '#6E3FF3', '#5A36BF', '#2B1664'),
+    blue:  hue('#EEF2FF', '#C6D0FF', '#4D42E9', '#362DA6', '#312D86'),
+    orange:hue('#FEF3EB', '#FFDAC2', '#F17B2C', '#C2540A', '#6E330C'),
+    yellow:hue('#FEF7EC', '#FBDFB1', '#F2AE40', '#B47818', '#693D11'),
+    pink:  hue('#FDEBFF', '#F9C2FF', '#E255F2', '#9C23A9', '#620F6C'),
+  };
+  const TONE_NAMES = { brand:'Бренд', teal:'Голубой', green:'Зелёный', purple:'Фиолетовый', blue:'Синий', orange:'Оранжевый', yellow:'Жёлтый', pink:'Розовый' };
+  const tone = (id) => { const t = TONES[id] || TONES.brand; return Object.keys(t).map(k => '--' + k + ':' + t[k]).join(';') + ';'; };
+
+  // ——— SVG-примитивы ———
+  const st = (o, c, a) => '<stop offset="' + o + '" style="stop-color:' + c + (a != null ? ';stop-opacity:' + a : '') + '"/>';
+  const lg = (id, x1, y1, x2, y2, ...s) => '<linearGradient id="' + id + '" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '">' + s.join('') + '</linearGradient>';
+  const rg = (id, cx, cy, r, ...s) => '<radialGradient id="' + id + '" cx="' + cx + '" cy="' + cy + '" r="' + r + '">' + s.join('') + '</radialGradient>';
+  const R = (x, y, w, h, r) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="' + r + '"/>';
+  const C = (cx, cy, r) => '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>';
+  const E = (cx, cy, rx, ry) => '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '"/>';
+  const P = (d) => '<path d="' + d + '"/>';
+  const rot = (deg, cx, cy, inner) => '<g transform="rotate(' + deg + ' ' + cx + ' ' + cy + ')">' + inner + '</g>';
+  const fill = (f, inner, extra) => '<g fill="' + f + '"' + (extra || '') + '>' + inner + '</g>';
+  // общие градиенты одной иллюстрации (префикс p — уникален для каждой отрисовки)
+  const defs = (p) => '<defs>'
+    + lg(p + 't', 0, 0, 1, 1, st(0, 'var(--a2)'), st(.5, 'var(--a3)'), st(1, 'var(--a4)'))
+    + lg(p + 'ts', 0, 0, 0, 1, st(0, 'var(--a4)'), st(1, 'var(--a5)'))
+    + lg(p + 'l', 0, 0, 1, 1, st(0, mix('var(--a1)', 55, '#FFFFFF')), st(1, 'var(--a2)'))
+    + lg(p + 'ls', 0, 0, 0, 1, st(0, 'var(--a2)'), st(1, 'var(--a3)'))
+    + lg(p + 'w', 0, 0, .7, 1, st(0, '#FFFFFF'), st(1, mix('var(--a1)', 30, '#F6F8FA')))
+    + lg(p + 'ws', 0, 0, 0, 1, st(0, mix('var(--a3)', 28, '#CDD0D5')), st(1, mix('var(--a4)', 45, '#CDD0D5')))
+    + lg(p + 'g', 0, 0, 1, 1, st(0, mix('var(--bacc)', 40, '#FFFFFF')), st(.45, 'var(--bacc)'), st(1, mix('var(--bacc)', 72, '#0A0D14')))
+    + lg(p + 'gs', 0, 0, 0, 1, st(0, mix('var(--bacc)', 66, '#0A0D14')), st(1, mix('var(--bacc)', 50, '#0A0D14')))
+    + lg(p + 'r', 0, 0, 1, 1, st(0, '#F8C9D2'), st(.4, '#DF1C41'), st(1, '#AF1D38'))
+    + lg(p + 'rs', 0, 0, 0, 1, st(0, '#AF1D38'), st(1, '#710E21'))
+    + lg(p + 'e', 0, 0, 1, 1, st(0, '#CBF5E5'), st(.4, '#38C793'), st(1, '#2D9F75'))
+    + lg(p + 'es', 0, 0, 0, 1, st(0, '#2D9F75'), st(1, '#176448'))
+    + lg(p + 'dk', 0, 0, 1, 1, st(0, mix('var(--a5)', 80, '#FFFFFF')), st(1, 'var(--a5)'))
+    + lg(p + 'hi', 0, 0, 0, 1, st(0, '#FFFFFF', .95), st(1, '#FFFFFF', 0))
+    + rg(p + 'sh', .5, .5, .5, st(0, 'var(--a5)', .34), st(.6, 'var(--a5)', .1), st(1, 'var(--a5)', 0))
+    + rg(p + 'sp', .35, .3, .75, st(0, '#FFFFFF'), st(.3, 'var(--a2)'), st(1, 'var(--a4)'))
+    + '</defs>';
+  const u = (p, k) => 'url(#' + p + k + ')';
+  // тело с толщиной: форма повторяется со сдвигом вниз-вправо цветом боковой грани, сверху — лицевая грань и блик по краю
+  const solid = (p, shape, d, face, side, opt) => {
+    const o = opt || {}, dx = o.dx != null ? o.dx : .42;
+    const sw = o.round ? ' stroke-width="' + o.round + '" stroke-linejoin="round"' : '';
+    let s = '';
+    for(let i = d; i >= 1; i--) s += '<g transform="translate(' + (i * dx).toFixed(2) + ' ' + i + ')">' + shape + '</g>';
+    const sideF = u(p, side), faceF = u(p, face);
+    return '<g fill="' + sideF + '"' + (o.round ? ' stroke="' + sideF + '"' + sw : '') + '>' + s + '</g>'
+      + '<g fill="' + faceF + '"' + (o.round ? ' stroke="' + faceF + '"' + sw : '') + '>' + shape + '</g>'
+      + (o.rim === false ? '' : '<g fill="none" stroke="#FFFFFF" stroke-opacity=".55" stroke-width="1.4">' + shape + '</g>');
+  };
+  const shadow = (p, cx, cy, rx, ry) => '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + u(p, 'sh') + '"/>';
+  const gloss = (p, cx, cy, rx, ry, deg, op) => '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="' + u(p, 'hi') + '" opacity="' + (op || .8) + '" transform="rotate(' + (deg || 0) + ' ' + cx + ' ' + cy + ')"/>';
+  const sphere = (p, cx, cy, r) => '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + u(p, 'sp') + '"/>';
+  const spark = (x, y, s, c) => '<path d="M' + x + ' ' + (y - s) + 'Q' + x + ' ' + y + ' ' + (x + s) + ' ' + y + 'Q' + x + ' ' + y + ' ' + x + ' ' + (y + s) + 'Q' + x + ' ' + y + ' ' + (x - s) + ' ' + y + 'Q' + x + ' ' + y + ' ' + x + ' ' + (y - s) + 'Z" fill="' + (c || 'var(--bacc)') + '"/>';
+  const starD = (cx, cy, R1, r1) => { let d = ''; for(let i = 0; i < 10; i++){ const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r1 : R1; d += (i ? 'L' : 'M') + (cx + rr * Math.cos(a)).toFixed(1) + ' ' + (cy + rr * Math.sin(a)).toFixed(1); } return d + 'Z'; };
+  const check = (d, w, c) => '<path d="' + d + '" fill="none" stroke="' + (c || '#FFFFFF') + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  const cross = (cx, cy, l, t, f) => fill(f, R(cx - t / 2, cy - l / 2, t, l, t * .28) + R(cx - l / 2, cy - t / 2, l, t, t * .28));
+  const greyLine = mix('var(--a1)', 45, '#E2E4E9');
+  const HEART = 'M120 170C64 134 44 104 44 78c0-24 18-42 41-42 15 0 27 8 35 21 8-13 20-21 35-21 23 0 41 18 41 42 0 26-20 56-76 92z';
+
+  // ——— Иллюстрации (viewBox 0 0 240 200, свет — сверху слева) ———
+  const ART = {
+    // Запись к врачу — календарь с отмеченным днём и галочкой
+    calendar:(p) => shadow(p, 122, 184, 86, 11)
+      + solid(p, R(52, 48, 136, 120, 24), 10, 'w', 'ws')
+      + fill(u(p, 't'), P('M52 88V72a24 24 0 0 1 24-24h88a24 24 0 0 1 24 24v16z'))
+      + '<path d="M64 70a14 14 0 0 1 14-12h70" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3.5" stroke-linecap="round"/>'
+      + solid(p, R(80, 32, 14, 32, 7), 3, 'g', 'gs') + solid(p, R(146, 32, 14, 32, 7), 3, 'g', 'gs')
+      + fill(greyLine, [0, 1, 2].map(r => [0, 1, 2, 3].map(c => (r === 1 && c === 2) ? '' : R(70 + c * 26, 102 + r * 22, 18, 14, 5)).join('')).join(''))
+      + fill(u(p, 't'), R(122, 124, 18, 14, 5))
+      + solid(p, C(188, 62, 25), 6, 'e', 'es') + check('M177 62l8 8 15-16', 6) + gloss(p, 180, 51, 11, 6, -28)
+      + spark(40, 60, 10) + sphere(p, 34, 142, 9),
+    // Вызов врача на дом — дом и значок с медицинским крестом
+    house:(p) => shadow(p, 120, 184, 86, 11)
+      + solid(p, R(146, 50, 16, 36, 4), 4, 't', 'ts')
+      + solid(p, R(64, 94, 112, 76, 10), 9, 'w', 'ws')
+      + solid(p, P('M120 42c3 0 5 1 7 3l58 48c5 4 2 12-4 12H59c-6 0-9-8-4-12l58-48c2-2 4-3 7-3z'), 8, 't', 'ts')
+      + '<path d="M72 96l46-40" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>'
+      + fill(u(p, 't'), P('M104 170v-30a16 16 0 0 1 32 0v30z')) + fill('var(--bacc)', C(128, 154, 2.8))
+      + fill(u(p, 'l'), R(78, 116, 20, 20, 6) + R(142, 116, 20, 20, 6))
+      + solid(p, C(188, 58, 24), 6, 'w', 'ws') + cross(188, 58, 26, 10, u(p, 'r')) + gloss(p, 180, 48, 10, 5, -28)
+      + spark(44, 62, 9),
+    // Прикрепление к поликлинике — здание, вывеска с крестом и метка на карте
+    hospital:(p) => shadow(p, 118, 184, 88, 11)
+      + solid(p, R(54, 78, 124, 92, 14), 10, 'w', 'ws')
+      + solid(p, R(92, 42, 48, 42, 12), 6, 't', 'ts') + cross(116, 63, 26, 10, '#FFFFFF')
+      + fill(u(p, 'l'), [68, 105, 142].map(x => R(x, 100, 22, 14, 4) + R(x, 124, 22, 14, 4)).join(''))
+      + fill(u(p, 't'), P('M100 170v-18a8 8 0 0 1 8-8h16a8 8 0 0 1 8 8v18z'))
+      + solid(p, P('M196 114c-14-17-23-28-23-40a23 23 0 0 1 46 0c0 12-9 23-23 40z'), 5, 'r', 'rs') + fill('#FFFFFF', C(196, 74, 9))
+      + gloss(p, 186, 62, 8, 5, -30) + spark(38, 54, 9),
+    // ОСМС — щит с галочкой и монета тенге
+    shield:(p) => {
+      const S = P('M120 26c14 9 36 16 52 18 4 .5 7 4 7 8v44c0 38-25 64-59 80-34-16-59-42-59-80V52c0-4 3-7.5 7-8 16-2 38-9 52-18z');
+      return shadow(p, 120, 186, 70, 10)
+        + solid(p, S, 10, 't', 'ts')
+        + '<g transform="translate(120 100) scale(.78) translate(-120 -100)" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="3">' + S + '</g>'
+        + '<path d="M120 34c-13 8-33 14-48 16-2 .4-3 2-3 4v42c0 30 18 52 51 68z" fill="' + u(p, 'hi') + '" opacity=".35"/>'
+        + '<g transform="translate(2 4)" opacity=".3">' + check('M94 100l18 18 34-36', 15, 'var(--a5)') + '</g>'
+        + check('M94 100l18 18 34-36', 14)
+        + solid(p, C(188, 146, 20), 5, 'g', 'gs') + '<circle cx="188" cy="146" r="13.5" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.4"/>'
+        + check('M181 139h14M181 145h14M188 145v10', 3)
+        + sphere(p, 52, 66, 9) + spark(198, 46, 8);
+    },
+    // Вакцинация — флаконы с вакциной и капля
+    vial:(p) => {
+      const v = (k) => '<clipPath id="' + p + 'cv' + k + '">' + R(94, 76, 60, 98, 20) + '</clipPath>'
+        + fill(u(p, 'ws'), R(104, 58, 40, 10, 3))
+        + solid(p, R(98, 30, 52, 30, 9), 4, 't', 'ts')
+        + '<rect x="108" y="66" width="32" height="12" rx="3" fill="' + mix('var(--a1)', 45, '#FFFFFF') + '"/>'
+        + '<rect x="94" y="76" width="60" height="98" rx="20" fill="' + mix('var(--a1)', 40, '#FFFFFF') + '" stroke="' + mix('var(--a3)', 45, '#FFFFFF') + '" stroke-width="2"/>'
+        + '<g clip-path="url(#' + p + 'cv' + k + ')">' + fill(u(p, 't'), R(90, 116, 68, 62, 0))
+        + '<ellipse cx="124" cy="116" rx="34" ry="5" fill="var(--a2)"/>' + fill('#fff', C(112, 140, 3.5) + C(132, 152, 2.5) + C(118, 160, 2), ' opacity=".55"') + '</g>'
+        + '<rect x="102" y="84" width="7" height="80" rx="3.5" fill="#fff" opacity=".75"/>';
+      return shadow(p, 128, 186, 58, 10) + shadow(p, 72, 184, 30, 6)
+        + '<g transform="translate(-12 58) scale(.68)">' + v('b') + '</g>' + v('a')
+        + solid(p, P('M192 58c10 13 15 21 15 28a15 15 0 0 1-30 0c0-7 5-15 15-28z'), 4, 't', 'ts') + gloss(p, 186, 80, 4, 7, 20, .8)
+        + spark(48, 50, 9);
+    },
+    // Справка — два листа и печать
+    doc:(p) => shadow(p, 124, 186, 80, 10)
+      + rot(-9, 120, 104, solid(p, R(64, 38, 104, 132, 14), 6, 'l', 'ls'))
+      + solid(p, R(80, 34, 104, 134, 14), 8, 'w', 'ws')
+      + fill(u(p, 't'), R(96, 54, 52, 9, 4.5))
+      + fill(greyLine, R(96, 74, 72, 7, 3.5) + R(96, 90, 60, 7, 3.5) + R(96, 106, 72, 7, 3.5) + R(96, 122, 40, 7, 3.5))
+      + solid(p, C(170, 148, 26), 6, 't', 'ts')
+      + '<circle cx="170" cy="148" r="19" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2" stroke-dasharray="3 3.5"/>'
+      + check('M160 148l7 7 13-14', 5) + spark(50, 62, 9) + sphere(p, 202, 72, 8),
+    // Справки / протоколы — планшет с бумагой и отметками
+    clipboard:(p) => shadow(p, 120, 186, 74, 10)
+      + solid(p, R(62, 44, 116, 130, 18), 10, 't', 'ts')
+      + fill(u(p, 'w'), R(76, 60, 88, 102, 10))
+      + solid(p, R(94, 32, 52, 24, 9), 4, 'w', 'ws') + fill(u(p, 'ts'), R(110, 38, 20, 8, 4))
+      + [80, 104, 128].map(y => fill(u(p, 'e'), C(92, y + 4, 7)) + check('M88.5 ' + (y + 4) + 'l2.5 2.5 5-5', 2.2) + fill(greyLine, R(106, y, 44, 8, 4))).join('')
+      + gloss(p, 78, 56, 12, 6, -30, .5) + spark(194, 58, 9) + sphere(p, 44, 142, 8),
+    // Фармацевтика — две капсулы и таблетка
+    capsule:(p) => {
+      const c2 = rot(28, 152, 90, R(104, 70, 96, 40, 20)), c2h = rot(28, 152, 90, P('M124 70h28v40h-28a20 20 0 0 1 0-40z'));
+      const c1 = rot(-32, 110, 120, R(46, 94, 128, 52, 26)), c1h = rot(-32, 110, 120, P('M72 94h38v52H72a26 26 0 0 1 0-52z'));
+      return shadow(p, 122, 186, 86, 10)
+        + solid(p, c2, 7, 'w', 'ws') + fill(u(p, 'l'), c2h)
+        + solid(p, c1, 9, 'w', 'ws') + fill(u(p, 't'), c1h)
+        + rot(-32, 110, 120, '<rect x="58" y="101" width="104" height="9" rx="4.5" fill="#fff" opacity=".6"/>')
+        + solid(p, E(186, 156, 24, 13), 6, 'w', 'ws') + '<path d="M166 156h40" stroke="' + greyLine + '" stroke-width="2.4" stroke-linecap="round"/>'
+        + spark(54, 52, 9);
+    },
+    // Аптечка — медицинская деятельность
+    kit:(p) => shadow(p, 120, 186, 84, 10)
+      + '<path d="M96 82V68a10 10 0 0 1 10-10h28a10 10 0 0 1 10 10v14" fill="none" stroke="' + u(p, 'ts') + '" stroke-width="10" stroke-linecap="round"/>'
+      + solid(p, R(52, 76, 136, 96, 20), 10, 't', 'ts')
+      + '<path d="M62 102v-4a14 14 0 0 1 14-14h40" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>'
+      + solid(p, P('M111 100a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v13h13a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5h-13v13a5 5 0 0 1-5 5h-8a5 5 0 0 1-5-5v-13H98a5 5 0 0 1-5-5v-8a5 5 0 0 1 5-5h13z'), 4, 'w', 'ls')
+      + spark(196, 62, 9) + sphere(p, 40, 74, 8),
+    // Сертификация / аккредитация — медаль на лентах
+    medal:(p) => shadow(p, 120, 186, 60, 9)
+      + fill(u(p, 't'), P('M88 24h30l16 70h-30z')) + fill(u(p, 'ts'), P('M152 24h-30l-16 70h30z'))
+      + solid(p, C(120, 120, 46), 8, 'g', 'gs')
+      + '<circle cx="120" cy="120" r="35" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="3"/>'
+      + '<path d="' + starD(122, 123, 21, 9.5) + '" fill="' + mix('var(--bacc)', 60, '#0A0D14') + '" opacity=".35"/>'
+      + '<path d="' + starD(120, 120, 21, 9.5) + '" fill="#fff"/>'
+      + gloss(p, 102, 98, 16, 8, -32, .7) + spark(178, 58, 9) + spark(58, 146, 7),
+    // «Единое окно» — окно с документами поверх стопки карточек и галочка
+    stack:(p) => shadow(p, 118, 188, 92, 11)
+      + rot(8, 150, 90, fill(u(p, 'l'), R(86, 38, 112, 86, 16)))
+      + rot(4, 140, 100, fill(u(p, 't'), R(74, 50, 112, 86, 16)))
+      + solid(p, R(42, 64, 140, 104, 18), 8, 'w', 'ws')
+      + fill(u(p, 't'), P('M42 94V82a18 18 0 0 1 18-18h104a18 18 0 0 1 18 18v12z'))
+      + fill('#fff', C(58, 79, 3.5) + C(70, 79, 3.5) + C(82, 79, 3.5), ' opacity=".85"')
+      + fill(u(p, 'l'), R(56, 108, 40, 40, 12)) + cross(76, 128, 20, 7, u(p, 't'))
+      + fill(greyLine, R(108, 110, 58, 8, 4) + R(108, 125, 42, 8, 4) + R(108, 140, 52, 8, 4))
+      + solid(p, C(182, 70, 20), 5, 'e', 'es') + check('M173 70l6 6 12-12', 5) + spark(32, 64, 8),
+    // Лекарственное обеспечение — флакон с этикеткой и таблетки
+    bottle:(p) => shadow(p, 120, 186, 66, 10)
+      + solid(p, R(88, 40, 64, 30, 9), 5, 'w', 'ws')
+      + '<g stroke="' + greyLine + '" stroke-width="2.4" stroke-linecap="round">' + [98, 106, 114, 122, 130, 138].map(x => '<path d="M' + x + ' 46v18"/>').join('') + '</g>'
+      + solid(p, R(82, 70, 76, 104, 20), 9, 't', 'ts')
+      + '<rect x="92" y="78" width="8" height="88" rx="4" fill="#fff" opacity=".35"/>'
+      + fill(u(p, 'w'), R(82, 102, 76, 42, 0)) + cross(120, 123, 22, 8, u(p, 'r'))
+      + solid(p, E(186, 164, 18, 10), 4, 'w', 'ws')
+      + rot(-24, 54, 160, solid(p, R(34, 152, 40, 18, 9), 4, 'w', 'ws') + fill(u(p, 'l'), P('M43 152h11v18H43a9 9 0 0 1 0-18z')))
+      + spark(190, 60, 9),
+    // Квалификационная категория — объёмная звезда
+    star:(p) => shadow(p, 120, 188, 66, 10)
+      + solid(p, P(starD(120, 106, 66, 31)), 10, 'g', 'gs', { round:14 })
+      + '<path d="' + starD(120, 106, 38, 18) + '" fill="#fff" opacity=".22"/>'
+      + gloss(p, 104, 80, 9, 5, -35, .55)
+      + spark(188, 50, 10, 'var(--a3)') + spark(50, 62, 8, 'var(--a3)') + sphere(p, 192, 150, 9),
+    // Телемедицина / цифровые сервисы — монитор с кардиограммой
+    monitor:(p) => shadow(p, 120, 188, 80, 10)
+      + fill(u(p, 'ws'), R(110, 148, 20, 20, 4))
+      + solid(p, R(84, 166, 72, 10, 5), 4, 'w', 'ws')
+      + solid(p, R(40, 40, 160, 110, 18), 8, 'dk', 'ts')
+      + fill(u(p, 'l'), R(50, 50, 140, 90, 10))
+      + '<path d="M60 98h28l10-24 14 46 12-32 9 10h47" fill="none" stroke="' + u(p, 't') + '" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '<path d="M50 60a10 10 0 0 1 10-10h44l-54 54z" fill="#fff" opacity=".3"/>'
+      + solid(p, C(198, 46, 21), 5, 'e', 'es') + fill('#fff', C(190, 46, 3) + C(198, 46, 3) + C(206, 46, 3)),
+    // Здоровье — сердце с пульсом
+    heart:(p) => shadow(p, 120, 186, 70, 10)
+      + solid(p, P(HEART), 10, 't', 'ts')
+      + check('M64 98h30l10-20 14 38 12-28 8 10h40', 7)
+      + gloss(p, 80, 66, 18, 10, -35, .75) + spark(198, 42, 9) + sphere(p, 40, 152, 8),
+    // Дети — кубики
+    blocks:(p) => shadow(p, 122, 188, 92, 10)
+      + solid(p, R(48, 104, 62, 62, 14), 12, 't', 'ts') + '<path transform="translate(48 108) scale(.26)" d="' + HEART + '" fill="#fff"/>'
+      + solid(p, R(124, 104, 62, 62, 14), 12, 'g', 'gs') + '<path d="' + starD(155, 135, 17, 7.5) + '" fill="#fff"/>'
+      + solid(p, R(86, 30, 62, 62, 14), 12, 'w', 'ws') + cross(117, 61, 28, 10, u(p, 't'))
+      + gloss(p, 98, 42, 12, 6, -30, .6) + spark(204, 50, 9),
+    // Экстренная помощь — проблесковый маячок
+    siren:(p) => shadow(p, 120, 188, 72, 10)
+      + '<g stroke="#DF1C41" stroke-width="6" stroke-linecap="round" opacity=".8"><path d="M120 22v14M72 42l10 10M168 42l-10 10M52 92h14M188 92h-14"/></g>'
+      + solid(p, P('M84 142v-38a36 36 0 0 1 72 0v38z'), 4, 'r', 'rs')
+      + '<rect x="110" y="94" width="20" height="40" rx="10" fill="#fff" opacity=".5"/>'
+      + '<path d="M94 130v-24a26 26 0 0 1 14-23" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="5" stroke-linecap="round"/>'
+      + solid(p, R(66, 140, 108, 30, 12), 8, 'w', 'ws') + fill(greyLine, R(66, 152, 108, 5, 0)),
+    // Больничный лист — термометр и лист
+    thermo:(p) => shadow(p, 120, 188, 72, 10)
+      + rot(-10, 150, 100, solid(p, R(112, 42, 84, 112, 12), 6, 'l', 'ls') + fill('#fff', R(126, 62, 52, 7, 3.5) + R(126, 78, 40, 7, 3.5) + R(126, 94, 52, 7, 3.5), ' opacity=".75"'))
+      + solid(p, R(84, 32, 30, 120, 15), 6, 'w', 'ws')
+      + fill(u(p, 'r'), R(93, 66, 12, 94, 6))
+      + '<g stroke="' + greyLine + '" stroke-width="2.4" stroke-linecap="round">' + [48, 60, 72, 84, 96, 108, 120].map(y => '<path d="M107 ' + y + 'h' + (y % 24 === 0 ? 6 : 3) + '"/>').join('') + '</g>'
+      + '<rect x="88" y="40" width="5" height="100" rx="2.5" fill="#fff" opacity=".85"/>'
+      + solid(p, C(99, 160, 22), 5, 'r', 'rs') + gloss(p, 92, 152, 8, 5, -30, .8) + spark(52, 62, 9),
+    // Справки из диспансеров — печать на листе
+    stamp:(p) => shadow(p, 122, 188, 90, 11)
+      + solid(p, P('M30 158l114-24 70 26-114 26z'), 4, 'w', 'ws')
+      + '<ellipse cx="166" cy="160" rx="20" ry="8" fill="none" stroke="var(--a3)" stroke-width="3" opacity=".75"/>'
+      + fill(u(p, 'ts'), R(72, 134, 72, 10, 4))
+      + fill(u(p, 't'), R(98, 62, 20, 44, 8))
+      + solid(p, R(64, 100, 88, 32, 10), 8, 't', 'ts')
+      + '<path d="M74 106h40" stroke="#fff" stroke-opacity=".5" stroke-width="4" stroke-linecap="round"/>'
+      + '<circle cx="108" cy="52" r="19" fill="' + u(p, 'sp') + '"/>' + spark(196, 58, 9),
+    // Госпитализация — кровать и значок с крестом
+    bed:(p) => shadow(p, 120, 190, 94, 10)
+      + fill(u(p, 'ws'), R(60, 150, 8, 22, 4) + R(172, 150, 8, 22, 4)) + fill('var(--a4)', C(64, 176, 8) + C(176, 176, 8))
+      + solid(p, R(40, 72, 18, 100, 9), 5, 't', 'ts')
+      + solid(p, R(182, 104, 16, 68, 8), 5, 't', 'ts')
+      + fill(u(p, 'ts'), R(48, 138, 142, 12, 6))
+      + solid(p, R(52, 112, 134, 28, 12), 6, 'w', 'ws')
+      + solid(p, R(60, 96, 46, 22, 11), 4, 'w', 'ws')
+      + fill(u(p, 'l'), R(104, 108, 82, 32, 12))
+      + solid(p, C(154, 58, 22), 5, 'w', 'ws') + cross(154, 58, 24, 9, u(p, 'r')) + spark(80, 46, 9),
+    // Медорганизации — метка на карте
+    pin:(p) => solid(p, P('M30 150l90-28 90 28-90 30z'), 6, 'l', 'ls')
+      + '<g stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85"><path d="M62 140l92 30M88 132l78 24M120 124l-46 50"/></g>'
+      + solid(p, P('M120 144c-20-24-32-40-32-56a32 32 0 0 1 64 0c0 16-12 32-32 56z'), 7, 't', 'ts')
+      + fill('#fff', C(120, 88, 14)) + cross(120, 88, 16, 6, u(p, 'r'))
+      + gloss(p, 104, 70, 9, 6, -30, .7) + spark(186, 54, 9),
+  };
+  const IDS = Object.keys(ART);
+  let seq = 0;
+  const svg = (id) => {
+    const f = ART[id]; if(!f) return '';
+    const p = 'ma' + (++seq) + '-';
+    return '<svg viewBox="0 0 240 200" aria-hidden="true" focusable="false">' + defs(p) + f(p) + '</svg>';
+  };
+  // рисует иллюстрации во все [data-art] внутри root (повторно — только если сменилась)
+  const paint = (root) => {
+    if(!root || !root.querySelectorAll) return;
+    root.querySelectorAll('[data-art]').forEach(el => {
+      const id = el.getAttribute('data-art');
+      if(el.__art === id && el.firstChild) return;
+      el.innerHTML = svg(id); el.__art = id;
+    });
+  };
+
+  // ——— Контент: услуги для баннеров и блоков (из HomeData: официальные названия, коды eGov) ———
+  // Баннеры — ключевые услуги роли; блоки ниже — остальные услуги, без повторов с баннерами
+  const SLIDES = {
+    citizens:[
+      { gov:0, art:'calendar', tone:'brand', tab:'Запись к врачу', title:'Запись на приём к врачу', sub:'Выберите врача и удобное время — без звонков и очередей', cta:'Записаться' },
+      { gov:1, art:'house', tone:'green', tab:'Врач на дом', title:'Вызов врача на дом', sub:'Если нет сил идти в поликлинику — оформите вызов онлайн', cta:'Вызвать врача' },
+      { gov:2, art:'hospital', tone:'teal', tab:'Прикрепление', title:'Прикрепление к поликлинике', sub:'Выберите поликлинику рядом с домом', cta:'Прикрепиться' },
+      { gov:6, art:'shield', tone:'purple', tab:'Статус ОСМС', title:'Статус в системе ОСМС', sub:'Узнайте, застрахованы ли вы и какая помощь вам доступна', cta:'Узнать статус' },
+      { gov:9, art:'blocks', tone:'yellow', tab:'Рождение ребёнка', title:'Услуга «Рождение ребёнка»', sub:'Несколько услуг для новорождённого — одной заявкой', cta:'Оформить' },
+    ],
+    business:[
+      { gov:0, art:'stack', tone:'brand', tag:'Новая услуга', tab:'«Единое окно»', title:'Регистрация ЛС и МИ в «Едином окне»', sub:'Пакет документов — в одной заявке, онлайн с ЭЦП', cta:'Подать заявку' },
+      { gov:1, art:'capsule', tone:'green', tab:'Фармдеятельность', title:'Лицензия на фармацевтическую деятельность', sub:'Для аптек, аптечных складов и производства', cta:'Получить лицензию' },
+      { gov:2, art:'kit', tone:'teal', tab:'Меддеятельность', title:'Лицензия на медицинскую деятельность', sub:'Для клиник и медицинских центров', cta:'Получить лицензию' },
+      { gov:3, art:'medal', tone:'purple', tab:'Аккредитация', title:'Аккредитация медицинских организаций', sub:'Подтверждение соответствия стандартам аккредитации', cta:'Подать заявку' },
+    ],
+    medical:[
+      { gov:3, art:'clipboard', tone:'brand', tab:'Протоколы', title:'Клинические протоколы', sub:'Актуальные протоколы диагностики и лечения — в одном справочнике', cta:'Открыть справочник' },
+      { gov:0, art:'medal', tone:'green', tab:'Сертификация', title:'Сертификация специалистов', sub:'Сертификат для допуска к клинической практике', cta:'Подать заявление' },
+      { gov:2, art:'star', tone:'yellow', tab:'Категория', title:'Присвоение квалификационной категории', sub:'Заявление и документы о стаже — онлайн', cta:'Подать заявление' },
+      { href:'cat', art:'monitor', tone:'teal', tag:'Новое', tab:'Телемедицина', title:'Сервис телемедицины', sub:'Видеоконсультации с пациентами из кабинета врача', cta:'Подробнее' },
+    ],
+  };
+  const TILES = {
+    citizens:[ { gov:3, art:'doc', tone:'brand' }, { gov:4, art:'clipboard', tone:'teal' }, { gov:5, art:'thermo', tone:'orange' }, { gov:7, art:'stamp', tone:'purple' },
+      { gov:8, art:'vial', tone:'green' }, { gov:10, art:'bed', tone:'blue' }, { gov:11, art:'heart', tone:'pink' } ],
+    business:[ { gov:4, art:'bottle', tone:'orange' }, { gov:5, art:'shield', tone:'blue' }, { gov:6, art:'vial', tone:'green' }, { gov:7, art:'star', tone:'yellow' } ],
+    medical:[ { gov:1, art:'shield', tone:'purple' }, { gov:4, art:'doc', tone:'orange' }, { gov:5, art:'stack', tone:'brand' },
+      { short:'Расписание приёма', name:'Управление расписанием приёма', href:'cat', portal:true, icon:'ri-calendar-2-line', art:'calendar', tone:'green' } ],
+  };
+  const ext = (href) => /^https?:/.test(href || '');
+  const H = () => window.mpHome;
+  const svc = (role, x) => {
+    const h = H(); if(!h) return null;
+    const g = x.gov != null ? h.GOV[role][x.gov] : { short:x.short, name:x.name, icon:x.icon, portal:true, href: x.href === 'cat' ? h.P.cat : x.href };
+    return g;
+  };
+  const banners = (role) => (SLIDES[role] || SLIDES.citizens).map((x, i) => {
+    const g = svc(role, x) || {}; const href = x.href === 'cat' && H() ? H().P.cat : g.href || '#';
+    return { ...x, id:'s' + i, href, ext: ext(href), target: ext(href) ? '_blank' : '_self',
+      tip: H() ? H().tipOf({ ...g, href }) : '', vars: tone(x.tone) };
+  });
+  const tiles = (role) => (TILES[role] || []).map((x, i) => {
+    const g = svc(role, x) || {};
+    return { id:'t' + i, art:x.art, tone:x.tone, vars: tone(x.tone), short:g.short, name:g.name, icon:g.icon, href:g.href,
+      ext: ext(g.href), target: ext(g.href) ? '_blank' : '_self', tip: H() ? H().tipOf(g) : '' };
+  });
+  const allTile = (role) => {
+    const h = H(); if(!h) return { label:'', href:'#', count:'' };
+    const gov = h.hasGov(role);
+    // у медперсонала протоколы уже в баннере — «Все сервисы» ведёт в каталог
+    return { label: gov ? h.HERO[role].allLabel : 'Все сервисы', href: gov ? h.govPage(role) : h.P.cat,
+      count: gov ? h.plural(h.GOV_COUNT[role], 'услуга', 'услуги', 'услуг') : '' };
+  };
+  return { TONES, TONE_NAMES, tone, ART, IDS, svg, paint, banners, tiles, allTile };
+})();
+window.mpArt = A;
+
+class Component extends DCLogic {
+  constructor(props){ super(props); window.mpArt = A; this.rootRef = React.createRef(); this.state = { tone:'brand' }; }
+  componentDidMount(){
+    window.mpArt = A;
+    try { window.dispatchEvent(new CustomEvent('mp-art-ready')); } catch(e){}
+    A.paint(this.rootRef.current);
+  }
+  componentDidUpdate(){ A.paint(this.rootRef.current); }
+  renderVals(){
+    const t = this.state.tone;
+    return {
+      gallery: this.props.gallery !== '0', rootRef: this.rootRef, count: A.IDS.length,
+      tones: Object.keys(A.TONES).map(id => ({ label:A.TONE_NAMES[id], on: id === t ? 'true' : 'false', onClick:() => this.setState({ tone:id }) })),
+      arts: A.IDS.map(id => ({ id, style: A.tone(t) + 'background:linear-gradient(135deg, var(--bg1), var(--bg2));' })),
+    };
+  }
+}
+</script>
+</body>
+</html>
