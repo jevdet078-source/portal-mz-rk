@@ -21,6 +21,8 @@
   Тестовая «база» зарегистрированных пользователей — localStorage['mp-users']
   (JHI_USER → USER_PROFILE). Компонент заполняет её при первом показе и умеет сбросить.
   Пароль всех тестовых учётных записей — Demo#2026.
+  Новые записи SEED дописываются и в уже сохранённую базу (для тех, кто открывал прототип раньше).
+  «Сейткали Асель Бериковна, НЦЭЛС» — готовый эксперт для входа в АРМ НЦЭЛС; «Жумабаева, НЦЭЛС» — сценарий регистрации госоргана.
 -->
 <x-dc>
 <helmet>
@@ -94,6 +96,7 @@
 const CERTS = [
   { id:'fl-seit', group:'reg', type:'fl', fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', kgd:'ip', tag:'Гражданин + ИП', tone:'green' },
   { id:'ul-astana', group:'reg', type:'ul', fio:'Сейтжанова Аружан Маратовна', iin:'920315401540', bin:'150840014521', org:'ТОО «Астана Групп»', sign:true, sur:'nomatch', tag:'Бизнес', tone:'green' },
+  { id:'ul-ncels-exp', group:'reg', type:'ul', fio:'Сейткали Асель Бериковна', iin:'880412450318', bin:'980240003251', org:'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» МЗ РК', short:'НЦЭЛС', sign:true, orgGo:true, tag:'АРМ НЦЭЛС', tone:'green' },
   { id:'ul-poly', group:'reg', type:'ul', fio:'Ахметов Серик Кайратович', iin:'850612300218', bin:'990140002374', org:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', sign:false, sur:'match', post:'Врач-терапевт', tag:'Медперсонал', tone:'green' },
 
   { id:'fl-kasym', group:'new', type:'fl', fio:'Касымов Ерлан Болатович', iin:'880704350127', kgd:'ip', tag:'ИП в КГД', tone:'blue' },
@@ -122,6 +125,9 @@ const SEED = {
     { kind:'business', bin:'920315401540', org:'ИП Сейтжанова А. М.', ip:true, level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
     { kind:'business', bin:'150840014521', org:'ТОО «Астана Групп»', level:'APPLICANT', role:'SPECIALIST_WITH_SIGN', status:'ACTIVE' },
   ] },
+  '880412450318': { status:'ACTIVE', password:'Demo#2026', profiles:[
+    { kind:'gov', bin:'980240003251', org:'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» МЗ РК', level:'BY_ORGANIZATION', role:null, sign:true, status:'ACTIVE' },
+  ] },
   '850612300218': { status:'ACTIVE', password:'Demo#2026', profiles:[
     { kind:'medical', bin:'990140002374', org:'ГКП на ПХВ «Городская поликлиника № 4» акимата г. Астаны', level:'MEDICAL', role:'MEDICAL_STAFF', status:'ACTIVE' },
   ] },
@@ -133,7 +139,11 @@ const SEED = {
 class Component extends DCLogic {
   state = { open:false, showErr:false, resetDone:false };
   componentDidMount(){
-    try { if(!localStorage.getItem('mp-users')) localStorage.setItem('mp-users', JSON.stringify(SEED)); } catch(e){}
+    try {
+      const cur = JSON.parse(localStorage.getItem('mp-users') || 'null');
+      if(!cur) localStorage.setItem('mp-users', JSON.stringify(SEED));
+      else if(Object.keys(SEED).some(k => !cur[k])){ Object.keys(SEED).forEach(k => { if(!cur[k]) cur[k] = SEED[k]; }); localStorage.setItem('mp-users', JSON.stringify(cur)); }
+    } catch(e){}
     this._onOpen = () => this.setState({ open:true, resetDone:false });
     window.addEventListener('mp-ecp-open', this._onOpen);
   }

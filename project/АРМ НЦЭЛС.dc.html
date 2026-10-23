@@ -343,8 +343,8 @@ const DL = [
   { id:'soon', tone:'yellow', tip:'Срок истекает' },
   { id:'ok',   tone:'green',  tip:'В срок' },
 ];
-const ME = 'Жумабаева Д. Т.';
-const EXPERTS = [ME, 'Сейткали А. Б.', 'Ким Е. В.', 'Оспанов Н. К.', 'Ахметова Г. С.'];
+const ME = 'Сейткали А. Б.';
+const EXPERTS = [ME, 'Жумабаева Д. Т.', 'Ким Е. В.', 'Оспанов Н. К.', 'Ахметова Г. С.'];
 const AVA = [['#EEF2FF','#362DA6'], ['#EFFAF6','#176448'], ['#FEF3EB','#C2540A'], ['#EEEBFF','#5A36BF'], ['#EBFAFF','#1F87AD']];
 const ORGS = ['ТОО «Астана Групп»', 'ТОО «Фарм Лайн»', 'АО «Дала Фарм»', 'ТОО «Медика Трейд»', 'ТОО «Сункар Мед»', 'ТОО «Евразия Медикал»', 'ТОО «Нур Диагностикс»', 'ТОО «Altyn Pharma»'];
 const DAY = 864e5;
@@ -547,7 +547,7 @@ class Component extends DCLogic {
 
     const stOpen = s.pop === 'st';
     return {
-      title:R.title, meName:ME, meIni:'ЖД',
+      title:R.title, meName:ME, meIni:'СА',
       navOpen, navItems,
       toggleNav: () => this.setState({ navOpen:!navOpen }),
       navToggleLabel: navOpen ? 'Свернуть меню' : 'Развернуть меню',
