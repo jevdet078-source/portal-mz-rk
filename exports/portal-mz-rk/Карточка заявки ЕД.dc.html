@@ -719,12 +719,12 @@ class Component extends DCLogic {
     if(isStep){
       V = this.stepView(app, step, now);
       const isLast = step === lastStep;
-      let t = null;
+      let t = null, tObj = step.timer || null;
       if(step.timer){ const rem = step.timer.frozen != null ? step.timer.frozen : step.timer.stopped != null ? Math.max(0, step.timer.deadline - step.timer.stopped) : step.timer.deadline - now;
         t = { owner:step.timer.owner, frozen: step.timer.frozen != null, stopped: step.timer.stopped != null && step.timer.frozen == null, deadline:step.timer.deadline, wd:step.timer.wd, rem }; }
-      if(isLast && !step.timer){ const at = ED.activeTimer(app, now); if(at) t = { owner:at.owner, frozen:at.frozen, stopped:false, deadline:at.deadline, wd:at.wd, rem:at.remaining }; }
+      if(isLast && !step.timer){ const at = ED.activeTimer(app, now); if(at){ t = { owner:at.owner, frozen:at.frozen, stopped:false, deadline:at.deadline, wd:at.wd, rem:at.remaining }; tObj = at.step && at.step.timer || null; } }
       const sentAt = step.kind === 'p7' ? app.sentAt : step.at;
-      const remainVal = !t ? '—' : t.stopped ? (step.expired ? 'Срок истёк' : 'Остановлен') : t.rem <= 0 ? 'Срок истёк' : ED.fmtRemain(t.rem);
+      const remainVal = !t ? '—' : t.stopped ? (step.expired ? 'Срок истёк' : 'Остановлен') : t.rem <= 0 ? 'Срок истёк' : ED.fmtRemain(tObj ? ED.workLeft(tObj, now) : t.rem);
       const mine = t && t.owner === 'applicant' && !t.stopped && !t.frozen && t.rem > 0;
       const remStyle = `margin:0;display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:${mine ? 600 : 500};color:${!t ? '#868C98' : (t.rem <= 0 && !t.stopped) || step.expired ? '#DF1C41' : mine ? '#C2540A' : '#0A0D14'};`;
       const R = (icon, label, value, o) => ({ icon, label, value, style:(o && o.style) || `margin:0;display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:500;color:${value === '—' || value === 'Не отправлено' ? '#868C98' : '#0A0D14'};`, vIcon:(o && o.vIcon) || '', vIconStyle:(o && o.vIconStyle) || 'display:none;' });
