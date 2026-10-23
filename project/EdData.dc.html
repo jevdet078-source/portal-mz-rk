@@ -16,7 +16,9 @@
 
   Хранилище:
     localStorage['mp-ed-db']      { v, seq, apps:[…] } — заявки заявителя (черновики и поданные)
-    localStorage['mp-ed-notifs']  [{ id, n, num, ok, at, read }] — push-уведомления ЕД (UC01.13.2.2)
+    localStorage['mp-ed-notifs']  [{ id, n, num, kind, code, ok, text, status, tone, email, at, read }] — push-уведомления
+                                  заявителя ЕД (UC01.13.2.2, табл. 1): kind ok / no / rework; text, status, tone — готовые к показу,
+                                  шапка и «Центр уведомлений» читают их без EdData; email — куда ушло письмо (UC10.3)
     sessionStorage['mp-ed-session'] — несохранённая сессия мастера
     sessionStorage['mp-ed-fail']  '1' — сценарий «Техсбой» (панель «Прототип»)
   События window: 'mp-ed-change' — данные заявок изменились; 'mp-ed-notif-change' — уведомления.
@@ -45,7 +47,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:40}}">
 const ED = (() => {
   const KEY = 'mp-ed-db', NKEY = 'mp-ed-notifs', SKEY = 'mp-ed-session', FKEY = 'mp-ed-fail';
-  const V = 5;
+  const V = 6;
   const HOUR = 36e5, DAY = 864e5;
 
   // ───────────────────────── справочная информация об услуге ─────────────────────────
@@ -410,12 +412,28 @@ const ED = (() => {
   };
 
   // ───────────────────────── уведомления ─────────────────────────
-  const notify = (app, ok, at) => {
+  // Шаблоны UC01.13.2.2, табл. 1: push — в колокольчик и «Центр уведомлений», email — на почту из профиля (UC10.3).
+  // Строки 5–6 (REWORK_ED_*) — после подписи ПП и статуса «Выставлены замечания», срок исправления — 10 рабочих дней.
+  const NOTIF = {
+    ok:{ push:'COMPLETED_ED_PUSH', mail:'COMPLETED_ED_EMAIL', status:'Положительное решение', tone:'green',
+      text:(num) => 'Уважаемый пользователь! По Вашей заявке №' + num + ' принято положительное решение о включении в ЕД. Просим перейти в Личный кабинет для ознакомления.' },
+    no:{ push:'REJECTED_ED_PUSH', mail:'REJECTED_ED_EMAIL', status:'Мотивированный отказ', tone:'red',
+      text:(num) => 'Уважаемый пользователь! По Вашей заявке №' + num + ' принято решение об отказе. Просим перейти в Личный кабинет для ознакомления.' },
+    rework:{ push:'REWORK_ED_PUSH', mail:'REWORK_ED_EMAIL', status:'Выставлены замечания', tone:'orange',
+      text:(num) => 'Уважаемый пользователь! По Вашей заявке №' + num + ' по результатам первичной экспертизы выставлены замечания. Просим исправить их и повторно направить заявку через Личный кабинет в течение 10 рабочих дней.' },
+  };
+  const notifRec = (num, kind, at, n, read) => ({ id:'ed-' + num + '-' + at, n, num, kind, code:NOTIF[kind].push, ok: kind === 'ok',
+    text:NOTIF[kind].text(num), status:NOTIF[kind].status, tone:NOTIF[kind].tone, email:PROFILE.email, mail:NOTIF[kind].mail, at, read:!!read });
+  // уведомления получает только заявитель заявки: заявки других организаций (app.org) в кабинет не попадают
+  const notify = (app, kind, at) => {
+    if(seeding || app.org) return;
     const n = readN();
+    if(n.some(x => x.num === app.num && x.kind === kind && x.at === at)) return;
     const max = n.reduce((m, x) => Math.max(m, +x.n || 0), 99);
-    n.unshift({ id:'ed-' + app.num + '-' + at, n:String(max + 1), num:app.num, ok, at, read:false });
+    n.unshift(notifRec(app.num, kind, at, String(max + 1), false));
     writeN(n);
   };
+  const mailOf = (num, kind) => readN().find(x => x.num === num && x.kind === kind) || null;
   const markRead = (num) => { const n = readN(); let ch = false; n.forEach(x => { if(x.num === num && !x.read){ x.read = true; ch = true; } }); if(ch) writeN(n); };
 
   // ───────────────────────── хронология и события для АРМ ─────────────────────────
@@ -490,7 +508,7 @@ const ED = (() => {
       if(s.round === 2 || p.agree){
         stopT(s, at);
         if(isProf){ toFk(app, at); }
-        else { app.status = 'Отказано'; nn(app, 'Первичная экспертиза', 'Отказано'); finish(app, at, 'refused'); notify(app, false, at); }
+        else { app.status = 'Отказано'; nn(app, 'Первичная экспертиза', 'Отказано'); finish(app, at, 'refused'); notify(app, 'no', at); }
         return;
       }
       // не согласен — остаток таймера замораживается, заявка возвращается эксперту
@@ -503,7 +521,7 @@ const ED = (() => {
     p7Yes(app, at){
       const s = lastOf(app, 'p7'); s.st = 'Завершено';
       app.status = 'Завершено'; app.result = 'p7'; nn(app, 'Нулевая экспертиза', 'Завершено');
-      finish(app, at, 'p7'); notify(app, true, at);
+      finish(app, at, 'p7'); notify(app, 'ok', at);
     },
     p7No(app, at, p){
       const s = lastOf(app, 'p7'); s.st = 'Завершено';
@@ -537,6 +555,7 @@ const ED = (() => {
       app.steps.push(step({ kind:'remarks', title:'Замечания ННЦРЗ', st:'Выставлены замечания', issued:at, resumeFrom:s.id, timer: timer('applicant', 10, at),
         docs: docsOr(p, [ nnDoc(app, 12, 'Заключение по первичной экспертизе (замечания)', 184) ]), items }));
       app.status = 'Выставлены замечания'; nn(app, 'Первичная экспертиза', 'Выставлены замечания');
+      notify(app, 'rework', at);
     },
     recommend(app, at, p){ const s = last(app); s.st = 'Завершено'; stopT(s, at); toPay80(app, at, p && p.docs); },
     refuse(app, at, p){
@@ -593,7 +612,7 @@ const ED = (() => {
       nn(app, 'Рассмотрение формулярной комиссией', 'Решение принято');
       const pn = (p && p.protocol) || app.num;
       finish(app, at, 'fk', { docs:[ { title:'Протокол заседания Формулярной комиссии (обезличенный)', id:'', name:'protocol_№' + pn + '_2.pdf', size:214 * 1024, protocol:pn, comm:(p && p.comm) || '', kind:'protocol2' } ] });
-      notify(app, !!p.include, at);
+      notify(app, p.include ? 'ok' : 'no', at);
     },
     fkInclude(app, at, p){ ACT.fkDecide(app, at, { ...(p || {}), include:true }); },
     fkExclude(app, at, p){ ACT.fkDecide(app, at, { ...(p || {}), include:false }); },
@@ -769,6 +788,7 @@ const ED = (() => {
 
     // ── ТОО «Астана Групп» (кабинет бизнеса) ──
     mk('0000131', 'ls', 'Форсига', 30, null);
+    mk('0000133', 'ls', 'Тагриссо', 400, [ sub(400), ['p7No', 380], ['pay20', 360, F('ПП_20.pdf', 150)], ['confirm20', 340], ['remarks', 1] ]);
     mk('0000129', 'ls', 'Энхерту', 120, [ sub(120), ['p7No', 26] ]);
     mk('0000127', 'mi', 'Resolute Onyx', 900, [ sub(900), ['p7No', 860], ['pay20', 840, F('Платёжное поручение 20% № 4512.pdf', 212)], ['confirm20', 800], ['refuse', 50, { comment:'Представленное досье не содержит сведений о клинико-экономическом преимуществе изделия по сравнению с изделиями, включёнными в перечень (раздел досье 5).' }] ]);
     mk('0000126', 'mi', 'FreeStyle Libre 2', 4, [ sub(3) ]);
@@ -814,11 +834,12 @@ const ED = (() => {
     // уведомления по итоговым решениям демо-заявок (UC01.13.2.2): свежее — непрочитанное
     try {
       const n = [
-        { id:'ed-0000110', n:'103', num:'0000110', ok:true,  at:H(2),    read:false },
-        { id:'ed-0000107', n:'102', num:'0000107', ok:false, at:H(2),    read:true },
-        { id:'ed-0000104', n:'101', num:'0000104', ok:false, at:H(1690), read:true },
-        { id:'ed-0000101', n:'100', num:'0000101', ok:true,  at:H(2950), read:true },
-      ];
+        notifRec('0000133', 'rework', H(1), '104', false),
+        notifRec('0000110', 'ok', H(2), '103', false),
+        notifRec('0000107', 'no', H(2), '102', true),
+        notifRec('0000104', 'no', H(1690), '101', true),
+        notifRec('0000101', 'ok', H(2950), '100', true),
+      ].sort((a, b) => b.at - a.at);
       localStorage.setItem(NKEY, JSON.stringify(n));
     } catch(e){}
     seeding = false;
@@ -848,7 +869,7 @@ const ED = (() => {
     KEY, NKEY, SERVICE, SERVICE_TYPE, PRICE, PROVIDER, PROFILE, DICT, SCHEMA, FILTER, TONE, ST, EXT, LIMIT, FAIL_MSG,
     dossier, list, listAll, meta, get, put, remove, newApp, newReg, blankForm, validate, stepDone, apply, mutate, mutateAll, events, expireSoon, tick,
     ORGS, orgOf, logPush, endWD, addWDEnd: endWD, fast: fastNow, setFast, FAST_MS, isWork,
-    activeTimer, stage, badge, toneOf, summary, last, lastOf, markRead, readN, writeN, notifs:readN,
+    activeTimer, stage, badge, toneOf, summary, last, lastOf, markRead, readN, writeN, notifs:readN, NOTIF, mailOf,
     fmtD, fmtT, fmtDT, parseD, addWD, wdWord, fmtRemain, workLeft, money, fileSize, ext, checkFile, phoneOk,
     session, fail, setFail, reset, emit, invalidate,
   };
