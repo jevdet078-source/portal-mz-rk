@@ -195,7 +195,7 @@ class Component extends DCLogic {
     const s = this.state;
     const pad = (x) => String(x).padStart(2, '0');
     const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
-    const ED_NAME = 'Проведение профессиональной экспертизы для включения лекарственного средства или медицинского изделия в перечень закупа лекарственных средств и медицинских изделий в рамках гарантированного объема бесплатной медицинской помощи и (или) в системе обязательного социального медицинского страхования';
+    const ED_NAME = 'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора';
     const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read }));
     const all = edRows.concat(this.data());
     const isRead = (n) => { const e = edRows.find(r => r.n === n); return e ? e.edRead : s.read.indexOf(n) !== -1; };

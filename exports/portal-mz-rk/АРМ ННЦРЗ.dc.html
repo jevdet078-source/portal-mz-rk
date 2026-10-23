@@ -394,7 +394,7 @@ class Component extends DCLogic {
       let timer = '—', timerTitle = 'Таймер не идёт', timerStyle = 'font-size:13px;line-height:20px;color:#868C98;padding-left:2px;';
       if(t && !t.frozen && !fk){
         const zero = t.remaining <= 0;
-        timer = ED.fmtRemain(t.remaining);
+        timer = t.text;
         timerTitle = (t.owner === 'applicant' ? 'Срок заявителя' : 'Срок ННЦРЗ') + ' — до ' + ED.fmtDT(t.deadline);
         timerStyle = `display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:6px;border:1px solid ${zero ? '#DF1C41' : '#38C793'};background:#fff;color:${zero ? '#AF1D38' : '#176448'};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums;`;
       }
