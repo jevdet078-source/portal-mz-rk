@@ -32,6 +32,8 @@
   body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  .nt-row{transition:background .15s;}
+  .nt-row:hover{background:var(--n100) !important;}
 </style>
 </helmet>
 
@@ -50,7 +52,6 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
           <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
             <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Центр уведомлений</div>
-            <div style="font-size:14px;line-height:20px;color:var(--n500);">Раздел отображает успешно завершённые и отклонённые уведомления.</div>
           </div>
           <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
             <button onClick="{{ readAll }}" style="height:40px;padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);">
@@ -79,7 +80,7 @@
               <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
                 <div>
                   <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
-                    <a href="{{ r.href }}" onClick="{{ r.onOpen }}" style="{{ r.rowStyle }}">
+                    <a class="nt-row" href="{{ r.href }}" onClick="{{ r.onOpen }}" title="{{ r.rowTip }}" style="{{ r.rowStyle }}">
                       <div style="{{ r.numStyle }}">
                         <sc-if value="{{ r.unread }}" hint-placeholder-val="{{ true }}"><span title="Непрочитанное" style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 auto;"></span></sc-if>
                         <span style="{{ r.numTextStyle }}">{{ r.n }}</span>
@@ -87,7 +88,7 @@
                       <div style="width:110px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);">{{ r.appId }}</div>
                       <div title="{{ r.name }}" style="{{ r.nameStyle }}">{{ r.name }}</div>
                       <div style="width:190px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.date }}</div>
-                      <div style="width:150px;flex:0 0 auto;padding:12px 10px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
+                      <div style="width:184px;flex:0 0 auto;padding:12px 10px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
                       <div style="width:160px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.expert }}</div>
                     </a>
                   </sc-for>
@@ -196,7 +197,9 @@ class Component extends DCLogic {
     const pad = (x) => String(x).padStart(2, '0');
     const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
     const ED_NAME = 'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора';
-    const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read }));
+    // ЕД: статус и текст push — из записи (UC01.13.2.2, табл. 1–2); текст — в подсказке строки
+    const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read,
+      edStatus: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red'), tip: x.text || '' }));
     const all = edRows.concat(this.data());
     const isRead = (n) => { const e = edRows.find(r => r.n === n); return e ? e.edRead : s.read.indexOf(n) !== -1; };
     const unreadCount = all.filter(r => !isRead(r.n)).length;
@@ -214,7 +217,7 @@ class Component extends DCLogic {
       { label:'ID заявки', sort:true, style: hc + 'width:110px;flex:0 0 auto;' },
       { label:'Наименование услуги', sort:true, style: hc + 'flex:1;min-width:0;' },
       { label:'Дата вынесения решения, и время', sort:true, style: hc + 'width:190px;flex:0 0 auto;' },
-      { label:'Статус', sort:true, style: hc + 'width:150px;flex:0 0 auto;' },
+      { label:'Статус', sort:true, style: hc + 'width:184px;flex:0 0 auto;' },
       { label:'Эксперт / система', sort:true, style: hc + 'width:160px;flex:0 0 auto;' },
     ].map(c => ({ ...c, icon: c.sort ? 'ri-expand-up-down-line' : '', iconStyle:'font-size:14px;color:#868C98;flex:0 0 auto;' }));
 
@@ -229,14 +232,14 @@ class Component extends DCLogic {
       const unread = !isRead(r.n);
       return { ...r,
         unread,
-        status: r.ed ? (r.ok ? 'Положительное решение' : 'Мотивированный отказ') : 'Завершена',
+        status: r.ed ? r.edStatus : 'Завершена', rowTip: r.ed ? r.tip : '',
         href: r.ed ? 'Карточка заявки ЕД.dc.html?n=' + r.appId : 'Услуги.dc.html#ls',
         onOpen: open(r.n),
         rowStyle:`display:flex;align-items:center;min-height:56px;border-bottom:1px solid #E2E4E9;text-decoration:none;color:inherit;background:${unread ? '#FBFCFD' : i % 2 ? '#fff' : '#FBFCFD'};`,
         numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:12px 10px;',
         numTextStyle:`font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '600' : '400'};`,
-        nameStyle:`flex:1;min-width:0;padding:12px 10px;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;`,
-        statusStyle:`display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${r.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}`,
+        nameStyle:`flex:1;min-width:0;margin:12px 10px;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;`,
+        statusStyle:`display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${{ green:'background:#CBF5E5;color:#176448;', red:'background:#FDEDF0;color:#710E21;', orange:'background:#FEF3EB;color:#6E330C;' }[r.ed ? r.tone : r.ok ? 'green' : 'red']}`,
       };
     });
 

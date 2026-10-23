@@ -56,6 +56,9 @@
     .hdr-bar-pub .hdr-roles button{padding:0 6px !important;font-size:13px !important;}
     .hdr-bar-pub .hdr-roles button > span:first-child{gap:6px !important;}
   }
+  .hd-note{transition:background .15s;}
+  .hd-note:hover{background:var(--n100);}
+  .hd-note:focus-visible{outline:none;box-shadow:inset 0 0 0 2px #C6D0FF;}
 </style>
 </helmet>
 <header style="background:#fff;border-bottom:1px solid var(--stroke);font-family:'Inter',sans-serif;">
@@ -100,7 +103,7 @@
               <sc-if value="{{ isBizNotes }}" hint-placeholder-val="{{ true }}">
                 <div style="max-height:360px;overflow-y:auto;">
                   <sc-for list="{{ notes }}" as="n" hint-placeholder-count="3">
-                    <a href="{{ n.href }}" style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;">
+                    <a class="hd-note" href="{{ n.href }}" style="display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;">
                       <span style="{{ n.dotStyle }}"></span>
                       <span style="display:flex;flex-direction:column;gap:4px;min-width:0;">
                         <span style="font-size:12px;line-height:16px;color:var(--n400);">{{ n.meta }}</span>
@@ -330,18 +333,20 @@ class Component extends DCLogic {
     const isDoc = isAccount && this.props.cabinet === 'medical';
     const pad = (x) => String(x).padStart(2, '0');
     const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    // ЕД: текст push — по шаблону UC01.13.2.2, табл. 1 (EdData кладёт готовые text / status / tone в запись)
     const edNotes = (s.ed || []).map(x => ({ n:x.n, ed:true, read:!!x.read, num:x.num, meta:'ID ' + x.num + ' · ' + fdt(x.at),
-      title: x.ok ? 'Положительное решение о включении в ЕД по заявке № ' + x.num : 'Решение об отказе по заявке № ' + x.num, ok:x.ok }));
+      title: x.text || (x.ok ? 'Положительное решение о включении в ЕД по заявке № ' + x.num : 'Решение об отказе по заявке № ' + x.num), ok:x.ok,
+      status: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red') }));
     const isNewNote = (n) => n.ed ? !n.read : s.read.indexOf(n.n) === -1;
     const allNotes = edNotes.concat(noteData);
     const unread = isDoc ? 0 : allNotes.filter(isNewNote).length;
     const notes = allNotes.slice(0, 4).map(n => { const isNew = isNewNote(n); return {
-      meta:n.meta, title:n.title, expert: n.ed ? 'АРМ ННЦРЗ' : 'Иванов. И.И.', status: n.ed ? (n.ok ? 'Положительное решение' : 'Мотивированный отказ') : 'Завершена',
+      meta:n.meta, title:n.title, expert: n.ed ? 'АРМ ННЦРЗ' : 'Иванов. И.И.', status: n.ed ? n.status : 'Завершена',
       href: n.ed ? 'Карточка заявки ЕД.dc.html?n=' + n.num : 'Уведомления.dc.html',
       dotStyle:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
       expertLabel: n.ed ? 'Система' : 'Эксперт',
-      titleStyle:`font-size:14px;line-height:20px;font-weight:${isNew ? '600' : '500'};color:#0A0D14;`,
-      statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${n.ok ? 'background:#CBF5E5;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` }; });
+      titleStyle:`font-size:${n.ed ? 13 : 14}px;line-height:${n.ed ? 18 : 20}px;font-weight:${isNew ? '600' : n.ed ? '400' : '500'};color:#0A0D14;`,
+      statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${{ green:'background:#CBF5E5;color:#176448;', red:'background:#FDEDF0;color:#710E21;', orange:'background:#FEF3EB;color:#6E330C;' }[n.ed ? n.tone : n.ok ? 'green' : 'red']}` }; });
 
     // ——— кабинет медработника ———
     // срок сертификата — тот же, что в «Профиле врача» (тестовый ответ СУР: истекает через 68 дней)

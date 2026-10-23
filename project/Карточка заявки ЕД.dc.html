@@ -81,6 +81,10 @@
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .tnum{font-variant-numeric:tabular-nums;}
   .pre{white-space:pre-wrap;word-break:break-word;}
+  .tip{position:relative;display:inline-flex;}
+  .tip .tip-b{display:none;position:absolute;left:0;bottom:calc(100% + 8px);width:max-content;max-width:320px;padding:8px 10px;border-radius:8px;background:#0A0D14;color:#fff;font-size:12px;line-height:16px;font-weight:400;text-align:left;white-space:normal;z-index:60;pointer-events:none;box-shadow:0 8px 16px -6px rgba(10,13,20,.3);}
+  .tip:hover .tip-b,.tip:focus-visible .tip-b{display:block;}
+  .tip:focus-visible{outline:none;border-radius:999px;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
 </style>
 </helmet>
 
@@ -212,6 +216,9 @@
                     <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;">
                       <div style="font-size:14px;line-height:20px;font-weight:600;">{{ noteTitle }}</div>
                       <sc-for list="{{ noteParas }}" as="p" hint-placeholder-count="1"><div style="font-size:14px;line-height:20px;color:var(--n600);">{{ p }}</div></sc-for>
+                      <sc-if value="{{ hasNoteMail }}" hint-placeholder-val="{{ false }}">
+                        <span class="tip" tabIndex="0" aria-label="{{ noteMailAria }}" style="align-self:flex-start;margin-top:2px;cursor:help;"><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid var(--stroke);font-size:12px;line-height:16px;color:var(--n600);"><i class="ri-mail-send-line" style="font-size:14px;color:var(--n500);"></i>{{ noteMail }}</span><span class="tip-b" role="tooltip">{{ noteMailTip }}</span></span>
+                      </sc-if>
                     </div>
                   </div>
                 </sc-if>
@@ -549,7 +556,7 @@ class Component extends DCLogic {
     }
     if(step.kind === 'remarks'){
       v.docs = nnDocs(step.docs);
-      v.note = { tone:'orange', icon:'ri-error-warning-line', title:'Замечания эксперта', paras: step.items };
+      v.note = { tone:'orange', icon:'ri-error-warning-line', title:'Замечания эксперта', paras: step.items, mail: ED.mailOf(app.num, 'rework') };
       if(open) v.act = { title:'Ответ на замечания', desc:'Исправьте замечания: опишите изменения и приложите исправленные документы одним файлом.', choice:false, text:true,
         up:'Исправленные документы', formats:'ZIP, RAR, 7Z, DOCX, XLSX, PDF, JPG, PNG · до 500 МБ', kind:'dossier', send:'Отправить ответ' };
       else if(step.reply) v.reply = { title:'Ваш ответ', text:step.reply.text, files:(step.reply.files || []).map(f => fileRow(f, 'Отправлен ' + ED.fmtDT(step.at))) };
@@ -777,6 +784,7 @@ class Component extends DCLogic {
 
       isStep, stepTitle: step ? step.title + (step.round === 2 ? ' · повторно' : '') : '', stepBadge, info,
       hasNote: !!N, noteTitle: N ? N.title + (N.proposal ? ' · предложение, постановки нет' : '') : '', noteParas: N ? N.paras : [], noteIcon: N ? N.icon : '',
+      hasNoteMail: !!(N && N.mail), noteMail: N && N.mail ? 'Уведомление отправлено на ' + N.mail.email : '', noteMailTip: N && N.mail ? 'Текст письма: ' + N.mail.text : '', noteMailAria: N && N.mail ? 'Уведомление отправлено на ' + N.mail.email + '. ' + N.mail.text : '',
       noteBox:`display:flex;gap:12px;align-items:flex-start;padding:16px;border:1px solid ${nt[1]};border-radius:14px;background:${nt[0]};`,
       noteIconStyle:`font-size:22px;color:${nt[2]};flex:0 0 auto;`,
       hasResult: !!Rz, resTitle: Rz ? Rz.title : '', resParas: Rz ? Rz.paras : [], resMail: !!(Rz && Rz.mail), email: ED.PROFILE.email,
