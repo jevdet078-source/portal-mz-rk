@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  АРМ НЦЭЛС → главная эксперта: реестр заявок на регистрацию / изменение цены (LS_REG_PRICE, LS_AMEND_PRICE,
+  MI_REG_PRICE, MI_AMEND_PRICE), разделённый на блоки по текущему статусу заявки.
+  Постановка (п. 2): блоки «В работе», «На согласовании», «На подписании», «Все заявки»; реестр ЛС и реестр МИ.
+    ЛС  В работе        NEW, ASSIGNED, REASSIGNED, IN_WORK, RETURNED_EXPERT_APPROVAL, RETURNED_EXPERT_SIGNATURE (_RPLS)
+        На согласовании AWAITING_APPROVAL_RPLS
+        На подписании   AWAITING_SIGNATURE_RPLS
+        Все заявки      всё выше + RECOMMENDED_RPLS, REJECTED_RPLS
+    МИ  то же с суффиксом _RPMI; «Все заявки» — ещё CANCELLED, RECOMMENDED, REJECTED, RETURNED_TO_WORK_BY_EXPERT,
+        CANCELLATION_INITIATED, WITHDRAWAL_INITIATED, WITHDRAWN (_RPMI)
+  Референс аналитика: карточки «В работе / На согласовании / На подписании» (задачи эксперта) и «Все заявки»
+  (по всем экспертам) со счётчиком и разбивкой по срокам (красный / жёлтый / зелёный), переход в реестр.
+  Решения по UX:
+    • карточки блоков — это и сводка, и вкладки: выбор карточки сразу показывает её заявки в таблице ниже,
+      отдельный переход «Посмотреть в реестре» не нужен; клик по цветному счётчику — фильтр по сроку;
+    • реестры ЛС и МИ — пункты бокового меню (#ls / #mi), счётчик у пункта — заявки эксперта «В работе»;
+    • пояснения к блокам и цветам — в подсказках, на странице только данные;
+    • в «Все заявки» добавлен столбец «Эксперт» — блок показывает заявки всех экспертов.
+  Русские названия статусов — рабочие, коды из постановки; сверить с аналитиком.
+  Данные — демонстрационные, генерируются детерминированно относительно текущей даты.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes nc-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes nc-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .tnum{font-variant-numeric:tabular-nums;}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .btn{height:40px;padding:0 14px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .inp::placeholder{color:var(--n400);}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp::-webkit-search-cancel-button{display:none;}
+  .sel{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;}
+  .opt{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .opt:hover,.opt:focus-visible{background:var(--n100);outline:none;}
+  .ib{width:28px;height:28px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+
+  /* меню АРМ — как ArmNav */
+  .nv-it{transition:background .15s,color .15s;}
+  .nv-it:hover{background:var(--n100) !important;color:var(--n900) !important;}
+  .nv-it[aria-current="page"]:hover{background:var(--primary-lighter) !important;color:var(--primary) !important;}
+  .hd-b{transition:background .15s,border-color .15s;}
+  .hd-b:hover{background:var(--n100) !important;border-color:var(--n300) !important;}
+
+  /* карточки блоков: вся карточка — вкладка, счётчики сроков — фильтры поверх неё */
+  .tl{position:relative;min-width:0;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);transition:border-color .15s,box-shadow .15s,background .15s;}
+  .tl:hover{border-color:var(--n300);box-shadow:0 6px 16px -8px rgba(10,13,20,.12);}
+  .tl[data-on="true"]{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .tl-hit{position:absolute;inset:0;z-index:1;width:100%;border:none;border-radius:16px;background:transparent;cursor:pointer;padding:0;}
+  .tl-hit:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .dl{position:relative;z-index:2;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:999px;border:1px solid transparent;font-size:12px;line-height:16px;font-weight:600;cursor:pointer;transition:border-color .15s,filter .15s;}
+  .dl:hover{filter:brightness(.97);border-color:currentColor;}
+  .dl[aria-pressed="true"]{border-color:currentColor;}
+  .dl[aria-disabled="true"]{cursor:default;}
+  .dl[aria-disabled="true"]:hover{filter:none;border-color:transparent;}
+  .dl:focus-visible,.nv-it:focus-visible,.hd-b:focus-visible,.btn:focus-visible,.pg:focus-visible,.chip:focus-visible,.sort:focus-visible,.ib:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  .row{transition:background .12s;}
+  .row:hover{background:var(--n50);}
+  .sort{display:inline-flex;align-items:center;gap:2px;padding:0;margin:0;border:none;background:none;font:inherit;color:inherit;cursor:pointer;border-radius:4px;}
+  .sort:hover{color:var(--n900);}
+  .pg{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--stroke);border-radius:8px;background:#fff;color:var(--n500);font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
+  .pg:hover{background:var(--n100);color:var(--n900);}
+  .pg:disabled{color:var(--n300);background:#fff;cursor:not-allowed;}
+  .pg[aria-current="page"]{background:var(--n100);color:var(--n900);border-color:var(--n300);}
+  .chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 6px 0 10px;border:1px solid var(--primary-light);border-radius:999px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:500;cursor:pointer;transition:border-color .15s;}
+  .chip:hover{border-color:var(--primary);}
+
+  .nc-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .nc-tip.on{opacity:1;transform:none;}
+
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 1px minmax(0,1fr);gap:16px;align-items:stretch;}
+  .tiles-sep{background:var(--stroke);margin:8px 0;}
+  @media (max-width:1100px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr));} .tiles-sep{display:none;} .hd-sub{display:none !important;} }
+  @media (max-width:720px){ .nc-main{padding:16px 16px 48px !important;} .tl-in{padding:14px !important;} .tl-n{font-size:28px !important;line-height:36px !important;} .tbar{flex-direction:column;align-items:stretch !important;} .tbar > *{flex:0 0 auto !important;width:100% !important;max-width:none !important;} .hd-user-txt,.hd-brand-txt{display:none !important;} .hd{padding:0 16px !important;} }
+  /* телефон: карточки в одну колонку — название и цветные счётчики слева, число справа */
+  @media (max-width:600px){
+    .tiles{grid-template-columns:minmax(0,1fr);gap:10px;}
+    .tl-in{display:grid !important;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px 12px !important;padding:12px 14px !important;}
+    .tl-hd{grid-column:1;grid-row:1;} .tl-dl{grid-column:1;grid-row:2;} .tl-n{grid-column:2;grid-row:1 / span 2;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <!-- Шапка АРМ: высота и язык — как у ArmHeader -->
+  <header style="position:sticky;top:0;z-index:40;background:#fff;border-bottom:1px solid var(--stroke);">
+    <div class="hd" style="height:72px;padding:0 32px 0 16px;display:flex;align-items:center;gap:16px;">
+      <a href="Портал Минздрава - Главная.dc.html" title="Портал Министерства здравоохранения" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;min-width:0;">
+        <img src="uploads/images.jpg" alt="Герб Республики Казахстан" style="width:48px;height:48px;object-fit:contain;flex:0 0 auto;" />
+        <span class="hd-brand-txt" style="display:flex;flex-direction:column;gap:1px;line-height:1.2;min-width:0;">
+          <span style="font-size:14px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;">АРМ НЦЭЛС</span>
+          <span class="hd-sub" style="font-size:12px;font-weight:500;color:var(--n400);white-space:nowrap;">Национальный центр экспертизы лекарственных средств и медицинских изделий</span>
+        </span>
+      </a>
+      <div style="flex:1;"></div>
+      <div style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
+        <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px 0 4px;border:1px solid var(--stroke);border-radius:10px;background:#fff;">
+          <span style="width:32px;height:32px;border-radius:8px;background:var(--primary-lighter);color:var(--primary-dark);font-size:12px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">{{ meIni }}</span>
+          <span class="hd-user-txt" style="display:flex;flex-direction:column;line-height:1.2;">
+            <span style="font-size:14px;font-weight:500;white-space:nowrap;">{{ meName }}</span>
+            <span style="font-size:12px;color:var(--n400);white-space:nowrap;">Эксперт</span>
+          </span>
+        </div>
+        <a href="Портал Минздрава - Главная.dc.html" class="hd-b" title="На главную портала" aria-label="На главную портала" style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);display:flex;align-items:center;justify-content:center;text-decoration:none;"><i class="ri-home-4-line" style="font-size:18px;"></i></a>
+      </div>
+    </div>
+  </header>
+
+  <div style="display:flex;align-items:flex-start;">
+    <!-- Меню АРМ -->
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <nav aria-label="АРМ НЦЭЛС" style="{{ navStyle }}">
+        <div style="{{ navTop }}">
+          <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;">Реестры заявок</div>
+          </sc-if>
+          <button class="ib" onClick="{{ toggleNav }}" aria-label="{{ navToggleLabel }}" data-tip="{{ navToggleLabel }}" data-tip-pos="right" style="width:36px;height:36px;color:var(--n500);"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
+        </div>
+        <div style="{{ navList }}">
+          <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="2">
+            <a class="nv-it" href="{{ it.href }}" aria-current="{{ it.cur }}" aria-label="{{ it.aria }}" data-tip="{{ it.tip }}" data-tip-pos="right" style="{{ it.style }}">
+              <span style="position:relative;display:flex;flex:0 0 auto;">
+                <i class="{{ it.icon }}" style="font-size:20px;"></i>
+                <sc-if value="{{ it.showDot }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-2px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--primary);border:2px solid #fff;"></span></sc-if>
+              </span>
+              <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}"><span class="clamp1" style="flex:1;min-width:0;">{{ it.label }}</span></sc-if>
+            </a>
+          </sc-for>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="{{ navFoot }}">
+          <a class="nv-it" href="Портал Минздрава - Главная.dc.html" aria-label="Выйти" data-tip="{{ logoutTip }}" data-tip-pos="right" style="{{ logoutStyle }}">
+            <i class="ri-logout-box-r-line" style="font-size:20px;flex:0 0 auto;"></i>
+            <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}"><span>Выйти</span></sc-if>
+          </a>
+        </div>
+      </nav>
+    </div>
+
+    <main class="nc-main" style="flex:1;min-width:0;padding:24px 32px 64px;">
+      <div style="display:flex;flex-direction:column;gap:20px;max-width:1440px;">
+        <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;">{{ title }}</h1>
+
+        <!-- Блоки -->
+        <div class="tiles" role="tablist" aria-label="Блоки реестра">
+          <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+            <sc-if value="{{ t.sepBefore }}" hint-placeholder-val="{{ false }}"><div class="tiles-sep" aria-hidden="true"></div></sc-if>
+            <div class="tl" data-on="{{ t.on }}">
+              <button class="tl-hit" role="tab" id="{{ t.tabId }}" aria-selected="{{ t.on }}" aria-controls="nc-table" aria-label="{{ t.aria }}" onClick="{{ t.pick }}"></button>
+              <div class="tl-in" style="position:relative;padding:16px 18px 18px;display:flex;flex-direction:column;gap:10px;pointer-events:none;">
+                <div class="tl-hd" style="display:flex;align-items:center;gap:10px;min-width:0;">
+                  <span style="{{ t.icoStyle }}"><i class="{{ t.icon }}" style="font-size:18px;"></i></span>
+                  <span data-tip="{{ t.tip }}" onClick="{{ t.pick }}" style="{{ t.labelStyle }}">{{ t.label }}</span>
+                </div>
+                <div class="tl-n tnum" style="font-size:32px;line-height:40px;font-weight:600;letter-spacing:-.02em;">{{ t.count }}</div>
+                <div class="tl-dl" style="display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto;width:max-content;max-width:100%;">
+                  <sc-for list="{{ t.dls }}" as="d" hint-placeholder-count="3">
+                    <button class="dl tnum" onClick="{{ d.pick }}" aria-pressed="{{ d.on }}" aria-disabled="{{ d.off }}" aria-label="{{ d.aria }}" data-tip="{{ d.tip }}" style="{{ d.style }}"><span style="{{ d.dot }}"></span>{{ d.n }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- Реестр выбранного блока -->
+        <section id="nc-table" role="tabpanel" aria-labelledby="{{ panelBy }}" style="display:flex;flex-direction:column;gap:12px;">
+          <div class="tbar" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1 1 280px;max-width:420px;">
+              <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
+              <input class="inp" type="search" value="{{ q }}" onChange="{{ onQ }}" placeholder="№ заявки или заявитель" aria-label="Поиск по номеру заявки или заявителю" autoComplete="off" style="padding-left:40px;padding-right:36px;" />
+              <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button class="ib" onClick="{{ clearQ }}" aria-label="Очистить поиск" style="position:absolute;right:6px;top:6px;"><i class="ri-close-line" style="font-size:18px;"></i></button></sc-if>
+            </div>
+            <sc-if value="{{ hasStatusSel }}" hint-placeholder-val="{{ true }}">
+              <div style="position:relative;flex:0 1 280px;min-width:0;">
+                <button type="button" class="inp sel" onClick="{{ toggleSt }}" aria-haspopup="listbox" aria-expanded="{{ stOpen }}" aria-label="{{ stAria }}" style="padding-right:36px;">
+                  <i class="ri-filter-3-line" style="font-size:18px;color:var(--n400);flex:0 0 auto;"></i>
+                  <span class="clamp1" style="{{ stValStyle }}">{{ stDisplay }}</span>
+                  <i class="ri-arrow-down-s-line" style="{{ stChev }}"></i>
+                </button>
+                <sc-if value="{{ stOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                  <div role="listbox" aria-label="Статус" style="position:absolute;left:0;top:calc(100% + 4px);z-index:25;width:max(100%,300px);max-width:calc(100vw - 32px);max-height:360px;overflow-y:auto;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:nc-drop .12s ease;">
+                    <sc-for list="{{ stOpts }}" as="o" hint-placeholder-count="4">
+                      <button type="button" role="option" aria-selected="{{ o.on }}" class="opt" onClick="{{ o.pick }}">
+                        <span style="{{ o.dot }}"></span>
+                        <span style="flex:1;min-width:0;">{{ o.label }}</span>
+                        <span class="tnum" style="font-size:12px;line-height:16px;color:var(--n400);">{{ o.n }}</span>
+                        <i class="ri-check-line" style="{{ o.check }}"></i>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasChips }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <sc-for list="{{ chips }}" as="c" hint-placeholder-count="1">
+                  <button class="chip" onClick="{{ c.clear }}" aria-label="{{ c.aria }}">{{ c.label }}<i class="ri-close-line" style="font-size:16px;"></i></button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
+            <div style="overflow-x:auto;">
+              <div role="table" aria-label="{{ tableAria }}" style="{{ tableStyle }}">
+                <div role="row" style="display:flex;background:var(--n100);">
+                  <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+                    <div role="columnheader" aria-sort="{{ c.ariaSort }}" style="{{ c.style }}">
+                      <sc-if value="{{ c.sortable }}" hint-placeholder-val="{{ false }}"><button class="sort" onClick="{{ c.sort }}">{{ c.label }}<i class="{{ c.sortIcon }}" style="{{ c.sortIconStyle }}"></i></button></sc-if>
+                      <sc-if value="{{ c.plain }}" hint-placeholder-val="{{ true }}"><span>{{ c.label }}</span></sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+                  <div role="row" class="row" style="display:flex;align-items:center;border-top:1px solid var(--stroke);min-height:60px;animation:nc-in .18s ease;">
+                    <div role="cell" class="tnum" style="width:104px;flex:0 0 auto;padding:10px 8px 10px 20px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary-dark);">{{ r.num }}</div>
+                    <div role="cell" style="flex:1 1 140px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;"><span class="clamp1" style="display:block;" data-tip="{{ r.serviceTip }}">{{ r.service }}</span></div>
+                    <div role="cell" style="flex:1 1 140px;min-width:0;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);"><span class="clamp1" style="display:block;" data-tip="{{ r.orgTip }}">{{ r.org }}</span></div>
+                    <sc-if value="{{ showExpert }}" hint-placeholder-val="{{ false }}">
+                      <div role="cell" style="width:160px;flex:0 0 auto;min-width:0;padding:10px 8px;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;color:var(--n600);">
+                        <span style="{{ r.avaStyle }}">{{ r.expIni }}</span><span class="clamp1">{{ r.expert }}</span>
+                      </div>
+                    </sc-if>
+                    <div role="cell" class="tnum" style="width:108px;flex:0 0 auto;padding:10px 8px;font-size:14px;line-height:20px;color:var(--n600);">{{ r.sent }}</div>
+                    <div role="cell" style="width:228px;flex:0 0 auto;padding:10px 8px;display:flex;align-items:center;"><span style="{{ r.stStyle }}"><span style="{{ r.stDot }}"></span>{{ r.status }}</span></div>
+                    <div role="cell" style="width:180px;flex:0 0 auto;padding:10px 16px 10px 8px;white-space:nowrap;">
+                      <sc-if value="{{ r.hasDue }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                          <span class="tnum" style="font-size:14px;line-height:20px;color:var(--n900);">{{ r.due }}</span>
+                          <span class="tnum" style="{{ r.leftStyle }}"><span style="{{ r.dueDot }}"></span>{{ r.left }}</span>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ r.noDue }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;line-height:20px;color:var(--n300);">—</span></sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:56px 16px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;border-top:1px solid var(--stroke);">
+                    <div style="width:48px;height:48px;border-radius:50%;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="{{ emptyIcon }}" style="font-size:24px;color:var(--n400);"></i></div>
+                    <div style="font-size:16px;line-height:24px;font-weight:500;">{{ emptyTitle }}</div>
+                    <sc-if value="{{ hasEmptyBtn }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ resetAll }}"><i class="ri-filter-off-line" style="font-size:18px;"></i>Сбросить фильтры</button></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+            <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid var(--stroke);">
+                <span class="tnum" style="font-size:13px;line-height:20px;color:var(--n500);white-space:nowrap;">{{ range }}</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button class="pg" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                  <sc-for list="{{ pageBtns }}" as="p" hint-placeholder-count="3"><button class="pg tnum" onClick="{{ p.go }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}">{{ p.n }}</button></sc-for>
+                  <button class="pg" onClick="{{ next }}" disabled="{{ noNext }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const UIKEY = 'mp-nc-ui';
+const PER = 10;
+
+// Статусы постановки: код без суффикса _RPLS / _RPMI → название и тон метки
+const ST = {
+  NEW:                        ['Новая', 'teal'],
+  ASSIGNED:                   ['Назначена', 'blue'],
+  REASSIGNED:                 ['Переназначена', 'blue'],
+  IN_WORK:                    ['В работе', 'purple'],
+  RETURNED_EXPERT_APPROVAL:   ['Возвращена с согласования', 'orange'],
+  RETURNED_EXPERT_SIGNATURE:  ['Возвращена с подписания', 'orange'],
+  AWAITING_APPROVAL:          ['На согласовании', 'yellow'],
+  AWAITING_SIGNATURE:         ['На подписании', 'yellow'],
+  RECOMMENDED:                ['Рекомендована', 'green'],
+  REJECTED:                   ['Отказано', 'red'],
+  CANCELLED:                  ['Отменена', 'gray'],
+  RETURNED_TO_WORK_BY_EXPERT: ['Возвращена в работу экспертом', 'orange'],
+  CANCELLATION_INITIATED:     ['Инициирована отмена', 'gray'],
+  WITHDRAWAL_INITIATED:       ['Инициирован отзыв', 'gray'],
+  WITHDRAWN:                  ['Отозвана', 'gray'],
+};
+const TONE = {
+  teal:['#EBFAFF','#1F87AD','#35B9E9'], blue:['#EEF2FF','#362DA6','#4D42E9'], purple:['#EEEBFF','#5A36BF','#6E3FF3'],
+  orange:['#FEF3EB','#C2540A','#F17B2C'], yellow:['#FEF7EC','#B47818','#F2AE40'], green:['#EFFAF6','#176448','#38C793'],
+  red:['#FDEDF0','#AF1D38','#DF1C41'], gray:['#F6F8FA','#525866','#868C98'],
+};
+const WORK = ['NEW','ASSIGNED','REASSIGNED','IN_WORK','RETURNED_EXPERT_APPROVAL','RETURNED_EXPERT_SIGNATURE'];
+const BLOCKS = {
+  ls: { work:WORK, approval:['AWAITING_APPROVAL'], signature:['AWAITING_SIGNATURE'],
+        all:WORK.concat(['AWAITING_APPROVAL','AWAITING_SIGNATURE','RECOMMENDED','REJECTED']) },
+  mi: { work:WORK, approval:['AWAITING_APPROVAL'], signature:['AWAITING_SIGNATURE'],
+        all:WORK.concat(['AWAITING_APPROVAL','AWAITING_SIGNATURE','CANCELLED','RECOMMENDED','REJECTED','RETURNED_TO_WORK_BY_EXPERT','CANCELLATION_INITIATED','WITHDRAWAL_INITIATED','WITHDRAWN']) },
+};
+const FINAL = ['RECOMMENDED','REJECTED','CANCELLED','WITHDRAWN'];
+const TILES = [
+  { id:'work',      label:'В работе',        icon:'ri-briefcase-4-line', tip:'Все заявки в работе' },
+  { id:'approval',  label:'На согласовании', icon:'ri-chat-check-line',  tip:'Заявки на согласовании у руководителя' },
+  { id:'signature', label:'На подписании',   icon:'ri-quill-pen-line',   tip:'Заявки на подписании у ЗГД' },
+  { id:'all',       label:'Все заявки',      icon:'ri-stack-line',       tip:'Все заявки на портале по всем экспертам' },
+];
+const REG = {
+  ls: { title:'Реестр лекарственных средств', nav:'Лекарственные средства', icon:'ri-capsule-line', sfx:'_RPLS',
+        svc:[ ['LS_REG_PRICE', 'Регистрация цены', 'Регистрация цены производителя лекарственного средства'],
+              ['LS_AMEND_PRICE', 'Изменение цены', 'Внесение изменений в зарегистрированную цену производителя лекарственного средства'] ] },
+  mi: { title:'Реестр медицинских изделий', nav:'Медицинские изделия', icon:'ri-stethoscope-line', sfx:'_RPMI',
+        svc:[ ['MI_REG_PRICE', 'Регистрация цены', 'Регистрация цены производителя медицинского изделия'],
+              ['MI_AMEND_PRICE', 'Изменение цены', 'Внесение изменений в зарегистрированную цену производителя медицинского изделия'] ] },
+};
+// срок: красный — истёк, жёлтый — до 2 дней, зелёный — в срок
+const DL = [
+  { id:'over', tone:'red',    tip:'Срок истёк' },
+  { id:'soon', tone:'yellow', tip:'Срок истекает' },
+  { id:'ok',   tone:'green',  tip:'В срок' },
+];
+const ME = 'Жумабаева Д. Т.';
+const EXPERTS = [ME, 'Сейткали А. Б.', 'Ким Е. В.', 'Оспанов Н. К.', 'Ахметова Г. С.'];
+const AVA = [['#EEF2FF','#362DA6'], ['#EFFAF6','#176448'], ['#FEF3EB','#C2540A'], ['#EEEBFF','#5A36BF'], ['#EBFAFF','#1F87AD']];
+const ORGS = ['ТОО «Астана Групп»', 'ТОО «Фарм Лайн»', 'АО «Дала Фарм»', 'ТОО «Медика Трейд»', 'ТОО «Сункар Мед»', 'ТОО «Евразия Медикал»', 'ТОО «Нур Диагностикс»', 'ТОО «Altyn Pharma»'];
+const DAY = 864e5;
+
+// Детерминированные демо-данные: у эксперта есть заявки во всех трёх своих блоках, у других — тоже
+function genApps(reg){
+  let seed = reg === 'ls' ? 7 : 13;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const plan = [];
+  // свои: в работе — 9, на согласовании — 3, на подписании — 2
+  for(let i = 0; i < 9; i++) plan.push([WORK[i % WORK.length], ME]);
+  for(let i = 0; i < 3; i++) plan.push(['AWAITING_APPROVAL', ME]);
+  for(let i = 0; i < 2; i++) plan.push(['AWAITING_SIGNATURE', ME]);
+  // остальные эксперты: каждый статус блока «Все заявки» хотя бы раз
+  BLOCKS[reg].all.forEach(c => plan.push([c, pick(EXPERTS.slice(1))]));
+  const extra = reg === 'ls' ? 13 : 9;
+  for(let i = 0; i < extra; i++) plan.push([pick(BLOCKS[reg].all), pick(EXPERTS)]);
+  const base = reg === 'ls' ? 7240100 : 8240100;
+  return plan.map(([code, expert], i) => {
+    const ago = Math.floor(rnd() * 19);                         // подана 0–18 дней назад
+    const sent = today.getTime() - ago * DAY;
+    const svc = REG[reg].svc[rnd() < .68 ? 0 : 1];
+    const final = FINAL.indexOf(code) !== -1;
+    return { num:String(base + i * 37 + Math.floor(rnd() * 30)), code, expert, org:pick(ORGS), svc,
+      sent, due: final ? null : sent + 14 * DAY };             // 10 рабочих дней ≈ 14 календарных
+  });
+}
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let ui = null;
+    try { ui = JSON.parse(sessionStorage.getItem(UIKEY) || 'null'); } catch(e){}
+    this.data = { ls:genApps('ls'), mi:genApps('mi') };
+    this.state = { reg:'ls', block: ui && ui.block || 'work', dl:null, status:null, q:'', page:1, sort:null, pop:null,
+      navOpen: typeof window !== 'undefined' ? window.innerWidth >= 1360 : true };
+  }
+  componentDidMount(){
+    this._hash = () => { const r = location.hash === '#mi' ? 'mi' : 'ls'; if(r !== this.state.reg) this.setState({ reg:r, dl:null, status:null, page:1, pop:null }); };
+    window.addEventListener('hashchange', this._hash);
+    this._hash();
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
+    window.addEventListener('keydown', this._esc);
+    this.installTips();
+  }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._hash); window.removeEventListener('keydown', this._esc); }
+
+  // Подсказки data-tip: один плавающий элемент, по наведению с задержкой и по фокусу с клавиатуры (как в HomeData)
+  installTips(){
+    if(window.__ncTips) return; window.__ncTips = true;
+    let el = null, cur = null, timer = null;
+    const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+    const show = (tg) => {
+      const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+      // у обрезанной ячейки подсказка нужна только когда текст не влез
+      if(tg.classList.contains('clamp1') && tg.scrollWidth <= tg.clientWidth && tg.textContent.trim() === txt) return;
+      if(!el){ el = document.createElement('div'); el.className = 'nc-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+      el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+      const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+      const right = tg.getAttribute('data-tip-pos') === 'right';
+      const x = right ? r.right + 10 : Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+      const y = right ? r.top + r.height / 2 - h / 2 : (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8);
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      requestAnimationFrame(() => el && el.classList.add('on'));
+    };
+    const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+    document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg){ cur = tg; timer = setTimeout(() => show(tg), 350); } });
+    document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('mousedown', hide);
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, { passive:true, capture:true });
+  }
+
+  inBlock(a, reg, block){
+    if(BLOCKS[reg][block].indexOf(a.code) === -1) return false;
+    return block === 'all' || a.expert === ME;   // первые три блока — задачи эксперта, «Все заявки» — по всем экспертам
+  }
+  dlOf(a, today){
+    if(!a.due) return null;
+    const left = Math.round((a.due - today) / DAY);
+    return left < 0 ? 'over' : left <= 2 ? 'soon' : 'ok';
+  }
+  pickBlock(block, dl){
+    const s = this.state;
+    const sameDl = s.block === block && s.dl === dl;
+    this.setState({ block, dl: dl ? (sameDl ? null : dl) : null, status:null, page:1, pop:null, sort:null });
+    try { sessionStorage.setItem(UIKEY, JSON.stringify({ block })); } catch(e){}
+  }
+
+  renderVals(){
+    const s = this.state, reg = s.reg, R = REG[reg];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const T0 = today.getTime();
+    const apps = this.data[reg];
+    const fmt = (t) => { const d = new Date(t); return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear(); };
+    const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return n + ' ' + (a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many); };
+    const stLabel = (c) => ST[c][0];
+
+    // --- меню ---
+    const navOpen = s.navOpen;
+    const navItems = ['ls', 'mi'].map(id => {
+      const on = id === reg, n = this.data[id].filter(a => this.inBlock(a, id, 'work')).length;
+      return { href:'#' + id, cur: on ? 'page' : 'false', icon:REG[id].icon, label:REG[id].nav,
+        showDot: n > 0,
+        aria: REG[id].nav + (n ? ', в работе: ' + n : ''), tip: navOpen ? '' : REG[id].nav,
+        style:`display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;${navOpen ? 'width:100%;height:40px;padding:8px 12px;' : 'width:36px;height:36px;padding:0;justify-content:center;'}${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:transparent;color:#525866;'}` };
+    });
+
+    // --- блоки ---
+    const tiles = TILES.map((t, i) => {
+      const list = apps.filter(a => this.inBlock(a, reg, t.id));
+      const on = s.block === t.id;
+      const dls = DL.map(d => {
+        const n = list.filter(a => this.dlOf(a, T0) === d.id).length;
+        const c = TONE[d.tone], dOn = on && s.dl === d.id, off = n === 0;
+        return { n:String(n), on:dOn ? 'true' : 'false', off: off ? 'true' : 'false', tip:d.tip,
+          aria: t.label + ': ' + d.tip.toLowerCase() + ' — ' + n,
+          pick: () => { if(!off) this.pickBlock(t.id, d.id); },
+          style:`background:${off ? '#F6F8FA' : c[0]};color:${off ? '#868C98' : c[1]};`,
+          dot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${off ? '#CDD0D5' : c[2]};` };
+      });
+      return { ...t, on: on ? 'true' : 'false', count:String(list.length), dls, sepBefore: t.id === 'all',
+        tabId:'nc-tab-' + t.id, aria: t.label + ', заявок: ' + list.length,
+        pick: () => this.pickBlock(t.id, null),
+        labelStyle:`min-width:0;font-size:14px;line-height:20px;font-weight:500;color:${on ? '#4D42E9' : '#525866'};position:relative;z-index:2;pointer-events:auto;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`,
+        icoStyle:`width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .15s,color .15s;${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:#F6F8FA;color:#525866;'}` };
+    });
+
+    // --- таблица ---
+    const blockApps = apps.filter(a => this.inBlock(a, reg, s.block));
+    const statuses = BLOCKS[reg][s.block];
+    const q = s.q.trim().toLowerCase();
+    let rows = blockApps.filter(a => {
+      if(s.dl && this.dlOf(a, T0) !== s.dl) return false;
+      if(s.status && a.code !== s.status) return false;
+      if(q && a.num.indexOf(q) === -1 && a.org.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    // по умолчанию: свои блоки — сначала самые срочные; «Все заявки» — сначала новые
+    const sort = s.sort || (s.block === 'all' ? { key:'sent', dir:'desc' } : { key:'due', dir:'asc' });
+    const val = (a) => sort.key === 'sent' ? a.sent : (a.due == null ? Infinity : a.due);
+    rows = rows.slice().sort((a, b) => { const x = val(a), y = val(b); if(x === y) return b.sent - a.sent; return sort.dir === 'asc' ? (x < y ? -1 : 1) : (x > y ? -1 : 1); });
+
+    const showExpert = s.block === 'all';
+    const hc = 'display:flex;align-items:center;min-height:40px;padding:8px;font-size:12px;line-height:16px;font-weight:500;letter-spacing:.02em;color:#525866;white-space:nowrap;';
+    const colDef = [
+      { label:'№ заявки', w:'width:104px;flex:0 0 auto;padding-left:20px;' },
+      { label:'Услуга', w:'flex:1 1 140px;min-width:0;' },
+      { label:'Заявитель', w:'flex:1 1 140px;min-width:0;' },
+      ...(showExpert ? [{ label:'Эксперт', w:'width:160px;flex:0 0 auto;' }] : []),
+      { label:'Дата подачи', w:'width:108px;flex:0 0 auto;', key:'sent' },
+      { label:'Статус', w:'width:228px;flex:0 0 auto;' },
+      { label:'Срок', w:'width:180px;flex:0 0 auto;padding-right:16px;', key:'due' },
+    ];
+    const cols = colDef.map(c => {
+      const act = c.key && sort.key === c.key;
+      return { label:c.label, sortable: !!c.key, plain: !c.key, style: hc + c.w,
+        ariaSort: act ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none',
+        sortIcon: act ? (sort.dir === 'asc' ? 'ri-arrow-up-line' : 'ri-arrow-down-line') : 'ri-arrow-up-down-line',
+        sortIconStyle:`font-size:14px;margin-left:2px;color:${act ? '#4D42E9' : '#CDD0D5'};`,
+        sort: () => this.setState({ sort:{ key:c.key, dir: act && sort.dir === 'asc' ? 'desc' : 'asc' }, page:1 }) };
+    });
+
+    const pages = Math.max(1, Math.ceil(rows.length / PER));
+    const page = Math.min(s.page, pages);
+    const view = rows.slice((page - 1) * PER, page * PER).map(a => {
+      const [bg, fg, dot] = TONE[ST[a.code][1]];
+      const dl = this.dlOf(a, T0), left = a.due ? Math.round((a.due - T0) / DAY) : 0;
+      const dc = dl ? TONE[DL.find(d => d.id === dl).tone] : TONE.gray;
+      const ei = EXPERTS.indexOf(a.expert), av = AVA[ei % AVA.length];
+      return { num:a.num, service:a.svc[1], serviceTip:a.svc[2], org:a.org, orgTip:a.org, sent:fmt(a.sent),
+        expert:a.expert, expIni:a.expert.split(' ').slice(0, 2).map(w => w[0]).join(''),
+        avaStyle:`width:24px;height:24px;border-radius:6px;background:${av[0]};color:${av[1]};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+        status:stLabel(a.code),
+        stStyle:`display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:4px 10px;border-radius:999px;background:${bg};color:${fg};font-size:12px;line-height:16px;font-weight:500;`,
+        stDot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${dot};`,
+        hasDue: !!a.due, noDue: !a.due, due: a.due ? fmt(a.due) : '',
+        dueDot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${dc[2]};`,
+        left: !a.due ? '' : left < 0 ? 'Просрочено на ' + plural(-left, 'день', 'дня', 'дней') : left === 0 ? 'Истекает сегодня' : 'Осталось ' + plural(left, 'день', 'дня', 'дней'),
+        leftStyle:`display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:${dl === 'over' ? '#AF1D38' : dl === 'soon' ? '#B47818' : '#868C98'};` };
+    });
+
+    // фильтр по статусу — только если в блоке больше одного статуса
+    const stCount = (c) => blockApps.filter(a => a.code === c).length;
+    const stOpts = [{ code:null, label:'Все статусы', n:blockApps.length }].concat(statuses.map(c => ({ code:c, label:stLabel(c), n:stCount(c) })))
+      .map(o => { const on = s.status === o.code; const t = o.code ? TONE[ST[o.code][1]] : null;
+        return { label:o.label, n:String(o.n), on: on ? 'true' : 'false',
+          dot: t ? `width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:${t[2]};` : 'width:8px;height:8px;flex:0 0 auto;',
+          check:`font-size:18px;color:#4D42E9;flex:0 0 auto;visibility:${on ? 'visible' : 'hidden'};`,
+          pick: () => this.setState({ status:o.code, pop:null, page:1 }) }; });
+
+    const chips = [];
+    if(s.dl){ const d = DL.find(x => x.id === s.dl); chips.push({ label:d.tip, aria:'Убрать фильтр «' + d.tip + '»', clear: () => this.setState({ dl:null, page:1 }) }); }
+    const filtered = !!(s.dl || s.status || q);
+    const tileLabel = TILES.find(t => t.id === s.block).label;
+    const from = rows.length ? (page - 1) * PER + 1 : 0, to = Math.min(page * PER, rows.length);
+
+    const stOpen = s.pop === 'st';
+    return {
+      title:R.title, meName:ME, meIni:'ЖД',
+      navOpen, navItems,
+      toggleNav: () => this.setState({ navOpen:!navOpen }),
+      navToggleLabel: navOpen ? 'Свернуть меню' : 'Развернуть меню',
+      logoutTip: navOpen ? '' : 'Выйти',
+      navStyle:`width:${navOpen ? 272 : 80}px;height:100%;background:#fff;border-right:1px solid #E2E4E9;box-shadow:2px 4px 12px rgba(10,13,20,.02);display:flex;flex-direction:column;transition:width .2s ease;overflow:hidden;`,
+      navTop: navOpen ? 'display:flex;align-items:center;gap:8px;padding:16px 20px 0 32px;' : 'display:flex;justify-content:center;padding:16px 0 0;',
+      navList:`display:flex;flex-direction:column;gap:4px;${navOpen ? 'padding:12px 20px 16px;' : 'padding:12px 8px 16px;align-items:center;'}`,
+      navFoot: navOpen ? 'padding:16px 20px;border-top:1px solid #E2E4E9;' : 'padding:16px 8px;border-top:1px solid #E2E4E9;display:flex;justify-content:center;',
+      logoutStyle:`display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;color:#525866;${navOpen ? 'height:40px;padding:8px 12px;' : 'width:36px;height:36px;justify-content:center;'}`,
+
+      tiles, panelBy:'nc-tab-' + s.block,
+      q:s.q, hasQ: !!s.q, onQ: (e) => this.setState({ q:e.target.value, page:1 }), clearQ: () => this.setState({ q:'', page:1 }),
+      hasStatusSel: statuses.length > 1, stOpen, stOpts,
+      stDisplay: s.status ? stLabel(s.status) : 'Все статусы', stAria:'Статус: ' + (s.status ? stLabel(s.status) : 'все'),
+      stValStyle:`flex:1;min-width:0;color:${s.status ? '#0A0D14' : '#525866'};`,
+      stChev:`position:absolute;right:10px;top:10px;font-size:20px;color:#868C98;transition:transform .15s;${stOpen ? 'transform:rotate(180deg);' : ''}`,
+      toggleSt: () => this.setState({ pop: stOpen ? null : 'st' }), closePop: () => this.setState({ pop:null }),
+      chips, hasChips: chips.length > 0,
+
+      tableAria: R.title + ' — ' + tileLabel, tableStyle:`min-width:${showExpert ? 1060 : 900}px;`,
+      cols, rows:view, showExpert,
+      isEmpty: rows.length === 0, emptyIcon: filtered ? 'ri-search-line' : 'ri-inbox-line',
+      emptyTitle: filtered ? 'Ничего не найдено' : 'Заявок нет', hasEmptyBtn: filtered,
+      resetAll: () => this.setState({ dl:null, status:null, q:'', page:1 }),
+      hasPager: rows.length > 0, range: from + '–' + to + ' из ' + rows.length,
+      noPrev: page <= 1, noNext: page >= pages,
+      prev: () => this.setState({ page:Math.max(1, page - 1) }), next: () => this.setState({ page:Math.min(pages, page + 1) }),
+      pageBtns: Array.from({ length:pages }, (_, i) => ({ n:String(i + 1), cur: i + 1 === page ? 'page' : 'false', aria:'Страница ' + (i + 1), go: () => this.setState({ page:i + 1 }) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

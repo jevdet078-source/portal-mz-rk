@@ -237,6 +237,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 const HANDOFF = 'mp-ecp-handoff';
+const NCELS_BIN = '980240003251';
 const CAB = { citizen:'Личный кабинет.dc.html', business:'Кабинет бизнеса.dc.html', medical:'Профиль врача.dc.html', gov:'АРМ ННЦРЗ.dc.html' };   // госорган — АРМ экспертов (ННЦРЗ; ФК — через переключатель ролей)
 const ROLE_TAB = { citizen:'citizens', business:'business', medical:'medical' };
 const KIND = {
@@ -373,7 +374,8 @@ class Component extends DCLogic {
         if(ROLE_TAB[p.kind]){ localStorage.setItem('mp-role', ROLE_TAB[p.kind]); window.dispatchEvent(new CustomEvent('mp-role-change', { detail:ROLE_TAB[p.kind] })); }
       } catch(err){}
       const q = this.query();
-      location.href = p.kind === 'business' && q.ret ? q.ret : CAB[p.kind];
+      // госорган: сотрудник НЦЭЛС — в АРМ НЦЭЛС, остальные — в АРМ ННЦРЗ
+      location.href = p.kind === 'business' && q.ret ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
     }, 700);
   }
 

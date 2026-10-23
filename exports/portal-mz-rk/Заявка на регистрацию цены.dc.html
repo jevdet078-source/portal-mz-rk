@@ -28,6 +28,10 @@
   форма — карточки r12 p24 gap20, поля 2 колонки gap 12/20, контрол p10/10/10/12 r10;
   Radio / Checkbox Card r12 p16; кнопки «Назад» / «Далее» h40 r10.
 
+  Контроль номера заявки на платеж (постановка, п. 1; LS_REG_PRICE, LS_AMEND_PRICE, MI_REG_PRICE, MI_AMEND_PRICE):
+  поле «Номер заявки на платеж» — выбор из списка и для ЛС, и для МИ; номер, уже указанный в другой заявке
+  (submission ⋈ application_reg_price по payment_application_number), виден в списке, но выбрать его нельзя —
+  при наведении подсказка «Используется в заявке № […]». В демо список статичный (PAY ниже).
   Демо: поля статичные. Работают: выбор номера заявки на платеж, «Да/Нет» по РУ, тип цены / заявления,
   «Далее» / «Назад», переход по шагам, «Сохранить черновик», «Подписать и отправить» → ЭЦП → ожидание проверки.
   Шаг «Данные о МИ» в Figma не отрисован — собран по аналогии с «Данные о ЛС».
@@ -49,6 +53,12 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-spin{to{transform:rotate(360deg)}}
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  .pr-opt{width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;font-variant-numeric:tabular-nums;}
+  .pr-opt:hover,.pr-opt:focus-visible{background:var(--n100);outline:none;}
+  .pr-opt[aria-disabled="true"]{color:var(--n400);cursor:not-allowed;}
+  .pr-opt[aria-disabled="true"]:hover{background:transparent;}
+  .pr-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .pr-tip.on{opacity:1;transform:none;}
 </style>
 </helmet>
 
@@ -140,11 +150,23 @@
                             <div onClick="{{ f.onClick }}" style="{{ f.boxStyle }}">
                               <sc-if value="{{ f.isDate }}" hint-placeholder-val="{{ false }}"><i class="ri-calendar-2-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i></sc-if>
                               <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">{{ f.text }}</span>
-                              <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><i class="ri-arrow-down-s-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i></sc-if>
+                              <sc-if value="{{ f.isSelect }}" hint-placeholder-val="{{ false }}"><i class="ri-arrow-down-s-line" style="{{ f.chev }}"></i></sc-if>
                               <sc-if value="{{ f.isNum }}" hint-placeholder-val="{{ false }}"><i class="ri-arrow-up-down-line" style="font-size:16px;color:var(--n400);flex:0 0 auto;"></i></sc-if>
                               <sc-if value="{{ f.isTextarea }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;right:12px;bottom:8px;font-size:12px;line-height:16px;color:var(--n400);">0/1000</span></sc-if>
                             </div>
                             <sc-if value="{{ f.hasNote }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-information-fill" style="font-size:14px;"></i>{{ f.note }}</div></sc-if>
+                            <sc-if value="{{ f.hasMenu }}" hint-placeholder-val="{{ false }}">
+                              <div onClick="{{ f.closeMenu }}" style="position:fixed;inset:0;z-index:24;"></div>
+                              <div role="listbox" aria-label="{{ f.label }}" style="position:absolute;left:0;right:0;top:68px;z-index:25;max-height:280px;overflow-y:auto;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-fade .12s ease;">
+                                <sc-for list="{{ f.menuOpts }}" as="o" hint-placeholder-count="4">
+                                  <button type="button" role="option" class="pr-opt" aria-selected="{{ o.on }}" aria-disabled="{{ o.off }}" data-tip="{{ o.tip }}" onClick="{{ o.pick }}">
+                                    <span style="flex:1;min-width:0;">{{ o.num }}</span>
+                                    <sc-if value="{{ o.isOff }}" hint-placeholder-val="{{ false }}"><i class="ri-lock-line" style="font-size:16px;color:var(--n300);flex:0 0 auto;"></i></sc-if>
+                                    <i class="ri-check-line" style="{{ o.check }}"></i>
+                                  </button>
+                                </sc-for>
+                              </div>
+                            </sc-if>
                           </div>
                         </sc-for>
                       </div>
@@ -321,18 +343,25 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
+const PAY = {
+  ls: [ ['IFR-123456789', ''], ['IFR-123456790', '5640547'], ['IFR-123456791', ''], ['IFR-123456792', '5640548'], ['IFR-123456793', ''] ],
+  mi: [ ['IFR-223456781', ''], ['IFR-223456782', '6640547'], ['IFR-223456783', ''], ['IFR-223456784', '6640548'] ],
+};
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.state = { id:'ls', result:false, step:0, payReq:false, ru:null, ptype:null, view:'status', res:'pending', sentAt:'',
+    this.state = { id:'ls', result:false, step:0, payReq:false, payNum:'', payOpen:false, ru:null, ptype:null, view:'status', res:'pending', sentAt:'',
       ecp:false, keySel:1, signing:false, toast:null, draftAt:'' };
   }
   componentDidMount(){
+    this.installTips();
+    this._esc = (e) => { if(e.key === 'Escape' && this.state.payOpen) this.setState({ payOpen:false }); };
+    window.addEventListener('keydown', this._esc);
     this.readHash();
     this._onHash = () => this.readHash();
     window.addEventListener('hashchange', this._onHash);
   }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); clearTimeout(this._t1); clearTimeout(this._t2); }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); window.removeEventListener('keydown', this._esc); clearTimeout(this._t1); clearTimeout(this._t2); }
 
   readHash(){
     const h = (location.hash || '#ls').slice(1);
@@ -346,9 +375,32 @@ class Component extends DCLogic {
     // дошли до формы — запомненная на портале услуга больше не нужна
     try { if(localStorage.getItem('mp-pending-service') === 'price-' + id) localStorage.removeItem('mp-pending-service'); } catch(e){}
     const justSent = this._justSent; this._justSent = false;
-    this.setState({ id, result, res, sentAt, view:'status', step:0, payReq:false, ru:null, ptype:null, ecp:false, signing:false });
+    this.setState({ id, result, res, sentAt, view:'status', step:0, payReq:false, payNum:'', payOpen:false, ru:null, ptype:null, ecp:false, signing:false });
     if(justSent) this.toast('Заявка № 000001 отправлена', 'Заявка ушла на рассмотрение. Статус — в разделе «Услуги».');
     window.scrollTo(0, 0);
+  }
+  // Подсказки data-tip: один плавающий элемент, по наведению и по фокусу с клавиатуры (как в HomeData)
+  installTips(){
+    if(window.__prTips) return; window.__prTips = true;
+    let el = null, cur = null, timer = null;
+    const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+    const show = (tg) => {
+      const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+      if(!el){ el = document.createElement('div'); el.className = 'pr-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+      el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+      const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+      const x = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+      const y = r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8;
+      el.style.left = x + 'px'; el.style.top = y + 'px';
+      requestAnimationFrame(() => el && el.classList.add('on'));
+    };
+    const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+    document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg){ cur = tg; timer = setTimeout(() => show(tg), 200); } });
+    document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('mousedown', hide);
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, { passive:true, capture:true });
   }
   toast(title, text){
     clearTimeout(this._t2);
@@ -377,8 +429,10 @@ class Component extends DCLogic {
       { t:'grid', fields:[ F('Тип процедуры', { kind:'select', ro:true, val:'Регистрация' }) ] },
       sep,
       { t:'grid', fields:[
-        ls ? F('Номер заявки на платеж', { req:true, kind:'select', val: s.payReq ? 'IFR-123456789' : '', ph:'Не выбрано', onClick: () => this.setState({ payReq:true }) })
-           : F('Номер заявки на платеж', { req:true, val: s.payReq ? 'IFR-123456789' : '', ph:'Не указано', onClick: () => this.setState({ payReq:true }) }),
+        F('Номер заявки на платеж', { req:true, kind:'select', val:s.payNum, ph:'Не выбрано', open:s.payOpen,
+          onClick: () => this.setState({ payOpen:!s.payOpen }),
+          menu: PAY[id].map(([num, usedIn]) => ({ num, usedIn, on: s.payNum === num,
+            pick: () => this.setState({ payNum:num, payReq:true, payOpen:false }) })) }),
         F('Номер договора', { kind:'select', ro:true, val: ls ? 'Договор_ЛС_01012025_1' : 'Договор_МИ_01012025_1' }),
         F('Дата заключения договора', { kind:'date', ro:true, val:'01.01.2025' }) ] },
       ...(s.payReq ? [{ t:'alert', text:'Обратите внимание на автоматически заполненные сведения на основании данных договора и/или заявки на платеж. Перед подтверждением необходимо проверить полноту и корректность указанных сведений. Ответственность за достоверность подтвержденных данных несет пользователь.' }] : []),
@@ -516,8 +570,14 @@ class Component extends DCLogic {
       return { label:f.label, sub:f.sub || '', star:f.req ? '*' : '', note:f.note || '', hasNote:!!f.note, text: has ? f.val : ph,
         isSelect: kind === 'select', isDate: kind === 'date', isTextarea: kind === 'textarea', isNum: kind === 'num',
         onClick: f.onClick || noop,
-        wrapStyle:`display:flex;flex-direction:column;gap:4px;min-width:0;${f.full ? 'grid-column:1 / -1;' : ''}`,
-        boxStyle:`position:relative;display:flex;align-items:${kind === 'textarea' ? 'flex-start' : 'center'};gap:8px;min-height:${kind === 'textarea' ? 94 : 40}px;padding:10px 10px 10px 12px;border-radius:10px;font-size:14px;line-height:20px;letter-spacing:-.006em;${f.onClick ? 'cursor:pointer;' : ''}${f.ro ? 'background:#F6F8FA;border:1px solid #F6F8FA;color:#868C98;' : `background:#fff;border:1px solid #E2E4E9;box-shadow:0 1px 2px rgba(10,13,20,.03);color:${has ? '#0A0D14' : '#868C98'};`}` };
+        hasMenu: !!(f.menu && f.open), closeMenu: () => this.setState({ payOpen:false }),
+        chev:`font-size:20px;color:#868C98;flex:0 0 auto;transition:transform .15s;${f.open ? 'transform:rotate(180deg);' : ''}`,
+        menuOpts: (f.menu || []).map(o => ({ num:o.num, on: o.on ? 'true' : 'false', off: o.usedIn ? 'true' : 'false',
+          tip: o.usedIn ? 'Используется в заявке № ' + o.usedIn : '', isOff: !!o.usedIn,
+          check:`font-size:18px;color:#4D42E9;flex:0 0 auto;visibility:${o.on ? 'visible' : 'hidden'};`,
+          pick: () => { if(!o.usedIn) o.pick(); } })),
+        wrapStyle:`position:relative;display:flex;flex-direction:column;gap:4px;min-width:0;${f.full ? 'grid-column:1 / -1;' : ''}`,
+        boxStyle:`position:relative;display:flex;align-items:${kind === 'textarea' ? 'flex-start' : 'center'};gap:8px;min-height:${kind === 'textarea' ? 94 : 40}px;padding:10px 10px 10px 12px;border-radius:10px;font-size:14px;line-height:20px;letter-spacing:-.006em;${f.onClick ? 'cursor:pointer;' : ''}${f.ro ? 'background:#F6F8FA;border:1px solid #F6F8FA;color:#868C98;' : `background:#fff;border:1px solid ${f.open ? '#4D42E9' : '#E2E4E9'};${f.open ? 'box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;' : ''}box-shadow:0 1px 2px rgba(10,13,20,.03);color:${has ? '#0A0D14' : '#868C98'};`}` };
     };
     const dotRadio = (o) => `width:16px;height:16px;margin:2px;border-radius:50%;flex:0 0 auto;background:#fff;${o.sel ? `border:5px solid ${o.disabled ? '#CDD0D5' : '#4D42E9'};` : `border:1.5px solid ${o.disabled ? '#E2E4E9' : '#CDD0D5'};`}`;
     const dotCheck = (o) => `width:16px;height:16px;margin:2px;border-radius:4px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;${o.sel ? 'background:#4D42E9;' : 'background:#fff;border:1.5px solid #CDD0D5;'}`;
