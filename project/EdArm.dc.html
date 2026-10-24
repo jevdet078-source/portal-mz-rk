@@ -31,8 +31,11 @@
   экспертизы, без ЗПП в маршруте (SVCS.dep), без сумм в счетах, «Оплата 20% / 80% не произведена». Расхождения
   постановок — docs/10-alo-plan.md.
 
+  Формулярная комиссия АЛО (UC01.14.4, BPMN 3 АЛО) — тот же движок: у комиссии c.svc = 'ЕД' | 'АЛО' (выбрана при создании,
+  не меняется), объекты — только заявки своей услуги (freeObjects(svc)), итог и протоколы — с перечнем услуги (fkSvc(c)).
+
   Демо: при первом запуске (и после «Сбросить данные») достраивает внутреннюю историю демо-заявок EdData
-  (кто назначен, кто решал, кто согласовал), заявки на согласовании и шесть комиссий во всех статусах.
+  (кто назначен, кто решал, кто согласовал), заявки на согласовании и комиссии ЕД и АЛО во всех статусах.
 -->
 <x-dc>
 <div style="display:none;"></div>
@@ -447,7 +450,10 @@ const ARM = (() => {
   };
   const busyObjects = () => { const s = {}; readF().list.forEach(c => { const st = fkStatus(c); if(FK_ACTIVE.indexOf(st) !== -1 || st === 'held') c.objects.forEach(n => { s[n] = c.id; }); }); return s; };
   // свободные объекты: этап ФК, статус «Формулярная комиссия», не заняты активной комиссией и не обработаны состоявшейся
-  const freeObjects = () => { const busy = busyObjects(); return E().listAll().filter(a => a.status === 'Формулярная комиссия' && !busy[a.num]); };
+  // svc — 'ЕД' | 'АЛО': в комиссию попадают объекты только выбранной услуги (UC01.13.4.3.1 / UC01.14.4.3.1)
+  const freeObjects = (svc) => { const busy = busyObjects(), ED = E(); return ED.listAll().filter(a => a.status === 'Формулярная комиссия' && !busy[a.num] && (!svc || ED.svcOf(a).short === svc)); };
+  // услуга комиссии (КНФ / ЕД / АЛО, выбрана при создании) → SVCS из EdData
+  const fkSvc = (c) => E().svcOf(c && c.svc === 'АЛО' ? 'alo' : 'ed');
   const commissionOf = (num) => { const l = fkList().filter(c => c.objects.indexOf(num) !== -1); return l.length ? l[0] : null; };
   const fkWhen = (c) => E().fmtDT(c.start);
   const fkLeft = (c, now) => E().fmtRemain(Math.max(0, c.reviewEnd - (now || Date.now())));
@@ -459,7 +465,7 @@ const ARM = (() => {
     const db = readF();
     db.seq = (db.seq || 0) + 1;
     const fast = ED.fast();
-    const c = { id:'c' + db.seq + '-' + at.toString(36), num:String(db.seq).padStart(7, '0'), svc:'ЕД', created:at, by:o.by, start:o.start, dur:1,
+    const c = { id:'c' + db.seq + '-' + at.toString(36), num:String(db.seq).padStart(7, '0'), svc:o.svc === 'АЛО' ? 'АЛО' : 'ЕД', created:at, by:o.by, start:o.start, dur:1,
       chair:o.chair, members:o.members.filter(u => u !== o.chair), objects:o.objects.slice(),
       reviewEnd: fast ? at + 3 * MIN : o.start, voteEnd: fast ? at + 5 * MIN : o.start + HOUR, fast,
       votes:{}, dec:null, signed:null, results:null, notified:{}, changes:[] };
@@ -807,9 +813,23 @@ const ARM = (() => {
       { id:'c8', num:'0000008', created:H(220), start:H(50), chair:'fk-dep', members:['fk-chair','fk-m2','fk-m4','fk-m5'], objects:['0000169','0000170'],
         votes:V({ 'fk-dep':{ at:H(49.9), v:{ '0000169':'for', '0000170':'for' } }, 'fk-chair':{ at:H(49.8), v:{ '0000169':'for', '0000170':'against' } }, 'fk-m2':{ at:H(49.6), v:{ '0000169':'against', '0000170':'for' } }, 'fk-m4':{ at:H(49.4), v:{ '0000169':'for', '0000170':'against' } } }),
         dec:{ held:true, at:H(6), by:SEC, protocol:'ФК-13/2026' } },
+      // АЛО (UC01.14.4): проведённая комиссия по 0000183 / 0000184 (протокол ФК-14/2026, итог уже в заявках EdData),
+      // ознакомление и голосование; 0000182 и 0000198 остаются свободными для новой комиссии
+      { id:'c9', svc:'АЛО', num:'0000009', created:H(210), start:H(30), chair:'fk-chair', members:['fk-dep','fk-m1','fk-m3','fk-m4','fk-m5'], objects:['0000183','0000184'],
+        votes:V({ 'fk-chair':{ at:H(29.9), v:{ '0000183':'for', '0000184':'against' } }, 'fk-dep':{ at:H(29.8), v:{ '0000183':'for', '0000184':'for' } }, 'fk-m1':{ at:H(29.7), v:{ '0000183':'for', '0000184':'against' } }, 'fk-m3':{ at:H(29.5), v:{ '0000183':'against', '0000184':'against' } } }),
+        dec:{ held:true, at:H(12), by:SEC, protocol:'ФК-14/2026' }, signed:{ at:H(4), by:'fk-chair' } },
+      { id:'c10', svc:'АЛО', num:'0000010', created:H(3), start:at6(H(3)), chair:'fk-dep', members:['fk-chair','fk-m1','fk-m2','fk-m4'], objects:['0000194','0000195'], votes:{} },
+      { id:'c11', svc:'АЛО', num:'0000011', created:H(150), start:now - 20 * MIN, chair:'fk-chair', members:['fk-dep','fk-m1','fk-m2','fk-m3','fk-m5'], objects:['0000196','0000197'],
+        votes:V({ 'fk-m3':{ at:now - 16 * MIN, v:{ '0000196':'for', '0000197':'for' } }, 'fk-m5':{ at:now - 11 * MIN, v:{ '0000196':'for', '0000197':'against' } } }) },
     ].map(c => ({ svc:'ЕД', by:SEC, dur:1, dec:null, signed:null, results:null, fast:false, changes:[], ...c, reviewEnd:c.start, voteEnd:c.start + HOUR, notified:{} }));
     list.forEach(c => { if(c.signed) c.results = fkResults(c); });
-    writeF({ v:FV, seq:8, sid, list }, true);
+    writeF({ v:FV, seq:11, sid, list }, true);
+    // итог состоявшихся демо-комиссий — в карточку ННЦРЗ (решение ФК и именной протокол), как после подписи председательствующего
+    E().mutateAll((apps) => apps.forEach(app => {
+      const c = list.find(x => x.signed && x.objects.indexOf(app.num) !== -1); if(!c) return;
+      const n = ensureNn(app), r = c.results[app.num];
+      if(!n.fk) n.fk = { comm:c.num, id:c.id, protocol:c.dec.protocol, at:c.signed.at, include:r.include, tally:r };
+    }));
     // уведомления по комиссиям: свежие — непрочитанные
     list.forEach(c => {
       const st = fkStatus(c, now);
@@ -881,7 +901,7 @@ const ARM = (() => {
     notifsFor, unreadFor, readNotif,
     NN_FILTER, NN_STAGES, FINAL, nnStatus, nnStage, nnTone, nnBadge, pill, splitLabel, assigneeOf, isApproval, apprStatus, pendingRec,
     perm, nextOptions, assign, reassign, submit, approve, returnTo, confirmPay, profComplete, remarkSet, conclSave, conclEdit,
-    FK_LABEL, FK_TONE, FK_ACTIVE, fkStatus, fkNum, fkList, fkGet, fkComp, fkVoted, fkVoteCount, fkMemberState, fkResults, freeObjects, commissionOf,
+    FK_LABEL, FK_TONE, FK_ACTIVE, fkStatus, fkNum, fkSvc, fkList, fkGet, fkComp, fkVoted, fkVoteCount, fkMemberState, fkResults, freeObjects, commissionOf,
     fkCreate, fkSetMembers, fkVote, fkDecide, fkSign, fkTick, fkSkip,
     nnTasks, fkTasks, taskCount,
     drain, ensureSeed, resetAll, invalidate, ready:false,

@@ -15,8 +15,8 @@
                                               (UC01.13.3.4.2.3.1; образец «Образец заключения замечаний.pdf»):
                                               шапка ННЦРЗ, сведения о заявителе и ЛС / МИ (в таблице регистрации —
                                               концентрация и упаковка), заключение, замечания, блок «Решения» и QR-код;
-    { type:'protocol', id, variant, num? }  — протокол заседания Формулярной комиссии (UC01.13.4.3.4, образцы
-                                              protocol_№…_1 / _2): variant 1 — именной, все объекты комиссии (АРМ ННЦРЗ, ФК);
+    { type:'protocol', id, variant, num? }  — протокол заседания Формулярной комиссии (UC01.13.4.3.4 / UC01.14.4.3.4,
+                                              образцы protocol_№…_1 / _2; «в ЕД» / «в АЛО» — по услуге комиссии): variant 1 — именной, все объекты комиссии (АРМ ННЦРЗ, ФК);
                                               variant 2 — обезличенный, без ФИО в «Голосовании», только объекты заявителя num;
     { type:'file', name, size, title }      — файл без предпросмотра: карточка и «Скачать».
   Данные — window.mpEd, window.mpArm.
@@ -233,7 +233,7 @@ class Component extends DCLogic {
     B.push({ isH:true, text:'ГОЛОСОВАНИЕ:' });
     objs.forEach((x, i) => {
       const sm = ED.summary(apps[x]), r = res[x];
-      B.push({ isP:true, text:(i + 1) + '. Голосование по включению ' + sm.catShort + ' «' + sm.trade + '» в ЕД:', style:'margin:8px 0 2px;' });
+      B.push({ isP:true, text:(i + 1) + '. Голосование по включению ' + sm.catShort + ' «' + sm.trade + '» в ' + A.fkSvc(c).listShort + ':', style:'margin:8px 0 2px;' });
       if(variant !== 2) comp.forEach(u => { const v = c.votes[u] && c.votes[u].v[x]; B.push({ isP:true, text:A.fkLabel(u) + ' – Голос «' + (v === 'for' ? 'За' : v === 'against' ? 'Против' : 'Не голосовал') + '»' + (v ? ', подписано ЭЦП' : ''), style:'margin:0 0 0 36px;font-size:13px;' }); });
       B.push({ isP:true, text:'Итого: «За» — ' + r.for + ', «Против» — ' + r.against + ', «Не голосовал» — ' + r.none + (r.tie ? ' (при равенстве учтён голос председательствующего)' : ''), style:'margin:2px 0 0 18px;' });
       B.push({ isP:true, text:'По результатам голосования рекомендовано: ' + (r.include ? 'Включить' : 'Не включать') + ' «' + sm.trade + '»', style:'margin:0 0 0 18px;' });
