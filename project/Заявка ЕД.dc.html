@@ -404,14 +404,15 @@
           </div>
         </div>
 
-        <!-- Панель действий шага -->
-        <div class="wz-bar" style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
-          <div style="max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;">
-            <button class="btn btn-g" onClick="{{ cancel }}" disabled="{{ notReady }}">Отмена</button>
-            <div class="wz-stepno" style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
-            <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ back }}"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i>Назад</button></sc-if>
-            <button class="btn btn-p" onClick="{{ next }}" disabled="{{ notReady }}"><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i></sc-if>{{ nextLabel }}<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></sc-if></button>
-          </div>
+      </div>
+
+      <!-- Панель действий шага: на всю ширину main (от меню до правого края), кнопки — по ширине содержимого -->
+      <div class="wz-bar" style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
+        <div style="max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;">
+          <button class="btn btn-g" onClick="{{ cancel }}" disabled="{{ notReady }}">Отмена</button>
+          <div class="wz-stepno" style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
+          <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ back }}"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i>Назад</button></sc-if>
+          <button class="btn btn-p" onClick="{{ next }}" disabled="{{ notReady }}"><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i></sc-if>{{ nextLabel }}<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></sc-if></button>
         </div>
       </div>
     </main>
