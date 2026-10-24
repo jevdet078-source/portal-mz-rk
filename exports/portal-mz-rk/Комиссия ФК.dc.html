@@ -14,7 +14,8 @@
 <!--
   АРМ Формулярной комиссии → карточка комиссии (?id=…&from=active|done|approval|notifications).
   Постановки: UC01.13.4.3.1 (табл. 2 — карточка), UC01.13.4.3.2 (ознакомление и голосование), UC01.13.4.3.3 (решение
-  секретаря), UC01.13.4.3.4 (подпись председательствующего, протоколы), UC01.13.4.5 §4 (поля под таймерами).
+  секретаря), UC01.13.4.3.4 (подпись председательствующего, протоколы), UC01.13.4.5 §4 (поля под таймерами);
+  для АЛО — те же UC01.14.4.3.1–4.3.4 и UC01.14.4.5: услуга в «Сведениях о комиссии» и итог «Включить в АЛО» — из c.svc.
   Кто что видит:
     • секретарь — «Сведения о комиссии», «Участники и явка» (в статусе «Открытая» — «Изменить»: слева состав,
       справа невыбранные, «>» убирает, «<» добавляет), «Голоса по каждому ЛС/МИ», «Решение комиссии»
@@ -471,7 +472,8 @@ class Component extends DCLogic {
     const myState = A.fkMemberState(c, me, now);
     const voteState = isSec || (isChair && (st === 'approval' || st === 'held')) ? A.fkVoteCount(c) + '/' + comp.length : inComp ? myState : A.fkVoteCount(c) + '/' + comp.length;
     const R = (label, value, strong) => ({ label, value, style:`margin:0;font-size:14px;line-height:20px;font-weight:${strong ? 500 : 400};color:${value === '—' ? '#868C98' : '#0A0D14'};` });
-    const info = [ R('Услуга', 'ЕД', true), R('№ комиссии', c.num, true), R('Дата и время создания', ED.fmtDT(c.created)), R('Председательствует', A.fkLabel(c.chair), true),
+    const SV = A.fkSvc(c);
+    const info = [ R('Услуга', SV.short, true), R('№ комиссии', c.num, true), R('Дата и время создания', ED.fmtDT(c.created)), R('Председательствует', A.fkLabel(c.chair), true),
       R('Статус', A.FK_LABEL[st], true), R('Статус голосования', voteState, true), R('Дата голосования', ED.fmtDT(c.start)), R('Дата принятия решения', c.signed ? ED.fmtDT(c.signed.at) : '—') ];
 
     // ── участники и явка, голоса (секретарь; председательствующий — с «Принятия решения») ──
@@ -497,7 +499,7 @@ class Component extends DCLogic {
       const r = A.fkResults(c)[num];
       const showRes = !!res;
       return { n:String(i + 1), num, trade:sm.trade, cat:sm.catShort, catStyle:catStyle(sm.cat), org:a ? (a.org || ED.PROFILE).org : '', votes,
-        sum:'За ' + r.for + ' · Против ' + r.against + (r.none ? '\nНе голосовали: ' + r.none : ''), hasRes:showRes, res: showRes ? (res[num].include ? 'Включить в ЕД' : 'Не включать в ЕД') : '', hasTie: showRes && !!res[num].tie,
+        sum:'За ' + r.for + ' · Против ' + r.against + (r.none ? '\nНе голосовали: ' + r.none : ''), hasRes:showRes, res: showRes ? (res[num].include ? 'Включить в ' : 'Не включать в ') + SV.listShort : '', hasTie: showRes && !!res[num].tie,
         resStyle: showRes ? `display:inline-flex;align-items:center;min-height:22px;padding:3px 8px;box-sizing:border-box;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${res[num].include ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}` : '' };
     });
 

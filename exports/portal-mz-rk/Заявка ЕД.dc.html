@@ -100,6 +100,20 @@
   .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .offer-body{scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  /* адаптив: на планшете шаги мастера — строкой над формой, на телефоне поля в одну колонку */
+  @media (max-width:900px){
+    .wz-wrap{flex-direction:column !important;align-items:stretch !important;}
+    .wz-nav{position:static !important;width:100% !important;}
+    .wz-nav ol{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr));}
+    .wz-note{display:none !important;}
+  }
+  @media (max-width:640px){
+    .wz-main{padding:16px 16px 0 !important;}
+    .wz-nav ol{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .wz-g2,.wz-grid{grid-template-columns:minmax(0,1fr) !important;}
+    .wz-bar{margin:0 -16px !important;padding:12px 16px !important;}
+    .wz-stepno{visibility:hidden;}
+  }
 </style>
 </helmet>
 
@@ -114,7 +128,7 @@
       <dc-import name="BusinessNav" style="height:100%;" active="other" collapsed="1" hint-size="80px,827px"></dc-import>
     </div>
 
-    <main style="flex:1;min-width:0;padding:24px 32px 0;min-height:calc(100vh - 73px);display:flex;flex-direction:column;">
+    <main class="wz-main" style="flex:1;min-width:0;padding:24px 32px 0;min-height:calc(100vh - 73px);display:flex;flex-direction:column;">
       <div style="flex:1;width:100%;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
 
         <!-- Шапка страницы -->
@@ -134,9 +148,9 @@
           </div>
         </div>
 
-        <div style="flex:1;display:flex;gap:24px;align-items:flex-start;">
+        <div class="wz-wrap" style="flex:1;display:flex;gap:24px;align-items:flex-start;">
           <!-- Шаги мастера -->
-          <nav aria-label="Шаги заявки" style="width:248px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:12px;">
+          <nav class="wz-nav" aria-label="Шаги заявки" style="width:248px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:12px;">
             <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 10px;">Данные заявки</div>
             <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;">
               <sc-for list="{{ nav }}" as="it" hint-placeholder-count="4">
@@ -151,7 +165,7 @@
                 </li>
               </sc-for>
             </ol>
-            <div style="margin:4px 10px 0;padding-top:12px;border-top:1px solid var(--stroke);display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-quill-pen-line" style="font-size:16px;flex:0 0 auto;"></i><span>После досье — ознакомление с публичной офертой и подписание ЭЦП</span></div>
+            <div class="wz-note" style="margin:4px 10px 0;padding-top:12px;border-top:1px solid var(--stroke);display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-quill-pen-line" style="font-size:16px;flex:0 0 auto;"></i><span>После досье — ознакомление с публичной офертой и подписание ЭЦП</span></div>
           </nav>
 
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:24px;">
@@ -191,7 +205,7 @@
 
                 <!-- Категория -->
                 <sc-if value="{{ c.isCat }}" hint-placeholder-val="{{ false }}">
-                  <div role="radiogroup" aria-labelledby="{{ c.hid }}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                  <div class="wz-g2" role="radiogroup" aria-labelledby="{{ c.hid }}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
                     <sc-for list="{{ c.opts }}" as="o" hint-placeholder-count="2">
                       <button class="card-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
                         <span style="{{ o.radio }}"></span>
@@ -222,7 +236,7 @@
                         <sc-if value="{{ g.canRemove }}" hint-placeholder-val="{{ false }}"><button class="btn btn-g btn-sm" onClick="{{ g.onRemove }}" aria-label="{{ g.removeLabel }}" style="color:var(--red);"><i class="ri-delete-bin-6-line" style="font-size:16px;"></i>Удалить</button></sc-if>
                       </div>
                     </sc-if>
-                    <div style="{{ g.gridStyle }}">
+                    <div class="wz-grid" style="{{ g.gridStyle }}">
                       <sc-for list="{{ g.fields }}" as="f" hint-placeholder-count="2">
                         <div style="{{ f.wrap }}">
                           <!-- подзаголовок внутри блока (дозировка / концентрация) -->
@@ -394,10 +408,10 @@
         </div>
 
         <!-- Панель действий шага -->
-        <div style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
+        <div class="wz-bar" style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
           <div style="max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;">
             <button class="btn btn-g" onClick="{{ cancel }}" disabled="{{ notReady }}">Отмена</button>
-            <div style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
+            <div class="wz-stepno" style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
             <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ back }}"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i>Назад</button></sc-if>
             <button class="btn btn-p" onClick="{{ next }}" disabled="{{ notReady }}"><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i></sc-if>{{ nextLabel }}<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></sc-if></button>
           </div>
@@ -544,6 +558,26 @@ const OFFER = {
   },
 };
 
+// Оферта АЛО (UC01.14.1.6): та же структура, отличаются предмет, оплата (сумма в постановках не указана), срок 40 рабочих дней
+// и срок подписания акта — 5 рабочих дней (UC01.14.2.3.6)
+const OFFER_ALO = (() => {
+  const P = (lang, map) => ({ ...OFFER[lang], sections: OFFER[lang].sections.map(([t, x], i) => [t, map[i] || x]) });
+  return {
+    ru: P('ru', {
+      0:'Исполнитель по заявке Заказчика, поданной через портал, проводит профессиональную экспертизу лекарственного средства или медицинского изделия для включения в перечень лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определёнными заболеваниями (состояниями).',
+      2:'Заказчик вносит предоплату 20 % стоимости услуги по счёту Исполнителя, оставшиеся 80 % — после положительного результата первичной экспертизы. Срок оплаты каждого счёта — 5 рабочих дней с даты его выставления.',
+      3:'Экспертиза проводится в течение 40 рабочих дней. Срок приостанавливается на время, когда заявка находится у Заказчика: оплата счёта, устранение замечаний, подписание акта.',
+      5:'По завершении экспертизы Исполнитель направляет заключение и акт выполненных работ. В течение 5 рабочих дней Заказчик подписывает акт ЭЦП или направляет мотивированный отказ.',
+    }),
+    kz: P('kz', {
+      0:'Орындаушы Тапсырыс берушінің портал арқылы берген өтінімі бойынша белгілі бір аурулары (жай-күйлері) бар Қазақстан Республикасы азаматтарының жекелеген санаттарын тегін және (немесе) жеңілдікті амбулаториялық қамтамасыз етуге арналған дәрілік заттар мен медициналық бұйымдар тізбесіне енгізу үшін дәрілік заттың немесе медициналық бұйымның кәсіби сараптамасын жүргізеді.',
+      2:'Тапсырыс беруші Орындаушының шоты бойынша қызмет құнының 20 % алдын ала төлемін жасайды, қалған 80 % бастапқы сараптаманың оң нәтижесінен кейін төленеді. Әр шотты төлеу мерзімі — ол ұсынылған күннен бастап 5 жұмыс күні.',
+      3:'Сараптама 40 жұмыс күні ішінде жүргізіледі. Өтінім Тапсырыс берушіде болған уақытта — шотты төлеу, ескертулерді жою, актіге қол қою кезінде — мерзім тоқтатыла тұрады.',
+      5:'Сараптама аяқталғаннан кейін Орындаушы қорытындыны және орындалған жұмыстар актісін жібереді. Тапсырыс беруші 5 жұмыс күні ішінде актіге ЭЦҚ арқылы қол қояды немесе дәлелді бас тартуды жібереді.',
+    }),
+  };
+})();
+
 class Component extends DCLogic {
   state = { ready:false, missing:false, app:null, form:null, base:'', step:0, maxStep:0, tried:{}, open:{}, combo:null, hi:0, drag:null, fileErr:{},
     offer:false, lang:'ru', agree:false, leave:false, leaveTo:'', toast:null, sending:false };
@@ -582,14 +616,14 @@ class Component extends DCLogic {
       else { form = app.form; maxStep = this.firstIncomplete(app.form); step = maxStep; }
     } else {
       if(ses && ses.isNew && ses.token === token && ses.app){ app = ses.app; form = ses.form; step = ses.step || 0; maxStep = ses.maxStep || 0; base = ses.base; }
-      else { app = ED.newApp(); form = app.form; base = JSON.stringify(form); }
+      else { app = ED.newApp(q.get('svc')); form = app.form; base = JSON.stringify(form); }
     }
     this.setState({ ready:true, app, form, base, step, maxStep, open:{ [this.firstOpenDossier(form)]:true } });
     this.persist({ app, form, step, maxStep, base, token, isNew: !num });
     window.scrollTo(0, 0);
   }
   firstIncomplete(form){ const ED = window.mpEd; for(let i = 0; i < 4; i++) if(!ED.stepDone(form, i)) return i; return 3; }
-  firstOpenDossier(form){ const ED = window.mpEd; const d = ED.dossier(form.cat).find(x => { const v = form.d[x.k] || {}; return !(v.text || '').trim() && !v.file; }); return d ? d.k : ED.dossier(form.cat)[0].k; }
+  firstOpenDossier(form){ const ED = window.mpEd, list = ED.dossier(form.cat, form.svc); const d = list.find(x => { const v = form.d[x.k] || {}; return !(v.text || '').trim() && !v.file; }); return d ? d.k : list[0].k; }
   persist(patch){
     const ED = window.mpEd, s = this.state;
     const prev = ED.session.get() || {};
@@ -778,7 +812,7 @@ class Component extends DCLogic {
           opt('ls', 'Лекарственные средства (ЛС)', 'Торговое и международное наименование, дозировка, АТХ', 'ri-capsule-line'),
           opt('mi', 'Медицинские изделия (МИ)', 'Технические и эксплуатационные характеристики, GMDN', 'ri-stethoscope-line'),
         ] }),
-        card({ id:'type', title:'Тип услуги', isType:true, typeLabel: ED.SERVICE_TYPE }),
+        card({ id:'type', title:'Тип услуги', isType:true, typeLabel: ED.svcOf(form).name }),
       ];
     }
 
@@ -872,8 +906,8 @@ class Component extends DCLogic {
       return out;
     }
 
-    // шаг 3 — Досье
-    const list = ED.dossier(form.cat);
+    // шаг 3 — Досье (состав разделов у ЕД и АЛО разный — UC01.13.1.6 / UC01.14.1.5)
+    const list = ED.dossier(form.cat, form.svc);
     const reqList = list.filter(d => d.req);
     const filledN = reqList.filter(d => { const v = form.d[d.k] || {}; return (v.text || '').trim() || v.file; }).length;
     const items = list.map(d => {
@@ -979,7 +1013,8 @@ class Component extends DCLogic {
     const shown = errs.slice(0, 6);
     const app = s.app;
     const lastSaved = app.saved ? ED.fmtDT(app.updated) : '';
-    const L = OFFER[s.lang];
+    const S = ED.svcOf(s.form);
+    const L = (S.id === 'alo' ? OFFER_ALO : OFFER)[s.lang];
     const d = new Date();
     const dd = String(d.getDate()).padStart(2, '0');
     const ofDate = s.lang === 'ru' ? '«' + dd + '» ' + MONTHS_RU[d.getMonth()] + ' ' + d.getFullYear() + ' года' : d.getFullYear() + ' жылғы «' + dd + '» ' + MONTHS_KZ[d.getMonth()];
@@ -988,8 +1023,8 @@ class Component extends DCLogic {
       ...common,
       loading:false, notReady:false,
       onCrumb: (e) => { if(this.isDirty()){ if(e && e.preventDefault) e.preventDefault(); this.requestLeave('Прочие услуги.dc.html'); } else { this._leaving = true; ED.session.clear(); } },
-      crumb: 'Заявка № ' + app.num,
-      title: app.saved ? 'Черновик заявки № ' + app.num : 'Новая заявка № ' + app.num,
+      crumb: 'Заявка ' + S.short + ' № ' + app.num,
+      title: (app.saved ? 'Черновик заявки ' : 'Новая заявка ') + S.short + ' № ' + app.num,
       saveNote: dirty ? 'Есть несохранённые изменения' : lastSaved ? 'Сохранено ' + lastSaved : 'Черновик ещё не сохранён',
       saveNoteIcon: dirty ? 'ri-edit-circle-line' : lastSaved ? 'ri-check-line' : 'ri-information-line',
       saveNoteStyle:`display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:${dirty ? '#C2540A' : '#868C98'};`,
@@ -1052,7 +1087,7 @@ class Component extends DCLogic {
         const r = f.regs[0]; r.num = r.num || (f.cat === 'ls' ? 'РК-ЛС-5№021743' : 'РК-МИ-5№020981'); r.country = r.country || (f.cat === 'ls' ? 'Великобритания' : 'США'); r.regDate = r.regDate || '14.06.2023'; if(!r.expDate) r.perpetual = true;
         if(f.cat === 'ls' && r.dose == null) r.dose = '10 мг';
       }
-      if(step === 3){ ED.dossier(f.cat).forEach(d => { if(d.req && !(f.d[d.k] && (f.d[d.k].text || f.d[d.k].file))) f.d[d.k] = { text:'', file:{ name:'Досье_раздел_' + d.n + '.pdf', size:(240 + d.n * 31) * 1024 } }; }); }
+      if(step === 3){ ED.dossier(f.cat, f.svc).forEach(d => { if(d.req && !(f.d[d.k] && (f.d[d.k].text || f.d[d.k].file))) f.d[d.k] = { text:'', file:{ name:'Досье_раздел_' + d.n + '.pdf', size:(240 + d.n * 31) * 1024 } }; }); }
     });
   }
 }

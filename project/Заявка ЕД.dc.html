@@ -97,6 +97,20 @@
   .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .offer-body{scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  /* адаптив: на планшете шаги мастера — строкой над формой, на телефоне поля в одну колонку */
+  @media (max-width:900px){
+    .wz-wrap{flex-direction:column !important;align-items:stretch !important;}
+    .wz-nav{position:static !important;width:100% !important;}
+    .wz-nav ol{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr));}
+    .wz-note{display:none !important;}
+  }
+  @media (max-width:640px){
+    .wz-main{padding:16px 16px 0 !important;}
+    .wz-nav ol{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .wz-g2,.wz-grid{grid-template-columns:minmax(0,1fr) !important;}
+    .wz-bar{margin:0 -16px !important;padding:12px 16px !important;}
+    .wz-stepno{visibility:hidden;}
+  }
 </style>
 </helmet>
 
@@ -111,7 +125,7 @@
       <dc-import name="BusinessNav" style="height:100%;" active="other" collapsed="1" hint-size="80px,827px"></dc-import>
     </div>
 
-    <main style="flex:1;min-width:0;padding:24px 32px 0;min-height:calc(100vh - 73px);display:flex;flex-direction:column;">
+    <main class="wz-main" style="flex:1;min-width:0;padding:24px 32px 0;min-height:calc(100vh - 73px);display:flex;flex-direction:column;">
       <div style="flex:1;width:100%;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
 
         <!-- Шапка страницы -->
@@ -131,9 +145,9 @@
           </div>
         </div>
 
-        <div style="flex:1;display:flex;gap:24px;align-items:flex-start;">
+        <div class="wz-wrap" style="flex:1;display:flex;gap:24px;align-items:flex-start;">
           <!-- Шаги мастера -->
-          <nav aria-label="Шаги заявки" style="width:248px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:12px;">
+          <nav class="wz-nav" aria-label="Шаги заявки" style="width:248px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:12px;">
             <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 10px;">Данные заявки</div>
             <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;">
               <sc-for list="{{ nav }}" as="it" hint-placeholder-count="4">
@@ -148,7 +162,7 @@
                 </li>
               </sc-for>
             </ol>
-            <div style="margin:4px 10px 0;padding-top:12px;border-top:1px solid var(--stroke);display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-quill-pen-line" style="font-size:16px;flex:0 0 auto;"></i><span>После досье — ознакомление с публичной офертой и подписание ЭЦП</span></div>
+            <div class="wz-note" style="margin:4px 10px 0;padding-top:12px;border-top:1px solid var(--stroke);display:flex;gap:8px;font-size:12px;line-height:16px;color:var(--n400);"><i class="ri-quill-pen-line" style="font-size:16px;flex:0 0 auto;"></i><span>После досье — ознакомление с публичной офертой и подписание ЭЦП</span></div>
           </nav>
 
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px;padding-bottom:24px;">
@@ -188,7 +202,7 @@
 
                 <!-- Категория -->
                 <sc-if value="{{ c.isCat }}" hint-placeholder-val="{{ false }}">
-                  <div role="radiogroup" aria-labelledby="{{ c.hid }}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                  <div class="wz-g2" role="radiogroup" aria-labelledby="{{ c.hid }}" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
                     <sc-for list="{{ c.opts }}" as="o" hint-placeholder-count="2">
                       <button class="card-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
                         <span style="{{ o.radio }}"></span>
@@ -219,7 +233,7 @@
                         <sc-if value="{{ g.canRemove }}" hint-placeholder-val="{{ false }}"><button class="btn btn-g btn-sm" onClick="{{ g.onRemove }}" aria-label="{{ g.removeLabel }}" style="color:var(--red);"><i class="ri-delete-bin-6-line" style="font-size:16px;"></i>Удалить</button></sc-if>
                       </div>
                     </sc-if>
-                    <div style="{{ g.gridStyle }}">
+                    <div class="wz-grid" style="{{ g.gridStyle }}">
                       <sc-for list="{{ g.fields }}" as="f" hint-placeholder-count="2">
                         <div style="{{ f.wrap }}">
                           <!-- подзаголовок внутри блока (дозировка / концентрация) -->
@@ -391,10 +405,10 @@
         </div>
 
         <!-- Панель действий шага -->
-        <div style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
+        <div class="wz-bar" style="position:sticky;bottom:0;z-index:20;margin:0 -32px;padding:14px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--stroke);">
           <div style="max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:8px;">
             <button class="btn btn-g" onClick="{{ cancel }}" disabled="{{ notReady }}">Отмена</button>
-            <div style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
+            <div class="wz-stepno" style="flex:1;text-align:center;font-size:13px;line-height:18px;color:var(--n400);">Шаг {{ stepNo }} из 4</div>
             <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}"><button class="btn btn-s" onClick="{{ back }}"><i class="ri-arrow-left-s-line" style="font-size:20px;"></i>Назад</button></sc-if>
             <button class="btn btn-p" onClick="{{ next }}" disabled="{{ notReady }}"><sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}"><i class="ri-quill-pen-line" style="font-size:18px;"></i></sc-if>{{ nextLabel }}<sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></sc-if></button>
           </div>
