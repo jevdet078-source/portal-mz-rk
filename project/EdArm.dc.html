@@ -317,7 +317,7 @@ const ARM = (() => {
       if(r.round === 2) ACT.disputeReject(app, at, { docs, comment:r.comment }); else ACT.refuse(app, at, { docs, comment:r.comment });
       st = 'Направлен акт'; setAssignee(n, 'applicant', at);
     } else if(r.kind === 'remarks'){
-      ACT.remarks(app, at, { items:r.items, docs }); st = 'Выставлены замечания'; n.rem.issued = true; setAssignee(n, 'applicant', at);
+      ACT.remarks(app, at, { items:r.items, docs, fields:r.fields, concl:r.concl }); st = 'Выставлены замечания'; n.rem.issued = true; setAssignee(n, 'applicant', at);
     } else if(r.kind === 'prof'){
       if(r.round === 2) ACT.disputeReject(app, at, { docs }); else ACT.profDone(app, at, { docs });
       st = 'Направлен акт'; setAssignee(n, 'applicant', at);
@@ -635,8 +635,10 @@ const ARM = (() => {
         const tEnd = s.issued, t0 = tEnd - 26 * HOUR;
         const chain = route(exp, t0, tEnd, true);
         const fields = {};
-        (s.items || []).forEach((t, k) => { const m = /^([^:]{3,120}):\s*(.+)$/.exec(t); fields['seed' + k] = m ? { label:m[1], text:m[2], at:t0 } : { label:'Заявление', text:t, at:t0 }; });
-        const concl = { num:'ЗПЭ-' + app.num, date:ED.fmtD(t0), text:'По результатам проверки на полноту и правильность оформления представленных документов выявлены замечания, указанные в разделе 4 настоящего заключения.', letter:null };
+        // АЛО: замечания уже привязаны к полям заявки (ключи как у «Замечание к полю»)
+        if(s.fields) Object.keys(s.fields).forEach(k => { fields[k] = { ...s.fields[k], at:t0 }; });
+        else (s.items || []).forEach((t, k) => { const m = /^([^:]{3,120}):\s*(.+)$/.exec(t); fields['seed' + k] = m ? { label:m[1], text:m[2], at:t0 } : { label:'Заявление', text:t, at:t0 }; });
+        const concl = s.concl ? { letter:null, ...s.concl } : { num:'ЗПЭ-' + app.num, date:ED.fmtD(t0), text:'По результатам проверки на полноту и правильность оформления представленных документов выявлены замечания, указанные в разделе 4 настоящего заключения.', letter:null };
         mkRec({ kind:'remarks', round:1, items:s.items || [], fields, concl, files:s.docs.map(d => f(d.title, d)), by:exp, at:t0, chain, fin:tEnd });
         n.rem = { fields, concl, saved:true, issued:true };
         routeLog(exp, chain, 'Выставлены замечания', 'Сформированы замечания к заявке');

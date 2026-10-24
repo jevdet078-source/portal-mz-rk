@@ -331,7 +331,8 @@ class Component extends DCLogic {
     const pad = (x) => String(x).padStart(2, '0');
     const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
     // ЕД: текст push — по шаблону UC01.13.2.2, табл. 1 (EdData кладёт готовые text / status / tone в запись)
-    const edNotes = (s.ed || []).map(x => ({ n:x.n, ed:true, read:!!x.read, num:x.num, meta:'ID ' + x.num + ' · ' + fdt(x.at),
+    // АЛО (UC01.14.2.2) — те же записи с x.svc = 'alo'; услуга видна в строке мета
+    const edNotes = (s.ed || []).map(x => ({ n:x.n, ed:true, read:!!x.read, num:x.num, meta:'ID ' + x.num + ' · ' + (x.svc === 'alo' ? 'АЛО' : 'ЕД') + ' · ' + fdt(x.at),
       title: x.text || (x.ok ? 'Положительное решение о включении в ЕД по заявке № ' + x.num : 'Решение об отказе по заявке № ' + x.num), ok:x.ok,
       status: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red') }));
     const isNewNote = (n) => n.ed ? !n.read : s.read.indexOf(n.n) === -1;

@@ -76,6 +76,24 @@
   .crumb:hover{color:var(--n900);}
   .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:6px;transition:background .15s,border-color .15s;}
   .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .inp:disabled{background:var(--n100);color:var(--n500);cursor:not-allowed;}
+  .fx-opt{width:100%;display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .fx-opt:hover,.fx-opt:focus-visible{background:var(--n100);outline:none;}
+  /* адаптив: ноутбук 1440 — эталон; уже 1100 — «Сведения об услуге» в 2 колонки; планшет — меню разделов над содержимым; телефон — одна колонка */
+  @media (max-width:1100px){ .cd-info{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} }
+  @media (max-width:900px){
+    .cd-wrap{flex-direction:column !important;align-items:stretch !important;}
+    .cd-nav{position:static !important;width:100% !important;display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px !important;}
+    .cd-stages .clamp1{white-space:normal;}
+    .cd-stages .clamp1 + .clamp1{display:none;}
+  }
+  @media (max-width:640px){
+    .cd-main{padding:16px 16px 96px !important;}
+    .cd-nav{grid-template-columns:minmax(0,1fr);}
+    .cd-info,.cd-g2,.cd-dgrid{grid-template-columns:minmax(0,1fr) !important;}
+    .cd-stages{padding:12px !important;}
+    .cd-stages .clamp1{display:none;}
+  }
   .btn:focus-visible,.ib:focus-visible,.nav-it:focus-visible,.card-opt:focus-visible,.drop:focus-visible,.dl:focus-visible,.crumb:focus-visible,.pp-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;}
   .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -99,7 +117,7 @@
       <dc-import name="BusinessNav" style="height:100%;" active="other" collapsed="1" hint-size="80px,827px"></dc-import>
     </div>
 
-    <main style="flex:1;min-width:0;padding:24px 32px 96px;">
+    <main class="cd-main" style="flex:1;min-width:0;padding:24px 32px 96px;">
       <div style="max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;">
 
         <!-- скелет / не найдено -->
@@ -134,6 +152,7 @@
                   <span style="{{ badge.style }}"><span style="{{ badge.dot }}"></span>{{ badge.label }}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;line-height:18px;color:var(--n500);">
+                  <span class="tip" tabIndex="0" aria-label="{{ svcName }}" style="cursor:help;"><span style="{{ svcStyle }}">{{ svcShort }}</span><span class="tip-b" role="tooltip">{{ svcName }}</span></span>
                   <span style="{{ catStyle }}"><i class="{{ catIcon }}" style="font-size:14px;"></i>{{ catLabel }}</span>
                   <span style="font-weight:500;color:var(--n900);">{{ trade }}</span>
                   <span aria-hidden="true">·</span><span>Создана {{ created }}</span>
@@ -144,7 +163,7 @@
             </div>
 
             <!-- Шкала этапов -->
-            <div role="list" aria-label="Этапы услуги" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:16px 20px;display:flex;align-items:center;gap:0;">
+            <div role="list" class="cd-stages" aria-label="Этапы услуги" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:16px 20px;display:flex;align-items:center;gap:0;">
               <sc-for list="{{ stages }}" as="sg" hint-placeholder-count="4">
                 <div role="listitem" style="{{ sg.wrap }}">
                   <span style="{{ sg.dot }}"><i class="{{ sg.icon }}" style="font-size:14px;"></i>{{ sg.n }}</span>
@@ -166,9 +185,9 @@
               </div>
             </sc-if>
 
-            <div style="display:flex;gap:24px;align-items:flex-start;">
+            <div class="cd-wrap" style="display:flex;gap:24px;align-items:flex-start;">
               <!-- Навигация карточки -->
-              <nav aria-label="Разделы заявки" style="width:260px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:16px;">
+              <nav class="cd-nav" aria-label="Разделы заявки" style="width:260px;flex:0 0 auto;position:sticky;top:97px;display:flex;flex-direction:column;gap:16px;">
                 <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2">
                   <div style="display:flex;flex-direction:column;gap:4px;">
                     <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);padding:0 10px 4px;">{{ g.title }}</div>
@@ -198,7 +217,7 @@
                       <h2 id="h-info" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ stepTitle }}</h2>
                       <span style="{{ stepBadge.style }}"><span style="{{ stepBadge.dot }}"></span>{{ stepBadge.label }}</span>
                     </div>
-                    <dl style="margin:0;padding:16px 20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 24px;">
+                    <dl class="cd-info" style="margin:0;padding:16px 20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 24px;">
                       <sc-for list="{{ info }}" as="r" hint-placeholder-count="6">
                         <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
                           <dt style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n500);"><i class="{{ r.icon }}" style="font-size:15px;color:var(--n400);"></i>{{ r.label }}</dt>
@@ -237,7 +256,7 @@
                 <sc-if value="{{ hasDocs }}" hint-placeholder-val="{{ false }}">
                   <section aria-labelledby="h-docs" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px;display:flex;flex-direction:column;gap:12px;">
                     <h2 id="h-docs" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ docsTitle }}</h2>
-                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+                    <div class="cd-g2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
                       <sc-for list="{{ docs }}" as="d" hint-placeholder-count="2">
                         <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;min-width:0;">
                           <span style="{{ d.badge }}">{{ d.ext }}</span>
@@ -252,6 +271,115 @@
                   </section>
                 </sc-if>
 
+                <!-- АЛО: заключение по первичной экспертизе (UC01.14.2.3.3, табл. 1, п. 2.2) -->
+                <sc-if value="{{ hasConcl }}" hint-placeholder-val="{{ false }}">
+                  <section aria-labelledby="h-concl" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px;display:flex;flex-direction:column;gap:14px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+                      <h2 id="h-concl" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Заключение по первичной экспертизе</h2>
+                      <sc-if value="{{ hasNoteMail }}" hint-placeholder-val="{{ false }}">
+                        <span class="tip" tabIndex="0" aria-label="{{ noteMailAria }}" style="cursor:help;"><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--n50);border:1px solid var(--stroke);font-size:12px;line-height:16px;color:var(--n600);"><i class="ri-mail-send-line" style="font-size:14px;color:var(--n500);"></i>{{ noteMail }}</span><span class="tip-b" role="tooltip" style="left:auto;right:0;">{{ noteMailTip }}</span></span>
+                      </sc-if>
+                    </div>
+                    <dl class="cd-info" style="margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 24px;">
+                      <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><dt style="font-size:12px;line-height:16px;color:var(--n500);">№ заключения</dt><dd class="tnum" style="margin:0;font-size:14px;line-height:20px;font-weight:500;">{{ conclNum }}</dd></div>
+                      <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><dt style="font-size:12px;line-height:16px;color:var(--n500);">Дата заключения</dt><dd class="tnum" style="margin:0;font-size:14px;line-height:20px;font-weight:500;">{{ conclDate }}</dd></div>
+                      <div style="grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;min-width:0;"><dt style="font-size:12px;line-height:16px;color:var(--n500);">Заключение по результатам проверки на полноту и правильность оформления представленных документов</dt><dd class="pre" style="margin:0;font-size:14px;line-height:20px;color:var(--n900);">{{ conclText }}</dd></div>
+                    </dl>
+                    <div class="cd-g2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+                      <sc-for list="{{ conclDocs }}" as="d" hint-placeholder-count="2">
+                        <div style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--stroke);border-radius:12px;min-width:0;">
+                          <span style="{{ d.badge }}">{{ d.ext }}</span>
+                          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                            <span style="font-size:14px;line-height:20px;font-weight:500;">{{ d.title }}</span>
+                            <span class="clamp1" style="font-size:12px;line-height:16px;color:var(--n500);">{{ d.meta }}</span>
+                          </span>
+                          <button class="ib" onClick="{{ d.onDl }}" aria-label="{{ d.dlLabel }}" title="Скачать"><i class="ri-download-2-line" style="font-size:18px;"></i></button>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </section>
+                </sc-if>
+
+                <!-- АЛО: исправление полей по замечаниям эксперта (UC01.14.2.3.3, табл. 1, п. 2.3) -->
+                <sc-if value="{{ hasFix }}" hint-placeholder-val="{{ false }}">
+                  <section aria-labelledby="h-fix" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:visible;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--stroke);flex-wrap:wrap;">
+                      <h2 id="h-fix" style="margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">{{ fixTitle }}</h2>
+                      <span class="tnum" style="{{ fixCountStyle }}"><i class="{{ fixCountIcon }}" style="font-size:16px;"></i>{{ fixCount }}</span>
+                    </div>
+                    <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:20px;">
+                      <sc-for list="{{ fixGroups }}" as="g" hint-placeholder-count="1">
+                        <div style="display:flex;flex-direction:column;gap:10px;">
+                          <div style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">{{ g.title }}</div>
+                          <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="2">
+                            <div id="{{ r.boxId }}" style="{{ r.box }}">
+                              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+                                <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                                  <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.section }}</span>
+                                  <label for="{{ r.id }}" style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);">{{ r.label }}</label>
+                                </div>
+                                <span style="{{ r.chip }}"><i class="{{ r.chipIcon }}" style="font-size:14px;"></i>{{ r.chipLabel }}</span>
+                              </div>
+                              <div style="{{ r.remStyle }}"><i class="ri-chat-1-line" style="font-size:16px;flex:0 0 auto;margin-top:1px;"></i><span>{{ r.remark }}</span></div>
+                              <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}">
+                                <input id="{{ r.id }}" class="inp" value="{{ r.value }}" onChange="{{ r.onChange }}" maxLength="{{ r.max }}" placeholder="{{ r.ph }}" inputMode="{{ r.im }}" disabled="{{ r.ro }}" aria-invalid="{{ r.hasErr }}" style="{{ r.inpStyle }}" />
+                              </sc-if>
+                              <sc-if value="{{ r.isArea }}" hint-placeholder-val="{{ false }}">
+                                <textarea id="{{ r.id }}" class="inp" rows="4" value="{{ r.value }}" onChange="{{ r.onChange }}" maxLength="{{ r.max }}" aria-invalid="{{ r.hasErr }}" style="{{ r.inpStyle }}"></textarea>
+                              </sc-if>
+                              <sc-if value="{{ r.isCombo }}" hint-placeholder-val="{{ false }}">
+                                <div style="position:relative;">
+                                  <button id="{{ r.id }}" type="button" class="inp" onClick="{{ r.toggle }}" aria-haspopup="listbox" aria-expanded="{{ r.open }}" style="{{ r.comboStyle }}"><span class="clamp1" style="flex:1;min-width:0;text-align:left;">{{ r.value }}</span><i class="ri-arrow-down-s-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i></button>
+                                  <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+                                    <div onClick="{{ closeFixPop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                                    <div role="listbox" style="position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:25;max-height:280px;overflow-y:auto;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:6px;">
+                                      <sc-for list="{{ r.opts }}" as="o" hint-placeholder-count="3">
+                                        <button type="button" role="option" aria-selected="{{ o.on }}" class="fx-opt" onClick="{{ o.pick }}"><span style="flex:1;min-width:0;">{{ o.label }}</span><sc-if value="{{ o.on }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" style="font-size:18px;color:var(--primary);flex:0 0 auto;"></i></sc-if></button>
+                                      </sc-for>
+                                    </div>
+                                  </sc-if>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{ r.hasPerp }}" hint-placeholder-val="{{ false }}">
+                                <button type="button" onClick="{{ r.togglePerp }}" role="checkbox" aria-checked="{{ r.perp }}" style="align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:0;border:none;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);cursor:pointer;"><span style="{{ r.perpBox }}"><i class="ri-check-line" style="{{ r.perpIcon }}"></i></span>Бессрочно</button>
+                              </sc-if>
+                              <sc-if value="{{ r.isFile }}" hint-placeholder-val="{{ false }}">
+                                <div style="display:flex;align-items:center;gap:12px;padding:10px 8px 10px 12px;border:1px solid var(--stroke);border-radius:12px;background:#fff;max-width:640px;">
+                                  <span style="{{ r.fileBadge }}">{{ r.fileExt }}</span>
+                                  <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                    <span class="clamp1" style="font-size:14px;line-height:20px;font-weight:500;">{{ r.fileName }}</span>
+                                    <span style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.fileMeta }}</span>
+                                  </span>
+                                  <button id="{{ r.id }}" class="btn btn-s btn-sm" onClick="{{ r.pickFile }}"><i class="ri-refresh-line" style="font-size:16px;"></i>{{ r.fileBtn }}</button>
+                                  <input id="{{ r.fileInput }}" type="file" onChange="{{ r.onFile }}" style="display:none;" />
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{ r.isDiff }}" hint-placeholder-val="{{ false }}">
+                                <div class="cd-g2" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                                  <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><span style="font-size:12px;line-height:16px;color:var(--n500);">Было</span><span class="pre" style="font-size:14px;line-height:20px;color:var(--n500);text-decoration:line-through;text-decoration-color:var(--n300);">{{ r.before }}</span></div>
+                                  <div style="display:flex;flex-direction:column;gap:4px;min-width:0;"><span style="font-size:12px;line-height:16px;color:var(--n500);">Стало</span><span class="pre" style="font-size:14px;line-height:20px;color:var(--n900);">{{ r.after }}</span></div>
+                                </div>
+                              </sc-if>
+                              <sc-if value="{{ r.isRo }}" hint-placeholder-val="{{ false }}"><div class="pre" style="font-size:14px;line-height:20px;color:var(--n600);">{{ r.roValue }}</div></sc-if>
+                              <sc-if value="{{ r.hasErr }}" hint-placeholder-val="{{ false }}"><span role="alert" style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ r.err }}</span></sc-if>
+                            </div>
+                          </sc-for>
+                        </div>
+                      </sc-for>
+                    </div>
+                    <sc-if value="{{ fixEditable }}" hint-placeholder-val="{{ true }}">
+                      <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 20px;border-top:1px solid var(--stroke);flex-wrap:wrap;">
+                        <span style="flex:1;min-width:200px;font-size:12px;line-height:16px;color:var(--n400);display:flex;align-items:center;gap:4px;"><i class="ri-quill-pen-line" style="font-size:14px;"></i>Заявка подписывается ЭЦП</span>
+                        <a class="btn btn-s" href="Прочие услуги.dc.html">Назад</a>
+                        <span class="tip" style="{{ fixSendWrap }}">
+                          <button class="btn btn-p" onClick="{{ fixSend }}" disabled="{{ fixSendOff }}">Подписать и отправить<i class="ri-arrow-right-s-line" style="font-size:20px;"></i></button>
+                          <sc-if value="{{ fixSendOff }}" hint-placeholder-val="{{ false }}"><span class="tip-b" role="tooltip" style="left:auto;right:0;">{{ fixSendTip }}</span></sc-if>
+                        </span>
+                      </div>
+                    </sc-if>
+                  </section>
+                </sc-if>
+
                 <!-- Действие заявителя -->
                 <sc-if value="{{ hasAct }}" hint-placeholder-val="{{ false }}">
                   <section aria-labelledby="h-act" style="background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px;display:flex;flex-direction:column;gap:16px;">
@@ -261,7 +389,7 @@
                     </div>
 
                     <sc-if value="{{ hasChoice }}" hint-placeholder-val="{{ false }}">
-                      <div role="radiogroup" aria-label="Ваше решение" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+                      <div class="cd-g2" role="radiogroup" aria-label="Ваше решение" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
                         <sc-for list="{{ choices }}" as="o" hint-placeholder-count="2">
                           <button class="card-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
                             <span style="{{ o.radio }}"></span>
@@ -361,7 +489,7 @@
                     <sc-for list="{{ c.groups }}" as="g" hint-placeholder-count="1">
                       <div style="{{ g.wrap }}">
                         <sc-if value="{{ g.hasHead }}" hint-placeholder-val="{{ false }}"><div style="padding:8px 14px;background:var(--n50);border-bottom:1px solid var(--stroke);"><span style="padding:2px 8px;border-radius:6px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:16px;font-weight:600;">{{ g.head }}</span></div></sc-if>
-                        <dl style="{{ g.grid }}">
+                        <dl class="cd-dgrid" style="{{ g.grid }}">
                           <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
                             <div style="{{ r.wrap }}">
                               <dt style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.label }}</dt>
@@ -432,7 +560,8 @@ const STAGES = ['Нулевая экспертиза', 'Первичная эк�
 const DATA_ITEMS = [ ['d0', 'Данные услуги'], ['d1', 'Сведения о заявителе'], ['d2', 'Заявление'], ['d3', 'Досье'] ];
 
 class Component extends DCLogic {
-  state = { ready:false, missing:false, app:null, sel:null, now:Date.now(), choice:null, file:null, fileErr:'', choiceErr:false, ansText:'', drag:false, toast:null, ppOpen:false };
+  state = { ready:false, missing:false, app:null, sel:null, now:Date.now(), choice:null, file:null, fileErr:'', choiceErr:false, ansText:'', drag:false, toast:null, ppOpen:false,
+    fix:{}, fixErr:{}, fixPop:null };
 
   componentDidMount(){
     this._load = () => this.load();
@@ -461,7 +590,7 @@ class Component extends DCLogic {
     const prevLast = prev && prev.steps.length ? prev.steps[prev.steps.length - 1].id : null;
     const changed = !prev || prevLast !== lastId;
     if(!sel || (changed && sel === prevLast)) sel = lastId;
-    const reset = changed ? { choice:null, file:null, fileErr:'', choiceErr:false, ansText:'' } : {};
+    const reset = changed ? { choice:null, file:null, fileErr:'', choiceErr:false, ansText:'', fix:{}, fixErr:{}, fixPop:null } : {};
     this.setState({ ready:true, missing:false, app, sel, ...reset });
     if(!prev) ED.markRead(app.num);
   }
@@ -492,6 +621,7 @@ class Component extends DCLogic {
     const at = d.at || Date.now();
     if(step.kind === 'pay20'){ ED.apply(s.app.num, 'pay20', { file:s.file }, at); this.toast('ok', 'Платёжное поручение отправлено', 'ННЦРЗ подтвердит поступление оплаты 20 %.'); }
     else if(step.kind === 'pay80'){ ED.apply(s.app.num, 'pay80', { file:s.file }, at); this.toast('ok', 'Платёжное поручение отправлено', 'ННЦРЗ подтвердит поступление оплаты 80 %.'); }
+    else if(step.kind === 'remarks' && step.fields && ED.svcOf(s.app).fieldFix){ ED.apply(s.app.num, 'remarksReply', { changes:{ ...s.fix } }, at); this.toast('ok', 'Исправления отправлены', 'Статус — «Проверка доработки». Эксперт ННЦРЗ проверит исправленные поля.'); }
     else if(step.kind === 'remarks'){ ED.apply(s.app.num, 'remarksReply', { text:s.ansText, files:[s.file] }, at); this.toast('ok', 'Ответ на замечания отправлен', 'Экспертиза продолжится.'); }
     else {
       const agree = step.round === 1 ? s.choice === 'yes' : null;
@@ -509,18 +639,162 @@ class Component extends DCLogic {
     this.setState({ file:{ name:f.name, size:f.size }, fileErr:'' });
   }
 
+  // ── АЛО: исправление полей по замечаниям эксперта (UC01.14.2.3.3) ──
+  // Ключи замечаний — как у «Замечание к полю» в АРМ ННЦРЗ. Поля из профиля организации заявитель здесь
+  // не меняет (UC01.14.1.3) — они не блокируют отправку.
+  fixMeta(app, key, rem){
+    const ED = window.mpEd, f = app.form, cat = f.cat, p = String(key).split('.');
+    const fallback = { group:'Заявление', section:'', label:(rem && rem.label) || 'Поле заявки', type:'ro' };
+    if(p[0] === 'a'){
+      const M = { position:['Контактное лицо', 'Должность', 'text', 50], phone:['Контактное лицо', 'Телефон', 'phone', 24], fax:['Контактное лицо', 'Факс', 'phone', 24],
+        poaNum:['Данные о доверенности', '№ доверенности', 'text', 200], poaIssued:['Данные о доверенности', 'Дата выдачи', 'date', 10], poaValid:['Данные о доверенности', 'Срок действия', 'date', 10], poaText:['Данные о доверенности', 'Текст доверенности', 'area', 100000] }[p[1]];
+      return M ? { group:'Сведения о заявителе', section:M[0], label:M[1], type:M[2], max:M[3] } : { ...fallback, group:'Сведения о заявителе', section:'Профиль организации' };
+    }
+    if(p[0] === 's'){
+      let out = null;
+      (ED.SCHEMA[cat] || []).forEach(sec => (sec.fields || []).forEach(fd => { if(fd.k === p[1]) out = { group:'Заявление', section:sec.title, label:fd.label, type: fd.type === 'combo' && !fd.free ? 'combo' : fd.type === 'area' ? 'area' : 'text', dict:fd.dict, max:fd.max }; }));
+      return out || fallback;
+    }
+    if(p[0] === 'r'){
+      const i = f.regs.findIndex(x => x.id === p[1]);
+      if(i === -1) return fallback;
+      const M = { num:['Регистрационный номер', 'text', 20], country:['Производитель / Страна', 'combo', 0, 'country'], regDate:['Дата регистрации', 'date', 10], expDate:['Дата истечения', 'date', 10],
+        dose:['Дозировка', 'text', 50], conc:['Концентрация', 'text', 50], qty:['Количество во вторичной (потребительской) упаковке', 'text', 50] }[p[2]];
+      return M ? { group:'Заявление', section:'Рег. номер ' + (i + 1), label:M[0], type:M[1], max:M[2], dict:M[3], perp: p[2] === 'expDate' } : fallback;
+    }
+    if(p[0] === 'd'){
+      const d = ED.dossier(cat, app.svc).find(x => x.k === p[1]);
+      if(!d) return fallback;
+      return { group:'Досье', section:'Раздел ' + d.n + (p[2] === 'file' ? ' · файл' : ' · сведения'), label:d.title, type: p[2] === 'file' ? 'file' : 'area', max:100000 };
+    }
+    return fallback;
+  }
+  fixRows(app, step){
+    const ED = window.mpEd, fields = step.fields || {};
+    const order = { 'Сведения о заявителе':1, 'Заявление':2, 'Досье':3 };
+    return Object.keys(fields).map(key => ({ key, rem:fields[key], ...this.fixMeta(app, key, fields[key]), orig: ED.getField(app.form, key) }))
+      .sort((a, b) => (order[a.group] || 9) - (order[b.group] || 9));
+  }
+  fixVal(r){ const v = this.state.fix[r.key]; return v !== undefined ? v : r.orig; }
+  fixDone(r){
+    if(r.type === 'ro') return true;
+    const v = this.state.fix[r.key];
+    if(v === undefined) return false;
+    if(r.type === 'file') return !!v && (!r.orig || v.name !== r.orig.name || v.size !== r.orig.size);
+    return String(v == null ? '' : v).trim() !== String(r.orig == null ? '' : r.orig).trim();
+  }
+  setFix(key, val){ const fixErr = { ...this.state.fixErr }; delete fixErr[key]; this.setState({ fix:{ ...this.state.fix, [key]:val }, fixErr }); }
+  fixSend(app, step){
+    const ED = window.mpEd, s = this.state;
+    const rows = this.fixRows(app, step);
+    if(!rows.every(r => this.fixDone(r))) return;
+    const errs = {};
+    rows.forEach(r => {
+      if(r.type === 'ro') return;
+      const v = this.fixVal(r), t = String(v == null ? '' : v).trim();
+      if(r.type === 'date' && !(r.perp && t === 'Бессрочно')){
+        const d = ED.parseD(t), t0 = new Date().setHours(0, 0, 0, 0);
+        if(!d) errs[r.key] = 'Укажите дату в формате дд.мм.гггг';
+        else if((/regDate|poaIssued/.test(r.key)) && d.getTime() >= t0) errs[r.key] = 'Дата должна быть меньше текущей';
+        else if((/expDate|poaValid/.test(r.key)) && d.getTime() <= t0) errs[r.key] = 'Дата должна быть больше текущей';
+      }
+      else if(r.type === 'phone'){ if(t && !ED.phoneOk(t)) errs[r.key] = 'Пример: +7 701 123 45 67'; }
+      else if(r.type === 'combo'){ if(!t || (ED.DICT[r.dict] || []).indexOf(t) === -1) errs[r.key] = 'Выберите значение из списка'; }
+      else if(r.type !== 'file' && !t) errs[r.key] = 'Обязательное поле';
+    });
+    if(Object.keys(errs).length){
+      this.setState({ fixErr:errs });
+      const first = rows.find(r => errs[r.key]);
+      setTimeout(() => { const el = document.getElementById('fx-' + first.key.replace(/[^a-z0-9]/gi, '-')); if(el) el.scrollIntoView({ behavior:'smooth', block:'center' }); }, 30);
+      return;
+    }
+    if(ED.fail()){ this.toast('err', ED.FAIL_MSG, ''); return; }
+    try { window.dispatchEvent(new CustomEvent('mp-sign-open', { detail:{ ctx:'card:' + step.id, title:'Подписание заявления', doc:'Заявка № ' + app.num + ' · исправления по замечаниям' } })); } catch(e){}
+  }
+  maskD(v){ const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '.' + d.slice(2) : d; }
+  fixView(app, step, open){
+    const ED = window.mpEd, s = this.state;
+    const rows = this.fixRows(app, step);
+    const changes = {}; ((step.reply && step.reply.changes) || []).forEach(c => { changes[c.key] = c; });
+    const sent = !!step.reply;
+    const show = (v) => v && typeof v === 'object' ? v.name : (v == null || String(v).trim() === '' ? '—' : String(v));
+    const groups = [];
+    rows.forEach(r => {
+      const done = sent ? r.type === 'ro' || !!changes[r.key] : this.fixDone(r);
+      const edit = open && !sent && r.type !== 'ro';
+      const err = s.fixErr[r.key] || '';
+      const val = this.fixVal(r);
+      const id = 'fx-' + r.key.replace(/[^a-z0-9]/gi, '-');
+      const ok = done && r.type !== 'ro';
+      const tone = r.type === 'ro' ? ['#F6F8FA', '#E2E4E9', '#525866'] : ok && !err ? ['#EFFAF6', '#CBF5E5', '#176448'] : ['#FDEDF0', '#F8C9D2', '#710E21'];
+      const row = {
+        key:r.key, id, boxId:id + '-box', section:r.section, label:r.label, remark:r.rem.text,
+        box:`display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:12px;border:1px solid ${tone[1]};border-left:3px solid ${r.type === 'ro' ? '#CDD0D5' : ok && !err ? '#38C793' : '#DF1C41'};background:#fff;`,
+        chip:`flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;background:${tone[0]};color:${tone[2]};`,
+        chipIcon: r.type === 'ro' ? 'ri-building-line' : ok ? 'ri-check-line' : 'ri-error-warning-line',
+        chipLabel: r.type === 'ro' ? 'Из профиля организации' : ok ? 'Исправлено' : 'Нужно исправить',
+        remStyle:`display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:8px;font-size:13px;line-height:18px;background:${tone[0]};color:${tone[2]};`,
+        isText:false, isArea:false, isCombo:false, isFile:false, isDiff:false, isRo:false, hasPerp:false,
+        value:'', ph:'', max:524288, im:'text', ro:false, open:false, opts:[],
+        hasErr: !!err, err,
+        inpStyle: err ? 'border-color:#DF1C41;' : ok ? 'border-color:#38C793;' : 'border-color:#F8C9D2;',
+      };
+      if(sent && changes[r.key]){ Object.assign(row, { isDiff:true, before:show(changes[r.key].before), after:show(changes[r.key].after) }); }
+      else if(!edit){ Object.assign(row, { isRo:true, roValue: r.type === 'ro' ? 'Изменяется в профиле организации — не блокирует отправку.' : show(val) }); }
+      else if(r.type === 'file'){
+        const fv = val || null, b = fv ? this.extBadge(fv.name, 40) : { ext:'', badge:'' };
+        const inId = id + '-in';
+        Object.assign(row, { isFile:true, fileName: fv ? fv.name : 'Файл не загружен', fileMeta: fv ? ED.fileSize(fv.size) + (ok ? ' · новый файл' : ' · текущий файл') : 'ZIP, RAR, 7Z, DOCX, XLSX, PDF, JPG, PNG · до 500 МБ',
+          fileExt:b.ext, fileBadge:b.badge, fileBtn: fv ? 'Заменить' : 'Загрузить', fileInput:inId,
+          pickFile: () => { const el = document.getElementById(inId); if(el){ el.value = ''; el.click(); } },
+          onFile: (e) => { const list = Array.from(e.target.files || []); if(!list.length) return; if(list.length > 1){ this.setState({ fixErr:{ ...s.fixErr, [r.key]:'Можно загрузить один файл — упакуйте документы в архив' } }); return; }
+            const m = ED.checkFile(list[0], 'dossier'); if(m){ this.setState({ fixErr:{ ...s.fixErr, [r.key]:m } }); return; } this.setFix(r.key, { name:list[0].name, size:list[0].size }); } });
+      }
+      else if(r.type === 'combo'){
+        const on = s.fixPop === r.key;
+        Object.assign(row, { isCombo:true, open:on, value: String(val || '').trim() || 'Выберите из справочника',
+          comboStyle:`display:flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;cursor:pointer;${row.inpStyle}${String(val || '').trim() ? '' : 'color:#868C98;'}`,
+          toggle: () => this.setState({ fixPop: on ? null : r.key }),
+          opts: (ED.DICT[r.dict] || []).map(o => ({ label:o, on: o === val, pick: () => { this.setFix(r.key, o); this.setState({ fixPop:null }); } })) });
+      }
+      else if(r.type === 'area'){ Object.assign(row, { isArea:true, value: val == null ? '' : String(val), max:r.max || 100000, onChange: (e) => this.setFix(r.key, e.target.value) }); }
+      else {
+        const perp = r.perp && val === 'Бессрочно';
+        Object.assign(row, { isText:true, value: perp ? '' : (val == null ? '' : String(val)), max:r.max || 3000, ro:perp,
+          ph: r.type === 'date' ? 'дд.мм.гггг' : r.type === 'phone' ? '+7 701 123 45 67' : '', im: r.type === 'date' ? 'numeric' : r.type === 'phone' ? 'tel' : 'text',
+          onChange: (e) => this.setFix(r.key, r.type === 'date' ? this.maskD(e.target.value) : e.target.value) });
+        if(r.perp) Object.assign(row, { hasPerp:true, perp, togglePerp: () => this.setFix(r.key, perp ? '' : 'Бессрочно'),
+          perpBox:`width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;box-sizing:border-box;${perp ? 'background:#4D42E9;border:none;' : 'background:#fff;border:1.5px solid #CDD0D5;'}`,
+          perpIcon:`font-size:14px;color:#fff;${perp ? '' : 'visibility:hidden;'}` });
+      }
+      let g = groups.find(x => x.title === r.group);
+      if(!g){ g = { title:r.group, rows:[] }; groups.push(g); }
+      g.rows.push(row);
+    });
+    const need = rows.filter(r => r.type !== 'ro');
+    const fixed = sent ? need.length : need.filter(r => this.fixDone(r)).length;
+    return { groups, fixed, total:need.length, all: fixed === need.length, sent, editable: open && !sent };
+  }
+
   // ── содержимое выбранного шага ──
   stepView(app, step, now){
     const ED = window.mpEd, s = this.state;
     const cat = app.form.cat === 'mi' ? 'медицинское изделие' : 'лекарственное средство';
     const catShort = app.form.cat === 'mi' ? 'МИ' : 'ЛС';
-    const v = { note:null, result:null, docsTitle:'Документы ННЦРЗ', docs:[], act:null, reply:null, sessions:null };
+    const S = ED.svcOf(app), alo = S.id === 'alo';
+    const v = { note:null, result:null, docsTitle:'Документы ННЦРЗ', docs:[], act:null, reply:null, sessions:null, concl:null, fix:null };
     const nnDocs = (list) => list.map(d => ({ title:d.title, meta:(d.id || d.name) + ' · ' + ED.fileSize(d.size) + (d.amount ? ' · ' + ED.money(d.amount) : ''), ...this.extBadge(d.name), dlLabel:'Скачать: ' + d.title, onDl: () => this.dl(d.name) }));
     const fileRow = (f, meta) => ({ name:f.name, meta, ...this.extBadge(f.name), onDl: () => this.dl(f.name) });
     const open = !step.expired && (step.st !== 'Завершено' && step.st !== 'Решение принято' && step.st !== 'Срок истёк');
 
     if(step.kind === 'p7'){
-      v.note = step.st === 'В работе'
+      // АЛО — проверка наличия аналога в перечне АЛО (UC01.14.2.3.1 / 2.3.2)
+      v.note = alo
+        ? (step.st === 'В работе'
+          ? { tone:'blue', icon:'ri-search-eye-line', title:'ННЦРЗ проверяет наличие аналога в перечне АЛО', paras:[ 'Если аналог ' + (app.form.cat === 'mi' ? 'медицинского изделия' : 'лекарственного средства') + ' уже есть в перечне АЛО, обработка заявки завершится. Если нет — вам будет выставлен счёт на оплату 20 % стоимости экспертизы.' ] }
+          : app.result === 'p7' ? { tone:'green', icon:'ri-checkbox-circle-line', title:'Аналог имеется в перечне АЛО', paras:[ 'Обработка заявки завершена — подробности в шаге «Экспертиза завершена».' ] }
+          : { tone:'gray', icon:'ri-information-line', title:'Аналог не имеется в перечне АЛО', paras:[ 'Экспертиза продолжается после оплаты 20 % стоимости услуги.' ] })
+        : step.st === 'В работе'
         ? { tone:'blue', icon:'ri-search-eye-line', title:'ННЦРЗ проверяет соответствие пункту 7 Правил', paras:[ 'Если ' + cat + ' с идентичными параметрами уже есть в перечне Единого дистрибьютора, оно включается автоматически. Если нет — вам будет выставлен счёт на оплату 20 % стоимости экспертизы.' ] }
         : app.result === 'p7' ? { tone:'green', icon:'ri-checkbox-circle-line', title:'Соответствует пункту 7 Правил', paras:[ 'Обработка заявки завершена — подробности в шаге «Экспертиза завершена».' ] }
         : { tone:'gray', icon:'ri-information-line', title:'Не соответствует пункту 7 Правил', paras:[ 'Экспертиза продолжается после оплаты 20 % стоимости услуги.' ] };
@@ -535,7 +809,7 @@ class Component extends DCLogic {
         if(step.reject.file) v.docs = v.docs.concat(nnDocs([ { title:'Документ ННЦРЗ к замечанию', id:'', name:step.reject.file.name, size:step.reject.file.size } ]));
       }
       if(open){
-        v.act = { title:'Платёжное поручение ' + pct + '%', desc:'Оплатите счёт на ' + ED.money(ED.PRICE * pct / 100) + ' и прикрепите платёжное поручение.', choice:false, text:false,
+        v.act = { title:'Платёжное поручение ' + pct + '%', desc: S.price ? 'Оплатите счёт на ' + ED.money(S.price * pct / 100) + ' и прикрепите платёжное поручение.' : 'Скачайте счёт на оплату ' + pct + '%, произведите оплату и прикрепите файл платёжного поручения.', choice:false, text:false,
           up:'Платёжное поручение', formats:'PDF, DOC, DOCX, XLS, XLSX, JPG, JPEG, PNG · до 300 МБ', kind:'pay', send:'Отправить документ' };
       } else if(step.file){
         v.reply = { title:'Платёжное поручение', files:[ fileRow(step.file, 'Отправлено ' + ED.fmtDT(step.at)) ] };
@@ -547,12 +821,20 @@ class Component extends DCLogic {
         'Подтверждение оплаты 20%':['teal', 'ri-bank-line', 'ННЦРЗ подтверждает оплату 20 %', 'После подтверждения начнётся первичная экспертиза: проверка оформления заявления и досье.'],
         'Подтверждение оплаты 80%':['teal', 'ri-bank-line', 'ННЦРЗ подтверждает оплату 80 %', 'После подтверждения начнётся профессиональная экспертиза.'],
         'Отказ от решения':['blue', 'ri-scales-3-line', 'ННЦРЗ рассматривает ваш мотивированный отказ', 'Срок на ответ по акту приостановлен и продолжится, если ННЦРЗ повторно направит документы.'],
+        'Проверка доработки':['teal', 'ri-search-eye-line', 'ННЦРЗ проверяет исправления', 'Эксперт проверит исправленные поля. По итогам вы получите счёт на оплату 80 % либо мотивированный отказ.'],
       }[step.st];
       if(T) v.note = { tone:T[0], icon:T[1], title:T[2], paras:[T[3]] };
-      else if(step.st === 'В работе' && step.phase === 'prof') v.note = { tone:'blue', icon:'ri-microscope-line', title:'Идёт профессиональная экспертиза', paras:[ '30 рабочих дней на экспертизу и 5 рабочих дней на подготовку заключения. По итогам вы получите заключение и акт выполненных работ.' ] };
+      else if(step.st === 'В работе' && step.phase === 'prof') v.note = { tone:'blue', icon:'ri-microscope-line', title:'Идёт профессиональная экспертиза', paras:[ S.profWD + ' ' + ED.wdWord(S.profWD) + ' на экспертизу и 5 рабочих дней на подготовку заключения. По итогам вы получите заключение и акт выполненных работ.' ] };
       else if(step.st === 'В работе') v.note = { tone:'blue', icon:'ri-file-search-line', title:'Идёт первичная экспертиза', paras:[ 'ННЦРЗ проверяет оформление заявления и досье. По итогам вы получите счёт на оплату 80 % либо мотивированный отказ.' ] };
       else v.note = { tone:'gray', icon:'ri-check-line', title:'Проверка завершена', paras:[ 'Результат — в следующем шаге.' ] };
       if(step.frozenFrom){ const src = app.steps.find(x => x.id === step.frozenFrom); if(src && src.reply && src.reply.file) v.reply = { title:'Ваш мотивированный отказ', files:[ fileRow(src.reply.file, 'Отправлен ' + ED.fmtDT(src.at)) ] }; }
+    }
+    if(step.kind === 'remarks' && S.fieldFix && step.fields){
+      const c = step.concl || {};
+      v.concl = { num: c.num || '—', date: c.date || ED.fmtD(step.issued), text: c.text || (step.items || []).join('\n'), docs: nnDocs(step.docs), mail: ED.mailOf(app.num, 'rework') };
+      v.fix = this.fixView(app, step, open);
+      if(step.expired) v.note = { tone:'red', icon:'ri-time-line', title:'Срок исправления замечаний истёк', paras:[ 'Исправления не были отправлены до ' + ED.fmtDT(step.timer.deadline) + '. Редактирование полей закрыто.' ] };
+      return v;
     }
     if(step.kind === 'remarks'){
       v.docs = nnDocs(step.docs);
@@ -587,8 +869,8 @@ class Component extends DCLogic {
       const paras = [ 'Заключение профессиональной экспертизы передано в Формулярную комиссию МЗ РК. Комиссия рассматривает заключения не реже одного раза в полугодие.' ];
       if(step.note) paras.unshift(step.note);
       v.note = step.st === 'Решение принято'
-        ? (app.include ? { tone:'green', icon:'ri-checkbox-circle-line', title:'Решение принято: включить в перечень ЕД', paras:[ 'Протокол заседания — в шаге «Экспертиза завершена».' ] }
-                       : { tone:'red', icon:'ri-close-circle-line', title:'Решение принято: не включать в перечень ЕД', paras:[ 'Протокол заседания — в шаге «Экспертиза завершена».' ] })
+        ? (app.include ? { tone:'green', icon:'ri-checkbox-circle-line', title:'Решение принято: включить в перечень ' + S.listShort, paras:[ 'Протокол заседания — в шаге «Экспертиза завершена».' ] }
+                       : { tone:'red', icon:'ri-close-circle-line', title:'Решение принято: не включать в перечень ' + S.listShort, paras:[ 'Протокол заседания — в шаге «Экспертиза завершена».' ] })
         : { tone:'purple', icon:'ri-team-line', title:'Заявка на рассмотрении Формулярной комиссии', paras };
       const ss = (step.sessions || []).map(x => ({ text: x.held ? 'Заседание состоялось' : 'Заседание не состоялось — заявка перенесена на следующее', date:ED.fmtD(x.at),
         icon: x.held ? 'ri-checkbox-circle-fill' : 'ri-calendar-close-line', iconStyle:`font-size:18px;color:${x.held ? '#38C793' : '#868C98'};` }));
@@ -597,14 +879,20 @@ class Component extends DCLogic {
     if(step.kind === 'done'){
       const mail = true;
       const R = {
-        p7:{ tone:'green', icon:'ri-checkbox-circle-fill', title:'ЛС / МИ включено в перечень Единого дистрибьютора', paras:[ 'Настоящим уведомляем, что заявленное ' + cat + ' соответствует пункту 7 Правил и подлежит включению в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора, в автоматическом порядке — без отдельного рассмотрения.', 'Основание: пункт 7 Правил формирования перечня закупа (приказ МЗ РК № ҚР ДСМ-324/2020).' ], mail },
-        unpaid20:{ tone:'gray', icon:'ri-forbid-line', title:'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 20 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 20 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
-        unpaid80:{ tone:'gray', icon:'ri-forbid-line', title:'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 80 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 80 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
+        p7: alo
+          // UC01.14.2.3.1, табл. 1, п. 2.5 — текст уведомления
+          ? { tone:'green', icon:'ri-checkbox-circle-fill', title:'Аналог имеется в перечне АЛО', paras:[ 'Настоящим уведомляем, что по результатам рассмотрения заявления и проверки представленных сведений установлено наличие аналогичного лекарственного средства или медицинского изделия в перечне лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определёнными заболеваниями (состояниями).' ], mail }
+          : { tone:'green', icon:'ri-checkbox-circle-fill', title:'ЛС / МИ включено в перечень Единого дистрибьютора', paras:[ 'Настоящим уведомляем, что заявленное ' + cat + ' соответствует пункту 7 Правил и подлежит включению в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора, в автоматическом порядке — без отдельного рассмотрения.', 'Основание: пункт 7 Правил формирования перечня закупа (приказ МЗ РК № ҚР ДСМ-324/2020).' ], mail },
+        unpaid20:{ tone:'gray', icon:'ri-forbid-line', title: alo ? 'Оплата 20% не произведена' : 'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 20 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 20 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
+        unpaid80:{ tone:'gray', icon:'ri-forbid-line', title: alo ? 'Оплата 80% не произведена' : 'Оплата не произведена', paras:[ step.reject ? 'ННЦРЗ повторно не подтвердил поступление оплаты 80 %' + (step.reject.comment ? ': ' + step.reject.comment : '.') : 'Счёт на оплату 80 % не оплачен в установленный срок.', 'Проведение экспертизы по заявке прекращено.' ], mail:false },
+        // АЛО: истёк срок оплаты (UC01.14.2.3.2 / 2.3.5, Alt 6) — текст уведомления из постановки
+        expired20:{ tone:'gray', icon:'ri-time-line', title:'Экспертиза прекращена', paras:[ 'Настоящим уведомляем, что проведение экспертизы по заявке лекарственного средства / медицинского изделия прекращено по причине отсутствия оплаты 20 % на оказание услуги.' ], mail:false },
+        expired80:{ tone:'gray', icon:'ri-time-line', title:'Экспертиза прекращена', paras:[ 'Настоящим уведомляем, что проведение экспертизы по заявке лекарственного средства / медицинского изделия прекращено по причине отсутствия оплаты 80 % на оказание услуги.' ], mail:false },
         unfixed:{ tone:'gray', icon:'ri-forbid-line', title:'Экспертиза прекращена', paras:[ 'Замечания ННЦРЗ не устранены в установленный срок. Проведение экспертизы по заявке прекращено.' ], mail:false },
         refused:{ tone:'red', icon:'ri-close-circle-fill', title:'Отказано в проведении профессиональной экспертизы', paras:[ 'Обработка заявки завершена. Мотивированный отказ и акт выполненных работ — в шаге «Отказ в рассмотрении».' ], mail },
         fk: app.include
-          ? { tone:'green', icon:'ri-award-fill', title:'Формулярная комиссия решила включить ' + catShort + ' в перечень Единого дистрибьютора', paras:[ 'Обезличенный протокол заседания содержит только объекты вашей заявки.' ], mail }
-          : { tone:'red', icon:'ri-close-circle-fill', title:'Формулярная комиссия решила не включать ' + catShort + ' в перечень Единого дистрибьютора', paras:[ 'Обезличенный протокол заседания содержит только объекты вашей заявки.' ], mail },
+          ? { tone:'green', icon:'ri-award-fill', title:'Формулярная комиссия решила включить ' + catShort + ' в ' + S.list, paras:[ 'Обезличенный протокол заседания содержит только объекты вашей заявки.' ], mail }
+          : { tone:'red', icon:'ri-close-circle-fill', title:'Формулярная комиссия решила не включать ' + catShort + ' в ' + S.list, paras:[ 'Обезличенный протокол заседания содержит только объекты вашей заявки.' ], mail },
       }[step.variant];
       v.result = R;
       if(step.docs && step.docs.length){ v.docs = nnDocs(step.docs); v.docsTitle = 'Итоговый документ'; }
@@ -627,7 +915,7 @@ class Component extends DCLogic {
     const G = (rows, cols, head) => ({ rows, hasHead:!!head, head:head || '', wrap: head ? 'border:1px solid #E2E4E9;border-radius:12px;overflow:hidden;' : '',
       grid:`margin:0;display:grid;grid-template-columns:repeat(${cols || 2},minmax(0,1fr));gap:14px 24px;${head ? 'padding:14px;' : ''}` });
     const C = (id, title, groups, desc) => ({ hid:'dv-' + id, title, groups, desc:desc || '', hasDesc:!!desc });
-    if(key === 'd0') return [ C('svc', 'Данные услуги', [ G([ T('Категория', cat === 'mi' ? 'Медицинские изделия (МИ)' : 'Лекарственные средства (ЛС)'), T('Тип услуги', ED.SERVICE_TYPE, true) ]) ]) ];
+    if(key === 'd0') return [ C('svc', 'Данные услуги', [ G([ T('Категория', cat === 'mi' ? 'Медицинские изделия (МИ)' : 'Лекарственные средства (ЛС)'), T('Тип услуги', ED.svcOf(app).name, true) ]) ]) ];
     if(key === 'd1'){
       const a = f.a, poa = a.poaNum || a.poaIssued || a.poaValid || a.poaText || a.poaFiles.length;
       const out = [
@@ -652,7 +940,7 @@ class Component extends DCLogic {
       });
     }
     // d3 — Досье
-    return [ C('dossier', 'Досье', ED.dossier(cat).map(d => {
+    return [ C('dossier', 'Досье', ED.dossier(cat, app.svc).map(d => {
       const v = f.d[d.k] || {};
       const rows = [ T('Сведения', v.text || (v.file ? '' : d.req ? '' : 'Не заполнялся'), true) ];
       if(v.file) rows.push(Fl('Файл', [v.file], true));
@@ -677,13 +965,14 @@ class Component extends DCLogic {
     const step = app.steps.find(x => x.id === s.sel) || null;
     const isStep = !!step;
     const lastStep = ED.last(app);
-    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено'].indexOf(app.status) !== -1;
+    const S = ED.svcOf(app);
+    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено'].concat(ED.UNPAID).indexOf(app.status) !== -1;
 
     // ── шкала этапов ──
     const cur = ED.stage(app);
     const stages = STAGES.map((label, i) => {
-      let kind = i < cur ? 'done' : i === cur ? (final ? (sm.tone === 'red' ? 'fail' : sm.tone === 'green' ? 'win' : 'stop') : 'cur') : (final ? 'skip' : 'todo');
-      const sub = { done:'Пройден', cur:'Сейчас', fail: app.status === 'Рассмотрение заблокировано' ? 'Заблокировано' : 'Отказ', win: i === 3 ? 'Включено в ЕД' : 'Включено автоматически', stop:'Прекращено', skip:'Не проводился', todo:'Впереди' }[kind];
+      let kind = i < cur ? 'done' : i === cur ? (final ? (sm.tone === 'red' && ED.UNPAID.indexOf(app.status) === -1 ? 'fail' : sm.tone === 'green' ? 'win' : 'stop') : 'cur') : (final ? 'skip' : 'todo');
+      const sub = { done:'Пройден', cur:'Сейчас', fail: app.status === 'Рассмотрение заблокировано' ? 'Заблокировано' : 'Отказ', win: i === 3 ? 'Включено в ' + S.listShort : S.id === 'alo' ? 'Аналог в перечне' : 'Включено автоматически', stop:'Прекращено', skip:'Не проводился', todo:'Впереди' }[kind];
       const C = { done:['#38C793','#fff','ri-check-line'], cur:['#4D42E9','#fff',''], fail:['#DF1C41','#fff','ri-close-line'], win:['#38C793','#fff','ri-award-line'], stop:['#868C98','#fff','ri-forbid-line'], skip:['#fff','#CDD0D5',''], todo:['#fff','#868C98',''] }[kind];
       return { label, sub, n: C[2] ? '' : String(i + 1), icon: C[2], hasLine: i < STAGES.length - 1,
         wrap:`flex:1;min-width:0;display:flex;align-items:center;gap:10px;${i < STAGES.length - 1 ? 'padding-right:12px;' : ''}`,
@@ -763,7 +1052,8 @@ class Component extends DCLogic {
     const at = ED.activeTimer(app, now);
     const callStep = at && at.owner === 'applicant' && !at.frozen && !at.overdue ? lastStep : null;
     const hasCall = !!callStep && s.sel !== callStep.id;
-    const callTitles = { pay20:'Оплатите счёт 20 % и отправьте платёжное поручение', pay80:'Оплатите счёт 80 % и отправьте платёжное поручение', refuse:'Ответьте на отказ в рассмотрении', avr:'Подпишите акт по заключению профессиональной экспертизы', remarks:'Исправьте замечания ННЦРЗ' };
+    const callTitles = { pay20:'Оплатите счёт 20 % и отправьте платёжное поручение', pay80:'Оплатите счёт 80 % и отправьте платёжное поручение', refuse:'Ответьте на отказ в рассмотрении', avr:'Подпишите акт по заключению профессиональной экспертизы', remarks: S.fieldFix ? 'Исправьте поля по замечаниям эксперта' : 'Исправьте замечания ННЦРЗ' };
+    const F = V.fix, Cn = V.concl;
 
     // ── панель прототипа ──
     const evIcon = { ok:['ri-checkbox-circle-line','#2D9F75'], bad:['ri-close-circle-line','#DF1C41'], warn:['ri-timer-flash-line','#C2540A'], neutral:['ri-arrow-right-circle-line','#4D42E9'] };
@@ -775,6 +1065,8 @@ class Component extends DCLogic {
     return {
       ...base, loading:false, missing:false, ok:true,
       num: app.num, badge: ED.badge(app.status, app),
+      svcShort: sm.svcShort, svcName: sm.svcName,
+      svcStyle:`display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;${sm.svc === 'alo' ? 'background:#EFFAF6;color:#176448;' : 'background:#F6F8FA;color:#31353F;'}`,
       catLabel: sm.catLong, catIcon: sm.cat === 'mi' ? 'ri-stethoscope-line' : 'ri-capsule-line',
       catStyle:`display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${sm.cat === 'mi' ? 'background:#EBFAFF;color:#164564;' : 'background:#EEF2FF;color:#312D86;'}`,
       trade: sm.trade, created: ED.fmtD(app.created), sent: ED.fmtDT(app.sentAt),
@@ -782,9 +1074,9 @@ class Component extends DCLogic {
       hasCall, callTitle: callStep ? callTitles[callStep.kind] || 'Требуется ваше действие' : '', callRemain: at ? at.text : '', callDeadline: at ? ED.fmtDT(at.deadline) : '',
       callGo: () => { if(callStep){ this.setState({ sel:callStep.id }); window.scrollTo({ top:0, behavior:'smooth' }); } },
 
-      isStep, stepTitle: step ? step.title + (step.round === 2 ? ' · повторно' : '') : '', stepBadge, info,
+      isStep, stepTitle: step ? step.title + (step.round === 2 && !(S.splitUnpaid && (step.kind === 'pay20' || step.kind === 'pay80')) ? ' · повторно' : '') : '', stepBadge, info,
       hasNote: !!N, noteTitle: N ? N.title + (N.proposal ? ' · предложение, постановки нет' : '') : '', noteParas: N ? N.paras : [], noteIcon: N ? N.icon : '',
-      hasNoteMail: !!(N && N.mail), noteMail: N && N.mail ? 'Уведомление отправлено на ' + N.mail.email : '', noteMailTip: N && N.mail ? 'Текст письма: ' + N.mail.text : '', noteMailAria: N && N.mail ? 'Уведомление отправлено на ' + N.mail.email + '. ' + N.mail.text : '',
+      ...(() => { const M = (N && N.mail) || (Cn && Cn.mail) || null; return { hasNoteMail: !!M, noteMail: M ? 'Уведомление отправлено на ' + M.email : '', noteMailTip: M ? 'Текст письма: ' + M.text : '', noteMailAria: M ? 'Уведомление отправлено на ' + M.email + '. ' + M.text : '' }; })(),
       noteBox:`display:flex;gap:12px;align-items:flex-start;padding:16px;border:1px solid ${nt[1]};border-radius:14px;background:${nt[0]};`,
       noteIconStyle:`font-size:22px;color:${nt[2]};flex:0 0 auto;`,
       hasResult: !!Rz, resTitle: Rz ? Rz.title : '', resParas: Rz ? Rz.paras : [], resMail: !!(Rz && Rz.mail), email: ED.PROFILE.email,
@@ -810,6 +1102,18 @@ class Component extends DCLogic {
       hasReplyChip: !!(V.reply && V.reply.chip), replyChipLabel: V.reply && V.reply.chip ? V.reply.chip[0] : '',
       replyChip: V.reply && V.reply.chip ? `padding:2px 8px;border-radius:999px;background:${V.reply.chip[1]};color:${V.reply.chip[2]};font-size:12px;line-height:16px;font-weight:500;` : '',
       hasSessions: !!V.sessions, sessions: V.sessions || [],
+
+      // АЛО: заключение и исправление полей (UC01.14.2.3.3)
+      hasConcl: !!Cn, conclNum: Cn ? Cn.num : '', conclDate: Cn ? Cn.date : '', conclText: Cn ? Cn.text : '', conclDocs: Cn ? Cn.docs : [],
+      hasFix: !!F, fixGroups: F ? F.groups : [], fixEditable: !!(F && F.editable),
+      fixTitle: F && F.sent ? 'Исправленные поля' : 'Исправьте поля согласно замечаниям эксперта',
+      fixCount: F ? 'Исправлено ' + F.fixed + ' из ' + F.total : '',
+      fixCountIcon: F && F.all ? 'ri-checkbox-circle-fill' : 'ri-error-warning-line',
+      fixCountStyle:`display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:13px;line-height:18px;font-weight:500;${F && F.all ? 'background:#EFFAF6;color:#176448;' : 'background:#FDEDF0;color:#710E21;'}`,
+      fixSendOff: !(F && F.all), fixSendTip: F ? 'Исправьте все поля с замечаниями — осталось ' + (F.total - F.fixed) : '',
+      fixSendWrap:'display:inline-flex;',
+      fixSend: () => this.fixSend(app, step),
+      closeFixPop: () => this.setState({ fixPop:null }),
 
       dataCards: isStep ? [] : this.dataView(app, s.sel),
 

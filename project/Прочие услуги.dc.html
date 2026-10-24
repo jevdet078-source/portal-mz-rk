@@ -28,7 +28,13 @@
     • период фильтрует по дате создания; состояние фильтров и страница переживают уход и возврат.
 
   Данные — EdData.dc.html (window.mpEd). Панель «Прототип»: техсбой, пустой реестр, сброс демо-данных.
+
+  Услуга АЛО (UC01.14.2.1, UC01.14.1.1): реестр общий для ЕД и АЛО — в модалке «Выбор услуги» обе услуги
+  с полными наименованиями, фильтр «Наименование услуги» отбирает по услуге. Полные наименования ЕД и АЛО
+  совпадают в начале и в узком столбце обрезаются одинаково, поэтому под названием — метка услуги (ЕД / АЛО)
+  рядом с категорией; полное название — в подсказке.
 -->
+
 <x-dc>
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -212,7 +218,7 @@
                     <div role="cell" style="flex:1;min-width:0;padding:12px 20px 12px 12px;display:flex;flex-direction:column;gap:2px;">
                       <div class="clamp1" title="{{ r.service }}" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ r.service }}</div>
                       <div class="clamp1" style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n500);">
-                        <span style="{{ r.catStyle }}">{{ r.cat }}</span><span class="clamp1">{{ r.trade }}</span>
+                        <span style="{{ r.svcStyle }}">{{ r.svc }}</span><span style="{{ r.catStyle }}">{{ r.cat }}</span><span class="clamp1">{{ r.trade }}</span>
                       </div>
                     </div>
                     <div role="cell" class="tnum" style="width:124px;flex:0 0 auto;padding:12px;font-size:14px;line-height:20px;color:var(--n500);">{{ r.created }}</div>
@@ -278,10 +284,13 @@
           <button class="ib" onClick="{{ closeCreate }}" aria-label="Закрыть" autoFocus="{{ true }}"><i class="ri-close-line" style="font-size:20px;"></i></button>
         </div>
         <div role="radiogroup" aria-labelledby="svc-title" style="padding:20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
-          <sc-for list="{{ services }}" as="o" hint-placeholder-count="1">
+          <sc-for list="{{ services }}" as="o" hint-placeholder-count="2">
             <button class="card-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}" style="{{ o.style }}">
               <span style="{{ o.radio }}"></span>
-              <span style="flex:1;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);text-align:left;">{{ o.label }}</span>
+              <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;text-align:left;">
+                <span style="{{ o.tagStyle }}">{{ o.short }}</span>
+                <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ o.label }}</span>
+              </span>
             </button>
           </sc-for>
           <sc-if value="{{ modalErr }}" hint-placeholder-val="{{ false }}">
@@ -346,7 +355,7 @@ class Component extends DCLogic {
     try { ui = JSON.parse(sessionStorage.getItem(UIKEY) || 'null'); } catch(e){}
     const applied = ui && ui.applied ? { ...EMPTY_F, ...ui.applied } : { ...EMPTY_F };
     this.state = { ready:false, apps:[], draft:{ ...applied }, applied, page: ui && ui.page || 1, errs:{},
-      pop:null, menu:null, modal:false, pick:false, modalErr:false, confirm:null, toast:null, flash:null, emptyDemo:false, now:Date.now() };
+      pop:null, menu:null, modal:false, pick:null, modalErr:false, confirm:null, toast:null, flash:null, emptyDemo:false, now:Date.now() };
   }
   componentDidMount(){
     this._onReady = () => this.load();
@@ -370,7 +379,7 @@ class Component extends DCLogic {
       // возврат из мастера: ?sent=№ — заявка отправлена, ?draft=№ — черновик сохранён
       const q = new URLSearchParams(location.search);
       const sent = q.get('sent'), draft = q.get('draft');
-      if(sent){ this.toast('ok', 'Заявка № ' + sent + ' отправлена', 'Статус — «В работе». ННЦРЗ проверит соответствие пункту 7 Правил.'); this.flash(sent); }
+      if(sent){ const S = ED.svcOf(ED.get(sent)); this.toast('ok', 'Заявка № ' + sent + ' отправлена', 'Статус — «В работе». ' + (S.id === 'alo' ? 'ННЦРЗ проверит наличие аналога в перечне АЛО.' : 'ННЦРЗ проверит соответствие пункту 7 Правил.')); this.flash(sent); }
       else if(draft){ this.toast('ok', 'Черновик № ' + draft + ' сохранён', 'Продолжить заполнение можно в любой момент.'); this.flash(draft); }
       if(sent || draft) try { history.replaceState(null, '', location.pathname); } catch(e){}
     }
@@ -405,8 +414,9 @@ class Component extends DCLogic {
     const a = f.from ? ED.parseD(f.from) : null, b = f.to ? ED.parseD(f.to) : null;
     return this.state.apps.filter(app => {
       const sm = ED.summary(app);
-      if(q && (app.num + ' ' + ED.SERVICE + ' ' + sm.trade + ' ' + sm.catShort + ' ' + app.status).toLowerCase().indexOf(q) === -1) return false;
+      if(q && (app.num + ' ' + sm.svcName + ' ' + sm.svcShort + ' ' + sm.trade + ' ' + sm.catShort + ' ' + app.status).toLowerCase().indexOf(q) === -1) return false;
       if(f.status !== 'Все' && app.status !== f.status) return false;
+      if(f.service !== 'Все' && sm.svcName !== f.service) return false;
       if(a && app.created < a.getTime()) return false;
       if(b && app.created >= b.getTime() + 864e5) return false;
       return true;
@@ -423,17 +433,19 @@ class Component extends DCLogic {
     // ── фильтры: выпадающие списки ──
     const selDef = [
       { key:'status', label:'Статус заявки', opts:['Все'].concat(ED ? ED.FILTER : []), wrap:'flex:0 1 264px;' },
-      { key:'service', label:'Наименование услуги', opts:['Все', ED ? ED.SERVICE : ''], wrap:'flex:0 1 300px;' },
+      { key:'service', label:'Наименование услуги', opts:['Все'].concat(ED ? ED.SVC_LIST.map(id => ED.SVCS[id].name) : []), wrap:'flex:0 1 300px;' },
     ];
+    // полные наименования ЕД и АЛО начинаются одинаково — в списке и в поле впереди короткое имя услуги
+    const svcTag = (v) => { const id = ED && ED.SVC_LIST.find(x => ED.SVCS[x].name === v); return id ? ED.SVCS[id].short + ' · ' + v : v; };
     const selects = selDef.map(d => {
       const open = s.pop === d.key, val = D[d.key];
-      return { label:d.label, lbl:'lbl-' + d.key, open, display: val,
+      return { label:d.label, lbl:'lbl-' + d.key, open, display: svcTag(val),
         wrap: d.wrap + 'display:flex;flex-direction:column;gap:6px;min-width:0;',
         valStyle:`flex:1;min-width:0;color:${val === 'Все' ? '#525866' : '#0A0D14'};`,
         chev:`position:absolute;right:10px;top:10px;font-size:20px;color:#868C98;transition:transform .15s;${open ? 'transform:rotate(180deg);' : ''}`,
         toggle: () => this.setState({ pop: open ? null : d.key, menu:null }),
         pop:`position:absolute;${d.key === 'service' ? 'right:0;' : 'left:0;'}top:calc(100% + 4px);z-index:25;width:${d.key === 'service' ? 420 : 280}px;max-height:340px;overflow-y:auto;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;`,
-        opts: d.opts.map(o => ({ label:o, on: val === o, pick: () => { setD({ [d.key]:o }); this.setState({ pop:null }); } })) };
+        opts: d.opts.map(o => ({ label:svcTag(o), on: val === o, pick: () => { setD({ [d.key]:o }); this.setState({ pop:null }); } })) };
     });
 
     // ── фильтры: даты ──
@@ -477,7 +489,8 @@ class Component extends DCLogic {
         num: app.num,
         href: draft ? 'Заявка ЕД.dc.html?n=' + app.num : 'Карточка заявки ЕД.dc.html?n=' + app.num,
         linkTitle: draft ? 'Продолжить заполнение' : 'Открыть карточку заявки',
-        service: ED.SERVICE, cat: sm.catShort, trade: sm.trade || 'Торговое наименование не указано',
+        service: sm.svcName, svc: sm.svcShort, cat: sm.catShort, trade: sm.trade || 'Торговое наименование не указано',
+        svcStyle:`flex:0 0 auto;padding:0 6px;border-radius:4px;background:${sm.svc === 'alo' ? '#EFFAF6' : '#F6F8FA'};color:${sm.svc === 'alo' ? '#176448' : '#31353F'};font-size:11px;line-height:16px;font-weight:600;`,
         catStyle:`flex:0 0 auto;padding:0 6px;border-radius:4px;background:${sm.cat === 'mi' ? '#EBFAFF' : '#EEF2FF'};color:${sm.cat === 'mi' ? '#164564' : '#312D86'};font-size:11px;line-height:16px;font-weight:600;`,
         created: ED.fmtD(app.created), sent: app.sentAt ? ED.fmtD(app.sentAt) : '—',
         badge:b, timer, timerStyle, timerIcon, timerIconStyle, timerTitle,
@@ -494,14 +507,14 @@ class Component extends DCLogic {
     const showEmpty = fail || filteredOut || noApps;
     const E = fail ? { icon:'ri-wifi-off-line', title:'Не удалось загрузить заявки', text:ED.FAIL_MSG, btn:'Повторить', btnIcon:'ri-refresh-line', act: () => this.toast('err', ED.FAIL_MSG, ''), tone:'red' }
       : filteredOut ? { icon:'ri-search-line', title:'Ничего не найдено', text:'Измените условия поиска или сбросьте фильтры.', btn:'Сбросить фильтры', btnIcon:'ri-filter-off-line', act: () => this.applyF({ ...EMPTY_F }), tone:'gray' }
-      : { icon:'ri-file-add-line', title:'Заявок пока нет', text:'Создайте заявку — она появится здесь вместе со статусом рассмотрения.', btn:'Создать заявку', btnIcon:'ri-add-line', act: () => this.setState({ modal:true, pick:false, modalErr:false }), tone:'blue' };
+      : { icon:'ri-file-add-line', title:'Заявок пока нет', text:'Создайте заявку — она появится здесь вместе со статусом рассмотрения.', btn:'Создать заявку', btnIcon:'ri-add-line', act: () => this.setState({ modal:true, pick:null, modalErr:false }), tone:'blue' };
     const tones = { red:['#FDEDF0','#DF1C41'], gray:['#F6F8FA','#868C98'], blue:['#EEF2FF','#4D42E9'] };
 
     // ── чипы применённых фильтров ──
     const chips = [];
     if(A.q) chips.push({ label:'«' + A.q + '»', key:'q', val:'' });
     if(A.status !== 'Все') chips.push({ label:A.status, key:'status', val:'Все' });
-    if(A.service !== 'Все') chips.push({ label:'Услуга ЕД', key:'service', val:'Все' });
+    if(A.service !== 'Все'){ const id = ED && ED.SVC_LIST.find(x => ED.SVCS[x].name === A.service); chips.push({ label:'Услуга ' + (id ? ED.SVCS[id].short : ''), key:'service', val:'Все' }); }
     if(A.from) chips.push({ label:'с ' + A.from, key:'from', val:'' });
     if(A.to) chips.push({ label:'по ' + A.to, key:'to', val:'' });
     const plural = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'заявка' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'заявки' : 'заявок'; };
@@ -526,7 +539,7 @@ class Component extends DCLogic {
 
     return {
       notReady: !ready,
-      openCreate: () => this.setState({ modal:true, pick:false, modalErr:false, menu:null, pop:null }),
+      openCreate: () => this.setState({ modal:true, pick:null, modalErr:false, menu:null, pop:null }),
       fq: D.q, onQ: (e) => setD({ q:e.target.value }),
       selects, dates, closePop: () => this.setState({ pop:null }),
       apply: (e) => { if(e && e.preventDefault) e.preventDefault(); this.applyF(); },
@@ -548,13 +561,15 @@ class Component extends DCLogic {
 
       // модалка выбора услуги
       modal: s.modal,
-      services: ready ? [{ label:ED.SERVICE, on:s.pick, pick: () => this.setState({ pick:true, modalErr:false }), radio: radio(s.pick),
-        style:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:16px;border-radius:12px;border:1px solid ${s.pick ? '#4D42E9' : '#E2E4E9'};background:${s.pick ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;box-shadow:0 1px 1px rgba(10,13,20,.03);` }] : [],
+      // UC01.14.1.1: в списке ЕД и АЛО с полными наименованиями, по умолчанию ничего не выбрано
+      services: ready ? ED.SVC_LIST.map(id => { const S = ED.SVCS[id], on = s.pick === id; return { label:S.name, short:S.short, on, pick: () => this.setState({ pick:id, modalErr:false }), radio: radio(on),
+        tagStyle:`align-self:flex-start;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;${id === 'alo' ? 'background:#EFFAF6;color:#176448;' : 'background:#F6F8FA;color:#31353F;'}`,
+        style:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:16px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:pointer;box-shadow:0 1px 1px rgba(10,13,20,.03);` }; }) : [],
       modalErr: s.modalErr, failMsg: ED ? ED.FAIL_MSG : '',
       nextDisabled: !s.pick,
       closeCreate: () => this.setState({ modal:false }),
       modalKey: (e) => { if(e.key === 'Escape') this.setState({ modal:false }); },
-      goNext: () => { if(!s.pick) return; if(ED.fail()){ this.setState({ modalErr:true }); return; } location.href = 'Паспорт услуги ЕД.dc.html'; },
+      goNext: () => { if(!s.pick) return; if(ED.fail()){ this.setState({ modalErr:true }); return; } location.href = ED.SVCS[s.pick].passport; },
 
       // удаление
       confirm: !!s.confirm, confirmNum: s.confirm || '',
