@@ -198,7 +198,8 @@ class Component extends DCLogic {
     const fdt = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
     const ED_NAME = 'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора';
     // ЕД: статус и текст push — из записи (UC01.13.2.2, табл. 1–2); текст — в подсказке строки
-    const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read,
+    // АЛО (UC01.14.2.2) — те же записи, наименование услуги — из записи (x.service)
+    const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:x.service || ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read,
       edStatus: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red'), tip: x.text || '' }));
     const all = edRows.concat(this.data());
     const isRead = (n) => { const e = edRows.find(r => r.n === n); return e ? e.edRead : s.read.indexOf(n) !== -1; };

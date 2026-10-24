@@ -7,15 +7,16 @@
 </head>
 <body>
 <!--
-  Просмотр документов услуги ЕД в АРМ экспертов — окно с листом А4.
+  Просмотр документов услуг ЕД и АЛО в АРМ экспертов — окно с листом А4. Перечень в заголовке и в разделе «Замечания»
+  заключения — по услуге заявки (SVCS.listDoc / listRemarks; образец АЛО — «Образец заключения замечаний Перв.Э АЛО.pdf»).
 
   Протокол (событие window 'mp-doc-open', detail):
     { type:'remarks', num }                 — «Заключение по первичной экспертизе» с замечаниями эксперта
                                               (UC01.13.3.4.2.3.1; образец «Образец заключения замечаний.pdf»):
                                               шапка ННЦРЗ, сведения о заявителе и ЛС / МИ (в таблице регистрации —
                                               концентрация и упаковка), заключение, замечания, блок «Решения» и QR-код;
-    { type:'protocol', id, variant, num? }  — протокол заседания Формулярной комиссии (UC01.13.4.3.4, образцы
-                                              protocol_№…_1 / _2): variant 1 — именной, все объекты комиссии (АРМ ННЦРЗ, ФК);
+    { type:'protocol', id, variant, num? }  — протокол заседания Формулярной комиссии (UC01.13.4.3.4 / UC01.14.4.3.4,
+                                              образцы protocol_№…_1 / _2; «в ЕД» / «в АЛО» — по услуге комиссии): variant 1 — именной, все объекты комиссии (АРМ ННЦРЗ, ФК);
                                               variant 2 — обезличенный, без ФИО в «Голосовании», только объекты заявителя num;
     { type:'file', name, size, title }      — файл без предпросмотра: карточка и «Скачать».
   Данные — window.mpEd, window.mpArm.
@@ -145,9 +146,10 @@ class Component extends DCLogic {
     const concl = (rec && rec.concl) || (n.rem && n.rem.concl) || {};
     const o = app.org || ED.PROFILE, f = app.form, cat = f.cat, s = f.s[cat] || {};
     const ls = cat !== 'mi';
+    const SV = ED.svcOf(app);
     const B = [];
     B.push({ isHead:true, num:'№' + (concl.num || '—') + ' от ' + (concl.date || '—') });
-    B.push({ isTitle:true, text:'Заключение проверки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' в перечень Единого дистрибьютора', style:'text-align:center;font-weight:700;font-size:15px;margin:8px 40px 18px;' });
+    B.push({ isTitle:true, text:'Заключение проверки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' в ' + SV.listDoc, style:'text-align:center;font-weight:700;font-size:15px;margin:8px 40px 18px;' });
     // «помощь.;» → «помощь;», «помощь..» → «помощь.»
     const kv = (k, v, indent) => B.push({ isKv:true, k, v: v ? String(v).replace(/\.([.;])$/, '$1') : '—', style:`margin:2px 0 2px ${indent ? 36 : 18}px;` });
     B.push({ isH:true, text:'1. Информация о заявителе:' });
@@ -181,10 +183,10 @@ class Component extends DCLogic {
     B.push({ isH:true, text:'3. Заключение по результатам проверки на полноту и правильность оформления представленных документов:' });
     B.push({ isP:true, text: concl.text || '—', style:'margin:0 0 4px;white-space:pre-wrap;' });
     B.push({ isH:true, text:'4. Замечания:' });
-    B.push({ isP:true, text:'Таким образом, по результатам первичной оценки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' «' + s.trade + (ls && s.form ? ', ' + s.form : '') + '» в перечень Единого дистрибьютора имеются следующие замечания:', style:'text-align:justify;margin:0 0 6px;' });
+    B.push({ isP:true, text:'Таким образом, по результатам первичной оценки оформления заявления и досье для включения ' + (ls ? 'лекарственного средства' : 'медицинского изделия') + ' «' + s.trade + (ls && s.form ? ', ' + s.form : '') + '» в ' + SV.listRemarks + ' имеются следующие замечания:', style:'text-align:justify;margin:0 0 6px;' });
     Object.keys(fields).forEach((k, i) => B.push({ isKv:true, k:(i + 1) + ') ' + fields[k].label + ':', v:fields[k].text, style:'margin:2px 0 2px 18px;' }));
     if(!Object.keys(fields).length) B.push({ isP:true, text:'—', style:'margin:0 0 0 18px;' });
-    B.push({ isP:true, text:'Просим внести изменения в заявление и досье по вышеуказанным замечаниям в течение 10 рабочих дней со дня получения настоящего заключения.', style:'text-align:justify;margin:10px 0 0;' });
+    B.push({ isP:true, text:'Просим внести изменения в заявление и досье по вышеуказанным замечаниям в течение ' + SV.remWD + ' рабочих дней со дня получения настоящего заключения.', style:'text-align:justify;margin:10px 0 0;' });
     // подписи и блок «Решения» (табл. 1 UC01.13.3.4.2.3.1)
     const chain = rec ? rec.chain.filter(c => c.act !== 'return') : [];
     const ACT = { exec:'Исполнено', agree:'Согласовано', sign:'Подписано' };
@@ -231,7 +233,7 @@ class Component extends DCLogic {
     B.push({ isH:true, text:'ГОЛОСОВАНИЕ:' });
     objs.forEach((x, i) => {
       const sm = ED.summary(apps[x]), r = res[x];
-      B.push({ isP:true, text:(i + 1) + '. Голосование по включению ' + sm.catShort + ' «' + sm.trade + '» в ЕД:', style:'margin:8px 0 2px;' });
+      B.push({ isP:true, text:(i + 1) + '. Голосование по включению ' + sm.catShort + ' «' + sm.trade + '» в ' + A.fkSvc(c).listShort + ':', style:'margin:8px 0 2px;' });
       if(variant !== 2) comp.forEach(u => { const v = c.votes[u] && c.votes[u].v[x]; B.push({ isP:true, text:A.fkLabel(u) + ' – Голос «' + (v === 'for' ? 'За' : v === 'against' ? 'Против' : 'Не голосовал') + '»' + (v ? ', подписано ЭЦП' : ''), style:'margin:0 0 0 36px;font-size:13px;' }); });
       B.push({ isP:true, text:'Итого: «За» — ' + r.for + ', «Против» — ' + r.against + ', «Не голосовал» — ' + r.none + (r.tie ? ' (при равенстве учтён голос председательствующего)' : ''), style:'margin:2px 0 0 18px;' });
       B.push({ isP:true, text:'По результатам голосования рекомендовано: ' + (r.include ? 'Включить' : 'Не включать') + ' «' + sm.trade + '»', style:'margin:0 0 0 18px;' });

@@ -12,7 +12,10 @@
 </head>
 <body>
 <!--
-  АРМ ННЦРЗ → карточка заявки ЕД (UC01.13.3.3 «Руководство», UC01.13.3.4 «Эксперт», UC01.13.3.5 «Хронология»).
+  АРМ ННЦРЗ → карточка заявки ЕД (UC01.13.3.3 «Руководство», UC01.13.3.4 «Эксперт», UC01.13.3.5 «Хронология»)
+  и АЛО (UC01.14.3.3–3.5). Услуга — из заявки (mpEd.svcOf): у АЛО нулевая экспертиза — «Наличие аналога в перечне АЛО»,
+  проф. экспертиза — 40 рабочих дней, суммы счетов не показываются, ЗПП в маршруте нет, после ответа на замечания —
+  блок «Исправления заявителя» (было / стало) и зелёные отметки у исправленных полей в «Данных заявки».
 
   Навигатор слева: «Данные заявки» (сведения об услуге, о заявителе, заявление, досье — только просмотр)
   и «Проверка ННЦРЗ»: «Отработка замечаний» (появляется над «Принятием решения», когда эксперт
@@ -166,6 +169,7 @@
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;line-height:18px;color:var(--n500);">
+                <span class="tip" tabIndex="0" aria-label="{{ svcName }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--stroke);background:#fff;color:var(--n600);font-size:12px;line-height:16px;font-weight:600;letter-spacing:.02em;cursor:help;">{{ svcShort }}</span><span class="tip-b" role="tooltip" style="left:0;transform:none;max-width:420px;">{{ svcName }}</span></span>
                 <span style="{{ catStyle }}"><i class="{{ catIcon }}" style="font-size:14px;"></i>{{ catLabel }}</span>
                 <span style="font-weight:500;color:var(--n900);">{{ trade }}</span>
                 <span aria-hidden="true">·</span><span>{{ orgName }}</span>
@@ -213,7 +217,7 @@
                           <span style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ it.label }}</span>
                           <sc-if value="{{ it.hasSub }}" hint-placeholder-val="{{ false }}"><span class="clamp1" style="{{ it.subStyle }}">{{ it.sub }}</span></sc-if>
                         </span>
-                        <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span title="{{ it.countTitle }}" style="min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#FEF3EB;color:#C2540A;font-size:12px;line-height:20px;font-weight:600;text-align:center;">{{ it.count }}</span></sc-if>
+                        <sc-if value="{{ it.hasCount }}" hint-placeholder-val="{{ false }}"><span title="{{ it.countTitle }}" style="{{ it.countStyle }}">{{ it.count }}</span></sc-if>
                       </button>
                     </sc-for>
                   </div>
@@ -270,6 +274,9 @@
                               <sc-if value="{{ r.hasRemark }}" hint-placeholder-val="{{ false }}">
                                 <div style="{{ r.remBox }}"><i class="ri-chat-1-fill" style="font-size:16px;color:#F17B2C;flex:0 0 auto;margin-top:1px;"></i><span class="pre" style="flex:1;min-width:0;">{{ r.remText }}</span></div>
                               </sc-if>
+                              <sc-if value="{{ r.hasFix }}" hint-placeholder-val="{{ false }}">
+                                <div style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:8px;background:#EFFAF6;border:1px solid #CBF5E5;font-size:13px;line-height:18px;color:#176448;"><i class="ri-checkbox-circle-fill" style="font-size:16px;color:#38C793;flex:0 0 auto;margin-top:1px;"></i><span class="pre" style="flex:1;min-width:0;">{{ r.fixText }}</span></div>
+                              </sc-if>
                             </div>
                           </sc-for>
                         </dl>
@@ -296,6 +303,12 @@
                           <div style="font-size:12px;line-height:16px;color:var(--n500);">{{ r.label }}</div>
                           <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}"><div class="pre" style="font-size:14px;line-height:20px;color:var(--n900);">{{ r.value }}<sc-if value="{{ r.hasPp }}" hint-placeholder-val="{{ false }}"><span class="tnum" title="Дата и время подписания решения Председателем Правления" style="margin-left:6px;color:#4D42E9;font-weight:500;">({{ r.pp }})</span></sc-if></div></sc-if>
                           <sc-if value="{{ r.isNote }}" hint-placeholder-val="{{ false }}"><div class="pre" style="padding:10px 12px;border-radius:10px;background:var(--n50);border:1px solid var(--stroke);font-size:14px;line-height:20px;color:var(--n600);">{{ r.value }}</div></sc-if>
+                          <sc-if value="{{ r.isDiff }}" hint-placeholder-val="{{ false }}">
+                            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+                              <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:var(--n50);border:1px solid var(--stroke);min-width:0;"><span style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--n400);">Было</span><span class="pre" style="font-size:14px;line-height:20px;color:var(--n500);">{{ r.before }}</span></div>
+                              <div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:10px;background:#EFFAF6;border:1px solid #CBF5E5;min-width:0;"><span style="font-size:11px;line-height:16px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#176448;">Стало</span><span class="pre" style="font-size:14px;line-height:20px;color:var(--n900);">{{ r.after }}</span></div>
+                            </div>
+                          </sc-if>
                           <sc-if value="{{ r.isFiles }}" hint-placeholder-val="{{ false }}">
                             <div style="display:flex;flex-direction:column;gap:6px;">
                               <sc-for list="{{ r.files }}" as="fl" hint-placeholder-count="1">
@@ -746,7 +759,7 @@ class Component extends DCLogic {
     this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
       const r = A.submit(num, me, rec, next, at);
       this.done(r, 'Решение подписано и направлено', 'Заявка № ' + num + ' — ' + (r.app ? A.nnStatus(r.app).toLowerCase() : ''));
-    }, 'Подписание решения по пункту 7');
+    }, window.mpEd.svcOf(s.app).zero.sign);
   }
   doPay(pct){
     const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
@@ -756,7 +769,7 @@ class Component extends DCLogic {
       return;
     }
     const comment = s.f.payComment.trim(), file = s.files.payFile || null;
-    this.sign((at) => { const r = A.confirmPay(num, me, pct, false, comment, file, at); this.done(r, 'Замечание по оплате отправлено заявителю', r.app && A.nnStatus(r.app) === 'Оплата не произведена' ? 'Статус — «Оплата не произведена», обработка остановлена.' : 'К сроку оплаты добавлен 1 рабочий день.'); }, 'Подписание замечания по оплате ' + pct + '%');
+    this.sign((at) => { const r = A.confirmPay(num, me, pct, false, comment, file, at); this.done(r, 'Замечание по оплате отправлено заявителю', r.app && A.FINAL.indexOf(A.nnStatus(r.app)) !== -1 ? 'Статус — «' + A.nnStatus(r.app) + '», обработка остановлена.' : 'К сроку оплаты добавлен 1 рабочий день.'); }, 'Подписание замечания по оплате ' + pct + '%');
   }
   doPrimary(round){
     const s = this.state, A = window.mpArm, num = s.app.num, me = this.me();
@@ -811,14 +824,14 @@ class Component extends DCLogic {
     this.openModal({ type:'return', title:'Вернуть на доработку', text:'Заявка вернётся эксперту (' + window.mpArm.shortName((window.mpArm.pendingRec(this.state.app) || {}).by) + '). Комментарий увидит эксперт, он попадёт в хронологию.', max:1500 });
   }
   doAssign(kind){
-    const s = this.state, A = window.mpArm, me = this.me();
+    const s = this.state, A = window.mpArm, me = this.me(), SV = window.mpEd.svcOf(s.app);
     const prof = kind === 'assignProf', re = kind === 'reassign';
     const isProfStage = A.nnStage(s.app) === 'Профессиональная экспертиза';
     const pool = (prof || (re && isProfStage) ? A.ofRole('prof') : A.ofRole('expert')).concat([ A.CHIEF ]);
     const cur = re ? (isProfStage ? s.app.nn.prof : s.app.nn.expert) : null;
     const opts = pool.filter(id => id !== cur).map(id => ({ user:id, name: id === me ? A.shortName(id) + ' — назначить себя' : A.shortName(id), label:A.roleLabel(id), load:'В работе: ' + A.nnTasks(id).length }));
     this.openModal({ type: prof ? 'assignProf' : re ? 'reassign' : 'assign', title: prof ? 'Назначить эксперта профессиональной экспертизы' : re ? 'Переназначить ответственного' : 'Назначить ответственного',
-      text: re && cur ? 'Сейчас: ' + A.fullName(cur) + '. Срок рассмотрения не изменится.' : prof ? 'Срок профессиональной экспертизы — 30 рабочих дней с подтверждения оплаты 80%; назначение его не меняет.' : 'Назначенный сотрудник проверит заявку на соответствие пункту 7.',
+      text: re && cur ? 'Сейчас: ' + A.fullName(cur) + '. Срок рассмотрения не изменится.' : prof ? 'Срок профессиональной экспертизы — ' + SV.profWD + ' рабочих дней с подтверждения оплаты 80%; назначение его не меняет.' : 'Назначенный сотрудник ' + SV.zero.check + '.',
       opts, ok: prof ? 'Подтвердить' : re ? 'Переназначить' : 'Назначить ответственного' });
   }
   modalOk(){
@@ -863,11 +876,15 @@ class Component extends DCLogic {
     const ED = window.mpEd, f = app.form, P = app.org || ED.PROFILE, cat = f.cat, A = window.mpArm;
     const rem = (app.nn && app.nn.rem && app.nn.rem.fields) || {};
     const issued = (app.nn && app.nn.rem && app.nn.rem.issued);
+    // АЛО: поля, исправленные заявителем по замечаниям (UC01.14.2.3.3) — зелёная отметка «было»
+    const fix = {}, rs = ED.lastOf(app, 'remarks');
+    ((rs && rs.reply && rs.reply.changes) || []).forEach(c => { fix[c.key] = c; });
     const T = (k, label, value, full, section) => {
       const r = rem[k];
-      const hasRemark = !!r;
+      const hasRemark = !!r, fx = fix[k];
       return { anchor:'f-' + k.replace(/[^a-z0-9]/gi, '-'), label, value: value || '—', isText:true, isFile:false,
-        wrap:`display:flex;flex-direction:column;gap:4px;min-width:0;${full ? 'grid-column:1 / -1;' : ''}${hasRemark ? 'padding:8px;margin:-8px;border-radius:10px;background:#FFFBF7;' : ''}`,
+        hasFix:!!fx, fixText: fx ? 'Исправлено заявителем ' + ED.fmtD(rs.at) + '. Было: ' + this.fixVal(fx.before) : '',
+        wrap:`display:flex;flex-direction:column;gap:4px;min-width:0;${full ? 'grid-column:1 / -1;' : ''}${hasRemark ? 'padding:8px;margin:-8px;border-radius:10px;background:' + (fx ? '#F7FDFA' : '#FFFBF7') + ';' : ''}`,
         style:`margin:0;font-size:14px;line-height:20px;color:${value ? '#0A0D14' : '#868C98'};`,
         canRemark: !!canRem, remarkIcon: hasRemark ? 'ri-chat-1-fill' : 'ri-chat-1-line', remarkAria:(hasRemark ? 'Изменить замечание к полю ' : 'Добавить замечание к полю ') + label,
         remarkTip: hasRemark ? 'Изменить замечание' : 'Добавить замечание к полю',
@@ -876,13 +893,13 @@ class Component extends DCLogic {
         hasRemark, remText: hasRemark ? (issued ? 'Замечание эксперта: ' : 'Ваше замечание: ') + r.text : '',
         remBox:'display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:8px 10px;border-radius:8px;background:#FEF3EB;border:1px solid #FFDAC2;font-size:13px;line-height:18px;color:#6E330C;' };
     };
-    const Fl = (k, label, files, full) => { const r = T(k, label, '', full); return { ...r, isText:false, isFile:true, files: files.map(x => ({ name:x.name, size:ED.fileSize(x.size), ...this.extBadge(x.name, 24), openAria:'Открыть файл ' + x.name, onOpen: () => this.openDoc({ type:'file', name:x.name, size:x.size, title:label }) })) }; };
+    const Fl = (k, label, files, full, section) => { const r = T(k, label, '', full, section); return { ...r, isText:false, isFile:true, files: files.map(x => ({ name:x.name, size:ED.fileSize(x.size), ...this.extBadge(x.name, 24), openAria:'Открыть файл ' + x.name, onOpen: () => this.openDoc({ type:'file', name:x.name, size:x.size, title:label }) })) }; };
     const G = (rows, cols, head) => ({ rows, hasHead:!!head, head:head || '', wrap: head ? 'border:1px solid #E2E4E9;border-radius:12px;overflow:hidden;' : '',
       grid:`margin:0;display:grid;grid-template-columns:repeat(${cols || 2},minmax(0,1fr));gap:16px 24px;${head ? 'padding:14px;' : ''}` });
     const C = (id, title, groups, desc) => ({ hid:'dv-' + id, title, groups, desc:desc || '', hasDesc:!!desc });
     if(key === 'd0'){
       const sm = ED.summary(app);
-      return [ C('svc', 'Сведения об услуге', [ G([ T('svc.bin', 'БИН Заявителя', P.bin), T('svc.num', '№ заявки', app.num), T('svc.sent', 'Дата и время отправки', ED.fmtDT(app.sentAt)), T('svc.pub', 'Статус у заявителя', app.status), T('svc.cat', 'Категория', cat === 'mi' ? 'Медицинские изделия (МИ)' : 'Лекарственные средства (ЛС)'), T('svc.type', 'Тип услуги', ED.SERVICE_TYPE, true) ].map(r => ({ ...r, canRemark:false })), 3) ]) ];
+      return [ C('svc', 'Сведения об услуге', [ G([ T('svc.bin', 'БИН Заявителя', P.bin), T('svc.num', '№ заявки', app.num), T('svc.sent', 'Дата и время отправки', ED.fmtDT(app.sentAt)), T('svc.pub', 'Статус у заявителя', app.status), T('svc.cat', 'Категория', cat === 'mi' ? 'Медицинские изделия (МИ)' : 'Лекарственные средства (ЛС)'), T('svc.type', 'Тип услуги', ED.svcOf(app).name, true) ].map(r => ({ ...r, canRemark:false })), 3) ]) ];
     }
     if(key === 'd1'){
       const a = f.a, poa = a.poaNum || a.poaIssued || a.poaValid || a.poaText || a.poaFiles.length;
@@ -892,7 +909,7 @@ class Component extends DCLogic {
         C('bank', 'Банковские реквизиты', [ G([ T('a.bin', 'БИН', P.bin, false, 'Банковские реквизиты'), T('a.bank', 'Название банка', P.bank, false, 'Банковские реквизиты'), T('a.iik', 'ИИК', P.iik, false, 'Банковские реквизиты'), T('a.bik', 'БИК', P.bik, false, 'Банковские реквизиты'), T('a.kbe', 'КБе', P.kbe, false, 'Банковские реквизиты') ], 3) ]),
       ];
       out.push(poa
-        ? C('poa', 'Данные о доверенности', [ G([ T('a.poaNum', '№ доверенности', a.poaNum, false, 'Доверенность'), T('a.poaIssued', 'Дата выдачи', a.poaIssued, false, 'Доверенность'), T('a.poaValid', 'Срок действия', a.poaValid, false, 'Доверенность'), T('a.poaText', 'Текст доверенности', a.poaText, true, 'Доверенность') ].concat(a.poaFiles.length ? [ Fl('a.poaFiles', 'Файлы доверенности', a.poaFiles, true) ] : []), 3) ])
+        ? C('poa', 'Данные о доверенности', [ G([ T('a.poaNum', '№ доверенности', a.poaNum, false, 'Доверенность'), T('a.poaIssued', 'Дата выдачи', a.poaIssued, false, 'Доверенность'), T('a.poaValid', 'Срок действия', a.poaValid, false, 'Доверенность'), T('a.poaText', 'Текст доверенности', a.poaText, true, 'Доверенность') ].concat(a.poaFiles.length ? [ Fl('a.poaFiles', 'Файлы доверенности', a.poaFiles, true, 'Доверенность') ] : []), 3) ])
         : C('poa', 'Данные о доверенности', [ G([ { ...T('a.poa', 'Доверенность', 'Не заполнялась — заявление подано без доверенности', true), canRemark:false } ]) ]));
       return out;
     }
@@ -908,18 +925,21 @@ class Component extends DCLogic {
         return C(sec.id, sec.title, [ G(sec.fields.map(fd => T('s.' + fd.k, fd.label, st[fd.k], fd.full, 'Заявление'))) ], sec.desc);
       });
     }
-    return [ C('dossier', 'Досье', ED.dossier(cat).map(d => {
+    return [ C('dossier', 'Досье', ED.dossier(cat, app.svc).map(d => {
       const v = f.d[d.k] || {};
       const rows = [];
       if(v.text || !v.file) rows.push(T('d.' + d.k, 'Сведения', v.text || (d.req ? '' : 'Не заполнялся'), true, 'Досье, раздел ' + d.n));
-      if(v.file) rows.push(Fl('d.' + d.k + '.file', 'Файл', [v.file], true));
+      if(v.file) rows.push(Fl('d.' + d.k + '.file', 'Файл', [v.file], true, 'Досье, раздел ' + d.n));
       return G(rows, 1, d.n + '. ' + d.title);
     })) ];
   }
-  remarkCounts(app){
+  remarkCounts(app, fixedOnly){
     const rem = (app.nn && app.nn.rem && app.nn.rem.fields) || {};
     const c = { d1:0, d2:0, d3:0 };
-    Object.keys(rem).forEach(k => { if(k.indexOf('a.') === 0) c.d1++; else if(k.indexOf('d.') === 0) c.d3++; else if(k.indexOf('seed') === 0) {} else c.d2++; });
+    const rs = window.mpEd.lastOf(app, 'remarks'), fx = {};
+    ((rs && rs.reply && rs.reply.changes) || []).forEach(x => { fx[x.key] = 1; });
+    Object.keys(rem).forEach(k => {
+      if(fixedOnly && !fx[k]) return; if(k.indexOf('a.') === 0) c.d1++; else if(k.indexOf('d.') === 0) c.d3++; else if(k.indexOf('seed') === 0) {} else c.d2++; });
     return c;
   }
 
@@ -929,7 +949,8 @@ class Component extends DCLogic {
     const ppAt = (() => { const c = (r.chain || []).find(x => x.act === 'sign' && A.roleKey(x.user) === 'chair'); return c ? ED.fmtDT(c.at) : ''; })();
     const signer = (r.chain || []).find(x => x.act === 'sign');
     const TITLES = { p7:'Принятие решения · Нулевая экспертиза', pay20:'Подтверждение оплаты 20%', pay80:'Подтверждение оплаты 80%', primary:'Принятие решения первичной экспертизы', remarks:'Отработка замечаний · Заключение по первичной экспертизе', prof:'Формирование заключения на профессиональную экспертизу' };
-    const VAL = { p7:{ yes:'Соответствует пункту 7', no:'Не соответствует пункту 7' }, pay20:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, pay80:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, primary:{ recommend:'Рекомендовано', refuse:'Отказано' }, prof:{ done:'Завершено' } };
+    const Z = ED.svcOf(app).zero;
+    const VAL = { p7:{ yes:Z.yes, no:Z.no }, pay20:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, pay80:{ yes:'Да — оплата поступила', no:'Нет — оплата не поступила' }, primary:{ recommend:'Рекомендовано', refuse:'Отказано' }, prof:{ done:'Завершено' } };
     const T = (label, value, o) => ({ isText:true, isNote:false, isFiles:false, label, value, hasPp:false, pp:'', wrap:'min-width:0;', ...(o || {}) });
     const rows = [];
     if(r.kind === 'remarks'){
@@ -957,6 +978,20 @@ class Component extends DCLogic {
       btns, hasBtns: btns.length > 0,
       box:`background:#fff;border:1px solid ${pendingMine ? '#C6D0FF' : '#E2E4E9'};border-radius:16px;box-shadow:${pendingMine ? '0 0 0 4px #EEF2FF,' : ''}0 1px 2px rgba(10,13,20,.03);overflow:hidden;` };
   }
+  // ── «Исправления заявителя» (АЛО, UC01.14.2.3.3): поля с замечаниями, «было / стало» из step.reply.changes ──
+  fixVal(v){ return v && typeof v === 'object' ? (v.name || '—') : (v == null || v === '' ? '—' : String(v)); }
+  fixBlock(app, st){
+    const ED = window.mpEd, rs = ED.lastOf(app, 'remarks');
+    const ch = rs && rs.reply && rs.reply.changes;
+    if(!ch || !ch.length) return null;
+    const rem = (app.nn && app.nn.rem && app.nn.rem.fields) || rs.fields || {};
+    const cur = st === 'Проверка доработки';
+    const rows = ch.map(c => ({ isText:false, isNote:false, isFiles:false, isDiff:true, label:(rem[c.key] && rem[c.key].label) || c.key, before:this.fixVal(c.before), after:this.fixVal(c.after), wrap:'grid-column:1 / -1;min-width:0;' }));
+    return { hid:'rb-fix', title:'Исправления заявителя', hasRound:false, round:'', collapsible:!cur, sum:'Исправлено полей: ' + ch.length,
+      chip:{ label:'Исправлено ' + ED.fmtD(rs.at), icon:'ri-checkbox-circle-line', style:'display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:#EFFAF6;color:#176448;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;' },
+      rows, btns:[], hasBtns:false,
+      box:`background:#fff;border:1px solid ${cur ? '#CBF5E5' : '#E2E4E9'};border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;` };
+  }
   roundsOf(app, kind){ return ((app.nn && app.nn.d) || []).filter(x => x.kind === kind && x.state !== 'returned').length; }
 
   // ── форма текущего шага ──
@@ -968,8 +1003,10 @@ class Component extends DCLogic {
     const F = { hid:'form-h', hasRound:false, round:'', hasTip:false, tip:'', chip:'Ваше действие', fields:[], btns:[] };
 
     if(P.p7){
-      F.title = 'Принятие решения'; F.hasTip = true; F.tip = 'Проверьте, есть ли в перечне Единого дистрибьютора ЛС / МИ с идентичными параметрами (пункт 7 Правил). «Не соответствует» — заявителю выставляется счёт на оплату 20%.';
-      F.fields.push(this.radioField('Соответствие пункту 7 Правил', [ { id:'yes', label:'Соответствует пункту 7', desc:'Заявка будет завершена после подписи Председателя Правления' }, { id:'no', label:'Не соответствует пункту 7', desc:'Приложите счёт на оплату 20% стоимости экспертизы' } ], f.p7, (v) => this.setState({ f:{ ...this.state.f, p7:v } })));
+      // ЕД — «Соответствие пункту 7» (UC01.13.3.4.1), АЛО — «Наличие аналога в перечне АЛО» (UC01.14.3.4.1)
+      const Z = ED.svcOf(app).zero;
+      F.title = 'Принятие решения'; F.hasTip = true; F.tip = Z.tip;
+      F.fields.push(this.radioField(Z.field, [ { id:'yes', label:Z.yes, desc:'Заявка будет завершена после подписи Председателя Правления' }, { id:'no', label:Z.no, desc:'Приложите счёт на оплату 20% стоимости экспертизы' } ], f.p7, (v) => this.setState({ f:{ ...this.state.f, p7:v } })));
       if(f.p7 === 'no') F.fields.push(this.upField('inv20', 'Счёт на оплату 20%', true, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
       const miss = []; if(!f.p7) miss.push('Выберите решение'); if(f.p7 === 'no' && !s.files.inv20) miss.push('Прикрепите счёт на оплату 20%');
       Object.assign(F, hintOf(miss)); F.btns = [ back, send(!miss.length, null, () => this.doP7()) ];
@@ -980,11 +1017,13 @@ class Component extends DCLogic {
       const round = this.roundsOf(app, kind) + 1;
       const stp = ED.lastOf(app, kind);
       F.title = 'Подтверждение оплаты ' + pct + '%'; F.hasRound = round > 1; F.round = round + '-й раунд';
-      F.hasTip = true; F.tip = 'Сумма счёта — ' + ED.money((stp && stp.docs && stp.docs[0] && stp.docs[0].amount) || ED.PRICE * pct / 100) + '. Счёт и платёжное поручение — в «Документах по заявке».';
-      if(round > 1) F.fields.push(this.info('orange', 'ri-error-warning-line', 'Повторная проверка. Если оплата снова не поступила, заявка получит статус «Оплата не произведена» и обработка будет остановлена.'));
+      // у АЛО стоимость в постановках не указана — сумму не показываем
+      const SV = ED.svcOf(app), amt = (stp && stp.docs && stp.docs[0] && stp.docs[0].amount) || (SV.price ? SV.price * pct / 100 : null);
+      F.hasTip = true; F.tip = (amt ? 'Сумма счёта — ' + ED.money(amt) + '. ' : '') + 'Счёт и платёжное поручение — в «Документах по заявке».';
+      if(round > 1) F.fields.push(this.info('orange', 'ri-error-warning-line', 'Повторная проверка. Если оплата снова не поступила, заявка получит статус «' + (SV.splitUnpaid ? 'Оплата ' + pct + '% не произведена' : 'Оплата не произведена') + '» и обработка будет остановлена.'));
       F.fields.push(this.radioField('Оплата поступила?', [ { id:'yes', label:'Да' }, { id:'no', label:'Нет' } ], f.pay, (v) => this.setState({ f:{ ...this.state.f, pay:v } })));
       if(f.pay === 'no'){
-        F.fields.push(this.areaField('payComment', 'Введите комментарий для Заявителя', 'Например: платёж на сумму ' + ED.money(ED.PRICE * pct / 100) + ' не поступил на расчётный счёт ННЦРЗ', 1500, true, false, 3));
+        F.fields.push(this.areaField('payComment', 'Введите комментарий для Заявителя', 'Например: платёж' + (amt ? ' на сумму ' + ED.money(amt) : '') + ' не поступил на расчётный счёт ННЦРЗ', 1500, true, false, 3));
         F.fields.push(this.upField('payFile', 'Прикрепите документ при необходимости', false, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
       }
       const miss = []; if(!f.pay) miss.push('Выберите «Да» или «Нет»'); if(f.pay === 'no' && !f.payComment.trim()) miss.push('Введите комментарий для Заявителя');
@@ -1000,7 +1039,8 @@ class Component extends DCLogic {
       if(remN && !n.rem.issued && P.remarks) F.fields.push(this.info('orange', 'ri-chat-1-line', 'К заявке добавлено замечаний: ' + remN + '. Чтобы вернуть заявку заявителю на доработку, отправьте их из раздела «Отработка замечаний».', 'Перейти', () => { this.setState({ sel:'remarks' }); window.scrollTo({ top:0, behavior:'smooth' }); }));
       if(st === 'Проверка доработки'){
         const rs = ED.lastOf(app, 'remarks');
-        if(rs && rs.reply){
+        // АЛО: исправленные поля — отдельным блоком «Исправления заявителя» выше («было / стало»)
+        if(rs && rs.reply && !rs.reply.changes){
           F.fields.push(this.info('blue', 'ri-reply-line', 'Ответ заявителя на замечания' + (rs.reply.text ? ': ' + rs.reply.text : '')));
         }
       }
@@ -1078,10 +1118,11 @@ class Component extends DCLogic {
     const out = { 0:[], 1:[], 2:[], 3:[] };
     const recs = (n.d || []).filter(r => r.state !== 'returned');
     const add = (st, f, meta, title) => { if(f) out[st].push(this.fileRow(f, meta, title)); };
-    add(0, { name:'Заявление_№' + app.num + '.pdf', size:412 * 1024 }, 'Подписано ЭЦП заявителя · ' + ED.fmtDT(app.sentAt), 'Заявление на включение в перечень ЕД');
+    const SV = ED.svcOf(app);
+    add(0, { name:'Заявление_№' + app.num + '.pdf', size:412 * 1024 }, 'Подписано ЭЦП заявителя · ' + ED.fmtDT(app.sentAt), 'Заявление на включение в перечень ' + SV.listShort);
     recs.forEach(r => {
       const stage = r.kind === 'p7' ? 0 : r.kind === 'prof' ? 2 : r.kind === 'pay80' ? 2 : 1;
-      (r.files || []).forEach(f => { const pct = /^Счёт на оплату (20|80)%$/.exec(f.title || ''); add(r.kind === 'p7' || r.kind === 'pay20' ? 0 : stage, f, A.shortName(r.by) + ' · ' + ED.fmtD(r.at) + (pct ? ' · ' + ED.money(ED.PRICE * pct[1] / 100) : '') + ((r.round || 1) > 1 ? ' · ' + r.round + '-й раунд' : ''), f.title); });
+      (r.files || []).forEach(f => { const pct = /^Счёт на оплату (20|80)%$/.exec(f.title || ''); add(r.kind === 'p7' || r.kind === 'pay20' ? 0 : stage, f, A.shortName(r.by) + ' · ' + ED.fmtD(r.at) + (pct && SV.price ? ' · ' + ED.money(SV.price * pct[1] / 100) : '') + ((r.round || 1) > 1 ? ' · ' + r.round + '-й раунд' : ''), f.title); });
     });
     app.steps.forEach(s => {
       if(s.kind === 'pay20' && s.file) add(0, s.file, 'Заявитель · ' + ED.fmtDT(s.at), 'Платёжное поручение 20%');
@@ -1129,12 +1170,18 @@ class Component extends DCLogic {
     const sel = s.sel || 'decision';
     const itemStyle = (on) => `width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-family:inherit;cursor:pointer;border:1px solid ${on ? '#C6D0FF' : 'transparent'};background:${on ? '#EEF2FF' : 'transparent'};`;
     const pick = (id) => { this.setState({ sel:id }); window.scrollTo({ top:0, behavior:'smooth' }); };
-    const dataItems = DATA_ITEMS.map(([id, label, icon]) => ({ label, icon, sub:'', hasSub:false, cur: sel === id ? 'page' : 'false', count:String(cnt[id] || 0), hasCount: !!cnt[id], countTitle:'Замечаний: ' + (cnt[id] || 0),
+    // замечания раздела исправлены заявителем (АЛО) — счётчик зелёный
+    const fixedIn = this.remarkCounts(app, true);
+    const dataItems = DATA_ITEMS.map(([id, label, icon]) => ({ label, icon, sub:'', hasSub:false, cur: sel === id ? 'page' : 'false', count:String(cnt[id] || 0), hasCount: !!cnt[id],
+      countTitle: fixedIn[id] && fixedIn[id] === cnt[id] ? 'Замечания исправлены заявителем: ' + cnt[id] : 'Замечаний: ' + (cnt[id] || 0),
+      countStyle:'min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:20px;font-weight:600;text-align:center;' + (fixedIn[id] && fixedIn[id] === cnt[id] ? 'background:#EFFAF6;color:#176448;' : 'background:#FEF3EB;color:#C2540A;'),
       dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${sel === id ? '#fff' : '#F6F8FA'};color:${sel === id ? '#4D42E9' : '#868C98'};`,
       subStyle:'', style:itemStyle(sel === id), onClick: () => pick(id) }));
     const myTurn = P.any;
     const checkItems = [];
-    if(showRemarks) checkItems.push({ id:'remarks', label:'Отработка замечаний', icon:'ri-chat-1-line', sub: n.rem && n.rem.issued ? 'Направлены заявителю' : P.remarks ? 'Замечаний: ' + remN : 'Замечаний: ' + remN, action: P.remarks });
+    const remStep = ED.lastOf(app, 'remarks');
+    const remFixed = !!(remStep && remStep.reply && remStep.reply.changes);
+    if(showRemarks) checkItems.push({ id:'remarks', label:'Отработка замечаний', icon:'ri-chat-1-line', sub: remFixed ? 'Исправлены заявителем' : n.rem && n.rem.issued ? 'Направлены заявителю' : 'Замечаний: ' + remN, action: P.remarks });
     checkItems.push({ id:'decision', label:'Принятие решения', icon:'ri-checkbox-circle-line', sub: myTurn ? 'Нужно ваше действие' : st, action: myTurn });
     const checkNav = checkItems.map(it => ({ label:it.label, icon:it.icon, sub:it.sub, hasSub:true, cur: sel === it.id ? 'page' : 'false', count:'', hasCount:false, countTitle:'',
       dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${it.action ? '#4D42E9' : sel === it.id ? '#fff' : '#F6F8FA'};color:${it.action ? '#fff' : sel === it.id ? '#4D42E9' : '#868C98'};`,
@@ -1172,11 +1219,21 @@ class Component extends DCLogic {
           : [ { isText:true, isNote:false, isFiles:false, label:'', value:'Замечаний пока нет. Добавьте их у полей в разделах «Данные заявки».', hasPp:false, pp:'', wrap:'grid-column:1 / -1;min-width:0;' } ],
         btns:[], hasBtns:false, box:'background:#fff;border:1px solid #E2E4E9;border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;' });
       const pendRemarks = recs.filter(r => r.kind === 'remarks');
-      if(pendRemarks.length && (n.rem.issued || A.isApproval(st))) blocks = blocks.concat(pendRemarks.map((r, i) => this.recBlock(app, r, 100 + i)));
+      if(pendRemarks.length && (n.rem.issued || A.isApproval(st))){
+        blocks = blocks.concat(pendRemarks.map((r, i) => this.recBlock(app, r, 100 + i)));
+        const fb = this.fixBlock(app, st);
+        if(fb) blocks.push(fb);
+      }
       else forms.push(this.buildRemarksForm(app, P));
     } else {
       // заголовок справа — у каждого блока свой (UC01.13.3.4 §4), отдельный заголовок страницы не нужен
       blocks = recs.filter(r => r.kind !== 'remarks' || true).map((r, i) => this.recBlock(app, r, i));
+      const fixB = this.fixBlock(app, st);
+      if(fixB){
+        // сразу после блока замечаний — проверка доработки начинается с того, что исправил заявитель
+        const at = recs.map(r => r.kind).lastIndexOf('remarks');
+        blocks.splice(at === -1 ? blocks.length : at + 1, 0, fixB);
+      }
       const F = this.buildForm(app, P);
       if(F) forms.push(F);
       // кто сейчас работает с заявкой, срок и статус — уже в сводке сверху; отдельно — только ожидание Формулярной комиссии
@@ -1191,7 +1248,7 @@ class Component extends DCLogic {
         const c = A.fkList().find(x => x.num === n.fk.comm);
         const tl = n.fk.tally || {};
         blocks.push({ hid:'fk-res', title:'Решение Формулярной комиссии', hasRound:false, round:'',
-          chip:{ label: n.fk.include ? 'Включить в перечень ЕД' : 'Не включать в перечень ЕД', icon: n.fk.include ? 'ri-checkbox-circle-line' : 'ri-close-circle-line', style:`display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:${n.fk.include ? '#EFFAF6' : '#FDEDF0'};color:${n.fk.include ? '#176448' : '#710E21'};font-size:12px;line-height:16px;font-weight:500;` },
+          chip:{ label: (n.fk.include ? 'Включить в перечень ' : 'Не включать в перечень ') + sm.svcShort, icon: n.fk.include ? 'ri-checkbox-circle-line' : 'ri-close-circle-line', style:`display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:999px;background:${n.fk.include ? '#EFFAF6' : '#FDEDF0'};color:${n.fk.include ? '#176448' : '#710E21'};font-size:12px;line-height:16px;font-weight:500;` },
           rows:[ { isText:true, isNote:false, isFiles:false, label:'Комиссия', value:'№ ' + n.fk.comm + ' · протокол № ' + n.fk.protocol, hasPp:false, pp:'', wrap:'min-width:0;' },
             { isText:true, isNote:false, isFiles:false, label:'Итоги голосования', value:'«За» — ' + (tl.for || 0) + ', «Против» — ' + (tl.against || 0) + ', «Не голосовал» — ' + (tl.none || 0) + (tl.tie ? ' · при равенстве учтён голос председательствующего' : ''), hasPp:false, pp:'', wrap:'min-width:0;' } ],
           btns:[], hasBtns:false, box:'background:#fff;border:1px solid #E2E4E9;border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;' });
@@ -1272,6 +1329,7 @@ class Component extends DCLogic {
     return {
       ...base, loading:false, missing:false, ok:true,
       num: app.num, badge: A.nnBadge(app),
+      svcShort: sm.svcShort, svcName: sm.svcName,
       catLabel: sm.catLong, catIcon: sm.cat === 'mi' ? 'ri-stethoscope-line' : 'ri-capsule-line',
       catStyle:`display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${sm.cat === 'mi' ? 'background:#EBFAFF;color:#164564;' : 'background:#EEF2FF;color:#312D86;'}`,
       trade: sm.trade || '—', orgName:(app.org || ED.PROFILE).org, sent: ED.fmtDT(app.sentAt),

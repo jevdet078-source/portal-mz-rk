@@ -45,6 +45,11 @@
   хронология — app.log, события заявителя для уведомлений сотрудникам — app.outbox.
   Заявки других организаций (app.org) видит только АРМ; кабинет бизнеса — только свои (ED.list()).
   Сжатые сроки «тестового контура» — localStorage['mp-ed-fast'] = '1' (панель «Прототип» в АРМ).
+
+  Услуга АЛО (UC01.14, выгрузка 23.10.2026) — вторая услуга на этом же движке: заявки обеих услуг лежат
+  в одном хранилище (нумерация сквозная, UC01.14.1.8), у заявки app.svc = 'alo' (нет поля — ЕД).
+  Всё, чем услуги отличаются, — в SVCS: наименование, шаг нулевой экспертизы, досье, сроки, уведомления.
+  Отличия АЛО и расхождения постановок — docs/10-alo-plan.md.
 -->
 <x-dc>
 <div style="display:none;"></div>
@@ -52,7 +57,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:320,&quot;height&quot;:40}}">
 const ED = (() => {
   const KEY = 'mp-ed-db', NKEY = 'mp-ed-notifs', SKEY = 'mp-ed-session', FKEY = 'mp-ed-fail';
-  const V = 6;
+  const V = 8;   // 8 — демо-комиссии АЛО в EdArm (пересев)
   const HOUR = 36e5, DAY = 864e5;
 
   // ───────────────────────── справочная информация об услуге ─────────────────────────
@@ -60,6 +65,7 @@ const ED = (() => {
   const SERVICE_TYPE = SERVICE;
   const PRICE = 2490400;
   const PROVIDER = 'ННЦРЗ';
+  const SERVICE_ALO = 'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определенными заболеваниями (состояниями)';
 
   // Профиль кабинета (UC02.1 Регистрация) — источник автополей «Сведений о заявителе»
   const PROFILE = {
@@ -126,7 +132,43 @@ const ED = (() => {
     { k:'burden', req:true, title:'Сведения о влиянии лекарственного средства или изделия медицинского назначения на бремя болезни и бюджет здравоохранения с учетом проведения централизованного закупа' },
     { k:'conf', req:false, title:'Конфиденциальная информация' },
   ];
-  const dossier = (cat) => DOSSIER.filter(d => !d.ls || cat === 'ls').map((d, i) => ({ ...d, n:i + 1 }));
+  // Досье АЛО (UC01.14.1.5, табл. 1): 11 разделов, раздел о КНФ — только для ЛС (BR-1316-02)
+  const DOSSIER_ALO = [
+    { k:'indic', req:true, title:'Заявляемое показание (заболевание или состояние) и целевая группа пациентов (категория граждан), для включения в перечень для амбулаторного обеспечения' },
+    { k:'knf', ls:true, req:true, title:'Сведения о наличии ЛС в Казахстанском национальном лекарственном формуляре' },
+    { k:'price', req:true, title:'Сведения о наличии зарегистрированной или утвержденной предельной цены на ЛС с учетом лекарственной формы, дозировки, концентрации и объема или МИ с учетом комплектации и эксплуатационных характеристик в рамках ГОБМП и (или) системе ОСМС' },
+    { k:'analogs', req:true, title:'Перечень зарегистрированных на территории Республики Казахстан торговых наименований ЛС или МИ с аналогичным международным непатентованным наименованием ЛС, с учетом лекарственной формы, дозировки, концентрации и объема или технической характеристикой МИ с учетом комплектации и эксплуатационных характеристик (в соответствии с Государственным реестром лекарственных средств и медицинских изделий на момент подачи заявления)' },
+    { k:'epid', req:true, title:'Данные эпидемиологии и бремени болезни в целевой когорте пациентов и сведения о потенциальной роли ЛС или МИ в процессе применения, информация о клинической, экономической и социальной ценности ЛС или МИ, а также об использовании ЛС или МИ, отражающем фактический опыт пациентов (при наличии)' },
+    { k:'protocols', req:true, title:'Сведения о наличии в рекомендациях клинических протоколов Республики Казахстан с указанием уровня оказания помощи, в рекомендациях международных (европейских) клинических руководств и (или) клинических руководств, протоколов стран-членов Организации экономического сотрудничества и развития (ОЭСР)' },
+    { k:'advantage', req:true, title:'Сведения о наличии клинического преимущества или эквивалентности ЛС или преимущества МИ по сравнению с имеющимися в Перечне для амбулаторного обеспечения ЛС или МИ при лечении определенного заболевания или состояния на амбулаторно-поликлиническом уровне в условиях здравоохранения Республики Казахстан' },
+    { k:'costs', req:true, title:'Обоснование предложений заявителя относительно возможности соглашения по разделению затрат или рисков, а также возможным скидкам и (или) схемам, обеспечивающим доступность для пациента' },
+    { k:'benefit', req:true, title:'Сведения о наличии клинического и (или) клинико-экономического (фармакоэкономического) преимущества или эквивалентности лекарственного средства или медицинского изделия по сравнению с имеющимися в перечне закупа ЛС или МИ с аналогичными показаниями к применению' },
+    { k:'burden', req:true, title:'Сведения о влиянии лекарственного средства или изделия медицинского назначения на бремя болезни и бюджет здравоохранения с учетом проведения централизованного закупа' },
+    { k:'conf', req:false, title:'Конфиденциальная информация' },
+  ];
+
+  // ───────────────────────── услуги ─────────────────────────
+  // ЕД — UC01.13, АЛО — UC01.14. zero — шаг и решения нулевой экспертизы; profWD — срок проф. экспертизы;
+  // remWD — срок исправления замечаний; price — стоимость (у АЛО в постановках не указана — суммы не показываем);
+  // fieldFix — замечания исправляются прямо в полях заявки (UC01.14.2.3.3); splitUnpaid — «Оплата 20% / 80% не произведена».
+  // dep — ЗПП в маршруте согласования АРМ ННЦРЗ (у АЛО нет: UC01.14 §4, UC01.14.3 §4); listDoc — перечень в заголовке
+  // PDF-заключения по замечаниям (образец заключения ЕД / «Образец заключения замечаний Перв.Э АЛО.pdf»).
+  const SVCS = {
+    ed:{ id:'ed', short:'ЕД', name:SERVICE, list:'перечень Единого дистрибьютора', listShort:'ЕД', price:PRICE, prefix:'SD', profWD:30, remWD:10, actWD:5,
+      passport:'Паспорт услуги ЕД.dc.html', dossier:DOSSIER, fieldFix:false, splitUnpaid:false, dep:true,
+      listDoc:'перечень Единого дистрибьютора', listRemarks:'перечень Единого дистрибьютора',
+      zero:{ title:'Соответствие пункту 7', yes:'Соответствует пункту 7', no:'Не соответствует пункту 7', field:'Соответствие пункту 7 Правил', sign:'Подписание решения по пункту 7',
+        tip:'Проверьте, есть ли в перечне Единого дистрибьютора ЛС / МИ с идентичными параметрами (пункт 7 Правил). «Не соответствует» — заявителю выставляется счёт на оплату 20%.', check:'проверит заявку на соответствие пункту 7' } },
+    alo:{ id:'alo', short:'АЛО', name:SERVICE_ALO, list:'перечень АЛО', listShort:'АЛО', price:null, prefix:'ALO', profWD:40, remWD:10, actWD:5,
+      passport:'Паспорт услуги АЛО.dc.html', dossier:DOSSIER_ALO, fieldFix:true, splitUnpaid:true, dep:false,
+      listDoc:'перечень лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определенными заболеваниями (состояниями)',
+      listRemarks:'перечень для амбулаторного обеспечения',
+      zero:{ title:'Наличие аналога в перечне АЛО', yes:'Аналог имеется в перечне АЛО', no:'Аналог не имеется в перечне АЛО', field:'Наличие аналога в перечне АЛО', sign:'Подписание решения о наличии аналога',
+        tip:'Проверьте, есть ли в перечне АЛО аналогичное ЛС / МИ. «Аналог не имеется» — заявителю выставляется счёт на оплату 20%.', check:'проверит наличие аналога в перечне АЛО' } },
+  };
+  const SVC_LIST = ['ed', 'alo'];
+  const svcOf = (x) => SVCS[(x && typeof x === 'object' ? (x.svc || (x.form && x.form.svc)) : x) || 'ed'] || SVCS.ed;
+  const dossier = (cat, svc) => svcOf(svc).dossier.filter(d => !d.ls || cat === 'ls').map((d, i) => ({ ...d, n:i + 1 }));
 
   // Форматы файлов
   const EXT = {
@@ -163,10 +205,16 @@ const ED = (() => {
     'Завершено':{ tone:'gray' },
     'Срок истёк':{ tone:'red' },
     'Оплата не произведена':{ tone:'red' },
+    // АЛО: после ответа на замечания (UC01.14.2.3.3) и повторная неоплата (UC01.14.2.3.2 / 2.3.5, Alt 5)
+    'Проверка доработки':{ tone:'teal' },
+    'Оплата 20% не произведена':{ tone:'red' },
+    'Оплата 80% не произведена':{ tone:'red' },
   };
   // Публичные статусы для фильтра реестра — в порядке UC01.13.2.1 §6
   // + «Выставлены замечания» и «Оплата не произведена» — статусы из постановок АРМ ННЦРЗ (UC01.13.3.4.x)
-  const FILTER = ['Черновик','В работе','Ожидает оплаты 20%','Подтверждение оплаты 20%','Выставлены замечания','Ожидает оплаты 80%','Подтверждение оплаты 80%','Направлен акт','Отказ от решения','Формулярная комиссия','Решение принято','Отказано','Рассмотрение заблокировано','Оплата не произведена','Завершено'];
+  // + статусы АЛО «Проверка доработки», «Оплата 20% / 80% не произведена» (UC01.14.2.3.x)
+  const FILTER = ['Черновик','В работе','Ожидает оплаты 20%','Подтверждение оплаты 20%','Выставлены замечания','Проверка доработки','Ожидает оплаты 80%','Подтверждение оплаты 80%','Направлен акт','Отказ от решения','Формулярная комиссия','Решение принято','Отказано','Рассмотрение заблокировано','Оплата не произведена','Оплата 20% не произведена','Оплата 80% не произведена','Завершено'];
+  const UNPAID = ['Оплата не произведена','Оплата 20% не произведена','Оплата 80% не произведена'];
 
   const toneOf = (label, app) => {
     if(label === 'Решение принято') return app && app.include === false ? 'red' : 'green';
@@ -258,16 +306,17 @@ const ED = (() => {
   // ───────────────────────── форма заявки ─────────────────────────
   let rid = 0;
   const newReg = () => ({ id:'r' + Date.now().toString(36) + (rid++), num:'', country:'', regDate:'', expDate:'', perpetual:false, dose:null, conc:null });
-  const blankForm = () => ({
+  const blankForm = (svc) => ({
+    svc: svc === 'alo' ? 'alo' : 'ed',
     cat:'ls',
     a:{ position:'', phone:PROFILE.phone, fax:'', poaNum:'', poaIssued:'', poaValid:'', poaText:'', poaFiles:[] },
     s:{ ls:{}, mi:{} },
     regs:[ newReg() ],
     d:{},
   });
-  const newApp = () => {
-    const now = Date.now();
-    return { num: nextNum(), status:'Черновик', created:now, updated:now, sentAt:null, form: blankForm(), steps:[], docSeq:0, saved:false };
+  const newApp = (svc) => {
+    const now = Date.now(), id = svc === 'alo' ? 'alo' : 'ed';
+    return { num: nextNum(), svc:id, status:'Черновик', created:now, updated:now, sentAt:null, form: blankForm(id), steps:[], docSeq:0, saved:false };
   };
 
   // ───────────────────────── валидация мастера ─────────────────────────
@@ -333,7 +382,7 @@ const ED = (() => {
       });
     }
     if(step === 3){
-      dossier(form.cat).forEach(d => {
+      dossier(form.cat, form.svc).forEach(d => {
         if(!d.req) return;
         const v = form.d[d.k] || {};
         if(!filled(v.text) && !v.file) err('d.' + d.k, 'Раздел ' + d.n, 'Укажите текст или загрузите файл');
@@ -344,9 +393,9 @@ const ED = (() => {
   const stepDone = (form, step) => validate(form, step).length === 0;
 
   // ───────────────────────── документы ─────────────────────────
-  const docId = (app, type) => { app.docSeq = (app.docSeq || 0) + 1; return 'SD-' + type + '-' + app.num + '-' + pad(app.docSeq); };
+  const docId = (app, type) => { app.docSeq = (app.docSeq || 0) + 1; return svcOf(app).prefix + '-' + type + '-' + app.num + '-' + pad(app.docSeq); };
   const nnDoc = (app, type, title, kb) => { const id = docId(app, type); return { title, id, name:id + '.pdf', size:kb * 1024 }; };
-  const invoice = (app, pct) => ({ title:'Счёт на оплату ' + pct + '%', id:'', name:'Счёт на оплату ' + pct + '% № ' + app.num + '.pdf', size:(pct === 20 ? 96 : 98) * 1024, amount: PRICE * pct / 100 });
+  const invoice = (app, pct) => { const pr = svcOf(app).price; return { title:'Счёт на оплату ' + pct + '%', id:'', name:'Счёт на оплату ' + pct + '% № ' + app.num + '.pdf', size:(pct === 20 ? 96 : 98) * 1024, amount: pr ? pr * pct / 100 : null }; };
 
   // ───────────────────────── шаги и таймеры ─────────────────────────
   let sid = 0;
@@ -390,7 +439,7 @@ const ED = (() => {
   const activeTimer = (app, now) => {
     now = now || Date.now();
     if(!app || !app.steps.length) return null;
-    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено','Формулярная комиссия','Оплата не произведена'];
+    const final = ['Решение принято','Рассмотрение заблокировано','Отказано','Завершено','Формулярная комиссия'].concat(UNPAID);
     if(final.indexOf(app.status) !== -1) return null;
     const s = last(app);
     let t = s.timer, src = s;
@@ -406,7 +455,9 @@ const ED = (() => {
     let st = 0;
     app.steps.forEach(s => {
       if(s.kind === 'pay80' || s.kind === 'avr' || (s.kind === 'wait' && (s.phase === 'prof' || s.phase === 'dispute2'))) st = Math.max(st, 2);
-      else if(s.kind === 'wait' || s.kind === 'refuse' || s.kind === 'remarks') st = Math.max(st, 1);
+      // первичная начинается с подтверждения оплаты 20 % (у шага ожидания появляется срок ННЦРЗ); пока оплату
+      // проверяют или заявитель платит повторно — это ещё нулевая экспертиза (UC01.13.3.4.1 / UC01.14.3.4.1)
+      else if((s.kind === 'wait' && (s.timer || s.phase !== 'primary')) || s.kind === 'refuse' || s.kind === 'remarks') st = Math.max(st, 1);
       if(s.kind === 'fk') st = 3;
     });
     // оплата 80% — переход между первичной и профессиональной: этап «первичная» завершён
@@ -427,15 +478,24 @@ const ED = (() => {
     rework:{ push:'REWORK_ED_PUSH', mail:'REWORK_ED_EMAIL', status:'Выставлены замечания', tone:'orange',
       text:(num) => 'Уважаемый пользователь! По Вашей заявке №' + num + ' по результатам первичной экспертизы выставлены замечания. Просим исправить их и повторно направить заявку через Личный кабинет в течение 10 рабочих дней.' },
   };
-  const notifRec = (num, kind, at, n, read) => ({ id:'ed-' + num + '-' + at, n, num, kind, code:NOTIF[kind].push, ok: kind === 'ok',
-    text:NOTIF[kind].text(num), status:NOTIF[kind].status, tone:NOTIF[kind].tone, email:PROFILE.email, mail:NOTIF[kind].mail, at, read:!!read });
+  // АЛО (UC01.14.2.2, табл. 1): в постановке шаблоны скопированы из ЕД («о включении в ЕД», коды *_ED_*) —
+  // здесь тексты о перечне АЛО и коды *_ALO_* (расхождение — docs/10-alo-plan.md)
+  const NOTIF_ALO = {
+    ok:{ push:'COMPLETED_ALO_PUSH', mail:'COMPLETED_ALO_EMAIL', status:'Положительное решение', tone:'green',
+      text:(num) => 'Уважаемый пользователь! По Вашей заявке №' + num + ' принято положительное решение о включении в перечень АЛО. Просим перейти в Личный кабинет для ознакомления.' },
+    no:NOTIF.no && { ...NOTIF.no, push:'REJECTED_ALO_PUSH', mail:'REJECTED_ALO_EMAIL' },
+    rework:{ ...NOTIF.rework, push:'REWORK_ALO_PUSH', mail:'REWORK_ALO_EMAIL' },
+  };
+  const notifOf = (svc) => svc === 'alo' ? NOTIF_ALO : NOTIF;
+  const notifRec = (num, kind, at, n, read, svc) => { const T = notifOf(svc)[kind]; return { id:'ed-' + num + '-' + at, n, num, kind, svc: svc === 'alo' ? 'alo' : 'ed', service: svcOf(svc).name, code:T.push, ok: kind === 'ok',
+    text:T.text(num), status:T.status, tone:T.tone, email:PROFILE.email, mail:T.mail, at, read:!!read }; };
   // уведомления получает только заявитель заявки: заявки других организаций (app.org) в кабинет не попадают
   const notify = (app, kind, at) => {
     if(seeding || app.org) return;
     const n = readN();
     if(n.some(x => x.num === app.num && x.kind === kind && x.at === at)) return;
     const max = n.reduce((m, x) => Math.max(m, +x.n || 0), 99);
-    n.unshift(notifRec(app.num, kind, at, String(max + 1), false));
+    n.unshift(notifRec(app.num, kind, at, String(max + 1), false, app.svc));
     writeN(n);
   };
   const mailOf = (num, kind) => readN().find(x => x.num === num && x.kind === kind) || null;
@@ -457,11 +517,41 @@ const ED = (() => {
   // Действия заявителя и решения ННЦРЗ / ФК. Каждое — чистая мутация app на момент at.
   // Решения ННЦРЗ вызывает АРМ ННЦРЗ (EdArm) после подписи и маршрута согласования; документы,
   // которые загрузил эксперт, приходят в p.docs и показываются заявителю как есть.
-  const finish = (app, at, variant, extra) => { app.steps.push(step({ kind:'done', title:'Экспертиза завершена', st: app.status === 'Оплата не произведена' ? 'Оплата не произведена' : 'Завершено', at, variant, ...(extra || {}) })); };
+  const finish = (app, at, variant, extra) => { app.steps.push(step({ kind:'done', title:'Экспертиза завершена', st: UNPAID.indexOf(app.status) !== -1 ? app.status : 'Завершено', at, variant, ...(extra || {}) })); };
+
+  // Поле заявки по ключу замечания ('a.position', 's.trade', 'r.<id>.num', 'd.<раздел>', 'd.<раздел>.file') —
+  // те же ключи, что у замечаний к полям в АРМ ННЦРЗ. Нужны для исправления замечаний в полях (АЛО, UC01.14.2.3.3).
+  const getField = (form, key) => {
+    const p = String(key).split('.'), cat = form.cat;
+    if(p[0] === 'a') return form.a[p[1]];
+    if(p[0] === 's') return (form.s[cat] || {})[p[1]];
+    if(p[0] === 'd') { const v = form.d[p[1]] || {}; return p[2] === 'file' ? v.file || null : v.text || ''; }
+    if(p[0] === 'r'){
+      const r = form.regs.find(x => x.id === p[1]); if(!r) return '';
+      if(p[2] === 'conc') return r.conc ? r.conc.val : '';
+      if(p[2] === 'qty') return r.conc ? r.conc.qty : '';
+      if(p[2] === 'expDate') return r.perpetual ? 'Бессрочно' : r.expDate;
+      return r[p[2]];
+    }
+    return '';
+  };
+  const setField = (form, key, val) => {
+    const p = String(key).split('.'), cat = form.cat;
+    if(p[0] === 'a') form.a[p[1]] = val;
+    else if(p[0] === 's') form.s[cat] = { ...(form.s[cat] || {}), [p[1]]:val };
+    else if(p[0] === 'd') form.d[p[1]] = { ...(form.d[p[1]] || { text:'', file:null }), [p[2] === 'file' ? 'file' : 'text']:val };
+    else if(p[0] === 'r'){
+      const r = form.regs.find(x => x.id === p[1]); if(!r) return;
+      if(p[2] === 'conc') r.conc = { ...(r.conc || { qty:'' }), val };
+      else if(p[2] === 'qty') r.conc = { ...(r.conc || { val:'' }), qty:val };
+      else if(p[2] === 'expDate'){ if(val === 'Бессрочно'){ r.perpetual = true; r.expDate = ''; } else { r.perpetual = false; r.expDate = val; } }
+      else r[p[2]] = val;
+    }
+  };
   const block = (app, at, cause) => {
     app.status = 'Рассмотрение заблокировано';
     nn(app, app.nn ? app.nn.stage : '', 'Рассмотрение заблокировано');
-    app.steps.push(step({ kind:'blocked', title:'Рассмотрение заблокировано', st:'Рассмотрение заблокировано', at, cause }));
+    app.steps.push(step({ kind:'blocked', title: svcOf(app).id === 'alo' ? 'Экспертиза завершена' : 'Рассмотрение заблокировано', st:'Рассмотрение заблокировано', at, cause }));
   };
   const docsOr = (p, fallback) => p && Array.isArray(p.docs) && p.docs.length ? p.docs : fallback;
   const toPay80 = (app, at, docs) => {
@@ -475,8 +565,9 @@ const ED = (() => {
     nn(app, 'Рассмотрение формулярной комиссией', 'Формулярная комиссия');
   };
   const unpaid = (app, at, pct, extra) => {
-    app.status = 'Оплата не произведена'; app.result = 'unpaid';
-    nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', 'Оплата не произведена');
+    const st = svcOf(app).splitUnpaid ? 'Оплата ' + pct + '% не произведена' : 'Оплата не произведена';
+    app.status = st; app.result = 'unpaid';
+    nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', st);
     finish(app, at, 'unpaid' + pct, extra);
   };
 
@@ -484,7 +575,7 @@ const ED = (() => {
     // ── заявитель ──
     submit(app, at, p){
       app.status = 'В работе'; app.sentAt = at; app.signer = p && p.signer || null;
-      app.steps = [ step({ kind:'p7', title:'Соответствие пункту 7', st:'В работе', at }) ];
+      app.steps = [ step({ kind:'p7', title:svcOf(app).zero.title, st:'В работе', at }) ];
       nn(app, 'Нулевая экспертиза', 'Новая');
     },
     pay20(app, at, p){
@@ -499,11 +590,18 @@ const ED = (() => {
     },
     remarksReply(app, at, p){
       const s = lastOf(app, 'remarks'); s.st = 'Завершено'; s.at = at; s.reply = { text:p.text || '', files:p.files || [] }; stopT(s, at);
+      // АЛО: исправления — прямо в полях заявки (UC01.14.2.3.3); в шаге остаются «было → стало»
+      if(p.changes){
+        const ch = [];
+        Object.keys(p.changes).forEach(k => { const before = getField(app.form, k); setField(app.form, k, p.changes[k]); ch.push({ key:k, before, after:p.changes[k] }); });
+        s.reply.changes = ch;
+      }
       const prev = app.steps.find(x => x.id === s.resumeFrom);
       const left = prev && prev.timer && prev.timer.frozen != null ? prev.timer.frozen : null;
-      app.steps.push(step({ kind:'wait', phase:'primary', title:'Ожидание проверки', st:'В работе', at, timer: timer('nncrz', 5, at, left != null ? at + left : null) }));
-      // BPMN 2.2: после исправления замечаний — внутренний статус «Проверка доработки»
-      app.status = 'В работе'; nn(app, 'Первичная экспертиза', 'Проверка доработки');
+      // BPMN 2.2: после исправления замечаний — внутренний статус «Проверка доработки»; у АЛО он же публичный
+      const pub = svcOf(app).fieldFix ? 'Проверка доработки' : 'В работе';
+      app.steps.push(step({ kind:'wait', phase:'primary', title:'Ожидание проверки', st:pub, at, timer: timer('nncrz', 5, at, left != null ? at + left : null) }));
+      app.status = pub; nn(app, 'Первичная экспертиза', 'Проверка доработки');
     },
     // Акт по отказу в рассмотрении (первичная) и АВР проф. экспертизы: круг 1 — решение + файл, круг 2 — только файл
     actReply(app, at, p){
@@ -513,7 +611,7 @@ const ED = (() => {
       if(s.round === 2 || p.agree){
         stopT(s, at);
         if(isProf){ toFk(app, at); }
-        else { app.status = 'Отказано'; nn(app, 'Первичная экспертиза', 'Отказано'); finish(app, at, 'refused'); notify(app, 'no', at); }
+        else { app.status = 'Отказано'; nn(app, 'Первичная экспертиза', 'Отказано'); finish(app, at, 'refused', { st:'Отказано' }); notify(app, 'no', at); }
         return;
       }
       // не согласен — остаток таймера замораживается, заявка возвращается эксперту
@@ -548,7 +646,9 @@ const ED = (() => {
       const left = prev && prev.timer ? Math.max(0, prev.timer.deadline - (prev.timer.stopped != null ? prev.timer.stopped : at)) : 0;
       const t = timer('applicant', 1, at, fastNow() ? at + left + FAST_MS : endWD(at + left, 1));
       t.note = 'остаток срока + 1 рабочий день';
-      app.steps.push(step({ kind, round:2, title:'Платежное поручение ' + pct + '%', st:'Ожидает оплаты ' + pct + '%', issued:at, timer:t, docs: prev ? prev.docs : [ invoice(app, pct) ], reject }));
+      // АЛО: повторный шаг называется «Платеж N% не подтвержден» (UC01.14.2.3.2 / 2.3.5, Alt 4)
+      const title = svcOf(app).splitUnpaid ? 'Платеж ' + pct + '% не подтвержден' : 'Платежное поручение ' + pct + '%';
+      app.steps.push(step({ kind, round:2, title, st:'Ожидает оплаты ' + pct + '%', issued:at, timer:t, docs: prev ? prev.docs : [ invoice(app, pct) ], reject }));
       app.status = 'Ожидает оплаты ' + pct + '%'; nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', 'Ожидает оплаты ' + pct + '%');
     },
     remarks(app, at, p){
@@ -557,8 +657,11 @@ const ED = (() => {
         'Раздел досье 3: приведите перечень зарегистрированных аналогов с указанием лекарственной формы и дозировки по состоянию на дату подачи заявления.',
         'Раздел досье 5: приложите полный текст фармакоэкономического исследования, на которое дана ссылка, с переводом на русский язык.',
       ];
-      app.steps.push(step({ kind:'remarks', title:'Замечания ННЦРЗ', st:'Выставлены замечания', issued:at, resumeFrom:s.id, timer: timer('applicant', 10, at),
-        docs: docsOr(p, [ nnDoc(app, 12, 'Заключение по первичной экспертизе (замечания)', 184) ]), items }));
+      // fields — замечания к полям заявки (ключ → { label, text }), concl — № / дата / текст заключения (АЛО, UC01.14.2.3.3 табл. 1)
+      const S = svcOf(app);
+      app.steps.push(step({ kind:'remarks', title: S.fieldFix ? 'Выставлены замечания' : 'Замечания ННЦРЗ', st:'Выставлены замечания', issued:at, resumeFrom:s.id, timer: timer('applicant', S.remWD, at),
+        docs: docsOr(p, S.fieldFix ? [ { title:'Сопроводительное письмо', id:'', name:'Сопроводительное письмо № ' + app.num + '.pdf', size:86 * 1024 }, nnDoc(app, 12, 'Заключение по первичной экспертизе (замечания)', 184) ] : [ nnDoc(app, 12, 'Заключение по первичной экспертизе (замечания)', 184) ]),
+        items, fields:(p && p.fields) || null, concl:(p && p.concl) || null }));
       app.status = 'Выставлены замечания'; nn(app, 'Первичная экспертиза', 'Выставлены замечания');
       notify(app, 'rework', at);
     },
@@ -570,9 +673,9 @@ const ED = (() => {
       app.status = 'Направлен акт'; nn(app, 'Первичная экспертиза', 'Направлен акт');
     },
     // После подтверждения 80 % — этап «Профессиональная экспертиза», статус «Новая» до назначения эксперта
-    // (UC01.13.3.3.4); срок проф. экспертизы — 30 рабочих дней.
+    // (UC01.13.3.3.4); срок проф. экспертизы — 30 рабочих дней у ЕД, 40 — у АЛО (UC01.14 §2.2), настраивается в SVCS.
     confirm80(app, at){
-      const s = last(app); s.st = 'В работе'; s.timer = timer('nncrz', 30, at);
+      const s = last(app); s.st = 'В работе'; s.timer = timer('nncrz', svcOf(app).profWD, at);
       app.status = 'В работе'; nn(app, 'Профессиональная экспертиза', 'Новая');
     },
     // Эксперт отметил экспертизу «Завершено» — новый срок 5 рабочих дней на документы (UC01.13.3.4.3 п. 3–5)
@@ -616,7 +719,7 @@ const ED = (() => {
       app.status = 'Решение принято'; app.include = !!p.include;
       nn(app, 'Рассмотрение формулярной комиссией', 'Решение принято');
       const pn = (p && p.protocol) || app.num;
-      finish(app, at, 'fk', { docs:[ { title:'Протокол заседания Формулярной комиссии (обезличенный)', id:'', name:'protocol_№' + pn + '_2.pdf', size:214 * 1024, protocol:pn, comm:(p && p.comm) || '', kind:'protocol2' } ] });
+      finish(app, at, 'fk', { st:'Решение принято', docs:[ { title:'Протокол заседания Формулярной комиссии (обезличенный)', id:'', name:'protocol_№' + pn + '_2.pdf', size:214 * 1024, protocol:pn, comm:(p && p.comm) || '', kind:'protocol2' } ] });
       notify(app, p.include ? 'ok' : 'no', at);
     },
     fkInclude(app, at, p){ ACT.fkDecide(app, at, { ...(p || {}), include:true }); },
@@ -627,6 +730,14 @@ const ED = (() => {
       const s = last(app);
       if(!s || !s.timer || s.timer.owner !== 'applicant') return;
       s.st = 'Срок истёк'; s.timer.stopped = s.timer.deadline; s.expired = true;
+      // АЛО: истёк срок оплаты — у заявителя «Завершено» и уведомление о прекращении экспертизы (UC01.14.2.3.2 / 2.3.5, Alt 6),
+      // в ННЦРЗ — «Оплата не произведена» (UC01.14.3.4.1 Alt 9)
+      if((s.kind === 'pay20' || s.kind === 'pay80') && svcOf(app).splitUnpaid){
+        const pct = s.kind === 'pay20' ? 20 : 80;
+        app.status = 'Завершено'; app.result = 'expired';
+        nn(app, pct === 20 ? 'Нулевая экспертиза' : 'Первичная экспертиза', 'Оплата не произведена');
+        finish(app, at, 'expired' + pct); return;
+      }
       if(s.kind === 'pay20' || s.kind === 'pay80'){ unpaid(app, at, s.kind === 'pay20' ? 20 : 80); return; }
       if(s.kind === 'remarks'){ app.status = 'Завершено'; app.result = 'unfixed'; nn(app, 'Первичная экспертиза', 'Завершено'); finish(app, at, 'unfixed'); return; }
       block(app, at, s.kind);
@@ -644,6 +755,7 @@ const ED = (() => {
     let comment = LOG_TXT[ev] || '';
     if(ev === 'submit') comment = 'Заявление подписано ЭЦП и отправлено';
     if(ev === 'remarksReply' && p && p.text) comment = p.text;
+    if(ev === 'remarksReply' && p && p.changes) comment = 'Исправлены поля по замечаниям: ' + Object.keys(p.changes).length;
     if(ev === 'actReply'){
       const st = before;
       comment = st && st.round === 2 ? 'Загружен документ по повторному решению' : p && p.agree ? 'Согласен — загружен подписанный акт выполненных работ' : 'Не согласен — загружено мотивированное возражение';
@@ -738,9 +850,9 @@ const ED = (() => {
     kmg:{ org:'АО «Казахстан Медикал Групп»', legal:'г. Алматы, Бостандыкский район, ул. Тимирязева, 42, корпус 2', actual:'г. Алматы, Бостандыкский район, ул. Тимирязева, 42, корпус 2', last:'Байжанов', first:'Ерлан', middle:'Кайратович', phone:'+7 727 390 12 12', email:'e.baizhanov@kmg-med.kz', bin:'041140002917', bank:'АО «Bank RBK»', iik:'KZ75821A0000012345678', bik:'KINCKZKA', kbe:'17' },
     medtech:{ org:'ТОО «МедТех Сервис Плюс»', legal:'г. Караганда, район им. Казыбек би, пр. Бухар-Жырау, 66', actual:'г. Караганда, район им. Казыбек би, пр. Бухар-Жырау, 66', last:'Сулейменова', first:'Асель', middle:'Жанатовна', phone:'+7 721 241 05 33', email:'a.suleimenova@medtechplus.kz', bin:'190640027744', bank:'АО «Jusan Bank»', iik:'KZ43998CTB0000987654', bik:'TSESKZKA', kbe:'17' },
   };
-  const demoForm = (cat, trade, partial, prof) => {
+  const demoForm = (cat, trade, partial, prof, svc) => {
     const p = PRODUCTS[cat][trade] || {};
-    const f = blankForm(); f.cat = cat;
+    const f = blankForm(svc); f.cat = cat;
     f.a.position = partial ? '' : 'Директор по регистрации';
     if(prof) f.a.phone = prof.phone;
     const reg = newReg();
@@ -764,7 +876,7 @@ const ED = (() => {
     }
     f.regs = [reg];
     if(partial){ f.d = {}; return f; }
-    dossier(cat).forEach(d => {
+    dossier(cat, svc).forEach(d => {
       if(d.k === 'conf') return;
       f.d[d.k] = { text:'', file:{ name:'Досье_раздел_' + d.n + '.pdf', size:(220 + d.n * 37) * 1024 } };
     });
@@ -776,9 +888,9 @@ const ED = (() => {
     const now = Date.now();
     const db = { v:V, seq:170, sid: now.toString(36) + Math.random().toString(36).slice(2, 6), apps:[] };
     const H = (h) => now - h * HOUR;
-    const mk = (num, cat, trade, createdH, plan, orgKey) => {
+    const mk = (num, cat, trade, createdH, plan, orgKey, svc) => {
       const prof = orgKey ? ORGS[orgKey] : null;
-      const app = { num, status:'Черновик', created:H(createdH), updated:H(createdH), sentAt:null, form: demoForm(cat, trade, plan === null, prof), steps:[], docSeq:0, saved:true };
+      const app = { num, svc: svc || 'ed', status:'Черновик', created:H(createdH), updated:H(createdH), sentAt:null, form: demoForm(cat, trade, plan === null, prof, svc), steps:[], docSeq:0, saved:true };
       if(prof) app.org = { ...prof };
       (plan || []).forEach(([ev, h, p]) => { ACT[ev](app, H(h), p || {}); app.updated = H(h); });
       db.apps.push(app);
@@ -836,6 +948,50 @@ const ED = (() => {
     mk('0000169', 'ls', 'Энхерту', 1460, toFkPlan(1460, 'medtech'), 'medtech');
     mk('0000170', 'mi', 'Accu-Chek Performa', 1480, toFkPlan(1480, 'alliance'), 'alliance');
 
+    // ── услуга АЛО (UC01.14): все ветки UC01.14.2.3.x — ТОО «Астана Групп» ──
+    const A = (num, cat, trade, h, plan, org) => mk(num, cat, trade, h, plan, org, 'alo');
+    const toFkA = (h, o) => toFkPlan(h, o);
+    // замечания к полям заявки (UC01.14.2.3.3): ключи — как у «Замечание к полю» в АРМ ННЦРЗ
+    const remA = (h, fields, cNum) => ['remarks', h, { fields, items:Object.keys(fields).map(k => fields[k].label + ': ' + fields[k].text),
+      concl:{ num:cNum, date:fmtD(H(h + 20)), text:'По результатам проверки на полноту и правильность оформления представленных документов выявлены замечания к заявлению и досье. Исправьте поля, отмеченные экспертом, и повторно направьте заявку в течение 10 рабочих дней.' } }];
+    A('0000171', 'ls', 'Джардинс', 6, null);
+    A('0000172', 'ls', 'Форсига', 5, [ sub(4) ]);
+    A('0000173', 'mi', 'FreeStyle Libre 2', 60, [ sub(58), ['p7No', 20] ]);
+    A('0000174', 'ls', 'Метформин-Тева', 900, [ sub(900), ['p7Yes', 860] ]);
+    A('0000175', 'ls', 'Энхерту', 500, [ sub(500), ['p7No', 470], ['pay20', 450, F('ПП 20% Энхерту.pdf', 164)], ['confirm20', 40], remA(3, {
+      's.comp':{ label:'Заявление: Состав ЛС (действующие и вспомогательные вещества)', text:'Укажите количественное содержание действующего вещества во флаконе и полный перечень вспомогательных веществ.' },
+      's.indic':{ label:'Заявление: Показания к применению согласно инструкции по применению лекарственного средства', text:'Показания должны дословно совпадать с утверждённой инструкцией по медицинскому применению.' },
+      'd.analogs.file':{ label:'Досье, раздел 4: Файл', text:'Перечень аналогов не содержит лекарственных форм и дозировок на дату подачи заявления. Приложите актуальную выписку из Государственного реестра.' },
+    }, 'ЗПЭ-0000175') ]);
+    A('0000176', 'mi', 'Resolute Onyx', 700, [ sub(700), ['p7No', 680], ['pay20', 660, F('ПП_20.pdf', 150)], ['confirm20', 330], remA(300, {
+      's.kit':{ label:'Заявление: Комплектация МИ, предлагаемого для включения', text:'Перечислите все компоненты комплекта согласно регистрационному удостоверению.' },
+    }, 'ЗПЭ-0000176'), ['remarksReply', 20, { changes:{ 's.kit':'Стент коронарный с лекарственным покрытием (зотаролимус) на системе доставки, 1 шт.; инструкция по применению; карта пациента.' } }] ]);
+    A('0000177', 'ls', 'Кейтруда', 1100, [ sub(1100), ['p7No', 1080], ['pay20', 1060, F('ПП_20.pdf', 150)], ['confirm20', 1040], ['recommend', 30] ]);
+    A('0000178', 'mi', 'Attune', 200, [ sub(200), ['p7No', 150], ['pay20', 100, F('Платёжное поручение № 1204.pdf', 176)], ['payNo', 8, { pct:20, comment:'Платёж на счёт ННЦРЗ не поступил: в платёжном поручении указан неверный ИИК получателя.' }] ]);
+    A('0000179', 'ls', 'Ксарелто', 1500, [ sub(1500), ['p7No', 1480], ['pay20', 1460, F('ПП_20.pdf', 150)], ['confirm20', 1440], ['recommend', 1300], ['pay80', 1280, F('ПП_80.pdf', 160)], ['confirm80', 50] ]);
+    A('0000180', 'ls', 'Тагриссо', 2600, [ sub(2600), ['p7No', 2550], ['pay20', 2530, F('ПП_20.pdf', 150)], ['confirm20', 2500], ['recommend', 2400], ['pay80', 2380, F('ПП_80.pdf', 160)], ['confirm80', 2300], ['profFinish', 90], ['profDone', 30] ]);
+    A('0000181', 'ls', 'Дарзалекс', 1800, [ sub(1800), ['p7No', 1750], ['pay20', 1730, F('ПП_20.pdf', 150)], ['confirm20', 1700], ['refuse', 200, { comment:'Не представлены сведения о наличии ЛС в рекомендациях клинических протоколов Республики Казахстан (раздел досье 6).' }], ['actReply', 40, { agree:false, file:{ name:'Мотивированное возражение Дарзалекс.pdf', size:236 * 1024 } }] ]);
+    A('0000182', 'mi', 'MiniMed 780G', 1500, toFkA(1500));
+    A('0000183', 'ls', 'Хумира', 4400, toFkA(4400).concat([ ['fkInclude', 4, { protocol:'ФК-14/2026', comm:'0000009' }] ]));
+    A('0000184', 'mi', 'Accu-Chek Performa', 4500, toFkA(4500).concat([ ['fkExclude', 4, { protocol:'ФК-14/2026', comm:'0000009' }] ]));
+    A('0000185', 'ls', 'Джардинс', 600, [ sub(600), ['p7No', 560], ['pay20', 500, F('ПП_20.pdf', 150)], ['payNo', 480, { pct:20, comment:'Сумма платежа меньше суммы счёта.' }], ['pay20', 470, F('ПП_20_повторно.pdf', 152)], ['payNo', 450, { pct:20, comment:'Платёж повторно не поступил на счёт ННЦРЗ.' }] ]);
+    A('0000186', 'mi', 'Vasofix Safety', 800, [ sub(800), ['p7No', 760], ['timeout', 600] ]);
+    A('0000187', 'ls', 'Энхерту', 2200, [ sub(2200), ['p7No', 2150], ['pay20', 2130, F('ПП_20.pdf', 150)], ['confirm20', 2100], ['refuse', 2000, { comment:'Сведения о клиническом преимуществе ЛС по сравнению с имеющимися в перечне для амбулаторного обеспечения не подтверждены (раздел досье 7).' }], ['timeout', 1880] ]);
+    A('0000188', 'ls', 'Тагриссо', 2500, [ sub(2500), ['p7No', 2450], ['pay20', 2430, F('ПП_20.pdf', 150)], ['confirm20', 2400], ['refuse', 2300, { comment:'Заявляемое показание не относится к заболеваниям (состояниям) для амбулаторного обеспечения (раздел досье 1).' }], agree(2250) ]);
+
+    // ── АЛО: другие организации (АРМ ННЦРЗ и ФК) ──
+    A('0000189', 'ls', 'Форсига', 32, [ sub(30, 'alliance') ], 'alliance');
+    A('0000190', 'mi', 'Attune', 82, [ sub(80, 'nur') ], 'nur');
+    A('0000191', 'ls', 'Ксарелто', 402, [ sub(400, 'kmg'), ['p7No', 370], ['pay20', 300, F('ПП 20% Ксарелто.pdf', 158)], ['confirm20', 20] ], 'kmg');
+    A('0000192', 'ls', 'Хумира', 262, [ sub(260, 'dala'), ['p7No', 230], ['pay20', 7, F('Платёжное поручение 20%.pdf', 166)] ], 'dala');
+    A('0000193', 'mi', 'FreeStyle Libre 2', 902, [ sub(900, 'medtech'), ['p7No', 870], ['pay20', 840, F('ПП_20.pdf', 150)], ['confirm20', 820], ['recommend', 500], ['pay80', 470, F('ПП_80.pdf', 160)], ['confirm80', 100] ], 'medtech');
+    A('0000194', 'ls', 'Энхерту', 1500, toFkA(1500, 'alliance'), 'alliance');
+    A('0000195', 'mi', 'Resolute Onyx', 1520, toFkA(1520, 'nur'), 'nur');
+    A('0000196', 'ls', 'Кейтруда', 1540, toFkA(1540, 'kmg'), 'kmg');
+    A('0000197', 'ls', 'Тагриссо', 1560, toFkA(1560, 'dala'), 'dala');
+    A('0000198', 'mi', 'Vasofix Safety', 1580, toFkA(1580, 'medtech'), 'medtech');
+    db.seq = 198;
+
     // уведомления по итоговым решениям демо-заявок (UC01.13.2.2): свежее — непрочитанное
     try {
       const n = [
@@ -844,6 +1000,11 @@ const ED = (() => {
         notifRec('0000107', 'no', H(2), '102', true),
         notifRec('0000104', 'no', H(1690), '101', true),
         notifRec('0000101', 'ok', H(2950), '100', true),
+        notifRec('0000175', 'rework', H(3), '109', false, 'alo'),
+        notifRec('0000183', 'ok', H(4), '108', false, 'alo'),
+        notifRec('0000184', 'no', H(4), '107', true, 'alo'),
+        notifRec('0000188', 'no', H(2250), '106', true, 'alo'),
+        notifRec('0000174', 'ok', H(860), '105', true, 'alo'),
       ].sort((a, b) => b.at - a.at);
       localStorage.setItem(NKEY, JSON.stringify(n));
     } catch(e){}
@@ -867,10 +1028,13 @@ const ED = (() => {
     const cat = app.form && app.form.cat || 'ls';
     const s = app.form && app.form.s && app.form.s[cat] || {};
     const st = ST[app.status] || {};
-    return { cat, catShort: cat === 'mi' ? 'МИ' : 'ЛС', catLong: cat === 'mi' ? 'Медицинские изделия' : 'Лекарственные средства', trade: s.trade || '', action: !!st.action, tone: toneOf(app.status, app) };
+    const S = svcOf(app);
+    return { cat, catShort: cat === 'mi' ? 'МИ' : 'ЛС', catLong: cat === 'mi' ? 'Медицинские изделия' : 'Лекарственные средства', trade: s.trade || '', action: !!st.action, tone: toneOf(app.status, app),
+      svc:S.id, svcShort:S.short, svcName:S.name };
   };
 
   return {
+    SVCS, SVC_LIST, svcOf, getField, setField, UNPAID,
     KEY, NKEY, SERVICE, SERVICE_TYPE, PRICE, PROVIDER, PROFILE, DICT, SCHEMA, FILTER, TONE, ST, EXT, LIMIT, FAIL_MSG,
     dossier, list, listAll, meta, get, put, remove, newApp, newReg, blankForm, validate, stepDone, apply, mutate, mutateAll, events, expireSoon, tick,
     ORGS, orgOf, logPush, endWD, addWDEnd: endWD, fast: fastNow, setFast, FAST_MS, isWork,

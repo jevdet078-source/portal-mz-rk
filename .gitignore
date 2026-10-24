@@ -8,3 +8,6 @@ Thumbs.db
 
 # видео-записи сценариев (npm run record)
 exports/video/
+
+# текстовые копии постановок (конвертированы из Confluence .doc, исходники — у аналитика)
+_incoming/alo-specs/

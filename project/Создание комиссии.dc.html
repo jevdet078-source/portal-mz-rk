@@ -7,11 +7,11 @@
 </head>
 <body>
 <!--
-  АРМ Формулярной комиссии → «Создать комиссию» (UC01.13.4.3.1, секретарь ФК).
+  АРМ Формулярной комиссии → «Создать комиссию» (UC01.13.4.3.1 — ЕД, UC01.14.4.3.1 — АЛО; секретарь ФК).
   По постановке:
     • «Сведения о комиссии» → «Выбор услуги»: КНФ / ЕД / АЛО, после выбора услуга не меняется; раздел объектов
-      скрыт, пока услуга не выбрана (в прототипе подключена только ЕД);
-    • объекты — только заявки ЕД со статусом «Формулярная комиссия», не занятые активной комиссией и не
+      скрыт, пока услуга не выбрана (в прототипе подключены ЕД и АЛО, КНФ — нет);
+    • объекты — только заявки выбранной услуги со статусом «Формулярная комиссия», не занятые активной комиссией и не
       обработанные состоявшейся; таблица: выбор, №, ЛС/МИ, торговое наименование, заявитель, «Страница 1/N»;
     • «Укажите дату проведения» — три равные колонки: дата (доступны только 6-й, 7-й и 8-й рабочий день от сегодня,
       календарь текущего месяца с переходом на следующий), время начала 09:00–20:00, длительность «1 час»
@@ -134,7 +134,7 @@
                 <h2 id="h-obj" style="flex:1;min-width:0;margin:0;font-size:16px;line-height:24px;font-weight:500;">Выберите лекарственное средство или медицинское изделие<span aria-hidden="true" style="color:var(--primary);"> *</span></h2>
                 <span style="{{ selCountStyle }}" class="tnum">{{ selCount }}</span>
               </div>
-              <div class="fk-scroll" style="border-top:1px solid var(--stroke);"><div role="table" aria-label="Свободные объекты ЕД">
+              <div class="fk-scroll" style="border-top:1px solid var(--stroke);"><div role="table" aria-label="{{ objAria }}">
                 <div role="row" style="display:flex;align-items:center;background:var(--n100);font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
                   <div role="columnheader" style="width:56px;flex:0 0 auto;padding:8px 0 8px 24px;"><button onClick="{{ toggleAll }}" role="checkbox" aria-checked="{{ allOn }}" aria-label="Выбрать все на странице" style="{{ allBox }}"><i class="{{ allIcon }}" style="font-size:14px;"></i></button></div>
                   <div role="columnheader" style="width:110px;flex:0 0 auto;padding:8px 10px;">№</div>
@@ -307,7 +307,7 @@ class Component extends DCLogic {
     }
     const [hh, mm] = s.time.split(':').map(Number);
     const start = new Date(s.date); start.setHours(hh, mm, 0, 0);
-    const r = A.fkCreate({ by:A.current('fk'), objects:s.sel, start:start.getTime(), chair:s.chair, members:s.members.filter(u => u !== s.chair) });
+    const r = A.fkCreate({ by:A.current('fk'), svc:s.svc, objects:s.sel, start:start.getTime(), chair:s.chair, members:s.members.filter(u => u !== s.chair) });
     if(!r.ok){ this.setState({ fail:true }); return; }
     location.href = 'Комиссия ФК.dc.html?id=' + encodeURIComponent(r.c.id) + '&from=active&created=1';
   }
@@ -320,15 +320,15 @@ class Component extends DCLogic {
     const ava = (id, px) => { const c = A ? A.avatar(id) : ['#F6F8FA','#525866']; return `width:${px}px;height:${px}px;border-radius:50%;background:${c[0]};color:${c[1]};font-size:${px > 24 ? 11 : 10}px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;`; };
     const check = (on) => `width:18px;height:18px;border-radius:5px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;${on ? 'background:#4D42E9;color:#fff;border:none;' : 'background:#fff;color:transparent;border:1.5px solid #CDD0D5;'}`;
     // 1. услуга
-    const svcs = [ ['КНФ', 'Казахстанский национальный лекарственный формуляр'], ['ЕД', 'Включение ЛС / МИ в перечень Единого дистрибьютора'], ['АЛО', 'Амбулаторное лекарственное обеспечение'] ].map(([id, desc]) => {
-      const on = s.svc === id, dis = id !== 'ЕД' || (!!s.svc && !on);
-      return { label:id, desc, on, disabled:dis, tip: id !== 'ЕД' ? 'В прототипе комиссии создаются только по услуге ЕД' : '',
+    const svcs = [ ['КНФ', 'Казахстанский национальный лекарственный формуляр'], ['ЕД', 'Включение ЛС / МИ в перечень Единого дистрибьютора'], ['АЛО', 'Включение ЛС / МИ в перечень АЛО'] ].map(([id, desc]) => {
+      const on = s.svc === id, dis = id === 'КНФ' || (!!s.svc && !on);
+      return { label:id, desc, on, disabled:dis, tip: id === 'КНФ' ? 'В прототипе комиссии создаются по услугам ЕД и АЛО' : '',
         pick: () => { if(dis || s.svc) return; this.setState({ svc:id }); }, radio: radio(on, dis),
         labelStyle:`font-size:15px;line-height:20px;font-weight:600;color:${dis && !on ? '#868C98' : '#0A0D14'};`,
         style:`display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:12px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#FBFCFD' : dis ? '#FBFCFD' : '#fff'};font-family:inherit;cursor:${dis ? 'not-allowed' : 'pointer'};text-align:left;` };
     });
     // 2. объекты
-    const free = ready ? A.freeObjects() : [];
+    const free = ready && s.svc ? A.freeObjects(s.svc) : [];
     const per = 6, pages = Math.max(1, Math.ceil(free.length / per)), page = Math.min(s.page, pages);
     const pageItems = free.slice((page - 1) * per, page * per);
     const objs = pageItems.map(a => { const sm = ED.summary(a), on = s.sel.indexOf(a.num) !== -1; return { num:a.num, cat:sm.catShort, trade:sm.trade, org:(a.org || ED.PROFILE).org, on, aria:'Выбрать ' + sm.trade,
@@ -360,7 +360,7 @@ class Component extends DCLogic {
     const plural = (n, a, b, c) => { const x = n % 10, y = n % 100; return x === 1 && y !== 11 ? a : x >= 2 && x <= 4 && (y < 12 || y > 14) ? b : c; };
     return {
       denied: ready && !allowed, allowed,
-      svcs, svcLocked: !!s.svc, hasSvc: !!s.svc,
+      svcs, svcLocked: !!s.svc, hasSvc: !!s.svc, objAria:'Свободные объекты ' + (s.svc || ''),
       objBox:`background:#fff;border:1px solid ${err('obj') ? '#F8C9D2' : '#E2E4E9'};border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;`,
       selCount: 'Выбрано: ' + s.sel.length, selCountStyle:`height:24px;padding:0 10px;border-radius:999px;font-size:12px;line-height:24px;font-weight:500;${s.sel.length ? 'background:#EEF2FF;color:#312D86;' : 'background:#F6F8FA;color:#525866;'}`,
       objs, noObjs: ready && free.length === 0, allOn, allIcon: allOn ? 'ri-check-line' : '', allBox: check(allOn) + 'cursor:pointer;padding:0;',
