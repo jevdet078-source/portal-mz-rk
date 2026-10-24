@@ -27,6 +27,10 @@
     • Формулярная комиссия — localStorage['mp-fk-db']: комиссии, состав, таймеры ознакомления
       и голосования, голоса, решение секретаря, подпись председательствующего, итог по объектам.
 
+  Услуга АЛО (UC01.14.3, BPMN 2.1–2.3 АЛО) — тот же процесс, различия берутся из mpEd.svcOf(app): тексты нулевой
+  экспертизы, без ЗПП в маршруте (SVCS.dep), без сумм в счетах, «Оплата 20% / 80% не произведена». Расхождения
+  постановок — docs/10-alo-plan.md.
+
   Демо: при первом запуске (и после «Сбросить данные») достраивает внутреннюю историю демо-заявок EdData
   (кто назначен, кто решал, кто согласовал), заявки на согласовании и шесть комиссий во всех статусах.
 -->
@@ -137,7 +141,7 @@ const ARM = (() => {
   const readNotif = (id) => { const l = readNs(); const x = l.find(y => y.id === id); if(x && !x.read){ x.read = true; x.readAt = Date.now(); writeNs(l); } };
 
   // ───────────────────────── внутренние статусы ННЦРЗ ─────────────────────────
-  const NN_FILTER = ['Новая','В работе','На согласовании у начальника управления','На согласовании у директора департамента','На согласовании у ЗПП','На подписи у ЗПП','На подписи у ПП','На доработке','Проверка доработки','Подготовка документов','Ожидает оплаты 20%','Подтверждение оплаты 20%','Ожидает оплаты 80%','Подтверждение оплаты 80%','Выставлены замечания','Направлен акт','Отказано','Отказ от решения','Оплата не произведена','Формулярная комиссия','Решение принято','Рассмотрение заблокировано','Завершено'];
+  const NN_FILTER = ['Новая','В работе','На согласовании у начальника управления','На согласовании у директора департамента','На согласовании у ЗПП','На подписи у ЗПП','На подписи у ПП','На доработке','Проверка доработки','Подготовка документов','Ожидает оплаты 20%','Подтверждение оплаты 20%','Ожидает оплаты 80%','Подтверждение оплаты 80%','Выставлены замечания','Направлен акт','Отказано','Отказ от решения','Оплата не произведена','Оплата 20% не произведена','Оплата 80% не произведена','Формулярная комиссия','Решение принято','Рассмотрение заблокировано','Завершено'];
   const NN_STAGES = ['Нулевая экспертиза','Первичная экспертиза','Профессиональная экспертиза','Рассмотрение формулярной комиссией'];
   const NN_TONE = {
     'Новая':'teal', 'Подтверждение оплаты 20%':'teal', 'Подтверждение оплаты 80%':'teal',
@@ -145,9 +149,10 @@ const ARM = (() => {
     'На согласовании у начальника управления':'purple', 'На согласовании у директора департамента':'purple', 'На согласовании у ЗПП':'purple', 'На подписи у ЗПП':'purple', 'На подписи у ПП':'purple', 'Формулярная комиссия':'purple',
     'На доработке':'orange',
     'Ожидает оплаты 20%':'gray', 'Ожидает оплаты 80%':'gray', 'Выставлены замечания':'gray', 'Направлен акт':'gray', 'Завершено':'gray',
-    'Отказано':'red', 'Оплата не произведена':'red', 'Рассмотрение заблокировано':'red', 'Решение принято':'green',
+    'Отказано':'red', 'Оплата не произведена':'red', 'Оплата 20% не произведена':'red', 'Оплата 80% не произведена':'red', 'Рассмотрение заблокировано':'red', 'Решение принято':'green',
   };
-  const FINAL = ['Завершено','Отказано','Оплата не произведена','Рассмотрение заблокировано','Решение принято'];
+  // АЛО: повторная неоплата — «Оплата 20% / 80% не произведена» (BPMN 2.1–2.2 АЛО)
+  const FINAL = ['Завершено','Отказано','Оплата не произведена','Оплата 20% не произведена','Оплата 80% не произведена','Рассмотрение заблокировано','Решение принято'];
   const WAIT_APPLICANT = ['Ожидает оплаты 20%','Ожидает оплаты 80%','Выставлены замечания','Направлен акт'];
   const nnStatus = (app) => (app && app.nn && app.nn.status) || 'Новая';
   const nnStage = (app) => (app && app.nn && app.nn.stage) || 'Нулевая экспертиза';
@@ -247,14 +252,16 @@ const ARM = (() => {
   // ДирДеп → ЗПП (согласует / подписывает) или ПП (подписывает); ЗПП-согласующий → ПП.
   // Счёт 20% («Не соответствует пункту 7») подписывает ДирДеп — до ПП заявка не идёт (табл. §5 UC01.13.3.3).
   const pendingRec = (app) => { const n = app && app.nn; return n && n.pend ? (n.d || []).find(x => x.id === n.pend) : null; };
+  // АЛО: ЗПП в цепочке нет (UC01.14 §4, UC01.14.3 §4; в UC01.14.3.3.2–3.3.5 «Выбор ЗПП — заготовка») — ДирДеп выбирает только ПП.
   const nextOptions = (app, uid, rec) => {
     rec = rec || pendingRec(app);
     const r = roleKey(uid);
     const p7no = rec && rec.kind === 'p7' && rec.val === 'no';
+    const dep = E().svcOf(app).dep !== false;
     const O = (id, mode, label) => ({ user:id, mode, label: label || roleLabel(id), name: shortName(id) });
     if(r === 'expert' || r === 'prof') return [ O(CHIEF, 'agree') ];
     if(r === 'chief') return [ O(DIR, p7no ? 'sign' : 'agree') ];
-    if(r === 'dir') return p7no ? [] : [ O(DEP, 'agree', 'Заместитель Председателя Правления — согласующий'), O(DEP, 'sign', 'Заместитель Председателя Правления — подписывающий'), O(CHAIR, 'sign', 'Председатель Правления — подписывающий') ];
+    if(r === 'dir') return p7no ? [] : (dep ? [ O(DEP, 'agree', 'Заместитель Председателя Правления — согласующий'), O(DEP, 'sign', 'Заместитель Председателя Правления — подписывающий') ] : []).concat([ O(CHAIR, 'sign', 'Председатель Правления — подписывающий') ]);
     if(r === 'dep') return [ O(CHAIR, 'sign', 'Председатель Правления — подписывающий') ];
     return [];
   };
@@ -288,7 +295,8 @@ const ARM = (() => {
     if(rec.kind === 'primary' && rec.val === 'recommend'){
       // «Рекомендовано» — счёт 80% уходит заявителю сразу (UC01.13.3.4.2.1), согласования нет
       r.state = 'done'; r.fin = at;
-      const docs = (rec.files || []).map(f => ({ title:'Счёт на оплату 80%', id:'', name:f.name, size:f.size, amount: E().PRICE * 0.8 }));
+      const pr = E().svcOf(app).price;
+      const docs = (rec.files || []).map(f => ({ title:'Счёт на оплату 80%', id:'', name:f.name, size:f.size, amount: pr ? pr * 0.8 : null }));
       if(nnStatus(app) === 'Отказ от решения') ACT.disputeAccept(app, at, { docs }); else ACT.recommend(app, at, { docs });
       logStaff(app, H, uid, 'Ожидает оплаты 80%', 'Рекомендовано. Счёт на оплату 80% направлен заявителю', at);
       setAssignee(n, 'applicant', at);
@@ -299,7 +307,8 @@ const ARM = (() => {
     n.pend = r.id; n.next = { user:next.user, mode:next.mode };
     const st = apprStatus(n.next);
     H.nn(app, nnStage(app), st);
-    const label = { p7: rec.val === 'yes' ? 'Соответствует пункту 7' : 'Не соответствует пункту 7. Приложен счёт на оплату 20%', primary:'Отказано. ' + (rec.comment || ''), remarks:'Сформированы замечания к заявке', prof:'Сформировано заключение профессиональной экспертизы' + (rec.num ? ' № ' + rec.num : '') }[rec.kind] || '';
+    const Z = E().svcOf(app).zero;
+    const label = { p7: rec.val === 'yes' ? Z.yes : Z.no + '. Приложен счёт на оплату 20%', primary:'Отказано. ' + (rec.comment || ''), remarks:'Сформированы замечания к заявке', prof:'Сформировано заключение профессиональной экспертизы' + (rec.num ? ' № ' + rec.num : '') }[rec.kind] || '';
     logStaff(app, H, uid, st, label.trim(), at);
     setAssignee(n, n.next.user, at);
     notify(n.next.user, { ref:app.num, code: n.next.mode === 'sign' ? 'SIGN' : 'APPROVE', status:st, at, dk:r.id });
@@ -312,7 +321,7 @@ const ARM = (() => {
     let st = '';
     if(r.kind === 'p7'){
       if(r.val === 'yes'){ ACT.p7Yes(app, at); st = 'Завершено'; setAssignee(n, null, at); }
-      else { ACT.p7No(app, at, { docs: docs.map(d => ({ ...d, title:'Счёт на оплату 20%', amount: ED.PRICE * 0.2 })) }); st = 'Ожидает оплаты 20%'; setAssignee(n, 'applicant', at); }
+      else { const pr = ED.svcOf(app).price; ACT.p7No(app, at, { docs: docs.map(d => ({ ...d, title:'Счёт на оплату 20%', amount: pr ? pr * 0.2 : null })) }); st = 'Ожидает оплаты 20%'; setAssignee(n, 'applicant', at); }
     } else if(r.kind === 'primary'){
       if(r.round === 2) ACT.disputeReject(app, at, { docs, comment:r.comment }); else ACT.refuse(app, at, { docs, comment:r.comment });
       st = 'Направлен акт'; setAssignee(n, 'applicant', at);
@@ -371,7 +380,7 @@ const ARM = (() => {
     } else {
       ACT.payNo(app, at, { pct, comment, file });
       st = nnStatus(app);
-      setAssignee(n, st === 'Оплата не произведена' ? null : 'applicant', at);
+      setAssignee(n, FINAL.indexOf(st) !== -1 ? null : 'applicant', at);
     }
     H.logPush(app, { role:chronoRole(uid), fio:fullName(uid), start:since0 || at, end:at, status:st, comment: yes ? 'Оплата ' + pct + '% подтверждена' : 'Оплата ' + pct + '% не подтверждена: ' + comment });
   });
@@ -530,7 +539,7 @@ const ARM = (() => {
           const n = ensureNn(app);
           n.fk = { comm:c.num, id:c.id, protocol:c.dec.protocol, at, include:res.include, tally:res };
           setAssignee(n, null, at);
-          H.logPush(app, { role:'Председательствующий ФК', fio:fullName(uid), start:c.dec.at, end:at, status:'Решение принято', comment:(res.include ? 'Включить в перечень ЕД' : 'Не включать в перечень ЕД') + '. Протокол № ' + c.dec.protocol });
+          H.logPush(app, { role:'Председательствующий ФК', fio:fullName(uid), start:c.dec.at, end:at, status:'Решение принято', comment:(res.include ? 'Включить в ' : 'Не включать в ') + 'перечень ' + E().svcOf(app).listShort + '. Протокол № ' + c.dec.protocol });
           app.updated = at;
         });
       });
@@ -606,6 +615,7 @@ const ARM = (() => {
       else S(DIR, chain[1].at, chain[2].at, finalStatus, 'Подписано ЭЦП');
     };
     const f = (title, d) => d ? { title, name:d.name, size:d.size, amount:d.amount } : null;
+    const SV = ED.svcOf(app);
     const sentAt = app.sentAt || app.created;
     A(app.created, sentAt, 'Новая', 'Заявление подписано ЭЦП и отправлено');
     const assigned = st !== 'Новая' || stg !== 'Нулевая экспертиза';
@@ -618,14 +628,22 @@ const ARM = (() => {
         const tEnd = s.issued, t0 = Math.max(tAssign + 10 * MIN, tEnd - 20 * HOUR);
         const chain = route(exp, t0, tEnd, false);
         mkRec({ kind:'p7', round:1, val:'no', files:[ f('Счёт на оплату 20%', s.docs[0]) ].filter(Boolean), by:exp, at:t0, chain, fin:tEnd });
-        routeLog(exp, chain, 'Ожидает оплаты 20%', 'Не соответствует пункту 7. Приложен счёт на оплату 20%');
+        routeLog(exp, chain, 'Ожидает оплаты 20%', SV.zero.no + '. Приложен счёт на оплату 20%');
+      }
+      // оплата не подтверждена экспертом: 1-й раз — повторный шаг оплаты, 2-й — итоговый шаг (UC01.13.3.4.1 / UC01.14.3.4.1 Alt 7–8)
+      const rej = (s.kind === 'pay20' || s.kind === 'pay80') && s.round === 2 ? s.reject : s.kind === 'done' && /^unpaid/.test(s.variant || '') ? s.reject : null;
+      if(rej){
+        const pct = s.kind === 'pay80' || s.variant === 'unpaid80' ? 80 : 20;
+        const fin = s.kind === 'done' ? (SV.splitUnpaid ? 'Оплата ' + pct + '% не произведена' : 'Оплата не произведена') : 'Ожидает оплаты ' + pct + '%';
+        mkRec({ kind:'pay' + pct, round: s.kind === 'done' ? 2 : 1, val:'no', comment:rej.comment || '', files: rej.file ? [ rej.file ] : [], by:exp, at:rej.at, chain:[ { user:exp, act:'exec', at:rej.at } ], fin:rej.at });
+        S(exp, rej.at - 4 * HOUR, rej.at, fin, 'Оплата ' + pct + '% не подтверждена: ' + (rej.comment || ''));
       }
       if((s.kind === 'pay20' || s.kind === 'pay80') && s.file) A(s.issued, s.at, 'Подтверждение оплаты ' + (s.kind === 'pay20' ? 20 : 80) + '%', 'Загружено платёжное поручение');
       if(s.kind === 'done' && s.variant === 'p7'){
         const tEnd = s.at, t0 = Math.max(tAssign + 10 * MIN, tEnd - 30 * HOUR);
         const chain = route(exp, t0, tEnd, true);
         mkRec({ kind:'p7', round:1, val:'yes', files:[], by:exp, at:t0, chain, fin:tEnd });
-        routeLog(exp, chain, 'Завершено', 'Соответствует пункту 7');
+        routeLog(exp, chain, 'Завершено', SV.zero.yes);
       }
       if(s.kind === 'wait' && s.phase === 'primary' && s.st !== 'Подтверждение оплаты 20%' && prev && prev.kind === 'pay20' && s.timer){
         mkRec({ kind:'pay20', round:1, val:'yes', comment:'', files:[], by:exp, at:s.timer.start, chain:[ { user:exp, act:'exec', at:s.timer.start } ], fin:s.timer.start });
@@ -642,7 +660,7 @@ const ARM = (() => {
         mkRec({ kind:'remarks', round:1, items:s.items || [], fields, concl, files:s.docs.map(d => f(d.title, d)), by:exp, at:t0, chain, fin:tEnd });
         n.rem = { fields, concl, saved:true, issued:true };
         routeLog(exp, chain, 'Выставлены замечания', 'Сформированы замечания к заявке');
-        if(s.reply) A(tEnd, s.at, 'Проверка доработки', s.reply.text || 'Направлены исправления по замечаниям');
+        if(s.reply) A(tEnd, s.at, 'Проверка доработки', s.reply.text || (s.reply.changes ? 'Исправлены поля по замечаниям: ' + s.reply.changes.length : 'Направлены исправления по замечаниям'));
       }
       if(s.kind === 'refuse'){
         const tEnd = s.issued, t0 = tEnd - 28 * HOUR;
@@ -678,7 +696,9 @@ const ARM = (() => {
       if(s.kind === 'fk'){
         (s.sessions || []).forEach(x => L.push({ role: x.held ? 'Председательствующий ФК' : 'Секретарь ФК', fio: fullName(x.held ? 'fk-chair' : SEC), start:x.at - 24 * HOUR, end:x.at, status: x.held ? 'Решение принято' : 'Формулярная комиссия', comment: x.held ? 'Комиссия состоялась' : 'Комиссия № ' + (x.comm || '') + ' не состоялась' }));
       }
-      if(s.kind === 'done' && (s.variant === 'unpaid20' || s.variant === 'unpaid80')) Y(s.at, s.at, 'Оплата не произведена', 'Не оплачен счёт в установленный срок');
+      if(s.kind === 'done' && (s.variant === 'unpaid20' || s.variant === 'unpaid80') && !s.reject) Y(s.at, s.at, 'Оплата не произведена', 'Не оплачен счёт в установленный срок');
+      // АЛО: истёк срок оплаты — у заявителя «Завершено», в ННЦРЗ «Оплата не произведена» (UC01.14.3.4.1 Alt 9)
+      if(s.kind === 'done' && (s.variant === 'expired20' || s.variant === 'expired80')) Y(s.at, s.at, 'Оплата не произведена', 'Не оплачен счёт ' + (s.variant === 'expired20' ? 20 : 80) + '% в установленный срок');
       if(s.kind === 'done' && s.variant === 'unfixed') Y(s.at, s.at, 'Завершено', 'Истёк срок отработки замечаний');
       if(s.kind === 'blocked') Y(s.at, s.at, 'Рассмотрение заблокировано', 'Документ не загружен в установленный срок');
     });
@@ -735,6 +755,13 @@ const ARM = (() => {
     ['0000155', [ ['submit', 'EXP', { kind:'primary', round:1, val:'refuse', comment:'Сведения о клинико-экономическом преимуществе (раздел досье 5) не подтверждены сравнительными исследованиями с препаратами, включёнными в перечень.', files:[ { title:'Сопроводительное письмо', name:'Сопроводительное письмо № 0000155.pdf', size:88 * 1024 }, { title:'Акт мотивированного отказа', name:'Акт мотивированного отказа № 0000155.pdf', size:142 * 1024 } ] }, 'CHIEF', 20], ['return', CHIEF, 'Уточните в комментарии ссылки на конкретные исследования, которые не были учтены, и приложите письмо на фирменном бланке.', 4] ]],
     ['0000118', [ ['assign', CHIEF, 'PROF', 299] ]],
     ['0000160', [ ['assign', CHIEF, 'PROF', 398], ['profComplete', 'PROF', 60], ['submit', 'PROF', { kind:'prof', round:1, val:'done', num:'ПЭ-0000160', date:'', files:[ { title:'Заключение профессиональной экспертизы', name:'Заключение ПЭ № 0000160.pdf', size:1240 * 1024 }, { title:'Сопроводительное письмо', name:'Сопроводительное письмо № 0000160.pdf', size:91 * 1024 }, { title:'Акт выполненных работ', name:'АВР № 0000160.pdf', size:142 * 1024 } ] }, 'CHIEF', 20], ['approve', CHIEF, { user:DIR, mode:'agree' }, 10], ['approve', DIR, { user:CHAIR, mode:'sign' }, 3] ]],
+    // АЛО (UC01.14.3): «Аналог имеется» — на подписи у ПП; замечания к полям — на согласовании у ДирДепа; проф. эксперт назначен
+    ['0000190', [ ['assign', CHIEF, 'EXP', 74], ['submit', 'EXP', { kind:'p7', round:1, val:'yes', files:[] }, 'CHIEF', 40], ['approve', CHIEF, { user:DIR, mode:'agree' }, 22], ['approve', DIR, { user:CHAIR, mode:'sign' }, 2] ]],
+    ['0000191', [ ['remarks', 'EXP', { fields:{
+        's.route':{ label:'Заявление: Способ применения', text:'Укажите режим дозирования и длительность курса согласно утверждённой инструкции по медицинскому применению.' },
+        'd.epid.file':{ label:'Досье, раздел 5: Файл', text:'Данные эпидемиологии приведены за 2019 год. Приложите сведения по Республике Казахстан за последние 3 года.' },
+      }, concl:{ num:'ЗПЭ-0000191', text:'По результатам проверки на полноту и правильность оформления представленных документов выявлены замечания к заявлению и досье, указанные в разделе 4 настоящего заключения.' } }, 'CHIEF', 9], ['approve', CHIEF, { user:DIR, mode:'agree' }, 3] ]],
+    ['0000193', [ ['assign', CHIEF, 'PROF', 90] ]],
   ];
   const runPlan = (now) => {
     const ED = E();
@@ -749,6 +776,15 @@ const ARM = (() => {
         if(st[0] === 'approve') approve(num, st[1], st[2], at);
         if(st[0] === 'return') returnTo(num, st[1], st[2], at);
         if(st[0] === 'profComplete') profComplete(num, R(st[1]), at);
+        // замечания к полям + заключение → «Подписать и отправить» (UC01.13.3.4.2.3 / UC01.14.3.4.2.3)
+        if(st[0] === 'remarks'){
+          const by = R(st[1]), o = st[2];
+          wf(num, at, (a, nn) => { nn.rem.fields = {}; Object.keys(o.fields).forEach(k => { nn.rem.fields[k] = { ...o.fields[k], at }; }); nn.rem.concl = { date:ED.fmtD(at), letter:null, ...o.concl }; nn.rem.saved = true; });
+          const a2 = ED.get(num), rem = a2.nn.rem;
+          const rec = { kind:'remarks', round:1, items:Object.keys(rem.fields).map(k => rem.fields[k].label + ': ' + rem.fields[k].text), fields:rem.fields, concl:rem.concl,
+            files:[ { title:'Заключение по первичной экспертизе (замечания)', name:'Заключение_замечания_№' + num + '.pdf', size:182 * 1024, doc:{ type:'remarks', num } } ] };
+          submit(num, by, rec, nextOptions(a2, by, rec)[0], at);
+        }
       });
     });
   };

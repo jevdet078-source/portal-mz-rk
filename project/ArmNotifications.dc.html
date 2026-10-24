@@ -7,7 +7,8 @@
 </head>
 <body>
 <!--
-  Раздел «Уведомления» АРМ экспертов (UC01.13.3.2 — АРМ ННЦРЗ, UC01.13.4.4 — АРМ ФК).
+  Раздел «Уведомления» АРМ экспертов (UC01.13.3.2 / UC01.14.3.2 — АРМ ННЦРЗ, UC01.13.4.4 — АРМ ФК).
+  Наименование услуги — по заявке: «Включение ЛС / МИ в перечень ЕД» или «… АЛО».
   Пропс arm — nn | fk. Подключается в реестр АРМ по #notifications.
 
   По постановке (табл. 1): №, ID заявки (у ФК — № комиссии), наименование услуги, статус, дата действия,
@@ -109,7 +110,8 @@ class Component extends DCLogic {
     const rows = list.slice((page - 1) * per, page * per).map(x => {
       const href = x.kind === 'fk' ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(x.ref) + '&from=notifications' : 'Карточка заявки ННЦРЗ.dc.html?n=' + x.ref;
       const go = () => { A.readNotif(x.id); location.href = href; };
-      return { n:String(x.n), ref:x.label, href, svc: x.kind === 'fk' ? 'Формулярная комиссия · ЕД' : 'Включение ЛС / МИ в перечень ЕД',
+      const app = x.kind === 'fk' ? null : ED.get(x.ref);
+      return { n:String(x.n), ref:x.label, href, svc: x.kind === 'fk' ? 'Формулярная комиссия · ЕД' : 'Включение ЛС / МИ в перечень ' + ED.svcOf(app).listShort,
         badge: badge(x), at: ED.fmtD(x.at) + ', ' + ED.fmtT(x.at), text:x.text, aria:(x.read ? '' : 'Непрочитанное. ') + x.text,
         open: go, key: (e) => { if(e.key === 'Enter'){ e.preventDefault(); go(); } },
         openLink: (e) => { if(e){ e.preventDefault(); e.stopPropagation(); } go(); },
