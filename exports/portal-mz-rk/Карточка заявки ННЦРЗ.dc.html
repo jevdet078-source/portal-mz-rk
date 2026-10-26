@@ -808,7 +808,7 @@ class Component extends DCLogic {
     const rec = { kind:'remarks', round:1, items, fields, concl:n.rem.concl, files };
     this.askNext(A.nextOptions(s.app, me, rec), 'Выберите согласующего пользователя', (next, at) => {
       const r = A.submit(num, me, rec, next, at);
-      this.done(r, 'Замечания направлены на согласование', 'После подписи Председателя Правления заявитель получит 10 рабочих дней на исправление.');
+      this.done(r, 'Замечания направлены на согласование', 'После подписи руководства заявитель получит ' + window.mpEd.svcOf(s.app).remWD + ' рабочих дней на исправление.');
     }, 'Подписание замечаний к заявке');
   }
   doApprove(){
@@ -1006,7 +1006,7 @@ class Component extends DCLogic {
       // ЕД — «Соответствие пункту 7» (UC01.13.3.4.1), АЛО — «Наличие аналога в перечне АЛО» (UC01.14.3.4.1)
       const Z = ED.svcOf(app).zero;
       F.title = 'Принятие решения'; F.hasTip = true; F.tip = Z.tip;
-      F.fields.push(this.radioField(Z.field, [ { id:'yes', label:Z.yes, desc:'Заявка будет завершена после подписи Председателя Правления' }, { id:'no', label:Z.no, desc:'Приложите счёт на оплату 20% стоимости экспертизы' } ], f.p7, (v) => this.setState({ f:{ ...this.state.f, p7:v } })));
+      F.fields.push(this.radioField(Z.field, [ { id:'yes', label:Z.yes, desc:'Заявка будет завершена после подписи руководства' }, { id:'no', label:Z.no, desc:'Приложите счёт на оплату 20% стоимости экспертизы' } ], f.p7, (v) => this.setState({ f:{ ...this.state.f, p7:v } })));
       if(f.p7 === 'no') F.fields.push(this.upField('inv20', 'Счёт на оплату 20%', true, true, 'grid-column:1 / -1;min-width:0;max-width:560px;'));
       const miss = []; if(!f.p7) miss.push('Выберите решение'); if(f.p7 === 'no' && !s.files.inv20) miss.push('Прикрепите счёт на оплату 20%');
       Object.assign(F, hintOf(miss)); F.btns = [ back, send(!miss.length, null, () => this.doP7()) ];
@@ -1177,12 +1177,13 @@ class Component extends DCLogic {
       countStyle:'min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:20px;font-weight:600;text-align:center;' + (fixedIn[id] && fixedIn[id] === cnt[id] ? 'background:#EFFAF6;color:#176448;' : 'background:#FEF3EB;color:#C2540A;'),
       dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${sel === id ? '#fff' : '#F6F8FA'};color:${sel === id ? '#4D42E9' : '#868C98'};`,
       subStyle:'', style:itemStyle(sel === id), onClick: () => pick(id) }));
-    const myTurn = P.any;
+    // назначение / переназначение — кнопка в шапке; «Нужно ваше действие» у решения — только когда решение принимает этот пользователь
+    const myTurn = Object.keys(P).some(k => P[k] && ['any','signer','assign','assignProf','reassign','remarks'].indexOf(k) === -1);
     const checkItems = [];
     const remStep = ED.lastOf(app, 'remarks');
     const remFixed = !!(remStep && remStep.reply && remStep.reply.changes);
     if(showRemarks) checkItems.push({ id:'remarks', label:'Отработка замечаний', icon:'ri-chat-1-line', sub: remFixed ? 'Исправлены заявителем' : n.rem && n.rem.issued ? 'Направлены заявителю' : 'Замечаний: ' + remN, action: P.remarks });
-    checkItems.push({ id:'decision', label:'Принятие решения', icon:'ri-checkbox-circle-line', sub: myTurn ? 'Нужно ваше действие' : st, action: myTurn });
+    checkItems.push({ id:'decision', label:'Принятие решения', icon:'ri-checkbox-circle-line', sub: myTurn ? 'Нужно ваше действие' : (P.assign || P.assignProf) ? 'Ожидает назначения эксперта' : st, action: myTurn });
     const checkNav = checkItems.map(it => ({ label:it.label, icon:it.icon, sub:it.sub, hasSub:true, cur: sel === it.id ? 'page' : 'false', count:'', hasCount:false, countTitle:'',
       dot:`width:24px;height:24px;border-radius:7px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${it.action ? '#4D42E9' : sel === it.id ? '#fff' : '#F6F8FA'};color:${it.action ? '#fff' : sel === it.id ? '#4D42E9' : '#868C98'};`,
       subStyle:`font-size:12px;line-height:16px;color:${it.action ? '#4D42E9' : '#868C98'};${it.action ? 'font-weight:500;' : ''}`, style:itemStyle(sel === it.id), onClick: () => pick(it.id) }));
@@ -1201,7 +1202,7 @@ class Component extends DCLogic {
     const BX = (tone) => { const c = { orange:['#FEF3EB','#FFDAC2','#F17B2C'], blue:['#EEF2FF','#C6D0FF','#4D42E9'], purple:['#EEEBFF','#CAC2FF','#6E3FF3'], gray:['#F6F8FA','#E2E4E9','#868C98'], red:['#FDEDF0','#F8C9D2','#DF1C41'], green:['#EFFAF6','#CBF5E5','#38C793'] }[tone]; return { box:`display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid ${c[1]};border-radius:14px;background:${c[0]};`, iconStyle:`font-size:22px;color:${c[2]};flex:0 0 auto;` }; };
     if(n.ret && st === 'На доработке') banners.push({ ...BX('orange'), icon:'ri-arrow-go-back-line', title:'Возвращено на доработку · ' + A.shortName(n.ret.by) + ', ' + A.roleLabel(n.ret.by).toLowerCase() + ' · ' + ED.fmtDT(n.ret.at), text:n.ret.comment, hasText:true, hasBtn:false });
     if(P.approve && sel !== 'decision') banners.push({ ...BX('purple'), icon:'ri-quill-pen-line', title: P.signer ? 'Документ ждёт вашей подписи' : 'Документ ждёт вашего согласования', text:'', hasText:false, hasBtn:true, btn:'К решению', act: () => pick('decision') });
-    if(P.any && !P.approve && !P.assign && !P.assignProf && !P.reassign && sel !== 'decision' && sel !== 'remarks') banners.push({ ...BX('blue'), icon:'ri-edit-2-line', title:'Заявка ждёт вашего решения', text:'', hasText:false, hasBtn:true, btn:'К решению', act: () => pick('decision') });
+    if(myTurn && !P.approve && sel !== 'decision' && sel !== 'remarks') banners.push({ ...BX('blue'), icon:'ri-edit-2-line', title:'Заявка ждёт вашего решения', text:'', hasText:false, hasBtn:true, btn:'К решению', act: () => pick('decision') });
 
     // ── содержимое раздела ──
     let pageTitle = '', dataCards = [], blocks = [], forms = [], hasDocs = false;

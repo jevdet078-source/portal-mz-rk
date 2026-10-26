@@ -581,7 +581,8 @@ class Component extends DCLogic {
     const ED = window.mpEd; if(!ED) return;
     const num = new URLSearchParams(location.search).get('n');
     const app = num ? ED.get(num) : null;
-    if(!app){ this.setState({ ready:true, missing:true }); return; }
+    // заявки других организаций (app.org) видит только АРМ — в кабинете заявителя их нет
+    if(!app || app.org){ this.setState({ ready:true, missing:true }); return; }
     if(app.status === 'Черновик'){ location.replace('Заявка ЕД.dc.html?n=' + app.num); return; }
     const prev = this.state.app;
     const lastId = app.steps.length ? ED.last(app).id : 'd0';
@@ -821,7 +822,7 @@ class Component extends DCLogic {
         'Подтверждение оплаты 20%':['teal', 'ri-bank-line', 'ННЦРЗ подтверждает оплату 20 %', 'После подтверждения начнётся первичная экспертиза: проверка оформления заявления и досье.'],
         'Подтверждение оплаты 80%':['teal', 'ri-bank-line', 'ННЦРЗ подтверждает оплату 80 %', 'После подтверждения начнётся профессиональная экспертиза.'],
         'Отказ от решения':['blue', 'ri-scales-3-line', 'ННЦРЗ рассматривает ваш мотивированный отказ', 'Срок на ответ по акту приостановлен и продолжится, если ННЦРЗ повторно направит документы.'],
-        'Проверка доработки':['teal', 'ri-search-eye-line', 'ННЦРЗ проверяет исправления', 'Эксперт проверит исправленные поля. По итогам вы получите счёт на оплату 80 % либо мотивированный отказ.'],
+        'Проверка доработки':['teal', 'ri-search-eye-line', 'ННЦРЗ проверяет исправления', 'Эксперт проверит ' + (S.fieldFix ? 'исправленные поля' : 'ответ на замечания') + '. По итогам вы получите счёт на оплату 80 % либо мотивированный отказ.'],
       }[step.st];
       if(T) v.note = { tone:T[0], icon:T[1], title:T[2], paras:[T[3]] };
       else if(step.st === 'В работе' && step.phase === 'prof') v.note = { tone:'blue', icon:'ri-microscope-line', title:'Идёт профессиональная экспертиза', paras:[ S.profWD + ' ' + ED.wdWord(S.profWD) + ' на экспертизу и 5 рабочих дней на подготовку заключения. По итогам вы получите заключение и акт выполненных работ.' ] };
