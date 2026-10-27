@@ -28,9 +28,17 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   .mp-scroll::-webkit-scrollbar{width:0;height:0;}
   image-slot{display:block!important;width:100%!important;height:100%!important;}
-  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  /* Кабинет гражданина — на всю ширину окна, поля 32 / 24 / 16 px (как у шапки) */
+  .lk-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .lk-wrap{padding:24px 24px 80px;} }
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
   .cn-host{position:sticky;top:90px;}
+  /* Сетки «Обзора»: на телефоне — в одну колонку (на планшете три плитки — по две) */
+  @media (max-width:860px){ .lk-g3{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} }
+  @media (max-width:640px){ .lk-g2,.lk-g3{grid-template-columns:minmax(0,1fr) !important;} .lk-wrap{padding:16px 16px 80px !important;} }
   @media (max-width:1024px){
+    .lk-wrap{padding:20px 24px 80px;}
     .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
     .cn-host{position:static;}
   }
@@ -38,9 +46,9 @@
 </helmet>
 
 <div style="min-height:100vh;">
-  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
 
-  <div style="max-width:1320px;margin:0 auto;padding:28px 40px 80px;">
+  <div class="lk-wrap">
     <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:24px;">
       <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a>
       <i class="ri-arrow-right-s-line"></i><span style="color:var(--n700);font-weight:500;">Личный кабинет</span>
@@ -103,7 +111,7 @@
                 <h2 style="font-size:18px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px;"><i class="ri-magic-line" style="color:var(--primary);font-size:20px;"></i>Рекомендации для вас</h2>
                 <span style="font-size:13px;color:var(--n400);">Обновлено сегодня</span>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div class="lk-g2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
                 <sc-for list="{{ recommendations }}" as="r" hint-placeholder-count="4">
                   <div style="background:var(--n0);border:1px solid var(--stroke);border-left:3px solid {{ r.color }};border-radius:14px;padding:18px;display:flex;flex-direction:column;">
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
@@ -119,7 +127,7 @@
             </div>
 
             <!-- quick stats -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+            <div class="lk-g3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
               <sc-for list="{{ stats }}" as="st" hint-placeholder-count="3">
                 <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><i class="{{ st.icon }}" style="font-size:18px;color:{{ st.color }};"></i><span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">{{ st.label }}</span></div>
@@ -130,7 +138,7 @@
             </div>
 
             <!-- two columns: upcoming + recent -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div class="lk-g2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
               <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="font-size:16px;font-weight:600;margin:0;">Предстоящие записи</h3></div>
                 <div style="display:flex;flex-direction:column;gap:12px;">

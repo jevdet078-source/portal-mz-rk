@@ -60,11 +60,13 @@
   @keyframes lm-shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 
   /* ---------- Раскладка (как в «Личном кабинете») ---------- */
-  .lm-wrap{max-width:1320px;margin:0 auto;padding:28px 40px 96px;}
+  .lm-wrap{padding:28px 32px 96px;}   /* на всю ширину окна, поля как у шапки */
+  @media (max-width:1536px){ .lm-wrap{padding:24px 24px 96px;} }
   .lm-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
   .lm-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
   .lm-crumbs a:hover{color:var(--primary);}
-  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
   .cn-host{position:sticky;top:90px;}
   .lm-main{min-width:0;display:flex;flex-direction:column;gap:16px;}
 
@@ -201,7 +203,7 @@
 </helmet>
 
 <div style="min-height:100vh;">
-  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
 
   <div class="lm-wrap">
     <nav class="lm-crumbs" aria-label="Навигационная цепочка">
