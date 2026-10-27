@@ -23,7 +23,8 @@
     mode    — doctor | citizen. У гражданина нет полосы «пациент · режим просмотра» над разделами:
               ФИО и ИИН уже в карточке меню кабинета; раздел хранится в адресе (#allergy и т. п.)
     top     — отступ липкого меню разделов от верха окна, px (под шапкой страницы)
-  Меню разделов становится горизонтальной лентой, когда сам компонент уже 930 px.
+  Меню разделов становится лентой, когда сам компонент уже 1280 px: иначе разделам остаётся меньше 1006 px
+  и таблица амбулаторных приёмов не помещается без прокрутки. Лента на ширине > 640 px — в несколько строк.
 -->
 <x-dc>
 <helmet>
@@ -66,6 +67,7 @@
   .epz-narrow .epz-nav-cap{display:none;}
   .epz-narrow .epz-nav-extra{display:contents;}
   .epz-narrow .epz-nav-btn{width:auto !important;flex:0 0 auto;margin:0 !important;padding:9px 12px !important;white-space:nowrap;}
+  @media (min-width:641px){ .epz-narrow .epz-nav{flex-wrap:wrap;overflow:visible;} }
 
   /* ЭПЗ · Главная: краткая карточка пациента */
   .epz-main{display:flex;flex-direction:column;gap:12px;container-type:inline-size;}
@@ -916,7 +918,7 @@ class Component extends DCLogic {
   }
   checkWidth(){
     const el = this.root(); if(!el) return;
-    const narrow = el.getBoundingClientRect().width < 930;
+    const narrow = el.getBoundingClientRect().width < 1280;
     if(narrow !== this.state.narrow) this.setState({ narrow });
   }
   componentDidMount(){

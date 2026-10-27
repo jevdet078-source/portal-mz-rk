@@ -40,14 +40,16 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   image-slot{display:block!important;width:100%!important;height:100%!important;}
 
-  /* Раскладка кабинета гражданина; ширина — как у шапки */
-  .ac-wrap{max-width:1440px;margin:0 auto;padding:28px 40px 80px;}
+  /* Раскладка кабинета гражданина: на всю ширину окна, поля 32 (монитор) / 24 (ноутбук, планшет) / 16 px — как у шапки */
+  .ac-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .ac-wrap{padding:24px 24px 80px;} }
   .ac-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
   .ac-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
   .ac-crumbs a:hover{color:var(--primary);}
-  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
   .cn-host{position:sticky;top:90px;}
-  .ac-main{min-width:0;max-width:880px;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;}
+  .ac-main{min-width:0;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;}
 
   .ac-head{display:flex;align-items:center;gap:8px;min-height:32px;}
   .ac-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
@@ -86,7 +88,7 @@
   .ac-btn.pri:not([disabled]):hover{background:var(--primary-dark);border-color:var(--primary-dark);}
   .ac-btn[disabled]{cursor:not-allowed;opacity:.5;}
 
-  .ac-tr{display:grid;grid-template-columns:56px minmax(0,1fr) 224px;align-items:center;border-top:1px solid var(--stroke);}
+  .ac-tr{display:grid;grid-template-columns:56px minmax(0,520px) minmax(224px,1fr);align-items:center;border-top:1px solid var(--stroke);}
   .ac-th{padding:10px 0;background:var(--n50);font-size:11px;line-height:16px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);}
   .ac-row{min-height:56px;cursor:pointer;transition:background .12s;}
   .ac-row:hover{background:var(--n50);}
@@ -114,7 +116,6 @@
     .ac-wrap{padding:20px 24px 80px;}
     .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
     .cn-host{position:static;}
-    .ac-main{max-width:none;}
   }
   @media (max-width:640px){
     .ac-wrap{padding:16px 16px 80px;}
@@ -139,7 +140,7 @@
 </helmet>
 
 <div style="min-height:100vh;">
-  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
 
   <div class="ac-wrap">
     <nav class="ac-crumbs" aria-label="Навигационная цепочка">
