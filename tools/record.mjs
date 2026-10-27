@@ -88,8 +88,9 @@ mkdirSync(frames, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const warnings = [];
 
-const W = 1440;
-const H = 900;
+// размер окна по умолчанию 1440×900; сценарий может задать свой: export const viewport = { width, height }
+const W = scenario.viewport?.width ?? 1440;
+const H = scenario.viewport?.height ?? 900;
 const browser = await launch({
   executablePath: chrome,
   headless: true,
