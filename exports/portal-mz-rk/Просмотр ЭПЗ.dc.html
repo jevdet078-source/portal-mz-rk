@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ) → Просмотр ЭПЗ.
+  Тот же просмотр ЭПЗ, что в «Кабинете врача» (общий компонент EpzView), в режиме гражданина:
+  свой ЭПЗ без ввода ИИН и запроса доступа через КДП, без панели сессии доступа и полосы
+  «пациент · режим просмотра» (ФИО и ИИН — в карточке меню кабинета).
+  Открытый раздел — в адресе: «Просмотр ЭПЗ.dc.html#allergy».
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+
+  /* Раскладка кабинета гражданина; ширина — как у шапки */
+  .ep-wrap{max-width:1440px;margin:0 auto;padding:28px 40px 80px;}
+  .ep-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .ep-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
+  .ep-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .cn-host{position:sticky;top:90px;}
+  @media (max-width:1024px){
+    .ep-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .ep-wrap{padding:16px 16px 80px;}
+    .ep-crumbs{margin-bottom:16px;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+
+  <div class="ep-wrap">
+    <nav class="ep-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Просмотр ЭПЗ</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="epz-view" hint-size="300px,560px"></dc-import>
+      </aside>
+      <main style="min-width:0;animation:mp-fade .2s ease;">
+        <dc-import name="EpzView" patient="seitzhanova" mode="citizen" top="90" hint-size="100%,900px"></dc-import>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+class Component extends DCLogic {
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>

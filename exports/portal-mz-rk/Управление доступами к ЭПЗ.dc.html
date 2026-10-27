@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ) → Управление доступами к ЭПЗ.
+  Постановка «Добавление разделов „Электронный паспорт здоровья“ и „Управление доступами к ЭПЗ“», п. 4:
+    4.1 «Не предоставлять доступ к ЭПЗ» — по умолчанию установлен; пока установлен, разделы сняты и недоступны;
+    4.2 таблица 11 разделов (№, наименование, «Разрешить просмотр врачу»);
+    4.3 «Выбрать все» — все разделы + снимает общий запрет; «Снять все» — снимает все + включает запрет;
+    4.4 разрешённый раздел — цветной значок и «Разрешён», запрещённый — серый и «Запрещён»;
+    4.5 «Отмена» / «Сохранить настройки доступа», уведомление «Настройки доступа успешно сохранены»,
+        несохранённые изменения — отметка у изменённых строк, состояние панели действий, предупреждение при уходе.
+  Сохранённые настройки — localStorage mp-epz-access: { ban:boolean, allowed:[id раздела] }.
+  Пояснения — только в подсказках data-tip (наведение / фокус с клавиатуры).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+
+  /* Раскладка кабинета гражданина; ширина — как у шапки */
+  .ac-wrap{max-width:1440px;margin:0 auto;padding:28px 40px 80px;}
+  .ac-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .ac-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
+  .ac-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px;align-items:start;}
+  .cn-host{position:sticky;top:90px;}
+  .ac-main{min-width:0;max-width:880px;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;}
+
+  .ac-head{display:flex;align-items:center;gap:8px;min-height:32px;}
+  .ac-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
+  .ac-info{width:28px;height:28px;border:none;border-radius:8px;background:none;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;font-size:18px;cursor:help;flex:0 0 auto;padding:0;transition:background .15s,color .15s;}
+  .ac-info:hover{background:var(--n100);color:var(--n600);}
+
+  .ac-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+
+  /* 4.1 Общий запрет */
+  .ac-ban{display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer;transition:border-color .15s,background .15s;}
+  .ac-ban:hover{border-color:var(--n300);}
+  .ac-ban-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ac-ban-txt{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:15px;line-height:22px;font-weight:600;}
+
+  /* Чекбокс — по Checkbox из AlignUI: 20×20, скругление 6, заливка primary */
+  .ac-chk{width:20px;height:20px;flex:0 0 auto;border-radius:6px;border:1px solid var(--n300);background:var(--n0);padding:0;margin:0;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:15px;cursor:pointer;transition:background .12s,border-color .12s,box-shadow .12s;}
+  .ac-chk i{opacity:0;transition:opacity .12s;}
+  .ac-chk[aria-checked="true"]{background:var(--primary);border-color:var(--primary);}
+  .ac-chk[aria-checked="true"] i{opacity:1;}
+  .ac-chk:not([disabled]):hover{border-color:var(--primary);}
+  .ac-chk[aria-checked="true"]:not([disabled]):hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .ac-chk[disabled]{background:var(--n100);border-color:var(--n200);pointer-events:none;}   /* события — обёртке с подсказкой */
+  .ac-row.lock .ac-perm [data-tip]{cursor:not-allowed;}
+  .ac-chk:focus-visible,.ac-btn:focus-visible,.ac-info:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  /* 4.2 Таблица разделов */
+  .ac-bar{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:16px 20px;}
+  .ac-h2{font-size:17px;line-height:24px;font-weight:600;margin:0;}
+  .ac-count{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .ac-acts{display:flex;gap:8px;margin-left:auto;}
+  .ac-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,opacity .15s;}
+  .ac-btn i{font-size:18px;}
+  .ac-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);}
+  .ac-btn.sec:not([disabled]):hover{background:var(--n100);border-color:var(--n300);}
+  .ac-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .ac-btn.pri:not([disabled]):hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .ac-btn[disabled]{cursor:not-allowed;opacity:.5;}
+
+  .ac-tr{display:grid;grid-template-columns:56px minmax(0,1fr) 224px;align-items:center;border-top:1px solid var(--stroke);}
+  .ac-th{padding:10px 0;background:var(--n50);font-size:11px;line-height:16px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);}
+  .ac-row{min-height:56px;cursor:pointer;transition:background .12s;}
+  .ac-row:hover{background:var(--n50);}
+  .ac-row.lock{cursor:default;}
+  .ac-row.lock:hover{background:none;}
+  .ac-num{padding-left:20px;font-size:13.5px;color:var(--n400);font-variant-numeric:tabular-nums;}
+  .ac-name{display:flex;align-items:center;gap:12px;min-width:0;padding:8px 12px 8px 0;font-size:14px;line-height:20px;font-weight:500;}
+  .ac-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ac-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex:0 0 auto;}
+  .ac-perm{display:flex;align-items:center;gap:10px;padding:8px 20px 8px 0;}
+  .ac-state{font-size:13px;line-height:18px;font-weight:500;white-space:nowrap;}
+
+  /* 4.5 Панель действий; при несохранённых изменениях прилипает к низу окна (кнопка AI-помощника поднимается над ней) */
+  .ac-save{position:relative;bottom:16px;z-index:5;display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:12px 12px 12px 20px;border-radius:16px;border:1px solid var(--stroke);background:var(--n0);box-shadow:var(--sh-xs);transition:border-color .15s,background .15s,box-shadow .15s;}
+  .ac-save.dirty{position:sticky;border-color:rgba(241,123,44,.35);background:#FFFCFA;box-shadow:var(--sh-lg);}
+  .ac-save-st{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:500;color:var(--orange-d);}
+  .ac-save-acts{display:flex;gap:8px;margin-left:auto;}
+
+  .ac-toast{position:fixed;right:28px;bottom:96px;z-index:80;display:flex;align-items:center;gap:10px;max-width:380px;padding:12px 16px 12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);font-size:14px;line-height:20px;font-weight:500;animation:mp-slidein .2s ease;}
+
+  .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .hm-tip.on{opacity:1;transform:none;}
+
+  @media (max-width:1024px){
+    .ac-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+    .ac-main{max-width:none;}
+  }
+  @media (max-width:640px){
+    .ac-wrap{padding:16px 16px 80px;}
+    .ac-crumbs{margin-bottom:16px;}
+    .ac-title{font-size:20px;line-height:28px;}
+    .ac-ban{padding:14px 16px;gap:12px;}
+    .ac-ban-ic{width:36px;height:36px;font-size:18px;}
+    .ac-bar{padding:14px 16px;}
+    .ac-acts{width:100%;margin-left:0;}
+    .ac-acts .ac-btn{flex:1;padding:0 10px;}
+    .ac-tr{grid-template-columns:36px minmax(0,1fr) auto;}
+    .ac-th{display:none;}
+    .ac-num{padding-left:16px;}
+    .ac-perm{padding-right:16px;}
+    .ac-state{display:none;}
+    .ac-save{bottom:12px;padding:12px;}
+    .ac-save-acts{width:100%;}
+    .ac-save-acts .ac-btn{flex:1;padding:0 10px;}
+    .ac-toast{left:16px;right:16px;bottom:80px;max-width:none;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" hint-size="100%,70px"></dc-import></div>
+
+  <div class="ac-wrap">
+    <nav class="ac-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Управление доступами к ЭПЗ</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="epz-access" hint-size="300px,560px"></dc-import>
+      </aside>
+
+      <main class="ac-main">
+        <div class="ac-head">
+          <h1 class="ac-title">Управление доступами к ЭПЗ</h1>
+          <button type="button" class="ac-info" aria-label="{{ headTip }}" data-tip="{{ headTip }}"><i class="ri-information-line" aria-hidden="true"></i></button>
+        </div>
+
+        <!-- 4.1 Общий запрет доступа -->
+        <div class="ac-card ac-ban" onClick="{{ toggleBan }}" style="{{ banCardStyle }}">
+          <span class="ac-ban-ic" style="{{ banIcStyle }}" aria-hidden="true"><i class="{{ banIcon }}"></i></span>
+          <span class="ac-ban-txt">
+            <button type="button" class="ac-chk" role="checkbox" aria-checked="{{ banAria }}" aria-labelledby="ac-ban-lbl" onClick="{{ toggleBan }}"><i class="ri-check-line" aria-hidden="true"></i></button>
+            <span id="ac-ban-lbl" style="margin-left:6px;">Не предоставлять доступ к ЭПЗ</span>
+            <sc-if value="{{ banChanged }}" hint-placeholder-val="{{ false }}"><span class="ac-dot" data-tip="Изменение не сохранено" aria-label="Изменение не сохранено" style="margin-left:4px;"></span></sc-if>
+          </span>
+          <button type="button" class="ac-info" aria-label="{{ banTip }}" data-tip="{{ banTip }}" onClick="{{ stop }}"><i class="ri-information-line" aria-hidden="true"></i></button>
+        </div>
+
+        <!-- 4.2–4.4 Разделы ЭПЗ -->
+        <div class="ac-card" style="overflow:hidden;">
+          <div class="ac-bar">
+            <h2 class="ac-h2">Разделы ЭПЗ</h2>
+            <sc-if value="{{ showCount }}" hint-placeholder-val="{{ true }}"><span class="ac-count" style="{{ countStyle }}" aria-live="polite">{{ countText }}</span></sc-if>
+            <div class="ac-acts">
+              <button type="button" class="ac-btn sec" onClick="{{ selectAll }}" disabled="{{ allDisabled }}"><i class="ri-checkbox-multiple-line" aria-hidden="true"></i>Выбрать все</button>
+              <button type="button" class="ac-btn sec" onClick="{{ clearAll }}" disabled="{{ noneDisabled }}"><i class="ri-close-line" aria-hidden="true"></i>Снять все</button>
+            </div>
+          </div>
+          <div role="table" aria-label="Разделы ЭПЗ">
+            <div class="ac-tr" role="row">
+              <div class="ac-th ac-num" role="columnheader" style="font-size:11px;">№</div>
+              <div class="ac-th" role="columnheader">Наименование раздела ЭПЗ</div>
+              <div class="ac-th" role="columnheader">Разрешить просмотр врачу</div>
+            </div>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="11">
+              <div class="{{ r.cls }}" role="row" onClick="{{ r.toggle }}">
+                <div class="ac-num" role="cell">{{ r.n }}</div>
+                <div class="ac-name" role="cell" style="{{ r.nameStyle }}">
+                  <span class="ac-ic" style="{{ r.icStyle }}" aria-hidden="true"><i class="{{ r.icon }}"></i></span>
+                  <span id="{{ r.lblId }}" style="min-width:0;">{{ r.label }}</span>
+                  <sc-if value="{{ r.changed }}" hint-placeholder-val="{{ false }}"><span class="ac-dot" data-tip="Изменение не сохранено" aria-label="Изменение не сохранено"></span></sc-if>
+                </div>
+                <div class="ac-perm" role="cell">
+                  <span data-tip="{{ r.lockTip }}" style="display:inline-flex;">
+                    <button type="button" class="ac-chk" role="checkbox" aria-checked="{{ r.aria }}" aria-labelledby="{{ r.lblId }}" disabled="{{ banOn }}" onClick="{{ r.toggle }}"><i class="ri-check-line" aria-hidden="true"></i></button>
+                  </span>
+                  <span class="ac-state" style="{{ r.stateStyle }}">{{ r.stateText }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- 4.5 Сохранение настроек -->
+        <div class="{{ saveCls }}">
+          <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+            <div class="ac-save-st" role="status"><i class="ri-error-warning-line" style="font-size:18px;color:var(--orange);" aria-hidden="true"></i>Изменения не сохранены</div>
+          </sc-if>
+          <div class="ac-save-acts">
+            <button type="button" class="ac-btn sec" onClick="{{ cancel }}" disabled="{{ clean }}">Отмена</button>
+            <button type="button" class="ac-btn pri" onClick="{{ save }}" disabled="{{ clean }}">Сохранить настройки доступа</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div class="ac-toast" role="status" aria-live="polite"><i class="ri-checkbox-circle-fill" style="font-size:22px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>Настройки доступа успешно сохранены</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+// Разделы ЭПЗ — п. 4.2 постановки (порядок и наименования)
+const AC_SECTIONS = [
+  { id:'general', label:'Общие сведения', icon:'ri-user-line' },
+  { id:'diagnoses', label:'Активные диагнозы', icon:'ri-virus-line' },
+  { id:'dispensary', label:'Диспансерный учет', icon:'ri-clipboard-line' },
+  { id:'allergy', label:'Аллергологический анамнез', icon:'ri-alert-line' },
+  { id:'ambulatory', label:'Амбулаторная помощь', icon:'ri-stethoscope-line' },
+  { id:'hospital', label:'Госпитализации', icon:'ri-hotel-bed-line' },
+  { id:'vaccination', label:'Вакцинация', icon:'ri-syringe-line' },
+  { id:'screening', label:'Скрининги', icon:'ri-shield-check-line' },
+  { id:'pregnancy', label:'Беременность', icon:'ri-women-line' },
+  { id:'ambulance', label:'Вызовы скорой помощи', icon:'ri-first-aid-kit-line' },
+  { id:'documents', label:'Медицинские документы', icon:'ri-file-list-3-line' },
+];
+const AC_KEY = 'mp-epz-access';
+const AC_IDS = AC_SECTIONS.map(x => x.id);
+
+// Подсказки data-tip: один плавающий элемент, показ по наведению (с задержкой) и по фокусу с клавиатуры (как в HomeData)
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+const load = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(AC_KEY) || 'null');
+    if(v && typeof v.ban === 'boolean' && Array.isArray(v.allowed)) return { ban:v.ban, allowed:v.ban ? [] : v.allowed.filter(id => AC_IDS.includes(id)) };
+  } catch(e){}
+  return { ban:true, allowed:[] };   // по умолчанию — общий запрет (п. 4.1)
+};
+const same = (a, b) => a.ban === b.ban && a.allowed.length === b.allowed.length && a.allowed.every(id => b.allowed.includes(id));
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const saved = load();
+    this.state = { saved, cur:{ ban:saved.ban, allowed:saved.allowed.slice() }, toast:false };
+  }
+  // Кнопка AI-помощника (Assistant) не закрывает панель действий: если панель у нижнего края окна — поднимаем кнопку над ней
+  liftFab(){
+    const bar = document.querySelector('.ac-save'), r = bar && bar.getBoundingClientRect();
+    const hit = r && r.top < innerHeight && r.bottom > innerHeight - 92;   // панель заходит в зону кнопки (низ окна, 28 + 52 + 12 px)
+    document.documentElement.style.setProperty('--mp-fab-bottom', (hit ? Math.round(innerHeight - r.top + 12) : 28) + 'px');
+  }
+  componentDidUpdate(){ setTimeout(() => this.liftFab(), 0); }
+  componentDidMount(){
+    try { installTips(); } catch(e){}
+    // Уход со страницы с несохранёнными изменениями — системное предупреждение браузера
+    this._unload = (e) => { if(!same(this.state.cur, this.state.saved)){ e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', this._unload);
+    this._lift = () => this.liftFab();
+    window.addEventListener('scroll', this._lift, { passive:true });
+    window.addEventListener('resize', this._lift);
+    setTimeout(this._lift, 0);
+  }
+  componentWillUnmount(){ window.removeEventListener('beforeunload', this._unload); clearTimeout(this._toastT); window.removeEventListener('scroll', this._lift); window.removeEventListener('resize', this._lift); document.documentElement.style.removeProperty('--mp-fab-bottom'); }
+
+  setCur(cur){ this.setState({ cur, toast:false }); }
+
+  renderVals(){
+    const { saved, cur, toast } = this.state;
+    const dirty = !same(cur, saved);
+    const n = cur.allowed.length, total = AC_SECTIONS.length;
+
+    const toggleBan = () => this.setCur(cur.ban ? { ban:false, allowed:[] } : { ban:true, allowed:[] });
+    const rows = AC_SECTIONS.map((x, i) => {
+      const on = cur.allowed.includes(x.id);
+      const changed = on !== saved.allowed.includes(x.id);
+      return { ...x, n:i + 1, aria:String(on), changed, lblId:'ac-l-' + x.id,
+        cls: 'ac-tr ac-row' + (cur.ban ? ' lock' : ''),
+        toggle: (e) => {
+          if(e) e.stopPropagation();
+          if(cur.ban) return;
+          this.setCur({ ban:false, allowed: on ? cur.allowed.filter(id => id !== x.id) : AC_IDS.filter(id => id === x.id || cur.allowed.includes(id)) });
+        },
+        icStyle: on ? 'background:var(--primary-lighter);color:var(--primary);' : 'background:var(--n100);color:var(--n400);',
+        nameStyle: on ? 'color:var(--n900);' : 'color:var(--n500);',
+        stateText: on ? 'Разрешён' : 'Запрещён',
+        stateStyle: on ? 'color:var(--green-d);' : 'color:var(--n400);',
+        lockTip: cur.ban ? 'Снимите отметку «Не предоставлять доступ к ЭПЗ», чтобы выбрать разделы' : '',
+      };
+    });
+
+    return {
+      headTip: 'Разрешения действуют для медицинского персонала. Ваш собственный доступ к ЭПЗ они не ограничивают.',
+      banTip: 'По умолчанию включено. Пока отметка установлена, медицинский персонал не может просматривать ни один раздел вашего ЭПЗ.',
+      banAria: String(cur.ban), banOn: cur.ban, banChanged: cur.ban !== saved.ban,
+      banIcon: cur.ban ? 'ri-lock-2-line' : 'ri-lock-unlock-line',
+      banIcStyle: cur.ban ? 'background:var(--primary-lighter);color:var(--primary);' : 'background:var(--green-l);color:var(--green-d);',
+      banCardStyle: cur.ban ? 'border-color:var(--primary-light);' : '',
+      toggleBan: (e) => { if(e) e.stopPropagation(); toggleBan(); },
+      stop: (e) => e.stopPropagation(),
+
+      showCount: !cur.ban, countText: 'Разрешено ' + n + ' из ' + total,
+      countStyle: n === 0 ? 'background:var(--n100);color:var(--n500);' : 'background:var(--green-l);color:var(--green-d);',
+      selectAll: () => this.setCur({ ban:false, allowed:AC_IDS.slice() }),
+      clearAll: () => this.setCur({ ban:true, allowed:[] }),
+      allDisabled: !cur.ban && n === total,
+      noneDisabled: cur.ban,
+      rows,
+
+      dirty, clean: !dirty,
+      saveCls: 'ac-save' + (dirty ? ' dirty' : ''),
+      cancel: () => this.setCur({ ban:saved.ban, allowed:saved.allowed.slice() }),
+      save: () => {
+        const next = { ban:cur.ban, allowed:cur.allowed.slice() };
+        try { localStorage.setItem(AC_KEY, JSON.stringify(next)); } catch(e){}
+        this.setState({ saved:next, toast:true });
+        clearTimeout(this._toastT); this._toastT = setTimeout(() => this.setState({ toast:false }), 4000);
+      },
+      toast,
+    };
+  }
+}
+</script>
+</body>
+</html>
