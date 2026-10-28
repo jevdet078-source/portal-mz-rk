@@ -189,7 +189,7 @@ const GROUPS = [
     'Мои процессы', 'Процесс', 'Договора', 'Платежи', 'Уведомления', 'Пользователи', 'Организации', 'Рабочий календарь' ] },
   { title: 'АРМ экспертов · услуги ЕД и АЛО', desc: 'ННЦРЗ и Формулярная комиссия: роли переключаются в шапке АРМ', icon: 'ri-hospital-line', pages: [
     'АРМ ННЦРЗ', 'Карточка заявки ННЦРЗ', 'АРМ ФК', 'Создание комиссии', 'Комиссия ФК' ] },
-  { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Личная медицинская карта', 'Просмотр ЭПЗ', 'Управление доступами к ЭПЗ', 'Профиль врача', 'Кабинет врача' ] },
+  { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Личная медицинская карта', 'Просмотр ЭПЗ', 'Управление доступами к ЭПЗ', 'Услуги гражданина', 'Профиль врача', 'Кабинет врача' ] },
   { title: 'Компоненты', desc: 'Общие блоки и витрины компонентов дизайн-системы', icon: 'ri-shapes-line', pages: [
     'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'EdSign', 'EdData', 'EdArm', 'EdDocView', 'ArmHeader', 'ArmNav', 'ArmNotifications', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast', 'EpzView', 'EpzAmbulatory',
     'HomeData', 'PortalHeader', 'PortalFooter', 'SearchBox', 'AiPanel', 'HomeFaq', 'HomeNews', 'Splash', 'ThemeKit', 'HomeArt', 'HomeBanners', 'HomeAssist' ] },

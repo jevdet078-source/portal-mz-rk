@@ -13,26 +13,56 @@
 <body>
 <!--
   Меню личного кабинета гражданина: карточка «кто вошёл» (фото, ФИО, ИИН) + разделы + «Выйти».
-  Подключается в «Личный кабинет» и «Личная медицинская карта» в левой колонке:
+  Подключается во все страницы кабинета гражданина в левой колонке:
     <aside class="cn-host"><dc-import name="CitizenNav" active="lmk" hint-size="300px,460px"></dc-import></aside>
   Обёртка cn-host — sticky на десктопе; на ≤1024px карточка сжимается в строку, разделы — горизонтальной лентой.
 
   Пропсы:
-    active — overview | lmk | epz-view | epz-access | notif
+    active — overview | lmk | epz-view | epz-access | services | notif
 
   Разделы: Обзор, Личная медицинская карта, Электронный паспорт здоровья (ЭПЗ) — группа из двух
-  подразделов («Просмотр ЭПЗ», «Управление доступами к ЭПЗ»), Уведомления.
+  подразделов («Просмотр ЭПЗ», «Управление доступами к ЭПЗ»), Услуги, Уведомления.
   Группа раскрыта, когда открыт её подраздел; иначе раскрывается по клику (без перехода).
   На ≤1024px группа в ленте не нужна — подразделы идут отдельными пунктами.
   «Выйти» сбрасывает mp-profile и mp-iin.
+
+  Фото профиля (постановка «Раздел „Услуги“ в ЛК гражданина», п. 5): клик по фото или значку камеры →
+  окно «Изменение фото профиля»: предпросмотр (перетаскивание и масштаб — выбор области в круге),
+  «Выберите файл» / перетаскивание файла, JPG, JPEG, PNG до 5 МБ, «Отмена» / «Сохранить».
+  Сохранение — индикатор выполнения; успех — окно закрывается, фото в карточке обновляется.
+  Хранение — localStorage `mp-avatar` (JPEG 400×400, data URL), событие window `mp-avatar-change`.
+  Сценарий сохранения в прототипе — sessionStorage `mp-avatar-scn`: ok | fail (панель «Прототип» на «Услугах»).
 -->
 <x-dc>
 <helmet>
 <style>
-  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--red:#DF1C41;--stroke:#E2E4E9;}
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--stroke:#E2E4E9;}
+  @keyframes cn-fade{from{opacity:0}to{opacity:1}}
+  @keyframes cn-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes cn-spin{to{transform:rotate(360deg)}}
+  @keyframes cn-flash{0%{box-shadow:0 0 0 3px var(--green-l),0 0 0 6px rgba(56,199,147,.55)}100%{box-shadow:0 0 0 3px var(--primary-lighter),0 0 0 6px rgba(56,199,147,0)}}
+  @keyframes cn-toast{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
   .cn{display:flex;flex-direction:column;gap:16px;font-family:'Inter',sans-serif;color:var(--n900);}
   .cn-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:24px;text-align:center;box-shadow:0 1px 2px rgba(10,13,20,.03);}
-  .cn-ava{width:96px;height:96px;border-radius:50%;overflow:hidden;margin:0 auto 14px;border:3px solid var(--primary-lighter);background:var(--n100);flex:0 0 auto;}
+
+  /* Фото профиля: круг, значок камеры справа внизу; наведение — затемнение и выделение камеры */
+  .cn-ava{position:relative;display:block;width:96px;height:96px;margin:0 auto 14px;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;font-family:inherit;}
+  .cn-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 3px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .15s;}
+  .cn-ava-in img{width:100%;height:100%;object-fit:cover;display:block;}
+  .cn-ava-def{font-size:78px;line-height:1;color:var(--n300);margin-bottom:-12px;}
+  .cn-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);transition:background .15s;}
+  .cn-cam{position:absolute;right:-2px;bottom:0;width:32px;height:32px;border-radius:50%;background:var(--n0);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--stroke),0 2px 6px rgba(10,13,20,.10);transition:background .15s,color .15s,transform .15s,box-shadow .15s;}
+  .cn-cam i{font-size:16px;}
+  .cn-ava:hover .cn-ava-in{box-shadow:0 0 0 3px var(--primary-light);}
+  .cn-ava:hover .cn-ava-ov{background:rgba(10,13,20,.22);}
+  .cn-ava:hover .cn-cam,.cn-ava:focus-visible .cn-cam{background:var(--primary);color:#fff;transform:scale(1.08);box-shadow:0 0 0 2px #fff,0 4px 10px rgba(77,66,233,.35);}
+  .cn-ava:focus-visible{outline:none;}
+  .cn-ava:focus-visible .cn-ava-in{box-shadow:0 0 0 2px #fff,0 0 0 5px var(--primary-light);}
+  .cn-ava[data-flash="true"] .cn-ava-in{animation:cn-flash 1.6s ease-out;}
+  .cn-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translate(-50%,4px);padding:6px 10px;border-radius:8px;background:var(--n900);color:#fff;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:2;}
+  .cn-ava:hover .cn-tip,.cn-ava:focus-visible .cn-tip{opacity:1;transform:translate(-50%,0);transition-delay:.25s;}
+
   .cn-name{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
   .cn-iin{font-size:13px;line-height:18px;color:var(--n400);margin-top:2px;font-variant-numeric:tabular-nums;}
   .cn-who{min-width:0;}
@@ -58,11 +88,79 @@
   .cn-out:hover{background:var(--n100);border-color:var(--n300);}
   .cn-it:focus-visible,.cn-out:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
 
+  /* ===== Окно «Изменение фото профиля» ===== */
+  .cn-ov{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;font-family:'Inter',sans-serif;color:var(--n900);text-align:left;}
+  .cn-ov-bg{position:absolute;inset:0;background:rgba(10,13,20,.48);animation:cn-fade .15s ease;}
+  .cn-dlg{position:relative;width:100%;max-width:480px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:cn-pop .18s ease;overflow:hidden;}
+  .cn-dlg:focus{outline:none;}
+  .cn-dlg-h{display:flex;align-items:center;gap:12px;padding:18px 16px 16px 24px;border-bottom:1px solid var(--stroke);}
+  .cn-dlg-t{flex:1;min-width:0;margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
+  .cn-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
+  .cn-x:hover{background:var(--n100);color:var(--n600);}
+  .cn-dlg-b{overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
+
+  /* Предпросмотр: круг 176 px; новое фото можно сдвигать и масштабировать — без искажения пропорций */
+  .cn-pv-box{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .cn-pv{position:relative;width:176px;height:176px;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 4px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;flex:0 0 auto;touch-action:none;user-select:none;-webkit-user-select:none;transition:box-shadow .15s;}
+  .cn-pv img{display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+  .cn-pv-cur{width:100%;height:100%;object-fit:cover;}
+  .cn-pv-def{font-size:142px;line-height:1;color:var(--n300);margin-bottom:-22px;}
+  .cn-pv[data-edit="true"]{cursor:grab;box-shadow:0 0 0 4px var(--primary-light);}
+  .cn-pv[data-edit="true"]:active{cursor:grabbing;}
+  .cn-pv[data-edit="true"]:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 6px var(--primary);}
+  .cn-pv-move{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;background:rgba(10,13,20,.55);color:#fff;font-size:11.5px;font-weight:500;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;}
+  .cn-pv[data-edit="true"]:hover .cn-pv-move,.cn-pv[data-edit="true"]:focus-visible .cn-pv-move{opacity:1;}
+  .cn-pv-busy{position:absolute;inset:0;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;animation:cn-fade .15s ease;}
+  .cn-zoom{display:flex;align-items:center;gap:10px;width:220px;}
+  .cn-zoom i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .cn-zoom input{flex:1;min-width:0;margin:0;accent-color:var(--primary);cursor:pointer;height:20px;}
+  .cn-zoom input:disabled{cursor:default;opacity:.5;}
+
+  /* Область загрузки */
+  .cn-dz{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 16px;border:1.5px dashed var(--n300);border-radius:14px;background:var(--n50);text-align:center;cursor:pointer;transition:background .12s,border-color .12s;}
+  .cn-dz:hover{border-color:var(--primary-light);background:#FAFAFF;}
+  .cn-dz[data-drag="true"]{border-color:var(--primary);background:var(--primary-lighter);border-style:solid;}
+  .cn-dz[data-err="true"]{border-color:#F8C9D2;}
+  .cn-dz-ico{width:44px;height:44px;border-radius:50%;background:var(--n0);box-shadow:0 0 0 1px var(--stroke);display:flex;align-items:center;justify-content:center;color:var(--primary);}
+  .cn-dz-or{font-size:13px;line-height:18px;color:var(--n500);}
+  .cn-file{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);transition:background .12s,border-color .12s;}
+  .cn-file[data-drag="true"]{border-color:var(--primary);background:var(--primary-lighter);}
+  .cn-file-ico{width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .cn-file-n{font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cn-file-s{font-size:12px;line-height:16px;color:var(--n400);font-variant-numeric:tabular-nums;}
+  .cn-hint{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:18px;color:var(--n400);}
+  .cn-btn2{height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;box-shadow:0 1px 2px rgba(82,88,102,.06);transition:background .12s,border-color .12s,color .12s;}
+  .cn-btn2:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .cn-btn2:disabled{opacity:.5;cursor:default;}
+  .cn-err{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--red-l);color:var(--red-d);animation:cn-fade .15s ease;}
+  .cn-err i{font-size:18px;line-height:20px;color:var(--red);flex:0 0 auto;}
+
+  .cn-dlg-f{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 24px 24px;}
+  .cn-bt{height:44px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
+  .cn-bt-sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);font-weight:500;}
+  .cn-bt-sec:hover{background:var(--n100);border-color:var(--n300);}
+  .cn-bt-pri{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.24);}
+  .cn-bt-pri:hover:not(:disabled){background:var(--primary-dark);}
+  .cn-bt-pri:disabled{background:var(--n200);color:var(--n400);box-shadow:none;cursor:not-allowed;}
+  .cn-bt-pri[data-busy="true"]:disabled{background:var(--primary);color:#fff;opacity:.85;cursor:progress;}
+  .cn-spin{display:inline-block;animation:cn-spin .8s linear infinite;}
+  .cn-x:focus-visible,.cn-btn2:focus-visible,.cn-bt:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .cn-zoom input:focus-visible{outline:2px solid var(--primary-light);outline-offset:2px;border-radius:4px;}
+
+  .cn-toast{position:fixed;right:28px;bottom:96px;z-index:90;display:flex;align-items:center;gap:10px;max-width:360px;padding:12px 16px 12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);font-family:'Inter',sans-serif;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);animation:cn-toast .2s ease;}
+  .cn-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+
   /* ≤1024px: колонка страницы складывается — карточка в строку, разделы лентой */
   @media (max-width:1024px){
     .cn{gap:12px;}
     .cn-card{display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-radius:16px;}
-    .cn-ava{width:48px;height:48px;margin:0;border-width:2px;}
+    .cn-ava{width:52px;height:52px;margin:0;}
+    .cn-ava-in{box-shadow:0 0 0 2px var(--primary-lighter);}
+    .cn-ava-def{font-size:42px;margin-bottom:-7px;}
+    .cn-cam{width:22px;height:22px;right:-4px;bottom:-2px;}
+    .cn-cam i{font-size:12px;}
+    .cn-tip{bottom:auto;top:50%;left:calc(100% + 10px);transform:translate(4px,-50%);}
+    .cn-ava:hover .cn-tip,.cn-ava:focus-visible .cn-tip{transform:translate(0,-50%);}
     .cn-name{font-size:16px;line-height:22px;}
     .cn-nav{flex-direction:row;overflow-x:auto;scrollbar-width:none;border-radius:14px;padding:6px;}
     .cn-nav::-webkit-scrollbar{display:none;}
@@ -72,13 +170,34 @@
     .cn-grp,.cn-sub{display:none !important;}
     .cn-flat{display:flex;}
   }
+  @media (max-width:520px){
+    .cn-ov{align-items:flex-end;padding:0;}
+    .cn-dlg{max-width:none;max-height:calc(100vh - 24px);border-radius:20px 20px 0 0;}
+    .cn-dlg-h{padding:16px 12px 14px 20px;}
+    .cn-dlg-b{padding:20px;}
+    .cn-dlg-f{padding:12px 20px 20px;}
+    .cn-pv{width:152px;height:152px;}
+    .cn-pv-def{font-size:122px;margin-bottom:-19px;}
+    .cn-toast{left:16px;right:16px;bottom:88px;max-width:none;}
+  }
+  @media (hover:none){ .cn-tip,.cn-dz-or{display:none;} }
+  @media (prefers-reduced-motion:reduce){
+    .cn-ov-bg,.cn-dlg,.cn-err,.cn-toast,.cn-pv-busy{animation:none;}
+    .cn-ava[data-flash="true"] .cn-ava-in{animation:none;}
+  }
 </style>
 </helmet>
-<div class="cn">
+<div class="cn" ref="{{ rootRef }}">
   <div class="cn-card">
-    <div class="cn-ava">
-      <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="lk-avatar" shape="circle" placeholder="Фото" hint-size="96px,96px"></x-import>
-    </div>
+    <button type="button" class="cn-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-label="Изменить фото профиля" aria-haspopup="dialog" data-flash="{{ flash }}">
+      <span class="cn-ava-in">
+        <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><img src="{{ photo }}" alt=""></sc-if>
+        <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><i class="ri-user-3-fill cn-ava-def" aria-hidden="true"></i></sc-if>
+        <span class="cn-ava-ov" aria-hidden="true"></span>
+      </span>
+      <span class="cn-cam" aria-hidden="true"><i class="ri-camera-line"></i></span>
+      <span class="cn-tip" aria-hidden="true">{{ avaTip }}</span>
+    </button>
     <div class="cn-who">
       <div class="cn-name">Аружан Сейтжанова</div>
       <div class="cn-iin">ИИН 020116501540</div>
@@ -110,9 +229,93 @@
     </sc-for>
   </nav>
   <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="cn-out"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
+
+  <!-- Изменение фото профиля -->
+  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
+    <div class="cn-ov" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}">
+      <div class="cn-ov-bg" onClick="{{ onBackdrop }}"></div>
+      <div class="cn-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="cn-dlg-t" tabIndex="-1" onKeyDown="{{ onDlgKey }}">
+        <div class="cn-dlg-h">
+          <h2 id="cn-dlg-t" class="cn-dlg-t">Изменение фото профиля</h2>
+          <button type="button" class="cn-x" onClick="{{ close }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:22px;"></i></button>
+        </div>
+
+        <div class="cn-dlg-b">
+          <div class="cn-pv-box">
+            <div class="cn-pv" ref="{{ pvRef }}" data-edit="{{ pvEdit }}" tabIndex="{{ pvTab }}" role="{{ pvRole }}" aria-label="{{ pvAria }}"
+                 onPointerDown="{{ onPvDown }}" onKeyDown="{{ onPvKey }}">
+              <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}"><img src="{{ selSrc }}" alt="" style="{{ selStyle }}" draggable="false"></sc-if>
+              <sc-if value="{{ showCur }}" hint-placeholder-val="{{ false }}"><img class="cn-pv-cur" src="{{ photo }}" alt="Текущее фото профиля" draggable="false"></sc-if>
+              <sc-if value="{{ showDef }}" hint-placeholder-val="{{ true }}"><i class="ri-user-3-fill cn-pv-def" aria-hidden="true"></i></sc-if>
+              <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ false }}"><span class="cn-pv-move" aria-hidden="true"><i class="ri-drag-move-2-line" style="font-size:13px;"></i>Перетащите</span></sc-if>
+              <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}">
+                <div class="cn-pv-busy" role="progressbar" aria-label="Сохранение фото" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ prog }}">
+                  <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+                    <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="4"></circle>
+                    <circle cx="32" cy="32" r="27" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="169.65" stroke-dashoffset="{{ ringOff }}" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .12s linear;"></circle>
+                    <text x="32" y="37" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-size="14" font-weight="600">{{ progTxt }}</text>
+                  </svg>
+                </div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+              <div class="cn-zoom">
+                <i class="ri-zoom-out-line" aria-hidden="true"></i>
+                <input type="range" min="1" max="3" step="0.01" value="{{ zoom }}" onChange="{{ onZoom }}" disabled="{{ saving }}" aria-label="Масштаб фото">
+                <i class="ri-zoom-in-line" aria-hidden="true"></i>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ noSel }}" hint-placeholder-val="{{ true }}">
+            <div class="cn-dz" data-drag="{{ drag }}" data-err="{{ hasErr }}" onClick="{{ onDzClick }}">
+              <span class="cn-dz-ico" aria-hidden="true"><i class="ri-upload-cloud-2-line" style="font-size:22px;"></i></span>
+              <button type="button" class="cn-btn2" ref="{{ pickRef }}" onClick="{{ pick }}"><i class="ri-folder-open-line" style="font-size:16px;color:var(--n400);"></i>Выберите файл</button>
+              <span class="cn-dz-or">{{ dzText }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+            <div class="cn-file" data-drag="{{ drag }}">
+              <span class="cn-file-ico" aria-hidden="true"><i class="ri-image-line" style="font-size:18px;"></i></span>
+              <span style="flex:1;min-width:0;">
+                <span class="cn-file-n" style="display:block;" title="{{ selName }}">{{ selName }}</span>
+                <span class="cn-file-s" style="display:block;">{{ selMeta }}</span>
+              </span>
+              <button type="button" class="cn-btn2" onClick="{{ pick }}" disabled="{{ saving }}"><i class="ri-refresh-line" style="font-size:16px;color:var(--n400);"></i>Заменить</button>
+            </div>
+          </sc-if>
+
+          <div class="cn-hint"><i class="ri-information-line" style="font-size:15px;" aria-hidden="true"></i>JPG, JPEG, PNG · не более 5 МБ</div>
+
+          <sc-if value="{{ hasErr }}" hint-placeholder-val="{{ false }}">
+            <div class="cn-err" role="alert">
+              <i class="ri-error-warning-fill" aria-hidden="true"></i>
+              <div style="min-width:0;">
+                <div style="font-size:14px;line-height:20px;font-weight:600;">{{ errTitle }}</div>
+                <div style="font-size:13px;line-height:18px;margin-top:2px;">{{ errText }}</div>
+              </div>
+            </div>
+          </sc-if>
+          <input ref="{{ fileRef }}" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange="{{ onFile }}" tabIndex="-1" aria-hidden="true" style="display:none;">
+        </div>
+
+        <div class="cn-dlg-f">
+          <button type="button" class="cn-bt cn-bt-sec" onClick="{{ close }}">Отмена</button>
+          <button type="button" class="cn-bt cn-bt-pri" onClick="{{ save }}" disabled="{{ saveOff }}" data-busy="{{ saving }}">
+            <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line cn-spin" style="font-size:18px;" aria-hidden="true"></i></sc-if>{{ saveLbl }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="cn-toast" role="status"><i class="ri-checkbox-circle-fill" style="font-size:20px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>{{ toast }}</div>
+  </sc-if>
+  <span class="cn-sr" aria-live="polite">{{ live }}</span>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:460},&quot;active&quot;:&quot;overview&quot;}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:560},&quot;active&quot;:&quot;overview&quot;}">
 const LK = 'Личный кабинет.dc.html';
 // Иконки — только контурные (-line): заливные на индиго-фоне активного пункта читаются как сплошной белый блок
 const CN_ITEMS = [
@@ -122,14 +325,64 @@ const CN_ITEMS = [
     { id:'epz-view', label:'Просмотр ЭПЗ', icon:'ri-file-list-3-line', href:'Просмотр ЭПЗ.dc.html' },
     { id:'epz-access', label:'Управление доступами к ЭПЗ', icon:'ri-shield-user-line', href:'Управление доступами к ЭПЗ.dc.html' },
   ] },
+  { id:'services', label:'Услуги', icon:'ri-government-line', href:'Услуги гражданина.dc.html' },
   { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:LK + '#notif', badge:'3', badgeLabel:'3 непрочитанных' },
 ];
 
+// Фото профиля
+const AVA_KEY = 'mp-avatar', AVA_EVT = 'mp-avatar-change', SCN_KEY = 'mp-avatar-scn';
+const MAX_MB = 5, MAX_BYTES = MAX_MB * 1024 * 1024;
+const EXTS = ['jpg', 'jpeg', 'png'], TYPES = ['image/jpeg', 'image/png'];
+const PV = 176, OUT = 400, ZMAX = 3;
+const RING = 169.65;
+const DRAG_END = ['pointerup', 'pointercancel', 'mouseup', 'blur'];   // 2π·27
+const ERR = {
+  type: { t:'Неподдерживаемый формат файла', x:'Выберите фото в формате JPG, JPEG или PNG' },
+  size: (mb) => ({ t:`Файл больше ${MAX_MB} МБ`, x:`Размер выбранного файла — ${mb} МБ. Выберите фото меньшего размера` }),
+  broken: { t:'Не удалось открыть файл', x:'Файл повреждён или не является изображением. Выберите другое фото' },
+  upload: { t:'Не удалось загрузить фотографию', x:'Попробуйте сохранить ещё раз немного позже' },
+};
+const fmtMb = (b) => (b / 1048576).toFixed(1).replace('.', ',');
+const fmtSize = (b) => b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : fmtMb(b) + ' МБ';
+const readPhoto = () => { try { return localStorage.getItem(AVA_KEY) || ''; } catch(e){ return ''; } };
+
 class Component extends DCLogic {
   navRef = React.createRef();
-  state = { open:null };
-  componentDidMount(){ this.reveal(); }
+  rootRef = React.createRef();
+  avaRef = React.createRef();
+  dlgRef = React.createRef();
+  fileRef = React.createRef();
+  pickRef = React.createRef();
+  // Колесо мыши над предпросмотром — масштаб; слушатель не пассивный, иначе страница прокрутится
+  pvRef = (el) => {
+    if(this._pv === el) return;
+    if(this._pv) this._pv.removeEventListener('wheel', this._onWheel);
+    this._pv = el;
+    if(el) el.addEventListener('wheel', this._onWheel, { passive:false });
+  };
+  _onWheel = (e) => {
+    if(!this.state.sel || this.state.saving) return;
+    e.preventDefault();
+    this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
+  };
+
+  state = { open:null, photo:readPhoto(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'' };
+
+  componentDidMount(){
+    this.reveal();
+    // Фото меняется в другом экземпляре меню / вкладке — обновляем карточку
+    this._sync = () => this.setState({ photo: readPhoto() });
+    window.addEventListener(AVA_EVT, this._sync);
+    window.addEventListener('storage', this._sync);
+  }
   componentDidUpdate(prev){ if(!prev || prev.active !== (this.props || {}).active) this.reveal(); }
+  componentWillUnmount(){
+    window.removeEventListener(AVA_EVT, this._sync);
+    window.removeEventListener('storage', this._sync);
+    clearInterval(this._timer); clearTimeout(this._toastT); clearTimeout(this._flashT);
+    this.dragEnd();
+    this.unlock();
+  }
   // ≤1024px разделы — горизонтальная лента: активный пункт прокручиваем в видимую область
   reveal(){
     setTimeout(() => {
@@ -139,13 +392,154 @@ class Component extends DCLogic {
       if(on) nav.scrollLeft = Math.max(0, on.offsetLeft - (nav.clientWidth - on.offsetWidth) / 2);
     }, 0);
   }
+
+  // ---------- Окно ----------
+  // Колонка меню «липкая» (свой контекст наложения) — на время окна поднимаем её над шапкой
+  lock(){
+    const host = this.rootRef.current && this.rootRef.current.closest('.cn-host');
+    if(host){ this._host = host; this._hostZ = host.style.zIndex; host.style.zIndex = '100'; }
+    const sb = window.innerWidth - document.documentElement.clientWidth;
+    this._bodyCss = [document.body.style.overflow, document.body.style.paddingRight];
+    document.body.style.overflow = 'hidden';
+    if(sb > 0) document.body.style.paddingRight = sb + 'px';
+  }
+  unlock(){
+    if(this._host){ this._host.style.zIndex = this._hostZ || ''; this._host = null; }
+    if(this._bodyCss){ [document.body.style.overflow, document.body.style.paddingRight] = this._bodyCss; this._bodyCss = null; }
+  }
+  open(){
+    this.lock();
+    this.setState({ dlg:true, sel:null, err:null, drag:false, saving:false, prog:0, z:1, x:0, y:0, live:'' }, () => {
+      setTimeout(() => { const b = this.pickRef.current || this.dlgRef.current; if(b) b.focus(); }, 30);
+    });
+  }
+  // Отмена / закрытие: ранее установленное фото не меняется, незавершённое сохранение прерывается
+  close(){
+    clearInterval(this._timer);
+    this.dragEnd();
+    this.dropSel();
+    this.unlock();
+    this.setState({ dlg:false, sel:null, err:null, saving:false, prog:0, drag:false });
+    setTimeout(() => { if(this.avaRef.current) this.avaRef.current.focus(); }, 0);
+  }
+  dropSel(){ if(this.state.sel) try { URL.revokeObjectURL(this.state.sel.src); } catch(e){} }
+  pick(){ if(!this.state.saving && this.fileRef.current) this.fileRef.current.click(); }
+
+  // ---------- Файл ----------
+  take(file){
+    if(!file || this.state.saving) return;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if(!EXTS.includes(ext) || (file.type && !TYPES.includes(file.type))) return this.fail(ERR.type);
+    if(file.size > MAX_BYTES) return this.fail(ERR.size(fmtMb(file.size)));
+    const src = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      this.dropSel();
+      this._img = img;
+      this.setState({ sel:{ src, w:img.naturalWidth, h:img.naturalHeight, name:file.name, size:file.size }, z:1, x:0, y:0, err:null,
+        live:'Фото выбрано. Перетащите его, чтобы выбрать область, и нажмите «Сохранить»' });
+    };
+    img.onerror = () => { try { URL.revokeObjectURL(src); } catch(e){} this.fail(ERR.broken); };
+    img.src = src;
+  }
+  // Ошибка не сбрасывает ранее выбранное корректное фото
+  fail(e){ this.setState({ err:e, drag:false }); }
+
+  // ---------- Кадрирование ----------
+  // Фото вписывается в круг без искажения (cover) и сдвигается/масштабируется в пределах круга
+  geom(s){
+    const st = s || this.state, sel = st.sel;
+    const base = PV / Math.min(sel.w, sel.h);
+    const W = sel.w * base * st.z, H = sel.h * base * st.z;
+    return { W, H, mx:(W - PV) / 2, my:(H - PV) / 2 };
+  }
+  clampXY(x, y, z){
+    const g = this.geom({ ...this.state, z });
+    return { x: Math.max(-g.mx, Math.min(g.mx, x)), y: Math.max(-g.my, Math.min(g.my, y)) };
+  }
+  setZoom(z){
+    const s = this.state;
+    const nz = Math.max(1, Math.min(ZMAX, z)), k = nz / s.z;
+    this.setState({ z:nz, ...this.clampXY(s.x * k, s.y * k, nz) });
+  }
+  move(dx, dy){ const s = this.state; this.setState(this.clampXY(s.x + dx, s.y + dy, s.z)); }
+
+  // Перетаскивание фото: слушаем окно — курсор может выйти за круг.
+  // Конец — кнопка отпущена, новое нажатие (например, на ползунке) или уход из окна браузера
+  dragStart(e){
+    this.dragEnd();
+    const d = { px:e.clientX, py:e.clientY, x:this.state.x, y:this.state.y };
+    this._dragMove = (ev) => {
+      if(!(ev.buttons & 1)) return this.dragEnd();
+      this.setState(this.clampXY(d.x + ev.clientX - d.px, d.y + ev.clientY - d.py, this.state.z));
+    };
+    window.addEventListener('pointermove', this._dragMove);
+    DRAG_END.forEach(t => window.addEventListener(t, this.dragEnd, true));
+    // новое нажатие слушаем со следующего тика — текущее ещё всплывает до window
+    this._dragT = setTimeout(() => { if(this._dragMove) window.addEventListener('pointerdown', this.dragEnd, true); }, 0);
+  }
+  dragEnd = () => {
+    clearTimeout(this._dragT);
+    if(!this._dragMove) return;
+    window.removeEventListener('pointermove', this._dragMove);
+    DRAG_END.concat('pointerdown').forEach(t => window.removeEventListener(t, this.dragEnd, true));
+    this._dragMove = null;
+  };
+
+  // ---------- Сохранение ----------
+  save(){
+    const s = this.state;
+    if(!s.sel || s.saving) return;
+    let scn = 'ok'; try { scn = sessionStorage.getItem(SCN_KEY) || 'ok'; } catch(e){}
+    this.setState({ saving:true, prog:0, err:null, live:'Сохранение фото' });
+    clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      const p = Math.min(100, this.state.prog + 7 + Math.round(Math.random() * 6));
+      if(scn === 'fail' && p >= 62){ clearInterval(this._timer); return this.setState({ saving:false, prog:0, err:ERR.upload, live:ERR.upload.t }); }
+      if(p < 100) return this.setState({ prog:p });
+      clearInterval(this._timer);
+      this.setState({ prog:100 }, () => setTimeout(() => this.commit(), 180));
+    }, 90);
+  }
+  commit(){
+    const s = this.state, g = this.geom(), k = OUT / PV;
+    let url = '';
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = OUT;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, OUT, OUT);
+      ctx.drawImage(this._img, ((PV - g.W) / 2 + s.x) * k, ((PV - g.H) / 2 + s.y) * k, g.W * k, g.H * k);
+      url = c.toDataURL('image/jpeg', 0.9);
+      localStorage.setItem(AVA_KEY, url);
+    } catch(e){ url = ''; }
+    if(!url) return this.setState({ saving:false, prog:0, err:ERR.upload, live:ERR.upload.t });
+    try { window.dispatchEvent(new CustomEvent(AVA_EVT)); } catch(e){}
+    this.close();
+    clearTimeout(this._toastT); clearTimeout(this._flashT);
+    this.setState({ photo:url, flash:true, toast:'Фото профиля обновлено', live:'Фото профиля обновлено' });
+    this._flashT = setTimeout(() => this.setState({ flash:false }), 1700);
+    this._toastT = setTimeout(() => this.setState({ toast:'' }), 3500);
+  }
+
+  // Tab не выходит за пределы окна
+  trap(e){
+    const d = this.dlgRef.current; if(!d) return;
+    const f = [...d.querySelectorAll('button:not([disabled]),input:not([disabled]):not([type="file"]),[tabindex="0"]')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
+    else if(!e.shiftKey && i === f.length - 1){ e.preventDefault(); f[0].focus(); }
+  }
+
   renderVals(){
     const p = this.props || {};
+    const s = this.state;
     const active = p.active || 'overview';
     const items = CN_ITEMS.map(n => {
       if(n.children){
         const inside = n.children.some(c => c.id === active);
-        const expanded = this.state.open == null ? inside : this.state.open;
+        const expanded = s.open == null ? inside : s.open;
         return { ...n, isGroup:true, isLink:false, expanded,
           cls: 'cn-it cn-grp' + (inside ? ' in' : ''),
           onToggle: () => this.setState({ open:!expanded }),
@@ -161,9 +555,62 @@ class Component extends DCLogic {
         hasBadge: !!n.badge, badge: n.badge || '', badgeLabel: n.badgeLabel || '',
       };
     });
+
+    const sel = s.sel;
+    let selStyle = '';
+    if(sel){
+      const g = this.geom();
+      selStyle = `position:absolute;max-width:none;width:${g.W}px;height:${g.H}px;left:${(PV - g.W) / 2 + s.x}px;top:${(PV - g.H) / 2 + s.y}px;`;
+    }
+    const canEdit = !!sel && !s.saving;
     return {
-      items, navRef: this.navRef,
+      items, navRef: this.navRef, rootRef: this.rootRef, avaRef: this.avaRef,
       onLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
+
+      photo: s.photo, hasPhoto: !!s.photo, noPhoto: !s.photo,
+      avaTip: s.photo ? 'Изменить фото' : 'Загрузить фото',
+      flash: s.flash ? 'true' : 'false',
+      openDlg: () => this.open(),
+
+      dlg: s.dlg, dlgRef: this.dlgRef, fileRef: this.fileRef, pickRef: this.pickRef, pvRef: this.pvRef,
+      close: () => this.close(),
+      onBackdrop: () => { if(!s.sel) this.close(); },   // выбранное, но не сохранённое фото случайным кликом мимо окна не теряем
+      onDlgKey: (e) => {
+        if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.close(); }
+        else if(e.key === 'Tab') this.trap(e);
+      },
+      pick: (e) => { if(e) e.stopPropagation(); this.pick(); },
+      onDzClick: () => this.pick(),
+      onFile: (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; this.take(f); },
+      onDragOver: (e) => { e.preventDefault(); if(!s.saving && !s.drag) this.setState({ drag:true }); },
+      onDragLeave: (e) => { if(!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) this.setState({ drag:false }); },
+      onDrop: (e) => { e.preventDefault(); this.setState({ drag:false }); this.take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+      drag: s.drag ? 'true' : 'false',
+      dzText: s.drag ? 'Отпустите файл, чтобы загрузить' : 'или перетащите фото сюда',
+
+      hasSel: !!sel, noSel: !sel, selSrc: sel ? sel.src : '', selStyle,
+      selName: sel ? sel.name : '', selMeta: sel ? `${fmtSize(sel.size)} · ${sel.w} × ${sel.h}` : '',
+      showCur: !sel && !!s.photo, showDef: !sel && !s.photo,
+      canEdit, pvEdit: canEdit ? 'true' : 'false', pvTab: canEdit ? '0' : '-1',
+      pvRole: canEdit ? 'application' : 'img',
+      pvAria: canEdit ? 'Область фото: перетащите или используйте стрелки, «+» и «−» — масштаб' : (s.photo ? 'Текущее фото профиля' : 'Фото не загружено'),
+      onPvDown: (e) => { if(canEdit && e.button === 0){ e.preventDefault(); this.dragStart(e); } },
+      onPvKey: (e) => {
+        if(!canEdit) return;
+        const st = e.shiftKey ? 24 : 6;
+        const m = { ArrowLeft:[-st, 0], ArrowRight:[st, 0], ArrowUp:[0, -st], ArrowDown:[0, st] }[e.key];
+        if(m){ e.preventDefault(); this.move(m[0], m[1]); }
+        else if(e.key === '+' || e.key === '='){ e.preventDefault(); this.setZoom(s.z + .1); }
+        else if(e.key === '-' || e.key === '_'){ e.preventDefault(); this.setZoom(s.z - .1); }
+      },
+      zoom: s.z, onZoom: (e) => this.setZoom(parseFloat(e.target.value) || 1),
+
+      saving: s.saving, prog: s.prog, progTxt: s.prog + '%', ringOff: RING * (1 - s.prog / 100),
+      saveOff: !sel || s.saving, saveLbl: s.saving ? 'Сохранение…' : 'Сохранить',
+      save: () => this.save(),
+
+      hasErr: !!s.err, errTitle: s.err ? s.err.t : '', errText: s.err ? s.err.x : '',
+      hasToast: !!s.toast, toast: s.toast, live: s.live,
     };
   }
 }
