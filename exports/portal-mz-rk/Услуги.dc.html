@@ -211,6 +211,18 @@ class Component extends DCLogic {
       this.setState({ tab, submitted, knf, menu:null });
     };
     read();
+    // ?svc=<safety|reg|price|knf> — вид услуги «Единого окна» (ЛС), выбранный на странице
+    // «Государственные услуги»: сразу открываем его сценарий оформления.
+    // Сценариев заключения и регистрации ЛС в прототипе ещё нет — для них окно выбора с отмеченным видом
+    try {
+      const q = new URLSearchParams(location.search), svc = q.get('svc');
+      if(svc === 'knf'){ location.replace('Заявление КНФ.dc.html'); return; }
+      if(svc === 'price'){ location.replace('Паспорт регистрации цены.dc.html#ls'); return; }
+      if(svc === 'safety' || svc === 'reg'){
+        history.replaceState(history.state, '', location.pathname + '#ls');
+        this.setState({ tab:'ls', modal:true, pick:svc, sub:null });
+      }
+    } catch(e){}
     this._onHash = read;
     window.addEventListener('hashchange', this._onHash);
   }
