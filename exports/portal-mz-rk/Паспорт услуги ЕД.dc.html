@@ -296,7 +296,7 @@ class Component extends DCLogic {
         if(s.loading) return;
         if(ED && ED.fail()){ this.setState({ err:ED.FAIL_MSG }); return; }
         this.setState({ loading:true, err:'' });
-        this._t = setTimeout(() => { location.href = 'Заявка ЕД.dc.html?new=' + Date.now().toString(36); }, 700);
+        this._t = setTimeout(() => { location.href = 'Заявка ЕД.dc.html?new=' + Date.now().toString(36) + (new URLSearchParams(location.search).get('cat') === 'mi' ? '&cat=mi' : ''); }, 700);
       },
     };
   }
