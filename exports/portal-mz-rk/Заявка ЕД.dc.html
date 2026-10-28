@@ -617,7 +617,12 @@ class Component extends DCLogic {
       else { form = app.form; maxStep = this.firstIncomplete(app.form); step = maxStep; }
     } else {
       if(ses && ses.isNew && ses.token === token && ses.app){ app = ses.app; form = ses.form; step = ses.step || 0; maxStep = ses.maxStep || 0; base = ses.base; }
-      else { app = ED.newApp(q.get('svc')); form = app.form; base = JSON.stringify(form); }
+      else {
+        app = ED.newApp(q.get('svc'));
+        // ?cat=mi — тип продукции, выбранный в окне «Выберите вид услуги» на странице «Государственные услуги»
+        if(q.get('cat') === 'mi') app.form.cat = 'mi';
+        form = app.form; base = JSON.stringify(form);
+      }
     }
     this.setState({ ready:true, app, form, base, step, maxStep, open:{ [this.firstOpenDossier(form)]:true } });
     this.persist({ app, form, step, maxStep, base, token, isNew: !num });
