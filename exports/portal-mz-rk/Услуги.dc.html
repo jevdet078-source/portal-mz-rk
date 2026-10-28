@@ -211,12 +211,15 @@ class Component extends DCLogic {
       this.setState({ tab, submitted, knf, menu:null });
     };
     read();
-    // ?svc=<safety|reg|price|knf> — вид услуги «Единого окна» (ЛС), выбранный на странице
+    // ?svc=<safety|reg|price|knf|alo|ed> — вид услуги «Единого окна» (ЛС), выбранный на странице
     // «Государственные услуги»: сразу открываем его сценарий оформления.
     // Сценариев заключения и регистрации ЛС в прототипе ещё нет — для них окно выбора с отмеченным видом
     try {
       const q = new URLSearchParams(location.search), svc = q.get('svc');
       if(svc === 'knf'){ location.replace('Заявление КНФ.dc.html'); return; }
+      // профессиональные экспертизы АЛО и ЕД — паспорт услуги (как «Прочие услуги» → «Выбор услуги»)
+      if(svc === 'alo'){ location.replace('Паспорт услуги АЛО.dc.html'); return; }
+      if(svc === 'ed'){ location.replace('Паспорт услуги ЕД.dc.html'); return; }
       if(svc === 'price'){ location.replace('Паспорт регистрации цены.dc.html#ls'); return; }
       if(svc === 'safety' || svc === 'reg'){
         history.replaceState(history.state, '', location.pathname + '#ls');

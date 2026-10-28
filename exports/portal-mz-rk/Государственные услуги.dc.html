@@ -26,9 +26,12 @@
     п. 1–2  справа — название выбранной категории, поиск и перечень; поиск — по наименованию
             в пределах выбранной категории («Все услуги» — по всему каталогу); пусто — «Услуги не найдены»;
     п. 3    композитная услуга «Единого окна» открывает окно «Выберите вид услуги» (группа
-            «Лекарственные средства», один вариант из четырёх; «Далее» активна только после выбора);
+            «Лекарственные средства» — четыре вида; группа «Лекарственные средства и медицинские изделия» —
+            профессиональные экспертизы АЛО и ЕД; один вариант из шести, «Далее» активна только после выбора);
     п. 4    «Далее» передаёт вид услуги в кабинет бизнеса: Услуги.dc.html?svc=<safety|reg|price|knf>,
-            кабинет сам открывает сценарий оформления. Без профиля «Бизнес» — через «Вход» с возвратом.
+            кабинет сам открывает сценарий оформления; АЛО и ЕД — сразу паспорт услуги
+            (Паспорт услуги АЛО / ЕД.dc.html). Без профиля «Бизнес» — через «Вход» с возвратом.
+            В блоке «Услуги» слева счётчиков нет (замечание 28.10.2026) — число услуг только у заголовка перечня.
             «Отмена» и крестик закрывают окно, категория и запрос остаются; при новом открытии выбор сброшен.
             Внешние услуги (eGov.kz, «Е-лицензирование») — в новой вкладке; в перечне справа у них
             адрес сайта со стрелкой ↗, у услуги кабинета — фирменный чип «Кабинет бизнеса».
@@ -139,7 +142,10 @@
   .gs-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
   .gs-x:hover{background:var(--n100);color:var(--n900);}
   .gs-dlg-b{overflow-y:auto;padding:20px 24px 24px;overscroll-behavior:contain;}
+  /* при прокрутке списка видов — тени у шапки и подвала окна (видно, что вариантов больше, чем помещается) */
+  .gs-dlg-b{background:linear-gradient(#fff 30%,rgba(255,255,255,0)) top/100% 40px no-repeat local,linear-gradient(rgba(255,255,255,0),#fff 70%) bottom/100% 40px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(10,13,20,.10),rgba(10,13,20,0)) top/100% 12px no-repeat scroll,radial-gradient(farthest-side at 50% 100%,rgba(10,13,20,.10),rgba(10,13,20,0)) bottom/100% 12px no-repeat scroll;background-color:#fff;}
   .gs-fs{margin:0;padding:0;border:none;min-width:0;}
+  .gs-fs + .gs-fs{margin-top:24px;}
   .gs-grp{display:flex;align-items:center;gap:10px;padding:0;margin:0 0 12px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
   .gs-grp-ico{width:32px;height:32px;border-radius:9px;background:#EFFAF6;color:#176448;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .gs-opts{display:flex;flex-direction:column;gap:8px;}
@@ -153,6 +159,9 @@
   .gs-opt:hover .gs-dot{border-color:var(--n400);}
   .gs-opt[data-on="true"] .gs-dot{border:6px solid var(--primary);}
   .gs-opt-t{flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
+  /* короткое имя услуги: полные наименования АЛО и ЕД совпадают в начале */
+  .gs-tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:#EBFAFF;color:#164564;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.02em;vertical-align:top;}
+  .gs-opt[data-on="true"] .gs-tag{background:#fff;}
   .gs-dlg-f{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid var(--stroke);flex:0 0 auto;}
   .gs-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
   .gs-b-sec{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:0 1px 2px rgba(82,88,102,.06);}
@@ -168,6 +177,7 @@
     .gs-name,.gs-cat-label{font-size:15px !important;line-height:22px;}
     .gs-num{line-height:22px;}
     .gs-side{height:22px;}
+    .gs-dlg{max-width:680px;}
   }
   /* Планшет */
   @media (max-width:1023px){
@@ -199,7 +209,7 @@
     .gs-eyebrow{padding:0 2px 8px;}
     .gs-cat-sep{display:none;}
     .gs-cats{flex-direction:row;flex-wrap:wrap;gap:8px;}
-    .gs-cat{width:auto;flex:0 0 auto;gap:8px;min-height:40px;padding:6px 6px 6px 14px;border:1px solid var(--stroke);border-radius:999px;background:#fff;}
+    .gs-cat{width:auto;flex:0 0 auto;gap:8px;min-height:40px;padding:6px 14px;border:1px solid var(--stroke);border-radius:999px;background:#fff;}
     .gs-cat[aria-current="true"],.gs-cat[aria-current="true"]:hover{border-color:var(--primary-light);}
     .gs-cat-ico{display:none !important;}
     .gs-cat-label{white-space:nowrap;font-size:13.5px !important;}
@@ -263,7 +273,6 @@
                 <button class="gs-cat" type="button" onClick="{{ c.onClick }}" aria-current="{{ c.current }}" style="{{ c.style }}">
                   <span class="gs-cat-ico" style="{{ c.iconWrap }}"><i class="{{ c.icon }}" style="font-size:18px;"></i></span>
                   <span class="gs-cat-label" style="{{ c.labelStyle }}">{{ c.label }}</span>
-                  <span aria-label="{{ c.countLabel }}" style="{{ c.badge }}">{{ c.count }}</span>
                 </button>
                 <sc-if value="{{ c.sepAfter }}" hint-placeholder-val="{{ false }}"><div class="gs-cat-sep" aria-hidden="true"></div></sc-if>
               </sc-for>
@@ -357,18 +366,20 @@
             <button type="button" class="gs-x" onClick="{{ closeDlg }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:22px;"></i></button>
           </div>
           <div class="gs-dlg-b">
-            <fieldset class="gs-fs">
-              <legend class="gs-grp"><span class="gs-grp-ico" aria-hidden="true"><i class="ri-capsule-line" style="font-size:18px;"></i></span>Лекарственные средства</legend>
-              <div class="gs-opts">
-                <sc-for list="{{ kinds }}" as="k" hint-placeholder-count="4">
-                  <label class="gs-opt" data-on="{{ k.on }}">
-                    <input type="radio" name="gs-kind" value="{{ k.id }}" checked="{{ k.checked }}" onChange="{{ k.onPick }}">
-                    <span class="gs-dot" aria-hidden="true"></span>
-                    <span class="gs-opt-t">{{ k.label }}</span>
-                  </label>
-                </sc-for>
-              </div>
-            </fieldset>
+            <sc-for list="{{ kindGroups }}" as="kg" hint-placeholder-count="2">
+              <fieldset class="gs-fs">
+                <legend class="gs-grp"><span class="gs-grp-ico" aria-hidden="true" style="{{ kg.icoStyle }}"><i class="{{ kg.icon }}" style="font-size:18px;"></i></span>{{ kg.label }}</legend>
+                <div class="gs-opts">
+                  <sc-for list="{{ kg.kinds }}" as="k" hint-placeholder-count="4">
+                    <label class="gs-opt" data-on="{{ k.on }}">
+                      <input type="radio" name="gs-kind" value="{{ k.id }}" checked="{{ k.checked }}" onChange="{{ k.onPick }}">
+                      <span class="gs-dot" aria-hidden="true"></span>
+                      <span class="gs-opt-t"><sc-if value="{{ k.hasTag }}" hint-placeholder-val="{{ false }}"><span class="gs-tag" title="{{ k.tagHint }}">{{ k.tag }}</span></sc-if>{{ k.label }}</span>
+                    </label>
+                  </sc-for>
+                </div>
+              </fieldset>
+            </sc-for>
           </div>
           <div class="gs-dlg-f">
             <button type="button" class="gs-b gs-b-sec" onClick="{{ closeDlg }}">Отмена</button>
@@ -440,12 +451,25 @@ const ALL = { id:'all', label:'Все услуги', icon:'ri-apps-2-line', tone
 
 // Постановка 28.10.2026, п. 3: виды композитной услуги, группа «Лекарственные средства».
 // id — то, что получает кабинет бизнеса (Услуги.dc.html?svc=<id>)
-const KINDS = [
-  { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности лекарственных средств' },
-  { id:'reg',    label:'Государственная регистрация, перерегистрация лекарственного средства, внесение изменений в регистрационное досье лекарственного средства' },
-  { id:'price',  label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя лекарственного средства' },
-  { id:'knf',    label:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр' },
+// Профессиональные экспертизы АЛО (UC01.14) и ЕД (UC01.13) — для ЛС и МИ, поэтому отдельной группой;
+// «Далее» ведёт сразу в паспорт услуги кабинета (как «Прочие услуги» → «Выбор услуги»).
+// Наименования — EdData.dc.html (SERVICE_ALO, SERVICE), один в один.
+const KIND_GROUPS = [
+  { id:'ls', label:'Лекарственные средства', icon:'ri-capsule-line', tone:['#EFFAF6','#176448'], kinds:[
+    { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности лекарственных средств' },
+    { id:'reg',    label:'Государственная регистрация, перерегистрация лекарственного средства, внесение изменений в регистрационное досье лекарственного средства' },
+    { id:'price',  label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя лекарственного средства' },
+    { id:'knf',    label:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр' },
+  ] },
+  { id:'lsmi', label:'Лекарственные средства и медицинские изделия', icon:'ri-medicine-bottle-line', tone:['#EBFAFF','#164564'], kinds:[
+    { id:'alo', tag:'АЛО', tagHint:'Амбулаторное лекарственное обеспечение', href:'Паспорт услуги АЛО.dc.html',
+      label:'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определенными заболеваниями (состояниями)' },
+    { id:'ed', tag:'ЕД', tagHint:'Единый дистрибьютор', href:'Паспорт услуги ЕД.dc.html',
+      label:'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора' },
+  ] },
 ];
+const KINDS = KIND_GROUPS.flatMap(g => g.kinds);
+const kindHref = (id) => { const k = KINDS.find(x => x.id === id); return k && k.href ? k.href : CABINET + '?svc=' + id; };
 
 // Тип пользователя → доступные категории. «Медперсоналу» раздела нет — такой адрес уводит на главную
 const AUD = {
@@ -641,7 +665,7 @@ class Component extends DCLogic {
   goNext(e){
     if(e && e.preventDefault) e.preventDefault();
     const k = this.state.kind; if(!k) return;
-    const target = CABINET + '?svc=' + k;
+    const target = kindHref(k);
     // Без профиля «Бизнес» — вход с возвратом прямо в выбранный сценарий; «Вернуться» без входа — сюда же
     if(signedBiz()){ location.href = target; return; }
     const back = PAGE + '?for=business&cat=' + this.activeCat().id;
@@ -717,20 +741,17 @@ class Component extends DCLogic {
     const searching = tokens.length > 0;
     const hasAllCat = allowed.some(c => c.id === 'all');
 
-    // Счётчики в блоке «Услуги» — сколько услуг категории подходит под текущий запрос
+    // Блок «Услуги» — без счётчиков: число услуг выбранной категории есть у заголовка перечня справа
     const cats = allowed.map((c, i) => {
       const active = cur.id === c.id;
-      const count = this.hits(c).length;
       return {
-        label:c.label, icon:c.icon, count,
+        label:c.label, icon:c.icon,
         current: active ? 'true' : 'false',
-        countLabel: searching ? `Найдено: ${count} ${plural(count)}` : `${count} ${plural(count)}`,
         sepAfter: c.id === 'all' && i < allowed.length - 1,
         onClick: () => this.pickCat(c),
         style: `color:${active ? '#312D86' : '#31353F'};`,
         iconWrap: `width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${active && c.id === 'all' ? '#fff' : c.tone[0]};color:${c.id === 'all' && active ? '#4D42E9' : c.tone[1]};`,
         labelStyle: `flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:${active ? 600 : 500};`,
-        badge: `flex:0 0 auto;min-width:24px;height:22px;padding:0 7px;border-radius:999px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;${active ? 'background:#fff;color:#4D42E9;' : searching && !count ? 'background:transparent;color:#CDD0D5;box-shadow:inset 0 0 0 1px #E2E4E9;' : 'background:#F6F8FA;color:#868C98;box-shadow:inset 0 0 0 1px #E2E4E9;'}`,
       };
     });
 
@@ -789,8 +810,11 @@ class Component extends DCLogic {
       onDlgKey: (e) => this.onDlgKey(e),
       goNext: (e) => this.goNext(e),
       nextDisabled: !s.kind,
-      kinds: KINDS.map(k => ({ id:k.id, label:k.label, on: s.kind === k.id ? 'true' : 'false', checked: s.kind === k.id,
-        onPick: () => this.setState({ kind:k.id }) })),
+      kindGroups: KIND_GROUPS.map(g => ({ label:g.label, icon:g.icon,
+        icoStyle: `background:${g.tone[0]};color:${g.tone[1]};`,
+        kinds: g.kinds.map(k => ({ id:k.id, label:k.label, hasTag: !!k.tag, tag: k.tag || '', tagHint: k.tagHint || '',
+          on: s.kind === k.id ? 'true' : 'false', checked: s.kind === k.id,
+          onPick: () => this.setState({ kind:k.id }) })) })),
     };
   }
 }
