@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → «Услуги» (постановка «Раздел „Услуги“ в ЛК гражданина», 28.10.2026).
+  Только категория «Медицинская помощь» — тот же перечень, что у «Гражданам» на странице
+  «Государственные услуги» (источник — постановка «Анализ ГУ МЗ»); счётчик считается по перечню.
+
+  Строка: № · наименование · краткое описание (при наличии) · значок перехода.
+  Услуги — eGov.kz, по правилам навигации портала открываются в новой вкладке.
+  Поиск — только по наименованию: фильтрация на лету, подсветка совпадений, «N из M», очистка (×, Esc),
+  «/» — к поиску, ↓/↑ — по строкам. Пустой результат — сообщение из постановки (п. 4.2).
+  Загрузка перечня — skeleton-строки (п. 6, макет 5); ?state=loading оставляет их на экране.
+  Фото профиля — в карточке меню (компонент CitizenNav).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes su-shimmer{from{background-position:-480px 0}to{background-position:480px 0}}
+
+  /* Раскладка кабинета гражданина — как у остальных его страниц: на всю ширину, поля 32 / 24 / 16 px */
+  .su-page{--hdr:70px;}
+  .su-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .su-wrap{padding:24px 24px 80px;} }
+  .su-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .su-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .su-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+
+  /* Заголовок */
+  .su-hero{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .su-hero-ico{width:52px;height:52px;border-radius:14px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .su-h1{margin:0;font-size:26px;line-height:34px;font-weight:600;letter-spacing:-.02em;}
+  .su-lead{margin:2px 0 0;font-size:15px;line-height:22px;color:var(--n500);}
+
+  /* Карточка перечня */
+  .su-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
+  .su-head{position:sticky;top:var(--hdr);z-index:5;padding:20px 24px 16px;background:var(--n0);border-radius:20px 20px 0 0;transition:box-shadow .15s;}
+  .su-head[data-stuck="true"]{border-radius:0;box-shadow:0 1px 0 var(--stroke),0 8px 16px -12px rgba(10,13,20,.14);}
+  .su-h2{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
+  .su-cat-ico{width:28px;height:28px;border-radius:8px;background:#FDEDF0;color:#DF1C41;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .su-count{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 8px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;line-height:1;font-weight:600;letter-spacing:0;font-variant-numeric:tabular-nums;white-space:nowrap;transition:background .12s,color .12s;}
+  .su-count[data-search="true"]{background:var(--primary-lighter);color:var(--primary-darker);}
+  .su-search{display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);transition:border-color .12s,box-shadow .12s,background .12s;}
+  .su-search:hover{border-color:var(--n300);}
+  .su-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .su-search[data-busy="true"]{background:var(--n50);pointer-events:none;}
+  .su-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .su-search input::placeholder{color:var(--n400);}
+  .su-search input::-webkit-search-cancel-button{display:none;}
+  .su-clear{width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
+  .su-clear:hover{background:var(--n100);color:var(--n600);}
+  .su-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;margin-right:6px;border:1px solid var(--stroke);border-radius:6px;background:var(--n50);color:var(--n400);font-size:12px;font-weight:600;flex:0 0 auto;}
+  .su-search:focus-within .su-kbd{display:none;}
+
+  /* Перечень: строки разделены линией, при наведении — фон */
+  .su-list{list-style:none;margin:0;padding:0 12px 12px;animation:mp-fade .16s ease;}
+  .su-list li + li .su-row::before{content:"";position:absolute;left:12px;right:12px;top:-1px;height:1px;background:var(--n200);transition:opacity .12s;}
+  .su-list li:hover .su-row::before,.su-list li:hover + li .su-row::before,
+  .su-list li:focus-within .su-row::before,.su-list li:focus-within + li .su-row::before{opacity:0;}
+  .su-row{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) 36px;align-items:start;gap:12px;padding:12px;border-radius:12px;text-decoration:none;color:var(--n900);transition:background .12s;}
+  .su-row:hover{background:var(--n100);}
+  .su-num{padding-top:2px;font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;text-align:right;}
+  .su-txt{min-width:0;display:flex;flex-direction:column;gap:2px;padding:2px 0;}
+  .su-name{font-size:14px;line-height:20px;font-weight:500;overflow-wrap:anywhere;hyphens:auto;transition:color .12s;}
+  .su-desc{font-size:13px;line-height:18px;color:var(--n500);}
+  .su-row:hover .su-name{color:var(--primary-darker);}
+  .su-mark{background:var(--primary-lighter);color:var(--primary-darker);border-radius:3px;box-shadow:0 0 0 1px var(--primary-lighter);}
+  .su-go{align-self:center;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--n400);font-size:18px;transition:background .12s,color .12s;}
+  .su-row:hover .su-go{background:var(--n0);color:var(--primary);box-shadow:0 0 0 1px var(--stroke);}
+
+  /* Skeleton */
+  .su-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:960px 100%;animation:su-shimmer 1.3s linear infinite;}
+  .su-skrow{display:grid;grid-template-columns:28px minmax(0,1fr) 36px;align-items:center;gap:12px;min-height:60px;padding:12px;}
+  .su-skrow + .su-skrow{border-top:1px solid var(--n100);}
+
+  /* Пусто */
+  .su-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:56px 16px 64px;animation:mp-fade .16s ease;}
+  .su-empty-ico{width:72px;height:72px;border-radius:50%;background:var(--primary-lighter);box-shadow:0 0 0 10px #F7F8FF;display:flex;align-items:center;justify-content:center;margin-bottom:22px;color:var(--primary);}
+
+  .su-row:focus-visible,.su-clear:focus-visible,.su-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  /* Панель «Прототип» (как в ЛМК) */
+  .su-pp{position:fixed;left:20px;bottom:20px;z-index:50;width:220px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;font-family:'Inter',sans-serif;}
+  .su-pp.open{width:260px;}
+  .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-head:hover{background:var(--n100);}
+  .pp-cap{margin:10px 0 2px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
+  .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover:not(:disabled){background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+  .pp-btn:disabled{opacity:.5;cursor:default;}
+  .pp-head:focus-visible,.pp-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  @media (max-width:640px){ .su-pp{left:16px;bottom:16px;} }
+  .su-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+
+  /* Мониторы: строки свободнее */
+  @media (min-width:1800px){
+    .su-row,.su-skrow{padding:14px 16px;}
+    .su-list{padding:0 16px 16px;}
+    .su-list li + li .su-row::before{left:16px;right:16px;}
+    .su-head{padding:22px 28px 18px;}
+  }
+  @media (max-width:1024px){
+    .su-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .su-wrap{padding:16px 16px 80px;}
+    .su-crumbs{margin-bottom:16px;}
+    .su-hero{gap:12px;margin-bottom:16px;}
+    .su-hero-ico{width:44px;height:44px;border-radius:12px;}
+    .su-hero-ico i{font-size:22px !important;}
+    .su-h1{font-size:22px;line-height:30px;}
+    .su-lead{font-size:14px;line-height:20px;}
+    .su-card{border-radius:16px;}
+    .su-head{padding:14px 14px 12px;border-radius:16px 16px 0 0;}
+    .su-h2{font-size:16px;line-height:24px;margin-bottom:12px;}
+    .su-list{padding:0 6px 8px;}
+    .su-row,.su-skrow{grid-template-columns:20px minmax(0,1fr) 32px;gap:10px;padding:12px 8px;}
+    .su-go{width:32px;height:32px;}
+    .su-search input{font-size:16px;}
+    .su-kbd{display:none;}
+  }
+  @media (hover:none){ .su-kbd{display:none;} }
+  @media (prefers-reduced-motion:reduce){ .su-sk{animation:none;} .su-list,.su-empty{animation:none;} }
+</style>
+</helmet>
+
+<div class="su-page" ref="{{ pageRef }}" style="min-height:100vh;">
+  <div ref="{{ hdrRef }}" style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+
+  <div class="su-wrap">
+    <nav class="su-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Услуги</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="services" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main style="min-width:0;animation:mp-fade .2s ease;">
+        <div class="su-hero">
+          <div class="su-hero-ico" aria-hidden="true"><i class="ri-government-line" style="font-size:26px;"></i></div>
+          <div style="min-width:0;">
+            <h1 class="su-h1">Государственные услуги</h1>
+            <p class="su-lead">Услуги в сфере медицинской помощи</p>
+          </div>
+        </div>
+
+        <section class="su-card" aria-labelledby="su-cat" aria-busy="{{ busy }}">
+          <div ref="{{ sentinelRef }}" style="height:0;"></div>
+          <div class="su-head" ref="{{ headRef }}">
+            <h2 id="su-cat" class="su-h2">
+              <span class="su-cat-ico" aria-hidden="true"><i class="ri-heart-pulse-line" style="font-size:16px;"></i></span>
+              <span style="min-width:0;">Медицинская помощь</span>
+              <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                <span class="su-sk" style="width:28px;height:22px;border-radius:999px;" aria-hidden="true"></span>
+              </sc-if>
+              <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                <span class="su-count" data-search="{{ searching }}" aria-label="{{ countLabel }}" title="{{ countLabel }}">{{ count }}</span>
+              </sc-if>
+            </h2>
+            <label class="su-search" data-busy="{{ busy }}">
+              <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;" aria-hidden="true"></i>
+              <input ref="{{ inputRef }}" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onInputKey }}" disabled="{{ loading }}" placeholder="Поиск по названию услуги" aria-label="Поиск по названию услуги" aria-describedby="su-live" autoComplete="off" spellCheck="false" enterKeyHint="search">
+              <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                <button class="su-clear" type="button" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить (Esc)"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+              </sc-if>
+              <sc-if value="{{ showKbd }}" hint-placeholder-val="{{ true }}">
+                <span class="su-kbd" aria-hidden="true" title="Нажмите «/», чтобы перейти к поиску">/</span>
+              </sc-if>
+            </label>
+            <span id="su-live" class="su-sr" aria-live="polite">{{ live }}</span>
+          </div>
+
+          <!-- Загрузка данных -->
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:0 12px 12px;" aria-hidden="true">
+              <sc-for list="{{ skel }}" as="k" hint-placeholder-count="7">
+                <div class="su-skrow">
+                  <span class="su-sk" style="width:14px;height:12px;justify-self:end;"></span>
+                  <span style="display:flex;flex-direction:column;gap:8px;min-width:0;">
+                    <span class="su-sk" style="{{ k.w1 }}"></span>
+                    <span class="su-sk" style="{{ k.w2 }}"></span>
+                  </span>
+                  <span class="su-sk" style="width:20px;height:20px;justify-self:center;border-radius:6px;"></span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- Перечень -->
+          <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+            <ul class="su-list" ref="{{ listRef }}" onKeyDown="{{ onListKey }}">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+                <li>
+                  <a class="su-row" href="{{ r.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ r.aria }}" title="Откроется на eGov.kz в новой вкладке">
+                    <span class="su-num" aria-hidden="true">{{ r.num }}</span>
+                    <span class="su-txt">
+                      <span class="su-name"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span>
+                      <sc-if value="{{ r.hasDesc }}" hint-placeholder-val="{{ true }}"><span class="su-desc">{{ r.desc }}</span></sc-if>
+                    </span>
+                    <span class="su-go" aria-hidden="true"><i class="ri-external-link-line"></i></span>
+                  </a>
+                </li>
+              </sc-for>
+            </ul>
+          </sc-if>
+
+          <!-- Отсутствие результатов -->
+          <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+            <div class="su-empty">
+              <div class="su-empty-ico" aria-hidden="true"><i class="ri-file-search-line" style="font-size:32px;"></i></div>
+              <div style="font-size:16px;line-height:24px;font-weight:600;color:var(--n900);">По вашему запросу услуги не найдены</div>
+              <div style="margin-top:6px;font-size:14px;line-height:20px;color:var(--n500);max-width:360px;">Попробуйте изменить запрос или ввести другое название услуги</div>
+            </div>
+          </sc-if>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Панель прототипа: состояния перечня и сохранения фото -->
+  <div class="{{ ppCls }}" role="region" aria-label="Панель прототипа">
+    <button type="button" class="pp-head" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 12px 12px;border-top:1px solid var(--stroke);">
+        <sc-for list="{{ ppGroups }}" as="g" hint-placeholder-count="2">
+          <div role="radiogroup" aria-label="{{ g.label }}" style="display:flex;flex-direction:column;gap:6px;">
+            <div class="pp-cap">{{ g.label }}</div>
+            <sc-for list="{{ g.opts }}" as="x" hint-placeholder-count="2">
+              <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="pp-cap">Фото профиля</div>
+        <button type="button" class="pp-btn" onClick="{{ ppNoPhoto }}" disabled="{{ ppNoPhotoOff }}" style="width:100%;"><i class="ri-user-3-line" style="font-size:15px;" aria-hidden="true"></i>Сбросить: фото не загружено</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1000}}">
+const EGOV = 'https://egov.kz/ru/services/presale/';
+
+// «Медицинская помощь» — перечень и ссылки как на странице «Государственные услуги» (раздел «Гражданам»).
+// Третье поле — краткое описание (постановка п. 3.3: «при наличии»).
+const SERVICES = [
+  ['Регистрация доверенных контактов для уведомления в случае госпитализации', 'P719', 'Добавление и редактирование контактных данных'],
+  ['Справка по динамическому наблюдению', 'P708', 'Получение справки о наблюдении у специалиста'],
+  ['Выдача выписки из медицинской карты стационарного больного', 'P707', 'Запрос выписки из стационара'],
+  ['Регистрация прижизненного волеизъявления на кремацию', 'P718'],
+  ['Вызов врача на дом', 'P701', 'Вызов участкового врача на дом'],
+  ['Прикрепление к поликлинике', 'P703', 'Выбор и прикрепление к медицинской организации'],
+  ['Вызов скорой медицинской помощи', 'health_care_pass132-3_mz', 'Вызов бригады скорой помощи'],
+  ['Возврат излишне (ошибочно) зачисленных сумм отчислений, взносов и (или) пени за несвоевременную и (или) неполную уплату отчислений и (или) взносов обязательного социального медицинского страхования', 'health_care_pass1601009_mz'],
+  ['Выдача медицинской справки по форме № 073/у', 'P723'],
+  ['Выдача медицинской справки по форме № 075/у', 'P715'],
+  ['Регистрация прижизненного отказа или согласия на посмертное донорство органов (части органа) и (или) тканей (части ткани) в целях трансплантации', 'P712'],
+  ['Выдача больничного листа', 'P713', 'Оформление листа временной нетрудоспособности'],
+  ['Справки из наркологии, психиатрии и тубдиспансера', 'P704', 'Справки о состоянии на учёте в диспансерах'],
+  ['Запись на прием к врачу', 'P702', 'Запись к врачу в поликлинике прикрепления'],
+  ['Корректировка сведений по вакцинации', 'P721', 'Исправление данных о прививках'],
+  ['Прием и рассмотрение документов о целесообразности направления граждан Республики Казахстан на лечение за рубеж и (или) привлечения зарубежных специалистов для проведения лечения в отечественных медицинских организациях в рамках гарантированного объема бесплатной медицинской помощи', 'health_care_pass-132-5_mz'],
+  ['Выдача направления пациентам на госпитализацию в стационар', 'P710', 'Направление на плановую госпитализацию'],
+  ['Информация об ОСМС', 'P711', 'Статус застрахованности и сведения о взносах'],
+  ['Выдача справки о временной нетрудоспособности', 'P714'],
+  ['Выдача санаторно-курортной карты', 'P716', 'Карта для санаторно-курортного лечения'],
+  ['Композитная услуга «Рождение ребенка»', 'Com013', 'Регистрация рождения, назначение пособий и прикрепление к поликлинике'],
+].map(([name, ref, desc], i) => ({ num: i + 1, name, desc: desc || '', href: EGOV + ref, norm: norm(name) }));
+
+const LOAD_MS = 700;
+const SKEL = [[78, 46], [52, 38], [66, 30], [58, 42], [72, 34], [44, 28], [62, 40], [56, 36]]
+  .map(([a, b]) => ({ w1: `width:${a}%;height:12px;`, w2: `width:${b}%;height:10px;opacity:.8;` }));
+
+const readPhoto = () => { try { return localStorage.getItem('mp-avatar') || ''; } catch(e){ return ''; } };
+function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
+function tokensOf(q){ return norm(q).trim().split(/\s+/).filter(Boolean); }
+
+// Наименование по частям: совпадения со словами запроса подсвечены
+function highlight(name, tokens){
+  if(!tokens.length) return [{ t:name, cls:'' }];
+  const low = norm(name), mark = new Array(name.length).fill(false);
+  tokens.forEach(tk => { let i = low.indexOf(tk); while(i !== -1){ for(let k = i; k < i + tk.length; k++) mark[k] = true; i = low.indexOf(tk, i + tk.length); } });
+  const parts = []; let cur = '', on = mark[0];
+  for(let i = 0; i < name.length; i++){
+    if(mark[i] !== on){ parts.push({ t:cur, on }); cur = ''; on = mark[i]; }
+    cur += name[i];
+  }
+  parts.push({ t:cur, on });
+  return parts.filter(p => p.t).map(p => ({ t:p.t, cls: p.on ? 'su-mark' : '' }));
+}
+
+function plural(n){
+  const m10 = n % 10, m100 = n % 100;
+  if(m10 === 1 && m100 !== 11) return 'услуга';
+  if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'услуги';
+  return 'услуг';
+}
+
+class Component extends DCLogic {
+  pageRef = React.createRef();
+  hdrRef = React.createRef();
+  headRef = React.createRef();
+  sentinelRef = React.createRef();
+  inputRef = React.createRef();
+  listRef = React.createRef();
+
+  constructor(props){
+    super(props);
+    let hold = false; try { hold = new URLSearchParams(location.search).get('state') === 'loading'; } catch(e){}
+    this._hold = hold;
+    let scn = 'ok'; try { scn = sessionStorage.getItem('mp-avatar-scn') || 'ok'; } catch(e){}
+    this.state = { loading:true, q:'', live:'', ppOpen:false, scn, hasPhoto:!!readPhoto() };
+  }
+
+  componentDidMount(){
+    // Перечень приходит с сервера — до ответа показываем skeleton
+    if(!this._hold) this._t = setTimeout(() => this.setState({ loading:false, live:`Медицинская помощь: ${SERVICES.length} ${plural(SERVICES.length)}` }), LOAD_MS);
+
+    // «/» — к поиску, если фокус не в поле ввода
+    this._onKey = (e) => {
+      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || this.state.loading) return;
+      const t = e.target, tag = t && t.tagName;
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      if(document.querySelector('[role="dialog"]')) return;
+      e.preventDefault(); this.focusSearch(true);
+    };
+    window.addEventListener('keydown', this._onKey);
+    this._onPhoto = () => this.setState({ hasPhoto: !!readPhoto() });
+    window.addEventListener('mp-avatar-change', this._onPhoto);
+
+    // Высота шапки → отступ «липкого» поиска; тень, когда он прилип
+    this._measure = () => {
+      const h = this.hdrRef.current, p = this.pageRef.current;
+      if(h && p) p.style.setProperty('--hdr', Math.round(h.getBoundingClientRect().height) + 'px');
+    };
+    this._onScroll = () => {
+      const head = this.headRef.current, sent = this.sentinelRef.current;
+      if(!head || !sent) return;
+      const stuck = sent.getBoundingClientRect().top < this.hdrH() - 1 ? 'true' : 'false';
+      if(head.getAttribute('data-stuck') !== stuck) head.setAttribute('data-stuck', stuck);
+    };
+    this._measure(); this._onScroll();
+    window.addEventListener('resize', this._measure);
+    window.addEventListener('scroll', this._onScroll, { passive:true });
+    if(window.ResizeObserver && this.hdrRef.current){ this._ro = new ResizeObserver(this._measure); this._ro.observe(this.hdrRef.current); }
+  }
+  componentWillUnmount(){
+    clearTimeout(this._t);
+    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('mp-avatar-change', this._onPhoto);
+    window.removeEventListener('resize', this._measure);
+    window.removeEventListener('scroll', this._onScroll);
+    if(this._ro) this._ro.disconnect();
+  }
+
+  // Панель «Прототип»: «Загрузка данных» держит skeleton, «Загружен» — показывает перечень
+  setLoading(on){
+    clearTimeout(this._t);
+    this._hold = on;
+    try {
+      const u = new URL(location.href);
+      if(on) u.searchParams.set('state', 'loading'); else u.searchParams.delete('state');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    } catch(e){}
+    this.setState({ loading:on, live: on ? 'Загрузка перечня услуг' : `Медицинская помощь: ${SERVICES.length} ${plural(SERVICES.length)}` });
+  }
+  setScn(id){ try { sessionStorage.setItem('mp-avatar-scn', id); } catch(e){} this.setState({ scn:id }); }
+
+  hdrH(){ const h = this.hdrRef.current; return h ? h.getBoundingClientRect().height : 0; }
+  focusSearch(select){
+    const i = this.inputRef.current; if(!i) return;
+    const r = i.getBoundingClientRect();
+    i.focus({ preventScroll: r.top > this.hdrH() && r.bottom < window.innerHeight });
+    if(select && i.value) i.select();
+  }
+  // При вводе подтягиваем начало перечня под шапку, если страница прокручена ниже
+  revealList(){
+    const s = this.sentinelRef.current; if(!s) return;
+    const top = s.getBoundingClientRect().top - this.hdrH();
+    if(top < 0) window.scrollTo({ top: window.scrollY + top - 8 });
+  }
+  rows(){ const l = this.listRef.current; return l ? [...l.querySelectorAll('a.su-row')] : []; }
+  setQ(q){
+    const tokens = tokensOf(q);
+    const n = tokens.length ? SERVICES.filter(s => tokens.every(t => s.norm.includes(t))).length : SERVICES.length;
+    const live = !tokens.length ? `Показаны все услуги: ${n}` : n ? `Найдено: ${n} ${plural(n)}` : 'По вашему запросу услуги не найдены';
+    this.setState({ q, live });
+    this.revealList();
+  }
+  onInputKey(e){
+    if(e.key === 'Escape' && this.state.q){ e.preventDefault(); this.setQ(''); return; }
+    if(e.key === 'ArrowDown'){ const r = this.rows(); if(r.length){ e.preventDefault(); r[0].focus(); } }
+  }
+  onListKey(e){
+    if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const r = this.rows(), i = r.indexOf(document.activeElement);
+    if(i === -1) return;
+    e.preventDefault();
+    if(e.key === 'ArrowDown' && i < r.length - 1) r[i + 1].focus();
+    else if(e.key === 'ArrowUp') (i > 0 ? r[i - 1] : this.inputRef.current).focus();
+  }
+
+  renderVals(){
+    const s = this.state;
+    const tokens = tokensOf(s.q);
+    const searching = !s.loading && tokens.length > 0;
+    const found = searching ? SERVICES.filter(it => tokens.every(t => it.norm.includes(t))) : SERVICES;
+    const total = SERVICES.length;
+    return {
+      pageRef: this.pageRef, hdrRef: this.hdrRef, headRef: this.headRef, sentinelRef: this.sentinelRef,
+      inputRef: this.inputRef, listRef: this.listRef,
+      loading: s.loading, loaded: !s.loading, busy: s.loading ? 'true' : 'false',
+      skel: SKEL,
+      searching: searching ? 'true' : 'false',
+      count: searching ? `${found.length} из ${total}` : total,
+      countLabel: searching ? `Найдено ${found.length} из ${total}` : `${total} ${plural(total)}`,
+      q: s.q, hasQ: !!s.q && !s.loading, showKbd: !s.q && !s.loading,
+      onQ: (e) => this.setQ(e.target.value),
+      clearQ: () => { this.setQ(''); this.focusSearch(false); },
+      onInputKey: (e) => this.onInputKey(e),
+      onListKey: (e) => this.onListKey(e),
+      hasRows: !s.loading && found.length > 0,
+      // Номер — порядковый в отображаемом списке (при поиске — 1…N по найденным)
+      rows: found.map((it, i) => ({
+        num: i + 1, href: it.href, desc: it.desc, hasDesc: !!it.desc,
+        parts: highlight(it.name, tokens),
+        aria: `${it.name} — откроется на eGov.kz в новой вкладке`,
+      })),
+      empty: searching && found.length === 0,
+      live: s.live,
+
+      ppOpen: s.ppOpen, ppCls: s.ppOpen ? 'su-pp open' : 'su-pp',
+      ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppGroups: [
+        { label:'Перечень услуг', opts:[
+          { label:'Загружен', icon:'ri-list-check-2', on: !s.loading, onClick: () => this.setLoading(false) },
+          { label:'Загрузка данных', icon:'ri-loader-4-line', on: s.loading, onClick: () => this.setLoading(true) },
+        ] },
+        { label:'Сохранение фото профиля', opts:[
+          { label:'Успешно', icon:'ri-checkbox-circle-line', on: s.scn !== 'fail', onClick: () => this.setScn('ok') },
+          { label:'Ошибка загрузки', icon:'ri-error-warning-line', on: s.scn === 'fail', onClick: () => this.setScn('fail') },
+        ] },
+      ].map(g => ({ ...g, opts: g.opts.map(o => ({ ...o, on: o.on ? 'true' : 'false' })) })),
+      ppNoPhoto: () => { try { localStorage.removeItem('mp-avatar'); window.dispatchEvent(new CustomEvent('mp-avatar-change')); } catch(e){} },
+      ppNoPhotoOff: !s.hasPhoto,
+    };
+  }
+}
+</script>
+</body>
+</html>
