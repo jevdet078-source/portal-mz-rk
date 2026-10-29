@@ -12,27 +12,25 @@
 </head>
 <body>
 <!--
-  Кабинет бизнеса → Услуги: каталог услуг для авторизованного пользователя.
-  Замечание к постановке «Обновление меню кабинета бизнеса» (29.10.2026): вложенные категории в меню
-  (длинные названия, большая прокрутка) заменены страницей — по аналогии с «Государственными услугами»
-  для бизнеса (неавторизованная часть портала):
-    • слева блок «Услуги»: «Все услуги», «Фармацевтика», «Лицензирование и аккредитация»;
-    • справа — название категории с числом услуг, поиск по наименованию в пределах категории, перечень;
-      пусто — «Услуги не найдены», «Сбросить поиск» и «Искать во всех услугах»;
-    • композитная услуга «Единого окна» открывает то же окно «Выберите вид услуги» (компонент ServiceKinds:
+  Кабинет бизнеса → Услуги → «Фармацевтика» | «Лицензирование и аккредитация».
+  Замечания аналитика 29–30.10.2026:
+    • подраздел выбирается в меню (BusinessNav: «Услуги» раскрываются на два подраздела),
+      справа — только услуги выбранного подраздела; «Все услуги» и блок категорий на странице не выводим;
+    • заголовок страницы — название подраздела с числом услуг;
+    • «Фармацевтика» (2 услуги) — без поиска; «Лицензирование и аккредитация» (10) — поиск по наименованию,
+      совпадения подсвечены, пусто — «Услуги не найдены» и «Сбросить поиск»;
+    • композитная услуга «Единого окна» открывает окно «Выберите вид услуги» (компонент ServiceKinds:
       segmented control ЛС / МИ и виды услуги), «Далее» → паспорт услуги, из паспорта — заявка;
     • внешние услуги (eGov.kz, «Е-лицензирование») — адрес сайта и ↗, новая вкладка.
   Раскладка — по ширине области контента (container queries), а не окна: меню бывает 272 или 80 px.
-    ноутбук (контент 900–1300 px) — колонка категорий 280 px, перечень в один столбец;
-    мониторы 24–27″ (перечень шире 1100 px) — шире колонка категорий, крупнее строки, перечень в два столбца,
-      чтобы по краям не оставалось пустоты;
-    узко (планшет) — категории чипами над перечнем.
+    ноутбук — перечень в один столбец; мониторы 24–27″ (перечень шире 1100 px) — в два столбца и крупнее,
+    чтобы по краям не оставалось пустоты; узко — «куда ведёт» под наименованием.
 
-  Адрес: Услуги.dc.html?cat=<all|pharma|lic>&q=<запрос> — категория и запрос пишутся в адрес.
+  Адрес: Услуги.dc.html?cat=<pharma|lic>&q=<запрос> (q — только у «Лицензирования»); без cat — «Фармацевтика».
+  Подраздел меняется без перезагрузки: событие window 'mp-biz-svc-cat' из меню, «Назад» браузера — popstate.
   Входящие ссылки ?svc=<safety|reg|price|knf|alo|ed>&type=<ls|mi> (старые ссылки портала):
     price / alo / ed — сразу паспорт услуги, knf — заявление КНФ (паспорта КНФ пока нет),
     safety / reg — окно выбора с отмеченным видом.
-  Раньше здесь был реестр заявок ЛС / МИ — его заменила страница «Мои заявки».
 -->
 <x-dc>
 <helmet>
@@ -43,29 +41,15 @@
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes us-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-  .us-main{flex:1;min-width:0;padding:8px 32px 64px;container-type:inline-size;container-name:us;}
-  .us-h1{margin:0;padding:16px 0 20px;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;}
-  .us-grid{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start;animation:mp-slidein .2s ease;}
-  .us-card{background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
-
-  /* Блок «Услуги» — категории */
-  .us-aside{position:sticky;top:89px;}
-  .us-nav{padding:12px;}
-  .us-eyebrow{margin:0;padding:4px 8px 8px;font-size:11.5px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);}
-  .us-cats{display:flex;flex-direction:column;gap:2px;}
-  .us-cat{width:100%;display:flex;align-items:center;gap:12px;padding:10px;border:none;border-radius:12px;background:transparent;font-family:inherit;text-align:left;cursor:pointer;color:var(--n600);transition:background .12s,color .12s;}
-  .us-cat:hover{background:var(--n100);}
-  .us-cat[aria-current="true"],.us-cat[aria-current="true"]:hover{background:var(--primary-lighter);color:var(--primary-darker);}
-  .us-cat-label{flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;}
-  .us-cat[aria-current="true"] .us-cat-label{font-weight:600;}
-  .us-cat-sep{height:1px;margin:6px 10px;background:var(--stroke);}
-
-  /* Перечень */
-  .us-sec{min-width:0;container-type:inline-size;container-name:list;}
-  .us-head{position:sticky;top:73px;z-index:5;padding:20px 24px 16px;background:#fff;border-radius:16px 16px 0 0;transition:box-shadow .15s,border-radius .15s;}
-  .us-head[data-stuck="true"]{border-radius:0;box-shadow:0 1px 0 var(--stroke),0 8px 16px -12px rgba(10,13,20,.14);}
-  .us-h2{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
+  .us-main{flex:1;min-width:0;padding:8px 32px 64px;}
+  .us-top{display:flex;align-items:center;gap:10px;padding:16px 0 20px;}
+  .us-h1{margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;}
   .us-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 8px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;line-height:1;font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .us-sec{min-width:0;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);container-type:inline-size;container-name:list;animation:mp-slidein .2s ease;}
+
+  /* поиск — «прилипает» под шапку портала */
+  .us-head{position:sticky;top:73px;z-index:5;padding:16px 16px 8px;background:#fff;border-radius:16px 16px 0 0;transition:box-shadow .15s,border-radius .15s;}
+  .us-head[data-stuck="true"]{border-radius:0;box-shadow:0 1px 0 var(--stroke),0 8px 16px -12px rgba(10,13,20,.14);}
   .us-search{display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:#fff;transition:border-color .12s,box-shadow .12s;}
   .us-search:hover{border-color:var(--n300);}
   .us-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
@@ -74,12 +58,10 @@
   .us-search input::-webkit-search-cancel-button{display:none;}
   .us-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;margin-right:6px;border:1px solid var(--stroke);border-radius:6px;background:var(--n50);color:var(--n400);font-size:12px;font-weight:600;flex:0 0 auto;}
   .us-search:focus-within .us-kbd{display:none;}
-  .us-list{padding:0 12px 16px;animation:us-in .16s ease;}
-  .us-group-head{display:flex;align-items:center;gap:8px;padding:14px 12px 6px;}
-  .us-group + .us-group{margin-top:6px;border-top:1px solid var(--n100);}
+  .us-list{padding:8px 12px 12px;animation:us-in .16s ease;}
   .us-ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:2px 12px;}
 
-  /* Строка услуги: № · наименование · куда ведёт */
+  /* строка услуги: № · наименование · куда ведёт */
   .us-row{width:100%;height:100%;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:start;column-gap:12px;padding:12px;border:none;border-radius:12px;background:transparent;font-family:inherit;text-align:left;text-decoration:none;color:var(--n900);cursor:pointer;transition:background .12s;}
   .us-row:hover{background:var(--n100);}
   .us-num{font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;text-align:right;}
@@ -99,7 +81,7 @@
   .us-btn:hover{background:var(--n100) !important;color:var(--n600) !important;}
   .us-link{transition:background .12s,border-color .12s;}
   .us-link:hover{background:var(--primary-lighter) !important;border-color:var(--primary-light) !important;}
-  .us-cat:focus-visible,.us-row:focus-visible,.us-btn:focus-visible,.us-link:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .us-row:focus-visible,.us-btn:focus-visible,.us-link:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .us-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
   /* широкий перечень (мониторы 24–27″): два столбца, крупнее строки */
@@ -108,36 +90,20 @@
     .us-name{font-size:15px;line-height:22px;}
     .us-num{line-height:22px;}
     .us-side{height:22px;}
-    .us-head{padding:24px 28px 18px;}
-    .us-list{padding:0 16px 20px;}
-  }
-  @container us (min-width:1500px){
-    .us-grid{grid-template-columns:340px minmax(0,1fr);gap:24px;}
-    .us-cat-label{font-size:15px;line-height:22px;}
-    .us-h2{font-size:20px;line-height:28px;}
+    .us-head{padding:20px 20px 8px;}
+    .us-list{padding:8px 16px 16px;}
   }
   /* узкий перечень — «куда ведёт» под наименованием */
   @container list (max-width:560px){
     .us-row{grid-template-columns:22px minmax(0,1fr);row-gap:6px;padding:12px 10px;column-gap:10px;}
     .us-side{grid-column:2;justify-self:start;}
     .us-go{margin-top:0;}
+    .us-list{padding:6px 6px 10px;}
   }
-  /* узкая область (планшет): категории — чипами над перечнем */
-  @container us (max-width:760px){
-    .us-grid{grid-template-columns:minmax(0,1fr);gap:12px;}
-    .us-aside{position:static;}
-    .us-nav{padding:0;background:none;border:none;box-shadow:none;}
-    .us-eyebrow,.us-cat-sep,.us-cat-ico{display:none !important;}
-    .us-cats{flex-direction:row;flex-wrap:wrap;gap:8px;}
-    .us-cat{width:auto;flex:0 0 auto;min-height:40px;padding:6px 14px;border:1px solid var(--stroke);border-radius:999px;background:#fff;}
-    .us-cat[aria-current="true"],.us-cat[aria-current="true"]:hover{border-color:var(--primary-light);}
-    .us-cat-label{white-space:nowrap;}
-    .us-head{padding:16px 16px 12px;}
-    .us-list{padding:0 6px 10px;}
-  }
+  @media (min-width:1600px){ .us-h1{font-size:20px;line-height:28px;} }
   @media (max-width:1023px){ .us-main{padding:8px 24px 64px;} }
   @media (hover:none){ .us-kbd{display:none;} }
-  @media (prefers-reduced-motion:reduce){ .us-list,.us-grid{animation:none;} }
+  @media (prefers-reduced-motion:reduce){ .us-list,.us-sec{animation:none;} }
 </style>
 </helmet>
 
@@ -150,29 +116,17 @@
     </div>
 
     <main class="us-main">
-      <h1 class="us-h1">Услуги</h1>
-      <div class="us-grid">
-        <!-- Блок «Услуги» — категории -->
-        <aside class="us-aside">
-          <nav class="us-nav us-card" aria-labelledby="us-nav-title">
-            <h2 id="us-nav-title" class="us-eyebrow">Услуги</h2>
-            <div class="us-cats" ref="{{ catsRef }}" onKeyDown="{{ onCatsKey }}">
-              <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
-                <button class="us-cat" type="button" onClick="{{ c.onClick }}" aria-current="{{ c.current }}">
-                  <span class="us-cat-ico" style="{{ c.iconWrap }}"><i class="{{ c.icon }}" style="font-size:18px;"></i></span>
-                  <span class="us-cat-label">{{ c.label }}</span>
-                </button>
-                <sc-if value="{{ c.sepAfter }}" hint-placeholder-val="{{ false }}"><div class="us-cat-sep" aria-hidden="true"></div></sc-if>
-              </sc-for>
-            </div>
-          </nav>
-        </aside>
+      <!-- заголовок — выбранный в меню подраздел -->
+      <div class="us-top">
+        <h1 class="us-h1">{{ title }}</h1>
+        <span class="us-count" aria-label="{{ countLabel }}">{{ count }}</span>
+      </div>
 
-        <!-- Выбранная категория: название, поиск, перечень -->
-        <section class="us-sec us-card" aria-labelledby="us-list-title">
+      <section class="us-sec" aria-label="{{ title }}">
+        <!-- поиск — только у «Лицензирования и аккредитации» -->
+        <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
           <div ref="{{ sentinelRef }}" style="height:0;"></div>
           <div class="us-head" ref="{{ headRef }}">
-            <h2 id="us-list-title" class="us-h2"><span style="min-width:0;">{{ listTitle }}</span><span class="us-count" aria-label="{{ listCountLabel }}">{{ listCount }}</span></h2>
             <label class="us-search">
               <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
               <input ref="{{ inputRef }}" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onInputKey }}" placeholder="Поиск по наименованию услуги" aria-label="{{ searchAria }}" aria-describedby="us-live" autoComplete="off" spellCheck="false" enterKeyHint="search">
@@ -185,58 +139,44 @@
             </label>
             <span id="us-live" class="us-sr" aria-live="polite">{{ liveText }}</span>
           </div>
+        </sc-if>
 
-          <div class="us-list" ref="{{ listRef }}" onKeyDown="{{ onListKey }}">
-            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
-              <div class="us-group" role="group" aria-label="{{ g.label }}">
-                <sc-if value="{{ g.showHead }}" hint-placeholder-val="{{ false }}">
-                  <div class="us-group-head" aria-hidden="true">
-                    <i class="{{ g.icon }}" style="{{ g.iconStyle }}"></i>
-                    <span style="font-size:11.5px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">{{ g.label }}</span>
-                    <span style="font-size:12px;line-height:16px;font-weight:600;color:var(--n400);font-variant-numeric:tabular-nums;">{{ g.count }}</span>
-                  </div>
-                </sc-if>
-                <ul class="us-ul">
-                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="6">
-                    <li>
-                      <!-- композитная услуга — окно выбора вида услуги -->
-                      <sc-if value="{{ it.isPortal }}" hint-placeholder-val="{{ false }}">
-                        <button class="us-row" type="button" onClick="{{ it.onOpen }}" aria-haspopup="dialog" title="Выбор вида услуги" aria-label="{{ it.aria }}">
-                          <span class="us-num" aria-hidden="true">{{ it.num }}</span>
-                          <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
-                          <span class="us-side" aria-hidden="true"><span class="us-go"><i class="ri-arrow-right-s-line"></i></span></span>
-                        </button>
-                      </sc-if>
-                      <!-- внешняя услуга — eGov.kz / «Е-лицензирование» в новой вкладке -->
-                      <sc-if value="{{ it.isExt }}" hint-placeholder-val="{{ true }}">
-                        <a class="us-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" title="{{ it.hint }}" aria-label="{{ it.aria }}">
-                          <span class="us-num" aria-hidden="true">{{ it.num }}</span>
-                          <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
-                          <span class="us-side us-site" aria-hidden="true">{{ it.site }}<i class="ri-arrow-right-up-line"></i></span>
-                        </a>
-                      </sc-if>
-                    </li>
-                  </sc-for>
-                </ul>
-              </div>
-            </sc-for>
-
-            <!-- Услуги не найдены -->
-            <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 16px 40px;">
-                <div style="width:56px;height:56px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-search-eye-line" style="font-size:26px;color:var(--n400);"></i></div>
-                <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">Услуги не найдены</div>
-                <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px;">
-                  <button class="us-link" type="button" onClick="{{ clearQ }}" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class="ri-arrow-go-back-line" style="font-size:16px;"></i>Сбросить поиск</button>
-                  <sc-if value="{{ hasAll }}" hint-placeholder-val="{{ false }}">
-                    <button class="us-link" type="button" onClick="{{ toAll }}" style="height:40px;padding:0 12px 0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><i class="ri-apps-2-line" style="font-size:16px;color:var(--n400);"></i>Искать во всех услугах<span class="us-count" style="background:var(--primary-lighter);color:var(--primary);">{{ allHits }}</span></button>
+        <div class="us-list" ref="{{ listRef }}" onKeyDown="{{ onListKey }}">
+          <sc-if value="{{ hasItems }}" hint-placeholder-val="{{ true }}">
+            <ul class="us-ul">
+              <sc-for list="{{ items }}" as="it" hint-placeholder-count="2">
+                <li>
+                  <!-- композитная услуга — окно выбора вида услуги -->
+                  <sc-if value="{{ it.isPortal }}" hint-placeholder-val="{{ true }}">
+                    <button class="us-row" type="button" onClick="{{ it.onOpen }}" aria-haspopup="dialog" title="Выбор вида услуги" aria-label="{{ it.aria }}">
+                      <span class="us-num" aria-hidden="true">{{ it.num }}</span>
+                      <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                      <span class="us-side" aria-hidden="true"><span class="us-go"><i class="ri-arrow-right-s-line"></i></span></span>
+                    </button>
                   </sc-if>
-                </div>
-              </div>
-            </sc-if>
-          </div>
-        </section>
-      </div>
+                  <!-- внешняя услуга — eGov.kz / «Е-лицензирование» в новой вкладке -->
+                  <sc-if value="{{ it.isExt }}" hint-placeholder-val="{{ false }}">
+                    <a class="us-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" title="{{ it.hint }}" aria-label="{{ it.aria }}">
+                      <span class="us-num" aria-hidden="true">{{ it.num }}</span>
+                      <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                      <span class="us-side us-site" aria-hidden="true">{{ it.site }}<i class="ri-arrow-right-up-line"></i></span>
+                    </a>
+                  </sc-if>
+                </li>
+              </sc-for>
+            </ul>
+          </sc-if>
+
+          <!-- услуги не найдены -->
+          <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 16px 36px;">
+              <div style="width:56px;height:56px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-search-eye-line" style="font-size:26px;color:var(--n400);"></i></div>
+              <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">Услуги не найдены</div>
+              <button class="us-link" type="button" onClick="{{ clearQ }}" style="margin-top:18px;height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class="ri-arrow-go-back-line" style="font-size:16px;"></i>Сбросить поиск</button>
+            </div>
+          </sc-if>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -249,13 +189,14 @@ const EGOV = 'https://egov.kz/ru/services/presale/';
 const ELICENSE = 'https://elicense.kz/';
 const HDR = 73;
 
-// Наименования и ссылки — как в «Государственных услугах» для бизнеса (постановка «Анализ ГУ МЗ»)
+// Наименования и ссылки — как в «Государственных услугах» для бизнеса (постановка «Анализ ГУ МЗ»).
+// search — показывать ли поиск (замечание 30.10.2026: только у «Лицензирования и аккредитации»)
 const CATS = [
-  { id:'pharma', label:'Фармацевтика', icon:'ri-capsule-line', tone:['#EFFAF6','#176448'], items:[
+  { id:'pharma', label:'Фармацевтика', search:false, items:[
     ['Композитная государственная услуга по регистрации лекарственных средств и медицинских изделий с подачей пакета документов по принципу «Единого окна»', 'portal'],
     ['Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', 'P709'],
   ] },
-  { id:'lic', label:'Лицензирование и аккредитация', icon:'ri-award-line', tone:['#EEF2FF','#4D42E9'], items:[
+  { id:'lic', label:'Лицензирование и аккредитация', search:true, items:[
     ['Выдача сертификата специалиста для допуска к клинической практике', ELICENSE],
     ['Аккредитация организации по оценке знаний в области здравоохранения', 'approval_documents_pass153-5_mz'],
     ['Аккредитация субъектов здравоохранения, осуществляющих независимую экспертизу', 'accreditation_passEL4-R22_mz'],
@@ -272,8 +213,7 @@ const CATS = [
   const ext = /^https?:/.test(ref);
   return { name, href: ext ? ref : EGOV + ref, site: ext ? 'Е‑лицензирование' : 'eGov.kz', norm: norm(name) };
 }) }));
-const ALL = { id:'all', label:'Все услуги', icon:'ri-apps-2-line', tone:['#F6F8FA','#525866'] };
-const ALLOWED = [ALL].concat(CATS);
+const catOf = (id) => CATS.find(c => c.id === id) || CATS[0];
 // старые ссылки портала на виды композитной услуги: паспорт там, где он есть
 const SVC_HREF = { price:(t) => 'Паспорт регистрации цены.dc.html#' + t, alo:(t) => 'Паспорт услуги АЛО.dc.html?cat=' + t, ed:(t) => 'Паспорт услуги ЕД.dc.html?cat=' + t, knf:() => 'Заявление КНФ.dc.html' };
 
@@ -299,32 +239,37 @@ function plural(n){
   if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'услуги';
   return 'услуг';
 }
+const readUrl = () => { try { const p = new URLSearchParams(location.search); return { cat: catOf(p.get('cat')).id, q: p.get('q') || '' }; } catch(e){ return { cat:'pharma', q:'' }; } };
 
 class Component extends DCLogic {
   headRef = React.createRef();
   sentinelRef = React.createRef();
   inputRef = React.createRef();
   listRef = React.createRef();
-  catsRef = React.createRef();
 
   constructor(props){
     super(props);
-    let cat = '', q = '', pre = null;
+    let pre = null;
     try {
       const p = new URLSearchParams(location.search);
-      cat = p.get('cat') || ''; q = p.get('q') || '';
       const svc = p.get('svc'), type = p.get('type') === 'mi' ? 'mi' : 'ls';
-      if(svc && SVC_HREF[svc] && !(svc === 'knf' && type === 'mi')){ location.replace(SVC_HREF[svc](type)); }
-      else if(svc === 'safety' || svc === 'reg'){ pre = { seg:type, kind:svc }; cat = 'pharma'; }
+      if(svc && SVC_HREF[svc] && !(svc === 'knf' && type === 'mi')) location.replace(SVC_HREF[svc](type));
+      else if(svc === 'safety' || svc === 'reg') pre = { seg:type, kind:svc };
     } catch(e){}
     this._pre = pre;
-    this.state = { cat, q, live:'' };
+    const u = readUrl();
+    this.state = { cat:u.cat, q: catOf(u.cat).search ? u.q : '' };
   }
 
   componentDidMount(){
-    // «/» — к поиску, если фокус не в поле ввода и окно закрыто
+    // подраздел из меню — без перезагрузки; «Назад» / «Вперёд» браузера
+    this._onCat = (e) => { const id = catOf(e && e.detail).id; if(id !== this.state.cat){ this.setState({ cat:id, q:'' }); window.scrollTo({ top:0 }); } };
+    window.addEventListener('mp-biz-svc-cat', this._onCat);
+    this._onPop = () => { const u = readUrl(); this.setState({ cat:u.cat, q: catOf(u.cat).search ? u.q : '' }); };
+    window.addEventListener('popstate', this._onPop);
+    // «/» — к поиску, если он есть, фокус не в поле ввода и окно закрыто
     this._onKey = (e) => {
-      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || document.body.hasAttribute('data-mp-modal')) return;
+      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || !catOf(this.state.cat).search || document.body.hasAttribute('data-mp-modal')) return;
       const t = e.target, tag = t && t.tagName;
       if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
       e.preventDefault(); this.focusSearch(true);
@@ -352,33 +297,25 @@ class Component extends DCLogic {
     this.syncUrl();
   }
   componentWillUnmount(){
+    window.removeEventListener('mp-biz-svc-cat', this._onCat);
+    window.removeEventListener('popstate', this._onPop);
     window.removeEventListener('keydown', this._onKey);
     window.removeEventListener('scroll', this._onScroll);
     clearTimeout(this._tp);
   }
-  componentDidUpdate(){ this.syncUrl(); }
+  componentDidUpdate(){ this.syncUrl(); this._onScroll(); }
 
-  activeCat(){ return ALLOWED.find(c => c.id === this.state.cat) || ALL; }
-  itemsOf(c){ return c.id === 'all' ? CATS.flatMap(x => x.items) : c.items; }
-  hits(c){ const tk = tokensOf(this.state.q); return tk.length ? this.itemsOf(c).filter(it => matchAll(it, tk)) : this.itemsOf(c); }
-
-  // категория и запрос — в адресе: «Назад» из паспорта возвращает ту же выборку
+  // подраздел и запрос — в адресе (replaceState: история не засоряется на каждую букву)
   syncUrl(){
-    const key = this.activeCat().id + ':' + this.state.q.trim();
+    const key = this.state.cat + ':' + this.state.q.trim();
     if(key === this._urlKey) return;
     this._urlKey = key;
     try {
       const p = new URLSearchParams();
-      p.set('cat', this.activeCat().id);
+      p.set('cat', this.state.cat);
       if(this.state.q.trim()) p.set('q', this.state.q.trim());
       history.replaceState(history.state, '', location.pathname + '?' + p.toString());
     } catch(e){}
-  }
-  // подтянуть начало перечня под шапку, если страница прокручена ниже
-  revealList(){
-    const s = this.sentinelRef.current; if(!s) return;
-    const top = s.getBoundingClientRect().top - HDR;
-    if(top < 0) window.scrollTo({ top: window.scrollY + top - 8 });
   }
   focusSearch(select){
     const i = this.inputRef.current; if(!i) return;
@@ -387,93 +324,53 @@ class Component extends DCLogic {
     if(select && i.value) i.select();
   }
   rows(){ const l = this.listRef.current; return l ? [...l.querySelectorAll('.us-row')] : []; }
-  pickCat(c){
-    if(this.activeCat().id === c.id) return;
-    const n = this.hits(c).length;
-    this.setState({ cat:c.id, live:`${c.label}: ${n} ${plural(n)}` });
-    this.revealList();
-  }
   openDlg(e){
     const opener = (e && e.currentTarget && e.currentTarget.focus ? e.currentTarget : null) || document.activeElement;
     window.dispatchEvent(new CustomEvent('mp-svc-kinds-open', { detail:{ opener } }));
-  }
-  // категории: ↑/↓ (←/→ чипами) переключают, Home/End — крайние
-  onCatsKey(e){
-    const keys = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
-    if(!keys.includes(e.key)) return;
-    const btns = [...(this.catsRef.current ? this.catsRef.current.querySelectorAll('button.us-cat') : [])];
-    if(!btns.length) return;
-    e.preventDefault();
-    let i = btns.indexOf(document.activeElement);
-    if(e.key === 'Home') i = 0;
-    else if(e.key === 'End') i = btns.length - 1;
-    else i = (i + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + btns.length) % btns.length;
-    btns[i].focus(); btns[i].click();
   }
   // из поиска ↓ — к первой услуге; Esc очищает запрос
   onInputKey(e){
     if(e.key === 'Escape' && this.state.q){ e.preventDefault(); this.setState({ q:'' }); return; }
     if(e.key === 'ArrowDown'){ const r = this.rows(); if(r.length){ e.preventDefault(); r[0].focus(); } }
   }
+  // по перечню — стрелками; ↑ с первой строки возвращает в поиск
   onListKey(e){
     if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     const r = this.rows(), i = r.indexOf(document.activeElement);
     if(i === -1) return;
     e.preventDefault();
     if(e.key === 'ArrowDown' && i < r.length - 1) r[i + 1].focus();
-    else if(e.key === 'ArrowUp') (i > 0 ? r[i - 1] : this.inputRef.current).focus();
+    else if(e.key === 'ArrowUp'){ if(i > 0) r[i - 1].focus(); else if(this.inputRef.current) this.inputRef.current.focus(); }
   }
 
   renderVals(){
     const s = this.state;
-    const cur = this.activeCat();
-    const tokens = tokensOf(s.q);
+    const cur = catOf(s.cat);
+    const tokens = cur.search ? tokensOf(s.q) : [];
     const searching = tokens.length > 0;
-
-    const cats = ALLOWED.map((c, i) => {
-      const active = cur.id === c.id;
-      return { label:c.label, icon:c.icon, current: active ? 'true' : 'false', sepAfter: c.id === 'all',
-        onClick: () => this.pickCat(c),
-        iconWrap:`width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${active && c.id === 'all' ? '#fff' : c.tone[0]};color:${c.id === 'all' && active ? '#4D42E9' : c.tone[1]};` };
-    });
-
-    let num = 0;
-    const toItems = (items) => items.map(it => {
-      num += 1;
+    const found = searching ? cur.items.filter(it => matchAll(it, tokens)) : cur.items;
+    const items = found.map((it, i) => {
       const parts = highlight(it.name, tokens);
-      if(it.portal) return { num, parts, isPortal:true, isExt:false, href:'', site:'', onOpen: (e) => this.openDlg(e), aria: it.name + '. Выбор вида услуги' };
-      return { num, parts, isPortal:false, isExt:true, href:it.href, site:it.site, onOpen:null,
+      if(it.portal) return { num:i + 1, parts, isPortal:true, isExt:false, href:'', site:'', onOpen: (e) => this.openDlg(e), aria: it.name + '. Выбор вида услуги' };
+      return { num:i + 1, parts, isPortal:false, isExt:true, href:it.href, site:it.site, onOpen:null,
         hint:'Откроется на ' + it.site + ' в новой вкладке', aria: it.name + ' — откроется на ' + it.site + ' в новой вкладке' };
     });
-
-    // «Все услуги» — каталог по группам; категория — её перечень. Поиск — в пределах выбранного
-    const src = cur.id === 'all' ? CATS : [cur];
-    const parts = src.map(c => ({ c, items: searching ? c.items.filter(it => matchAll(it, tokens)) : c.items })).filter(x => x.items.length);
-    const groups = parts.map(({ c, items }) => ({
-      showHead: cur.id === 'all' && parts.length > 1,
-      label:c.label, icon:c.icon, count:items.length,
-      iconStyle:`font-size:16px;color:${c.tone[1]};`,
-      items: toItems(items),
-    }));
-    const total = parts.reduce((n, x) => n + x.items.length, 0);
-    const allHits = searching && !total && cur.id !== 'all' ? this.hits(ALL).length : 0;
+    const n = found.length;
 
     return {
-      headRef:this.headRef, sentinelRef:this.sentinelRef, inputRef:this.inputRef, listRef:this.listRef, catsRef:this.catsRef,
-      cats, onCatsKey: (e) => this.onCatsKey(e),
-      listTitle: cur.label, listCount: total,
-      listCountLabel: searching ? `Найдено: ${total} ${plural(total)}` : `${total} ${plural(total)}`,
-      groups,
-      searchAria: `Поиск по наименованию услуги в категории «${cur.label}»`,
+      headRef:this.headRef, sentinelRef:this.sentinelRef, inputRef:this.inputRef, listRef:this.listRef,
+      title: cur.label, count: n,
+      countLabel: searching ? `Найдено: ${n} ${plural(n)}` : `${n} ${plural(n)}`,
+      hasSearch: cur.search,
+      searchAria: `Поиск по наименованию услуги в подразделе «${cur.label}»`,
       q: s.q, hasQ: !!s.q, showKbd: !s.q,
       onQ: (e) => this.setState({ q:e.target.value }),
       onInputKey: (e) => this.onInputKey(e),
       onListKey: (e) => this.onListKey(e),
       clearQ: () => { this.setState({ q:'' }); this.focusSearch(false); },
-      empty: searching && total === 0,
-      hasAll: allHits > 0, allHits,
-      toAll: () => { this.setState({ cat:'all', live:`Все услуги: найдено ${allHits} ${plural(allHits)}` }); this.revealList(); },
-      liveText: searching ? (total ? `Найдено: ${total} ${plural(total)}` : 'Услуги не найдены') : s.live,
+      items, hasItems: n > 0,
+      empty: searching && n === 0,
+      liveText: searching ? (n ? `Найдено: ${n} ${plural(n)}` : 'Услуги не найдены') : '',
     };
   }
 }
