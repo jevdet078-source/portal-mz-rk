@@ -11,137 +11,849 @@
 <script src="runtime/support.js"></script>
 </head>
 <body>
+<!--
+  Реестр клинических протоколов РК — самостоятельный публичный раздел портала (без авторизации).
+  Вход: пункт «Клинические протоколы» в шапке (PortalHeader section="protocols") и баннер в карусели главной (HomeArt → PROTO).
+  Состав: хлебные крошки → блок реестра (метка, H1, назначение, «Скачать весь реестр» ZIP / Excel, 4 показателя) →
+  слева «Разделы медицины» (поиск, «Все разделы», счётчики, «Справка специалисту»), справа поиск + фильтры
+  (тип документа, категория МКБ-10, год утверждения, сброс) → найдено / сортировка / плитки ↔ таблица → «Показать ещё» и страницы.
+  «Просмотр» — боковая панель с паспортом протокола и обложкой документа; PDF — скачивание с размером файла.
+  Показатели и счётчики считаются из данных (DATA) — в реальной системе их отдаёт реестр.
+  Поиск: по названию, ключевым словам и коду МКБ-10 (I21 попадает в диапазон I20–I25; кириллица в коде — тоже).
+  Состояния: загрузка (скелетоны), пусто, ошибка — для показа ошибки откройте страницу с ?state=error.
+  Фильтры и вид — в адресе страницы (?cat=…&q=…&view=table), ссылкой можно поделиться.
+-->
 <x-dc>
 <helmet>
 <style>
-  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--green:#38C793;--green-l:#EFFAF6;--green-d:#176448;--teal:#35B9E9;--teal-l:#EBFAFF;--purple:#6E3FF3;--purple-l:#EEEBFF;--stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-sm:0 2px 4px rgba(10,13,20,.06);--sh-md:0 8px 16px rgba(10,13,20,.06);}
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:#F6F8FA;-webkit-font-smoothing:antialiased;}
-  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  a{color:var(--primary);}
-  a:hover{color:var(--primary-dark);}
-  .kp-row:hover{border-color:var(--primary-light)!important;box-shadow:var(--sh-md);}
+  body{ margin:0; background:#fff; }
+  .cp, .cp *, .cp *::before, .cp *::after{ box-sizing:border-box; }
+  .cp{ font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .cp-top{ position:sticky; top:0; z-index:40; }
+  .cp button{ font-family:inherit; }
+  .cp :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+
+  /* ——— шапка реестра ——— */
+  .cp-head{ background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0%, #fff 100%); }
+  html[data-fill="flat"] .cp-head{ background:#fff; }
+  .cp-crumbs{ display:flex; align-items:center; gap:6px; margin:0; padding:clamp(16px,1.4vw,24px) 0 0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); }
+  .cp-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .cp-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .cp-crumbs a:hover{ color:var(--b700); }
+  .cp-crumbs a i{ font-size:16px; }
+  .cp-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .cp-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+
+  .cp-hero{ display:flex; align-items:flex-end; justify-content:space-between; gap:clamp(20px,3vw,56px); padding:clamp(20px,2vw,36px) 0 clamp(20px,1.8vw,28px); }
+  .cp-hero-tx{ min-width:0; max-width:880px; }
+  .cp-badge{ display:inline-flex; align-items:center; gap:7px; min-height:30px; padding:6px 12px; line-height:1.3; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; }
+  .cp-badge i{ flex:0 0 auto; font-size:16px; color:var(--b600); }
+  .cp-h1{ margin:14px 0 0; font-size:clamp(28px,1.3vw + 16px,44px); line-height:1.12; font-weight:600; letter-spacing:-.028em; text-wrap:balance; }
+  .cp-lead{ margin:12px 0 0; max-width:68ch; font-size:clamp(15px,.2vw + 13px,17px); line-height:1.55; color:var(--n500); text-wrap:pretty; }
+
+  .cp-dl{ position:relative; flex:0 0 auto; }
+  .cp-dl-btn{ height:48px; padding:0 16px 0 18px; display:inline-flex; align-items:center; gap:10px; border:none; border-radius:12px; background:var(--b600); color:#fff; font-size:15px; font-weight:600; cursor:pointer; white-space:nowrap; box-shadow:0 12px 24px -14px var(--b700); transition:background .15s, box-shadow .15s; }
+  .cp-dl-btn:hover{ background:var(--b700); }
+  .cp-dl-btn > i:first-child{ font-size:20px; }
+  .cp-dl-btn .cv{ font-size:18px; margin-left:2px; opacity:.85; transition:transform .2s; }
+  .cp-dl-btn[aria-expanded="true"] .cv{ transform:rotate(180deg); }
+  .cp-dl .cp-menu{ right:0; left:auto; width:340px; }
+
+  .cp-stats{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:clamp(10px,1vw,16px); padding-bottom:clamp(24px,2.2vw,36px); }
+  .cp-stat{ display:flex; align-items:center; gap:14px; min-width:0; padding:16px 18px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200), var(--hm-sh1); }
+  .cp-stat .ic{ width:44px; height:44px; flex:0 0 auto; border-radius:12px; display:flex; align-items:center; justify-content:center; background:var(--b50); color:var(--b600); font-size:22px; }
+  .cp-stat .tx{ min-width:0; }
+  .cp-stat .lb{ display:block; font-size:13px; font-weight:500; color:var(--n500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cp-stat .vl{ display:flex; align-items:center; gap:8px; margin-top:4px; font-size:clamp(18px,.45vw + 13px,24px); line-height:1.15; font-weight:600; letter-spacing:-.02em; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .cp-stat.ok .ic{ background:var(--green-l); color:var(--green-d); }
+  .cp-stat.ok .vl{ color:var(--green-d); }
+  .cp-live{ width:8px; height:8px; flex:0 0 auto; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px color-mix(in srgb, var(--green) 22%, transparent); }
+
+  /* ——— раскладка ——— */
+  .cp-body{ display:grid; grid-template-columns:clamp(296px,21vw,320px) minmax(0,1fr); gap:clamp(16px,1.6vw,28px); align-items:start; padding:clamp(8px,.8vw,12px) 0 clamp(48px,5vw,88px); }
+
+  /* ——— разделы медицины ——— */
+  .cp-side{ position:sticky; top:88px; display:flex; flex-direction:column; max-height:calc(100vh - 104px); border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-side-hd{ display:flex; align-items:center; gap:10px; width:100%; padding:18px 18px 12px; border:none; background:none; text-align:left; color:var(--n900); cursor:default; }
+  .cp-side-hd b{ flex:1; min-width:0; font-size:16px; font-weight:600; letter-spacing:-.012em; }
+  .cp-side-hd .ct{ height:24px; padding:0 9px; display:inline-flex; align-items:center; border-radius:999px; background:var(--n100); color:var(--n500); font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .cp-side-hd .sel, .cp-side-hd .cv{ display:none; }
+  .cp-side-in{ display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+  .cp-fs{ position:relative; margin:0 14px 8px; }
+  .cp-fs i{ position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--n400); pointer-events:none; }
+  .cp-fs input{ width:100%; height:38px; padding:0 12px 0 35px; border:none; border-radius:10px; background:var(--n100); box-shadow:inset 0 0 0 1px transparent; font:500 14px/1 'Inter',sans-serif; color:var(--n900); transition:box-shadow .15s, background .15s; }
+  .cp-fs input::placeholder{ color:var(--n400); }
+  .cp-fs input:hover{ box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-fs input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
+  .cp-cats{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:2px 8px 8px; margin:0; list-style:none; scrollbar-width:thin; scrollbar-color:var(--n300) transparent; }
+  .cp-cat{ width:100%; display:flex; align-items:center; gap:10px; min-height:38px; padding:7px 10px; border:none; border-radius:10px; background:none; text-align:left; font-size:13.5px; line-height:1.3; font-weight:500; color:var(--n700); cursor:pointer; transition:background .12s, color .12s; }
+  .cp-cat span{ flex:1; min-width:0; }
+  .cp-cat em{ flex:0 0 auto; min-width:28px; height:22px; padding:0 7px; display:inline-flex; align-items:center; justify-content:center; border-radius:999px; background:var(--n100); color:var(--n500); font-style:normal; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; transition:background .12s, color .12s; }
+  .cp-cat:hover{ background:var(--n100); color:var(--n900); }
+  .cp-cat:hover em{ background:#fff; }
+  .cp-cat[aria-pressed="true"]{ background:var(--b600); color:#fff; font-weight:600; }
+  .cp-cat[aria-pressed="true"] em{ background:rgba(255,255,255,.2); color:#fff; }
+  .cp-cat.zero{ color:var(--n400); }
+  .cp-cat.all{ margin-bottom:4px; }
+  .cp-cats-none{ padding:14px 10px; font-size:13.5px; color:var(--n400); }
+  .cp-note{ margin:4px 14px 14px; padding:14px; border-radius:14px; background:var(--b50); box-shadow:inset 0 0 0 1px var(--b100); }
+  .cp-note b{ display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:600; color:var(--b800); }
+  .cp-note b i{ font-size:17px; color:var(--b600); }
+  .cp-note p{ margin:6px 0 0; font-size:13px; line-height:1.5; color:var(--n600); }
+
+  /* ——— поиск и фильтры ——— */
+  .cp-main{ min-width:0; }
+  .cp-filters{ padding:clamp(14px,1.2vw,20px); border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-q{ position:relative; }
+  .cp-q > i{ position:absolute; left:16px; top:50%; transform:translateY(-50%); font-size:20px; color:var(--n400); pointer-events:none; transition:color .15s; }
+  .cp-q input{ width:100%; height:52px; padding:0 48px 0 48px; border:none; border-radius:14px; background:var(--n100); box-shadow:inset 0 0 0 1px transparent; font:500 15.5px/1 'Inter',sans-serif; color:var(--n900); text-overflow:ellipsis; transition:box-shadow .15s, background .15s; }
+  .cp-q input::placeholder{ color:var(--n400); font-weight:400; }
+  .cp-q input:hover{ box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-q input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); }
+  .cp-q:focus-within > i{ color:var(--b600); }
+  .cp-x{ position:absolute; right:10px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:none; border-radius:8px; background:none; color:var(--n400); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .cp-x:hover{ background:var(--n200); color:var(--n700); }
+  .cp-frow{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)) auto; gap:12px; align-items:end; margin-top:14px; }
+  .cp-f{ position:relative; min-width:0; }
+  .cp-f > label{ display:block; margin:0 0 6px 2px; font-size:12.5px; font-weight:600; color:var(--n500); }
+  .cp-sel{ width:100%; height:44px; padding:0 12px 0 14px; display:flex; align-items:center; gap:8px; border:none; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font-size:14.5px; font-weight:500; text-align:left; cursor:pointer; transition:box-shadow .15s, background .15s; }
+  .cp-sel span{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cp-sel > i{ flex:0 0 auto; font-size:18px; color:var(--n400); transition:transform .2s; }
+  .cp-sel:hover{ box-shadow:inset 0 0 0 1px var(--n300); background:var(--n50); }
+  .cp-sel[aria-expanded="true"]{ box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); background:#fff; }
+  .cp-sel[aria-expanded="true"] > i{ transform:rotate(180deg); color:var(--b600); }
+  .cp-sel.set{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); color:var(--b800); }
+  .cp-sel.set > i{ color:var(--b600); }
+  .cp-reset{ height:44px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; border:none; border-radius:12px; background:var(--n100); color:var(--n700); font-size:14.5px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s; }
+  .cp-reset i{ font-size:18px; }
+  .cp-reset:hover:not(:disabled){ background:var(--n200); color:var(--n900); }
+  .cp-reset:disabled{ color:var(--n300); cursor:default; }
+  .cp-reset em{ min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--b600); color:#fff; font-style:normal; font-size:12px; display:inline-flex; align-items:center; justify-content:center; }
+
+  /* выпадающий список */
+  .cp-veil{ position:fixed; inset:0; z-index:59; }
+  .cp-menu{ position:absolute; left:0; top:calc(100% + 6px); z-index:60; min-width:100%; max-height:min(380px, 60vh); overflow-y:auto; padding:6px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px rgba(10,13,20,.06), 0 20px 40px -16px rgba(10,13,20,.28); animation:cp-drop .16s ease; scrollbar-width:thin; }
+  .cp-menu.wide{ width:max(100%, 360px); }
+  @keyframes cp-drop{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  .cp-opt{ width:100%; display:flex; align-items:center; gap:10px; padding:9px 10px; border:none; border-radius:9px; background:none; text-align:left; font-size:14px; line-height:1.35; font-weight:500; color:var(--n700); cursor:pointer; }
+  .cp-opt span{ flex:1; min-width:0; }
+  .cp-opt small{ display:block; margin-top:2px; font-size:12.5px; font-weight:500; color:var(--n400); }
+  .cp-opt code{ flex:0 0 auto; min-width:76px; font:600 12.5px/1.35 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--n500); }
+  .cp-opt > i{ flex:0 0 auto; font-size:18px; color:var(--b600); visibility:hidden; }
+  .cp-opt:hover{ background:var(--n100); color:var(--n900); }
+  .cp-opt[aria-selected="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .cp-opt[aria-selected="true"] code{ color:var(--b700); }
+  .cp-opt[aria-selected="true"] > i{ visibility:visible; }
+  .cp-opt .fi{ width:36px; height:36px; flex:0 0 auto; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--n100); font-size:20px; }
+  .cp-opt .fi.xls{ background:var(--green-l); color:var(--green-d); }
+  .cp-opt .fi.zip{ background:var(--b50); color:var(--b700); }
+  .cp-opt .ar{ visibility:visible; color:var(--n400); }
+
+  /* ——— панель результатов ——— */
+  .cp-bar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:clamp(18px,1.6vw,24px) 0 14px; scroll-margin-top:96px; }
+  .cp-found{ display:flex; align-items:center; gap:10px; margin:0; font-size:15px; font-weight:600; color:var(--n900); }
+  .cp-found em{ height:26px; padding:0 10px; display:inline-flex; align-items:center; border-radius:999px; background:var(--b50); color:var(--b800); font-style:normal; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .cp-bar-r{ margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .cp-sort{ position:relative; }
+  .cp-sort .cp-sel{ height:40px; width:auto; min-width:0; gap:6px; padding:0 10px 0 12px; font-size:14px; }
+  .cp-sort .cp-sel .pre{ flex:0 0 auto; color:var(--n500); font-weight:500; }
+  .cp-sort .cp-sel b{ font-weight:600; }
+  .cp-sort .cp-menu{ left:auto; right:0; min-width:260px; }
+  .cp-views{ display:flex; padding:3px; border-radius:11px; background:var(--n100); box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-view{ width:36px; height:34px; border:none; border-radius:8px; background:none; color:var(--n500); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s, box-shadow .12s; }
+  .cp-view:hover{ color:var(--n900); }
+  .cp-view[aria-pressed="true"]{ background:#fff; color:var(--b700); box-shadow:0 1px 2px rgba(10,13,20,.08), 0 0 0 1px var(--n200); }
+
+  /* ——— плитки ——— */
+  .cp-grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(12px,1vw,16px); }
+  .cp-card{ position:relative; display:flex; flex-direction:column; min-width:0; padding:18px 18px 16px; border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); transition:box-shadow .2s, transform .2s; animation:cp-in .3s ease both; }
+  .cp-card:hover{ box-shadow:inset 0 0 0 1px var(--b200), 0 18px 36px -24px rgba(10,13,20,.32); transform:translateY(-2px); }
+  .cp-card:has(.cp-title a:active){ transform:translateY(0); }
+  @keyframes cp-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  .cp-card-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+  .cp-chip{ min-width:0; height:24px; padding:0 9px; display:inline-flex; align-items:center; border-radius:7px; background:var(--b50); color:var(--b800); font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cp-code{ flex:0 0 auto; height:24px; padding:0 8px; display:inline-flex; align-items:center; border-radius:7px; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:nowrap; cursor:default; }
+  .cp-title{ margin:14px 0 0; font-size:16px; line-height:1.4; font-weight:600; letter-spacing:-.012em; }
+  .cp-title a{ color:var(--n900); text-decoration:none; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; border-radius:4px; transition:color .15s; }
+  /* вся карточка открывает просмотр: ссылка заголовка растянута на плашку, кнопки — поверх */
+  .cp-title a::after{ content:''; position:absolute; inset:0; border-radius:18px; }
+  .cp-card:hover .cp-title a{ color:var(--b700); }
+  .cp-meta{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 14px; margin-top:12px; padding-bottom:16px; font-size:13px; color:var(--n500); }
+  .cp-ok{ position:relative; z-index:1; display:inline-flex; align-items:center; gap:5px; color:var(--green-d); font-weight:600; cursor:default; }
+  .cp-ok i{ font-size:16px; color:var(--green); }
+  .cp-upd{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+  .cp-upd i{ font-size:15px; color:var(--n400); }
+  .cp-acts{ position:relative; z-index:1; display:flex; gap:8px; margin-top:auto; padding-top:14px; border-top:1px solid var(--n100); }
+  .cp-btn{ height:40px; padding:0 14px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:10px; font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s, transform .1s; }
+  .cp-btn:active{ transform:scale(.97); }
+  .cp-btn i{ font-size:18px; }
+  .cp-btn.view{ flex:1 1 auto; min-width:0; background:var(--b50); color:var(--b700); }
+  .cp-card{ container-type:inline-size; }
+  /* узкая плитка (ноутбук 1280, три колонки) — у PDF остаются значок и размер */
+  @container (max-width:290px){ .cp-card .cp-btn.pdf .t{ display:none; } .cp-card .cp-btn{ padding:0 12px; } }
+  .cp-btn.view:hover{ background:var(--b100); color:var(--b800); }
+  .cp-btn.pdf{ flex:0 0 auto; background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); font-variant-numeric:tabular-nums; }
+  .cp-btn.pdf i{ color:var(--red); }
+  .cp-btn.pdf:hover{ background:var(--n50); box-shadow:inset 0 0 0 1px var(--n300); color:var(--n900); }
+  .cp-btn.pdf small{ font-size:13px; font-weight:500; color:var(--n500); }
+
+  /* скелетоны */
+  .cp-sk{ pointer-events:none; animation:none; }
+  .cp-sk:hover{ transform:none; box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-sk .ln{ display:block; height:12px; border-radius:6px; background:linear-gradient(90deg, var(--n100) 0%, var(--n200) 50%, var(--n100) 100%); background-size:200% 100%; animation:cp-shim 1.2s linear infinite; }
+  @keyframes cp-shim{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
+
+  /* ——— таблица ——— */
+  .cp-tbl-wrap{ border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); overflow:hidden; }
+  .cp-tbl{ width:100%; border-collapse:collapse; table-layout:fixed; font-size:14px; }
+  .cp-tbl th{ height:44px; padding:0 14px; text-align:left; font-size:12.5px; font-weight:600; color:var(--n500); background:var(--n50); border-bottom:1px solid var(--n200); white-space:nowrap; }
+  .cp-tbl td{ padding:12px 14px; border-bottom:1px solid var(--n100); vertical-align:middle; color:var(--n700); }
+  .cp-tbl tr:last-child td{ border-bottom:none; }
+  .cp-tbl tbody tr{ cursor:pointer; transition:background .12s; animation:cp-in .25s ease both; }
+  .cp-tbl tbody tr:hover{ background:var(--n50); }
+  .cp-tbl tbody tr:hover .nm{ color:var(--b700); }
+  .cp-tbl .c-code{ width:118px; } .cp-tbl .c-cat{ width:21%; } .cp-tbl .c-upd{ width:122px; } .cp-tbl .c-act{ width:196px; text-align:right; }
+  .cp-tbl .nm{ display:flex; align-items:flex-start; gap:8px; font-weight:600; color:var(--n900); line-height:1.4; transition:color .12s; }
+  .cp-tbl .nm i{ flex:0 0 auto; margin-top:1px; font-size:17px; color:var(--green); }
+  .cp-tbl .ct{ display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cp-tbl .cd{ font:600 12.5px/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--n600); }
+  .cp-tbl .ac{ display:flex; justify-content:flex-end; gap:6px; }
+  .cp-tbl .cp-btn{ height:36px; padding:0 10px; }
+  .cp-ib{ width:36px; height:36px; border:none; border-radius:10px; background:var(--b50); color:var(--b700); font-size:18px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; }
+  .cp-ib:hover{ background:var(--b100); }
+
+  /* ——— пусто / ошибка ——— */
+  .cp-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:clamp(40px,5vw,72px) 24px; border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-state .ic{ width:64px; height:64px; border-radius:20px; display:flex; align-items:center; justify-content:center; background:var(--n100); color:var(--n500); font-size:30px; }
+  .cp-state.err .ic{ background:var(--red-l); color:var(--red); }
+  .cp-state h3{ margin:18px 0 0; font-size:18px; font-weight:600; letter-spacing:-.012em; }
+  .cp-state p{ margin:8px 0 0; max-width:46ch; font-size:14.5px; line-height:1.5; color:var(--n500); }
+  .cp-state .cp-btn{ margin-top:20px; height:44px; padding:0 18px; background:var(--b600); color:#fff; }
+  .cp-state .cp-btn:hover{ background:var(--b700); }
+
+  /* ——— пагинация ——— */
+  .cp-more{ display:flex; justify-content:center; margin-top:clamp(18px,1.6vw,24px); }
+  .cp-more button{ height:48px; padding:0 22px; display:inline-flex; align-items:center; gap:10px; border:none; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font-size:15px; font-weight:600; cursor:pointer; transition:background .15s, box-shadow .15s, color .15s; }
+  .cp-more button i{ font-size:19px; color:var(--b600); transition:transform .3s; }
+  .cp-more button:hover{ background:var(--b50); color:var(--b800); box-shadow:inset 0 0 0 1px var(--b200); }
+  .cp-more button:hover i{ transform:translateY(2px); }
+  .cp-pager{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:14px; padding:12px 12px 12px 18px; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-shown{ font-size:14px; color:var(--n500); font-variant-numeric:tabular-nums; }
+  .cp-shown b{ color:var(--n900); font-weight:600; }
+  .cp-pages{ display:flex; align-items:center; gap:4px; }
+  .cp-pg{ min-width:38px; height:38px; padding:0 8px; border:none; border-radius:10px; background:none; color:var(--n700); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .cp-pg i{ font-size:19px; }
+  .cp-pg:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .cp-pg[aria-current="page"]{ background:var(--b600); color:#fff; }
+  .cp-pg[aria-current="page"]:hover{ background:var(--b700); color:#fff; }
+  .cp-pg:disabled{ color:var(--n300); cursor:default; }
+  .cp-gap{ min-width:24px; text-align:center; color:var(--n400); font-size:14px; }
+
+  /* ——— просмотр протокола ——— */
+  .cp-ov{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.36); animation:cp-fade .2s ease; }
+  @keyframes cp-fade{ from{ opacity:0; } to{ opacity:1; } }
+  .cp-dr{ position:fixed; top:0; right:0; bottom:0; z-index:91; width:min(600px, 100vw); display:flex; flex-direction:column; background:#fff; box-shadow:-24px 0 60px -24px rgba(10,13,20,.35); animation:cp-slide .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes cp-slide{ from{ transform:translateX(40px); opacity:0; } to{ transform:none; opacity:1; } }
+  .cp-dr-hd{ display:flex; align-items:flex-start; gap:14px; padding:22px 22px 18px 26px; border-bottom:1px solid var(--n200); }
+  .cp-dr-hd h2{ flex:1; min-width:0; margin:0; font-size:20px; line-height:1.3; font-weight:600; letter-spacing:-.018em; text-wrap:balance; }
+  .cp-close{ flex:0 0 auto; width:40px; height:40px; margin:-6px -4px 0 0; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .cp-close:hover{ background:var(--n100); color:var(--n900); }
+  .cp-dr-bd{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:22px 26px 26px; }
+  .cp-facts{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1px; margin:0; border-radius:14px; overflow:hidden; background:var(--n200); box-shadow:0 0 0 1px var(--n200); }
+  .cp-facts > div{ min-width:0; padding:12px 14px; background:#fff; }
+  .cp-facts dt{ font-size:12.5px; font-weight:500; color:var(--n500); }
+  .cp-facts dd{ margin:4px 0 0; font-size:14.5px; line-height:1.4; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .cp-facts dd.mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; }
+  .cp-facts dd.ok{ display:flex; align-items:center; gap:6px; color:var(--green-d); }
+  .cp-facts dd.ok i{ font-size:17px; color:var(--green); }
+  .cp-facts .full{ grid-column:1 / -1; }
+  .cp-doc-lb{ margin:24px 0 10px; font-size:12.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .cp-paper{ position:relative; padding:28px 30px 30px; border-radius:6px; background:#fff; box-shadow:0 0 0 1px var(--n200), 0 12px 32px -16px rgba(10,13,20,.22); font-family:'Times New Roman',Georgia,serif; color:#20232D; }
+  .cp-paper::before{ content:''; position:absolute; left:0; right:0; top:0; height:4px; border-radius:6px 6px 0 0; background:var(--b600); }
+  .cp-paper .ap{ margin-left:auto; max-width:300px; font-size:12.5px; line-height:1.45; text-align:right; }
+  .cp-paper .ap b{ display:block; font-weight:700; }
+  .cp-paper h3{ margin:26px 0 4px; font-size:17px; line-height:1.35; font-weight:700; text-align:center; text-transform:uppercase; }
+  .cp-paper .st{ margin:0 0 18px; text-align:center; font-size:13px; }
+  .cp-paper ol{ margin:0; padding:0 0 0 20px; font-size:14px; line-height:1.9; }
+  .cp-paper ol li::marker{ font-weight:700; }
+  .cp-dr-ft{ display:flex; gap:10px; padding:16px 26px; border-top:1px solid var(--n200); background:var(--n50); }
+  .cp-dr-ft .cp-btn{ height:48px; padding:0 20px; font-size:15px; }
+  .cp-dr-ft .main{ flex:1 1 auto; background:var(--b600); color:#fff; }
+  .cp-dr-ft .main i{ color:#fff; }
+  .cp-dr-ft .main small{ color:rgba(255,255,255,.78); font-size:14px; font-weight:500; }
+  .cp-dr-ft .main:hover{ background:var(--b700); }
+  .cp-dr-ft .sec{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .cp-dr-ft .sec:hover{ background:var(--n100); color:var(--n900); }
+
+  /* уведомление */
+  .cp-toast{ position:fixed; left:50%; bottom:28px; z-index:95; transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100vw - 32px); padding:12px 18px 12px 14px; border-radius:14px; background:var(--n900); color:#fff; font-size:14px; font-weight:500; line-height:1.4; box-shadow:0 18px 40px -16px rgba(10,13,20,.5); animation:cp-toast .25s ease; }
+  .cp-toast i{ flex:0 0 auto; font-size:20px; color:var(--green); }
+  .cp-toast span{ min-width:0; overflow-wrap:anywhere; }
+  @keyframes cp-toast{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
+
+  @media (prefers-reduced-motion:reduce){ .cp *{ animation:none !important; transition:none !important; } }
+
+  /* ——— адаптив ——— */
+  @media (min-width:1800px){ .cp-grid{ grid-template-columns:repeat(4, minmax(0,1fr)); } }
+  @media (min-width:1025px) and (max-width:1180px), (max-width:900px){
+    .cp-frow{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .cp-reset{ grid-column:1 / -1; justify-self:start; height:36px; padding:0 12px; font-size:14px; background:none; }
+    .cp-reset:hover:not(:disabled){ background:var(--n100); }
+  }
+  @media (max-width:1180px){
+    .cp-stats{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .cp-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .cp-tbl .c-cat{ display:none; }
+  }
+  @media (max-width:1024px){
+    .cp-body{ grid-template-columns:minmax(0,1fr); }
+    .cp-side{ position:relative; top:auto; max-height:none; }
+    .cp-side-hd{ cursor:pointer; padding:14px 16px; border-radius:20px; }
+    .cp-side-hd:hover{ background:var(--n50); }
+    .cp-side-hd b{ flex:0 0 auto; }
+    .cp-side-hd .sel{ display:block; flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--b700); text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cp-side-hd .ct{ display:none; }
+    .cp-side-hd .cv{ display:block; font-size:20px; color:var(--n400); transition:transform .2s; }
+    .cp-side-hd[aria-expanded="true"] .cv{ transform:rotate(180deg); }
+    .cp-side-in{ display:none; }
+    .cp-side.open .cp-side-in{ display:flex; }
+    .cp-side.open .cp-cats{ max-height:360px; }
+    .cp-tbl .c-act{ width:96px; }
+    .cp-tbl .cp-btn.pdf small{ display:none; }
+  }
+  @media (max-width:900px){
+    .cp-hero{ flex-direction:column; align-items:flex-start; }
+    .cp-tbl .c-upd{ display:none; }
+  }
+  @media (max-width:760px){
+    .cp-frow{ grid-template-columns:minmax(0,1fr); }
+    .cp-grid{ grid-template-columns:minmax(0,1fr); }
+    .cp-bar-r{ margin-left:0; width:100%; justify-content:space-between; }
+    .cp-sort .cp-sel .pre{ display:none; }
+    .cp-pager{ justify-content:center; padding:12px; }
+    .cp-shown{ width:100%; text-align:center; }
+    .cp-tbl .c-code{ display:none; }
+    .cp-dl, .cp-dl-btn{ width:100%; justify-content:center; }
+    .cp-dl .cp-menu{ width:100%; }
+    .cp-facts{ grid-template-columns:minmax(0,1fr); }
+    .cp-dr-ft{ flex-direction:column; }
+  }
+  @media (max-width:480px){
+    .cp-stats{ grid-template-columns:minmax(0,1fr); gap:8px; }
+    .cp-stat{ padding:12px 14px; }
+    .cp-stat .ic{ width:38px; height:38px; font-size:19px; }
+    .cp-badge{ font-size:11.5px; letter-spacing:.04em; }
+    .cp-q input{ font-size:15px; padding-right:44px; }
+    .cp-pg{ min-width:34px; height:34px; padding:0 6px; }
+    .cp-paper{ padding:22px 18px; }
+    .cp-dr-hd{ padding:18px 16px 14px 18px; } .cp-dr-bd{ padding:18px; } .cp-dr-ft{ padding:14px 18px; }
+  }
 </style>
 </helmet>
-<div style="min-height:100vh;display:flex;flex-direction:column;">
-  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" hint-size="100%,70px"></dc-import></div>
 
-  <div style="background:linear-gradient(120deg,var(--primary-lighter),#fff 70%);border-bottom:1px solid var(--stroke);">
-    <div style="max-width:1240px;margin:0 auto;padding:22px 40px 0;">
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--n400);margin-bottom:14px;">
-        <a href="Портал Минздрава - Главная.dc.html" style="color:var(--n400);text-decoration:none;">Главная</a><i class="ri-arrow-right-s-line"></i>
-        <span>Медперсоналу</span><i class="ri-arrow-right-s-line"></i>
-        <span style="color:var(--n700);font-weight:500;">Клинические протоколы</span>
+<div class="cp">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="cp-top"><dc-import name="PortalHeader" look="light" section="protocols" hint-size="100%,72px"></dc-import></div>
+
+  <header class="cp-head">
+    <div class="hm-wrap">
+      <nav aria-label="Хлебные крошки">
+        <ol class="cp-crumbs">
+          <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+          <li><span aria-current="page">Клинические протоколы</span></li>
+        </ol>
+      </nav>
+
+      <div class="cp-hero">
+        <div class="cp-hero-tx">
+          <span class="cp-badge"><i class="ri-shield-check-fill"></i>Официальный государственный реестр</span>
+          <h1 class="cp-h1">Реестр клинических протоколов Республики Казахстан</h1>
+          <p class="cp-lead">Официальная база стандартов диагностики и лечения, утверждённых Объединённой комиссией по качеству медицинских услуг МЗ РК. Свободный доступ для медицинских работников и граждан.</p>
+        </div>
+        <div class="cp-dl">
+          <button type="button" class="cp-dl-btn" onClick="{{ toggleDl }}" aria-expanded="{{ dlOpen }}" aria-haspopup="menu"><i class="ri-download-2-line"></i>Скачать весь реестр (ZIP / Excel)<i class="ri-arrow-down-s-line cv"></i></button>
+          <sc-if value="{{ dlShow }}" hint-placeholder-val="{{ false }}">
+            <div class="cp-veil" onClick="{{ closeAll }}"></div>
+            <div class="cp-menu" role="menu">
+              <sc-for list="{{ dlOpts }}" as="o" hint-placeholder-count="2">
+                <button type="button" class="cp-opt" role="menuitem" onClick="{{ o.onClick }}"><span class="{{ o.fiCls }}"><i class="{{ o.icon }}"></i></span><span>{{ o.label }}<small>{{ o.meta }}</small></span><i class="ri-download-line ar"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
       </div>
-      <h1 style="font-size:27px;font-weight:600;letter-spacing:-.02em;margin:0 0 8px;">Клинические протоколы и стандарты</h1>
-      <p style="font-size:14.5px;line-height:1.6;color:var(--n500);margin:0 0 20px;max-width:780px;">Быстрый доступ к клиническим протоколам и действующим стандартам медицинской помощи.</p>
-      <div style="display:flex;gap:4px;">
-        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
-          <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button>
+
+      <div class="cp-stats">
+        <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
+          <div class="{{ st.cls }}" data-tip="{{ st.tip }}">
+            <span class="ic"><i class="{{ st.icon }}"></i></span>
+            <div class="tx"><span class="lb">{{ st.label }}</span><span class="vl"><sc-if value="{{ st.live }}" hint-placeholder-val="{{ false }}"><span class="cp-live"></span></sc-if>{{ st.value }}</span></div>
+          </div>
         </sc-for>
       </div>
     </div>
-  </div>
+  </header>
 
-  <main style="flex:1;">
-    <div style="max-width:1240px;margin:0 auto;padding:28px 40px 72px;">
-
-      <!-- ПРОТОКОЛЫ -->
-      <sc-if value="{{ isProtocols }}" hint-placeholder-val="{{ true }}">
-        <div style="animation:mp-slidein .2s ease;max-width:820px;">
-          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:32px;box-shadow:var(--sh-xs);">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
-              <div style="width:52px;height:52px;border-radius:14px;background:var(--purple-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-file-list-3-line" style="font-size:27px;color:var(--purple);"></i></div>
-              <div style="font-size:19px;font-weight:600;letter-spacing:-.01em;">Справочник клинических протоколов</div>
-            </div>
-            <p style="font-size:14.5px;line-height:1.65;color:var(--n600);margin:0 0 8px;">Клинические протоколы — документы, устанавливающие требования к диагностике и лечению заболеваний, — разрабатываются и публикуются Национальным научным центром развития здравоохранения им. Салидат Каирбековой (ННЦРЗ).</p>
-            <p style="font-size:14.5px;line-height:1.65;color:var(--n600);margin:0 0 22px;">Полный и актуальный справочник размещён на официальном ресурсе ННЦРЗ. Содержимое протоколов на портале не дублируется — вы всегда работаете с действующей редакцией.</p>
-            <a href="https://nrchd.kz/clinical-protocols?locale=ru" target="_blank" style="display:inline-flex;align-items:center;gap:9px;height:50px;padding:0 24px;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;text-decoration:none;box-shadow:var(--sh-sm);"><i class="ri-external-link-line" style="font-size:19px;"></i>Открыть справочник протоколов</a>
-            <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--n400);margin-top:14px;"><i class="ri-information-line" style="font-size:15px;"></i>Ссылка откроется в новой вкладке на сайте nrchd.kz</div>
-          </div>
+  <main class="hm-wrap cp-body">
+    <!-- РАЗДЕЛЫ МЕДИЦИНЫ -->
+    <aside class="{{ sideCls }}" aria-label="Разделы медицины">
+      <button type="button" class="cp-side-hd" onClick="{{ toggleSide }}" aria-expanded="{{ sideOpen }}">
+        <b>Разделы медицины</b><span class="ct" data-tip="Количество разделов">{{ catCount }}</span><span class="sel">{{ catLabel }}</span><i class="ri-arrow-down-s-line cv"></i>
+      </button>
+      <div class="cp-side-in">
+        <div class="cp-fs"><i class="ri-search-line"></i><input type="search" value="{{ catQ }}" onChange="{{ onCatQ }}" placeholder="Поиск по разделам" aria-label="Поиск по разделам медицины" autocomplete="off"></div>
+        <ul class="cp-cats">
+          <li><button type="button" class="cp-cat all" onClick="{{ allCat.onClick }}" aria-pressed="{{ allCat.on }}"><span>Все разделы</span><em>{{ allCat.n }}</em></button></li>
+          <sc-for list="{{ cats }}" as="c" hint-placeholder-count="12">
+            <li><button type="button" class="{{ c.cls }}" onClick="{{ c.onClick }}" aria-pressed="{{ c.on }}"><span>{{ c.name }}</span><em>{{ c.n }}</em></button></li>
+          </sc-for>
+          <sc-if value="{{ catsNone }}" hint-placeholder-val="{{ false }}"><li class="cp-cats-none">Раздел не найден</li></sc-if>
+        </ul>
+        <div class="cp-note">
+          <b><i class="ri-information-line"></i>Справка специалисту</b>
+          <p>Клинические протоколы обязательны для применения медицинскими организациями Республики Казахстан независимо от формы собственности.</p>
         </div>
-      </sc-if>
+      </div>
+    </aside>
 
-      <!-- СТАНДАРТЫ -->
-      <sc-if value="{{ isStandards }}" hint-placeholder-val="{{ false }}">
-        <div style="animation:mp-slidein .2s ease;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
-            <p style="font-size:14px;color:var(--n500);margin:0;">Действующие стандарты медицинской помощи. Нажмите на стандарт — откроется нормативный правовой акт в системе «Әділет» в новой вкладке.</p>
-            <span style="font-size:12.5px;font-weight:600;color:var(--n500);background:var(--n0);border:1px solid var(--stroke);padding:6px 14px;border-radius:999px;">{{ stdCount }} стандартов</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <sc-for list="{{ standards }}" as="st" hint-placeholder-count="10">
-              <a href="{{ st.href }}" target="_blank" class="kp-row" style="display:flex;align-items:center;gap:16px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px 20px;text-decoration:none;transition:.13s;box-shadow:var(--sh-xs);">
-                <div style="width:44px;height:44px;border-radius:11px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-book-2-line" style="font-size:22px;color:var(--teal);"></i></div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:15px;font-weight:600;line-height:1.45;color:var(--n900);">{{ st.name }}</div>
-                  <div style="display:flex;align-items:center;gap:14px;margin-top:6px;flex-wrap:wrap;">
-                    <span style="font-size:12px;color:var(--n400);display:flex;align-items:center;gap:5px;"><i class="ri-calendar-line" style="font-size:14px;"></i>Утверждён: {{ st.date }}</span>
-                    <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--green-d);background:var(--green-l);padding:3px 10px;border-radius:999px;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);"></span>Действующий</span>
-                    <span style="font-size:12px;color:var(--n400);">{{ st.doc }}</span>
-                  </div>
+    <div class="cp-main">
+      <!-- ПОИСК И ФИЛЬТРЫ -->
+      <section class="cp-filters" aria-label="Поиск и фильтры">
+        <div class="cp-q">
+          <i class="ri-search-line"></i>
+          <input type="search" ref="{{ qRef }}" value="{{ q }}" onChange="{{ onQ }}" placeholder="Поиск по названию протокола, ключевым словам или коду МКБ-10" aria-label="Поиск по названию протокола, ключевым словам или коду МКБ-10" autocomplete="off">
+          <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="cp-x" onClick="{{ clearQ }}" aria-label="Очистить поиск" data-tip="Очистить"><i class="ri-close-line"></i></button></sc-if>
+        </div>
+        <div class="cp-frow">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3">
+            <div class="cp-f">
+              <label id="{{ f.lid }}">{{ f.label }}</label>
+              <button type="button" class="{{ f.cls }}" onClick="{{ f.onToggle }}" aria-expanded="{{ f.open }}" aria-haspopup="listbox" aria-labelledby="{{ f.lid }}"><span>{{ f.value }}</span><i class="ri-arrow-down-s-line"></i></button>
+              <sc-if value="{{ f.show }}" hint-placeholder-val="{{ false }}">
+                <div class="cp-veil" onClick="{{ closeAll }}"></div>
+                <div class="{{ f.menuCls }}" role="listbox" aria-labelledby="{{ f.lid }}">
+                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+                    <button type="button" class="cp-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><sc-if value="{{ o.hasCode }}" hint-placeholder-val="{{ false }}"><code>{{ o.code }}</code></sc-if><span>{{ o.label }}</span><i class="ri-check-line"></i></button>
+                  </sc-for>
                 </div>
-                <div style="flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--primary);">adilet.zan.kz<i class="ri-external-link-line" style="font-size:16px;"></i></div>
-              </a>
-            </sc-for>
+              </sc-if>
+            </div>
+          </sc-for>
+          <button type="button" class="cp-reset" onClick="{{ reset }}" disabled="{{ resetOff }}"><i class="ri-refresh-line"></i>Сбросить фильтры<sc-if value="{{ hasActive }}" hint-placeholder-val="{{ false }}"><em>{{ activeN }}</em></sc-if></button>
+        </div>
+      </section>
+
+      <!-- РЕЗУЛЬТАТЫ -->
+      <div class="cp-bar" ref="{{ barRef }}">
+        <p class="cp-found" aria-live="polite">Найдено протоколов: <em>{{ foundLabel }}</em></p>
+        <div class="cp-bar-r">
+          <div class="cp-sort">
+            <button type="button" class="cp-sel" onClick="{{ toggleSort }}" aria-expanded="{{ sortOpen }}" aria-haspopup="listbox"><span><span class="pre">Сортировка: </span><b>{{ sortLabel }}</b></span><i class="ri-arrow-down-s-line"></i></button>
+            <sc-if value="{{ sortShow }}" hint-placeholder-val="{{ false }}">
+              <div class="cp-veil" onClick="{{ closeAll }}"></div>
+              <div class="cp-menu" role="listbox" aria-label="Сортировка">
+                <sc-for list="{{ sorts }}" as="o" hint-placeholder-count="4">
+                  <button type="button" class="cp-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.label }}</span><i class="ri-check-line"></i></button>
+                </sc-for>
+              </div>
+            </sc-if>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;background:var(--primary-lighter);border:1px solid var(--primary-light);border-radius:14px;padding:14px 18px;margin-top:20px;">
-            <i class="ri-information-line" style="font-size:19px;color:var(--primary);flex:0 0 auto;"></i>
-            <span style="font-size:13px;line-height:1.55;color:var(--n600);">Перечень является первоначальным и дополняется новыми стандартами по мере обновления нормативной базы Министерства здравоохранения РК.</span>
+          <div class="cp-views" role="group" aria-label="Вид списка">
+            <button type="button" class="cp-view" onClick="{{ viewGrid }}" aria-pressed="{{ isGridStr }}" aria-label="Плитки" data-tip="Плитки"><i class="ri-layout-grid-line"></i></button>
+            <button type="button" class="cp-view" onClick="{{ viewTable }}" aria-pressed="{{ isTableStr }}" aria-label="Таблица" data-tip="Таблица"><i class="ri-list-check-2"></i></button>
           </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showSkel }}" hint-placeholder-val="{{ false }}">
+        <div class="cp-grid" aria-busy="true" aria-label="Загрузка">
+          <sc-for list="{{ skel }}" as="k" hint-placeholder-count="6">
+            <div class="cp-card cp-sk">
+              <div class="cp-card-top"><span class="ln" style="width:42%;"></span><span class="ln" style="width:18%;"></span></div>
+              <span class="ln" style="width:92%;height:15px;margin-top:20px;"></span>
+              <span class="ln" style="width:64%;height:15px;margin-top:9px;"></span>
+              <span class="ln" style="width:70%;margin-top:18px;"></span>
+              <div class="cp-acts" style="margin-top:22px;"><span class="ln" style="flex:1;height:40px;border-radius:10px;"></span><span class="ln" style="width:110px;height:40px;border-radius:10px;"></span></div>
+            </div>
+          </sc-for>
         </div>
       </sc-if>
 
+      <sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+        <div class="cp-state err" role="alert">
+          <span class="ic"><i class="ri-cloud-off-line"></i></span>
+          <h3>Не удалось загрузить реестр</h3>
+          <p>Проверьте подключение к интернету и повторите попытку.</p>
+          <button type="button" class="cp-btn" onClick="{{ retry }}"><i class="ri-refresh-line"></i>Повторить</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+        <div class="cp-state">
+          <span class="ic"><i class="ri-file-search-line"></i></span>
+          <h3>Протоколы не найдены</h3>
+          <p>{{ emptyText }}</p>
+          <button type="button" class="cp-btn" onClick="{{ reset }}"><i class="ri-refresh-line"></i>Сбросить фильтры</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showGrid }}" hint-placeholder-val="{{ true }}">
+        <div class="cp-grid">
+          <sc-for list="{{ items }}" as="p" hint-placeholder-count="9">
+            <article class="cp-card" style="{{ p.delay }}">
+              <div class="cp-card-top"><span class="cp-chip" title="{{ p.cat }}">{{ p.cat }}</span><span class="cp-code" data-tip="Код по МКБ-10">МКБ: {{ p.code }}</span></div>
+              <h3 class="cp-title"><a href="{{ p.href }}" onClick="{{ p.onOpen }}" title="{{ p.name }}">{{ p.name }}</a></h3>
+              <div class="cp-meta">
+                <span class="cp-ok" data-tip="{{ p.approvedTip }}"><i class="ri-checkbox-circle-fill"></i>Утверждено МЗ РК</span>
+                <span class="cp-upd"><i class="ri-calendar-check-line"></i>Обновлено {{ p.updated }}</span>
+              </div>
+              <div class="cp-acts">
+                <button type="button" class="cp-btn view" onClick="{{ p.onOpen }}"><i class="ri-eye-line"></i>Просмотр</button>
+                <button type="button" class="cp-btn pdf" onClick="{{ p.onPdf }}" aria-label="{{ p.pdfAria }}" data-tip="Скачать PDF"><i class="ri-file-pdf-2-line"></i><span class="t">PDF</span><small>{{ p.size }}</small></button>
+              </div>
+            </article>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ false }}">
+        <div class="cp-tbl-wrap">
+          <table class="cp-tbl">
+            <thead><tr><th>Наименование протокола</th><th class="c-cat">Раздел медицины</th><th class="c-code">МКБ-10</th><th class="c-upd">Обновлено</th><th class="c-act"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Действия</span></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ items }}" as="p" hint-placeholder-count="10">
+                <tr onClick="{{ p.onOpen }}" style="{{ p.delay }}">
+                  <td><span class="nm"><i class="ri-checkbox-circle-fill" data-tip="{{ p.approvedTip }}" aria-label="Утверждено МЗ РК"></i>{{ p.name }}</span></td>
+                  <td class="c-cat"><span class="ct" title="{{ p.cat }}">{{ p.cat }}</span></td>
+                  <td class="c-code"><span class="cd">{{ p.code }}</span></td>
+                  <td class="c-upd" style="font-variant-numeric:tabular-nums;">{{ p.updated }}</td>
+                  <td class="c-act"><div class="ac">
+                    <button type="button" class="cp-ib" onClick="{{ p.onOpen }}" aria-label="Просмотр" data-tip="Просмотр"><i class="ri-eye-line"></i></button>
+                    <button type="button" class="cp-btn pdf" onClick="{{ p.onPdf }}" aria-label="{{ p.pdfAria }}" data-tip="Скачать PDF"><i class="ri-file-pdf-2-line"></i><span class="t">PDF</span><small>{{ p.size }}</small></button>
+                  </div></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ showPager }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ true }}">
+          <div class="cp-more"><button type="button" onClick="{{ loadMore }}"><i class="ri-arrow-down-line"></i>{{ moreLabel }}</button></div>
+        </sc-if>
+        <nav class="cp-pager" aria-label="Страницы реестра">
+          <span class="cp-shown">Показано <b>{{ shownFrom }}–{{ shownTo }}</b> из <b>{{ foundLabel }}</b></span>
+          <div class="cp-pages">
+            <button type="button" class="cp-pg" onClick="{{ prevPage }}" disabled="{{ prevOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button>
+            <sc-for list="{{ pages }}" as="g" hint-placeholder-count="5">
+              <sc-if value="{{ g.gap }}" hint-placeholder-val="{{ false }}"><span class="cp-gap" aria-hidden="true">…</span></sc-if>
+              <sc-if value="{{ g.num }}" hint-placeholder-val="{{ true }}"><button type="button" class="cp-pg" onClick="{{ g.onClick }}" aria-current="{{ g.cur }}" aria-label="{{ g.aria }}">{{ g.n }}</button></sc-if>
+            </sc-for>
+            <button type="button" class="cp-pg" onClick="{{ nextPage }}" disabled="{{ nextOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button>
+          </div>
+        </nav>
+      </sc-if>
     </div>
   </main>
 
-  <dc-import name="Footer" hint-size="100%,360px"></dc-import>
-  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+
+  <!-- ПРОСМОТР ПРОТОКОЛА -->
+  <sc-if value="{{ hasOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="cp-ov" onClick="{{ closeDoc }}"></div>
+    <aside class="cp-dr" role="dialog" aria-modal="true" aria-labelledby="cp-dr-title">
+      <div class="cp-dr-hd">
+        <h2 id="cp-dr-title">{{ doc.name }}</h2>
+        <button type="button" class="cp-close" ref="{{ closeRef }}" onClick="{{ closeDoc }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="cp-dr-bd">
+        <dl class="cp-facts">
+          <div><dt>Раздел медицины</dt><dd>{{ doc.cat }}</dd></div>
+          <div><dt>Код МКБ-10</dt><dd class="mono">{{ doc.code }}</dd></div>
+          <div><dt>Тип документа</dt><dd>{{ doc.typeName }}</dd></div>
+          <div><dt>Статус</dt><dd class="ok"><i class="ri-checkbox-circle-fill"></i>Утверждено МЗ РК</dd></div>
+          <div><dt>Утверждён</dt><dd>{{ doc.approved }}</dd></div>
+          <div><dt>Обновлён</dt><dd>{{ doc.updated }}</dd></div>
+        </dl>
+        <div class="cp-doc-lb">Документ</div>
+        <div class="cp-paper" aria-label="Обложка документа">
+          <div class="ap"><b>Одобрен</b>Объединённой комиссией по качеству медицинских услуг Министерства здравоохранения Республики Казахстан от {{ doc.approved }} протокол № {{ doc.okk }}</div>
+          <h3>Клинический протокол {{ doc.kind }}</h3>
+          <p class="st">«{{ doc.name }}»</p>
+          <ol>
+            <sc-for list="{{ doc.toc }}" as="t" hint-placeholder-count="5"><li>{{ t }}</li></sc-for>
+          </ol>
+        </div>
+      </div>
+      <div class="cp-dr-ft">
+        <button type="button" class="cp-btn main" onClick="{{ doc.onPdf }}"><i class="ri-download-2-line"></i>Скачать PDF <small>· {{ doc.size }}</small></button>
+        <button type="button" class="cp-btn sec" onClick="{{ copyLink }}"><i class="ri-link"></i>Скопировать ссылку</button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="cp-toast" role="status"><i class="ri-checkbox-circle-fill"></i><span>{{ toast }}</span></div>
+  </sc-if>
 </div>
-<template id="__bundler_thumbnail" data-bg-color="#4D42E9">
-  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
-    <rect width="1200" height="800" fill="#4D42E9"/>
-    <g transform="translate(480 280)">
-      <rect width="240" height="240" rx="48" fill="#ffffff"/>
-      <path d="M70 70 h100 M70 110 h100 M70 150 h60" stroke="#4D42E9" stroke-width="16" stroke-linecap="round"/>
-    </g>
-  </svg>
-</template>
 </x-dc>
-<script type="text/x-dc" data-dc-script>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+// ——— Данные реестра (в системе — из API реестра; здесь — образцы с реальными наименованиями и кодами МКБ-10) ———
+// Строка: «код|наименование» — протокол диагностики и лечения; «код|наименование|в» — протокол медицинского вмешательства
+const RAW = {
+  'Акушерство и гинекология':['O14.1|HELLP-синдром','O14|Преэклампсия','O72|Послеродовое кровотечение','O20–O29|Ведение беременных с митральным стенозом','O60|Преждевременные роды','O24|Сахарный диабет при беременности','O21|Рвота беременных','O80|Физиологические роды|в','O82|Кесарево сечение|в','N80|Эндометриоз','D25|Лейомиома матки','N97|Женское бесплодие','O00|Внематочная беременность','N95|Менопауза и климактерическое состояние'],
+  'Аллергология и иммунология':['T78.2|Анафилактический шок','J30|Аллергический ринит','L50|Крапивница','T78.3|Ангионевротический отёк','D80–D84|Первичные иммунодефициты','L20|Атопический дерматит у детей','T88.7|Лекарственная аллергия','Z51.6|Аллерген-специфическая иммунотерапия|в'],
+  'Анестезиология и реаниматология':['R57|Шок у взрослых','A41|Сепсис','I46|Остановка сердца и сердечно-лёгочная реанимация','J80|Острый респираторный дистресс-синдром','R40.2|Кома неясного генеза','Z51.4|Анестезиологическое обеспечение плановых операций|в','T88.3|Злокачественная гипертермия','E87|Нарушения водно-электролитного баланса'],
+  'Гастроэнтерология':['K21|Гастроэзофагеальная рефлюксная болезнь','K25–K27|Язвенная болезнь желудка и двенадцатиперстной кишки','K50|Болезнь Крона','K51|Язвенный колит','K74|Цирроз печени','K85|Острый панкреатит','K86.1|Хронический панкреатит','K58|Синдром раздражённого кишечника','K90.0|Целиакия','K29|Хронический гастрит','K76.0|Неалкогольная жировая болезнь печени'],
+  'Гематология':['D50|Железодефицитная анемия','D51|B12-дефицитная анемия','D61|Апластическая анемия','D66|Гемофилия A','D69.3|Иммунная тромбоцитопения','D56|Талассемия','D57|Серповидноклеточная анемия','C92.0|Острый миелоидный лейкоз','C91.0|Острый лимфобластный лейкоз','C90|Множественная миелома','D68.2|Болезнь Виллебранда'],
+  'Дерматовенерология':['L02|Абсцесс кожи, фурункул и карбункул','L40|Псориаз','L70|Акне','L10|Пузырчатка','L30.9|Экзема','A51–A53|Сифилис','B35|Дерматофитии','L63|Гнёздная алопеция','L93|Красная волчанка кожная','L80|Витилиго'],
+  'Инфекционные болезни':['A01|Брюшной тиф','A05|Пищевые токсикоинфекции','A08|Ротавирусная инфекция у детей','B15|Острый гепатит A','B18.1|Хронический вирусный гепатит B','B18.2|Хронический вирусный гепатит C','B20–B24|ВИЧ-инфекция у взрослых','A39|Менингококковая инфекция','A23|Бруцеллёз','A22|Сибирская язва','U07.1|Коронавирусная инфекция COVID-19','J10|Грипп','B05|Корь','A37|Коклюш','A82|Бешенство'],
+  'Кардиология':['I20.0|Нестабильная стенокардия','I21|Острый инфаркт миокарда с подъёмом сегмента ST','I21.4|Острый инфаркт миокарда без подъёма сегмента ST','I10–I15|Артериальная гипертензия','I50|Хроническая сердечная недостаточность','I48|Фибрилляция и трепетание предсердий','I42.1|Гипертрофическая кардиомиопатия','I42.0|Дилатационная кардиомиопатия','I26|Тромбоэмболия лёгочной артерии','I40|Миокардит','I30|Острый перикардит','I47.2|Желудочковая тахикардия','E78|Атерогенные нарушения липидного обмена','I27.0|Лёгочная артериальная гипертензия'],
+  'Кардиохирургия':['I35.0|Аортальный стеноз','I34.0|Митральная недостаточность','I71|Аневризма аорты','Q21.0|Дефект межжелудочковой перегородки','Q21.1|Дефект межпредсердной перегородки','I25.1|Коронарное шунтирование|в','I35.0|Транскатетерная имплантация аортального клапана|в','I44.2|Имплантация электрокардиостимулятора|в','Q25.1|Коарктация аорты'],
+  'Неврология':['I63|Ишемический инсульт','I61|Геморрагический инсульт','I63|Эндоваскулярное лечение ишемического инсульта|в','G40|Эпилепсия','G35|Рассеянный склероз','G20|Болезнь Паркинсона','G43|Мигрень','G61.0|Синдром Гийена — Барре','G70.0|Миастения','G30|Болезнь Альцгеймера','G51.0|Паралич Белла','M54.1|Радикулопатия','G80|Детский церебральный паралич'],
+  'Нефрология':['N18|Хроническая болезнь почек','N17|Острое почечное повреждение','N04|Нефротический синдром','N02.8|IgA-нефропатия','N10|Острый пиелонефрит','Q61.2|Поликистоз почек','Z49.1|Программный гемодиализ|в','Z94.0|Трансплантация почки|в','M32.1|Волчаночный нефрит'],
+  'Онкология':['C50|Рак молочной железы','C34|Рак лёгкого','C18|Рак ободочной кишки','C20|Рак прямой кишки','C16|Рак желудка','C61|Рак предстательной железы','C53|Рак шейки матки','C56|Рак яичников','C73|Рак щитовидной железы','C43|Меланома кожи','C25|Рак поджелудочной железы','C64|Рак почки','C15|Рак пищевода','C81|Лимфома Ходжкина','C83|Неходжкинские лимфомы'],
+  'Оториноларингология':['J01|Острый синусит','J32|Хронический синусит','H66|Средний отит','J35.0|Хронический тонзиллит','J03|Острый тонзиллит','H81.0|Болезнь Меньера','H90|Нейросенсорная тугоухость','J34.2|Искривление носовой перегородки','J35.0|Тонзиллэктомия|в','H90.3|Кохлеарная имплантация|в'],
+  'Офтальмология':['H40.1|Первичная открытоугольная глаукома','H25|Возрастная катаракта','H35.3|Возрастная макулярная дегенерация','E10.3|Диабетическая ретинопатия','H33|Отслойка сетчатки','H16|Кератит','H10|Конъюнктивит','H52.1|Миопия','H35.1|Ретинопатия недоношенных','S05|Изъятие и консервация глазного яблока|в','H25|Факоэмульсификация катаракты|в'],
+  'Педиатрия и неонатология':['P07|Недоношенные новорождённые','P22.0|Респираторный дистресс-синдром новорождённого','P59|Неонатальная желтуха','P36|Сепсис новорождённого','J18|Внебольничная пневмония у детей','E44|Белково-энергетическая недостаточность у детей','E55|Рахит','A09|Острая диарея у детей','J21|Острый бронхиолит','D50|Железодефицитная анемия у детей','Q90|Синдром Дауна','J45|Бронхиальная астма у детей'],
+  'Психиатрия и наркология':['F20|Шизофрения','F32|Депрессивный эпизод','F31|Биполярное аффективное расстройство','F41.1|Генерализованное тревожное расстройство','F84|Расстройства аутистического спектра','F90|Синдром дефицита внимания и гиперактивности','F10.3|Алкогольный абстинентный синдром','F11.2|Опиоидная зависимость','F43.1|Посттравматическое стрессовое расстройство','F50|Расстройства пищевого поведения'],
+  'Пульмонология':['J15–J18|Внебольничная пневмония у взрослых','J44|Хроническая обструктивная болезнь лёгких','J45|Бронхиальная астма у взрослых','J85.1|Абсцесс лёгкого','J84.1|Идиопатический лёгочный фиброз','E84|Муковисцидоз','J47|Бронхоэктатическая болезнь','D86|Саркоидоз','J93|Пневмоторакс','G47.3|Синдром обструктивного апноэ сна'],
+  'Ревматология':['M05|Ревматоидный артрит','M32|Системная красная волчанка','M45|Анкилозирующий спондилит','M10|Подагра','M15–M19|Остеоартрит','M34|Системная склеродермия','M08|Ювенильный артрит','M81|Остеопороз','M31.3|Гранулематоз с полиангиитом','I00–I02|Острая ревматическая лихорадка'],
+  'Стоматология':['K02|Кариес зубов','K04|Пульпит','K05|Периодонтит','K12|Стоматиты','K07|Челюстно-лицевые аномалии','Q35–Q37|Расщелина губы и нёба','K08.1|Дентальная имплантация|в','S02.6|Перелом нижней челюсти','K10.2|Остеомиелит челюсти'],
+  'Травматология и ортопедия':['S22–S29|Закрытые и открытые повреждения груди','S72.0|Перелом шейки бедра','S82|Перелом голени','S52|Перелом костей предплечья','S32|Перелом позвоночника и таза','M16|Эндопротезирование тазобедренного сустава|в','M17|Эндопротезирование коленного сустава|в','S83.5|Повреждение крестообразной связки','Q65|Врождённый вывих бедра','M41|Сколиоз','T20–T32|Термические ожоги','T33–T35|Отморожения','M86|Остеомиелит'],
+  'Урология':['N20|Мочекаменная болезнь','N40|Доброкачественная гиперплазия предстательной железы','N30|Острый цистит','N41|Простатит','N13|Обструктивная уропатия','Q53|Неопустившееся яичко','N43|Гидроцеле','N39.4|Недержание мочи','N46|Мужское бесплодие','N20|Контактная уретеролитотрипсия|в'],
+  'Фтизиатрия':['A15|Туберкулёз органов дыхания у взрослых','A15|Туберкулёз органов дыхания у детей','A18|Внелёгочный туберкулёз','A15|Туберкулёз с множественной лекарственной устойчивостью','B20.0|Туберкулёз у лиц с ВИЧ-инфекцией','Z22.8|Латентная туберкулёзная инфекция','A17|Туберкулёзный менингит'],
+  'Хирургия':['S36|Абдоминальная травма','K35|Острый аппендицит','K80|Желчнокаменная болезнь','K40|Паховая грыжа','K56|Острая кишечная непроходимость','K65|Перитонит','K92.2|Желудочно-кишечное кровотечение','I83|Варикозное расширение вен нижних конечностей','I70.2|Атеросклероз артерий нижних конечностей','E11.5|Синдром диабетической стопы','K80|Лапароскопическая холецистэктомия|в','E66|Бариатрическая хирургия при ожирении|в'],
+  'Эндокринология':['E10|Сахарный диабет 1 типа','E11|Сахарный диабет 2 типа','E05|Тиреотоксикоз','E03|Гипотиреоз','E04|Узловой зоб','E66|Ожирение у взрослых','E22.0|Акромегалия','E24|Синдром Иценко — Кушинга','E27.1|Первичная надпочечниковая недостаточность','E21.0|Первичный гиперпаратиреоз','E23.0|Гипопитуитаризм','E10.1|Диабетический кетоацидоз','E28.2|Синдром поликистозных яичников'],
+};
+const CHAPTERS = [
+  { id:'A00-B99', label:'Некоторые инфекционные и паразитарные болезни' },
+  { id:'C00-D48', label:'Новообразования' },
+  { id:'D50-D89', label:'Болезни крови и иммунные нарушения' },
+  { id:'E00-E90', label:'Болезни эндокринной системы и обмена веществ' },
+  { id:'F00-F99', label:'Психические расстройства и расстройства поведения' },
+  { id:'G00-G99', label:'Болезни нервной системы' },
+  { id:'H00-H59', label:'Болезни глаза и его придаточного аппарата' },
+  { id:'H60-H95', label:'Болезни уха и сосцевидного отростка' },
+  { id:'I00-I99', label:'Болезни системы кровообращения' },
+  { id:'J00-J99', label:'Болезни органов дыхания' },
+  { id:'K00-K93', label:'Болезни органов пищеварения' },
+  { id:'L00-L99', label:'Болезни кожи и подкожной клетчатки' },
+  { id:'M00-M99', label:'Болезни костно-мышечной системы' },
+  { id:'N00-N99', label:'Болезни мочеполовой системы' },
+  { id:'O00-O99', label:'Беременность, роды и послеродовой период' },
+  { id:'P00-P96', label:'Состояния перинатального периода' },
+  { id:'Q00-Q99', label:'Врождённые аномалии' },
+  { id:'R00-R99', label:'Симптомы и неуточнённые состояния' },
+  { id:'S00-T98', label:'Травмы и отравления' },
+  { id:'U00-U99', label:'Коды для особых целей' },
+  { id:'Z00-Z99', label:'Факторы, влияющие на состояние здоровья' },
+];
+const TYPES = [ { id:'dl', label:'Диагностика и лечение', kind:'диагностики и лечения' }, { id:'mv', label:'Медицинское вмешательство', kind:'медицинского вмешательства' } ];
+const SORTS = [ { id:'upd', label:'Сначала обновлённые' }, { id:'old', label:'Сначала давние' }, { id:'az', label:'По названию, А–Я' }, { id:'icd', label:'По коду МКБ-10' } ];
+const PER = 12;
+const LAST = new Date(2025, 5, 23);
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+// латиница кода МКБ: «I21.4» → 821.4; кириллица, похожая на латиницу, — тоже
+const LAT = { 'А':'A','В':'B','С':'C','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','Т':'T','Х':'X','У':'Y','І':'I' };
+const toLat = (s) => s.toUpperCase().replace(/[АВСЕКМНОРТХУІ]/g, (c) => LAT[c]);
+const icdN = (letter, num) => (letter.charCodeAt(0) - 65) * 100 + num;
+const ranges = (code) => code.split(/,\s*/).map((part) => {
+  const m = part.replace(/\s/g, '').match(/^([A-Z])(\d{2})(?:\.\d+)?(?:[–-]([A-Z])?(\d{2}))?/);
+  if(!m) return null;
+  const lo = icdN(m[1], +m[2]);
+  return [lo, m[4] ? icdN(m[3] || m[1], +m[4]) + .99 : lo + .99];
+}).filter(Boolean);
+const chapterOf = (code) => { const r = ranges(code)[0]; if(!r) return ''; const c = CHAPTERS.find((ch) => { const [a, b] = ch.id.split('-'); return r[0] >= icdN(a[0], +a.slice(1)) && r[0] <= icdN(b[0], +b.slice(1)) + .99; }); return c ? c.id : ''; };
+
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const pad = (n) => String(n).padStart(2, '0');
+const fmt = (d) => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
+const TOC = { dl:['Вводная часть','Диагностика','Тактика лечения','Госпитализация','Организационные аспекты протокола'], mv:['Вводная часть','Показания и противопоказания к вмешательству','Методика проведения вмешательства','Индикаторы эффективности','Организационные аспекты протокола'] };
+
+const CATS = Object.keys(RAW).sort((a, b) => a.localeCompare(b, 'ru'));
+const DATA = [];
+CATS.forEach((cat) => RAW[cat].forEach((row) => {
+  const [code, name, t] = row.split('|'); const i = DATA.length;
+  const year = 2016 + Math.floor(rnd(i, 1) * 10);
+  let ap = new Date(year, Math.floor(rnd(i, 2) * 12), 1 + Math.floor(rnd(i, 3) * 27)); if(ap > LAST) ap = new Date(LAST.getTime() - 86400000 * 40);
+  const span = (LAST - ap) / 86400000;
+  const up = rnd(i, 4) < .14 ? LAST : new Date(ap.getTime() + Math.floor(rnd(i, 5) * span) * 86400000);
+  const kb = 180 + Math.floor(rnd(i, 6) * 2900);
+  DATA.push({ id:'kp' + (i + 1), cat, code, name, type: t === 'в' ? 'mv' : 'dl', ap, up, year: ap.getFullYear(), okk: 100 + Math.floor(rnd(i, 7) * 120),
+    size: kb >= 1024 ? (kb / 1024).toFixed(1).replace('.', ',') + ' МБ' : kb + ' КБ', ch: chapterOf(code), rg: ranges(toLat(code)), text: norm(name + ' ' + cat) });
+}));
+const YEARS = [...new Set(DATA.map((d) => d.year))].sort((a, b) => b - a);
+
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
+const num = (n) => n.toLocaleString('ru-RU');
+const qs = () => { try { return new URLSearchParams(location.search); } catch(e){ return new URLSearchParams(''); } };
+
+// запрос похож на код МКБ-10: буква + 1–2 цифры (+ точка). Кириллицу читаем двумя способами:
+// как похожую букву (вставили «Е11») и как ту же клавишу в русской раскладке (набрали «Ш21» вместо «I21»)
+const KEYS = 'ФИСВУАПРШОЛДЬТЩЗЙКЫЕГМЦЧНЯ', KEYS_LAT = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const toKey = (s) => s.toUpperCase().replace(/[А-ЯЁ]/g, (c) => { const k = KEYS.indexOf(c); return k < 0 ? c : KEYS_LAT[k]; });
+const codeQs = (q) => [toLat(q), toKey(q)].map(codeQ).filter(Boolean);
+const codeQ = (q) => { const m = q.trim().match(/^([A-Z])(\d{1,2})?(?:\.(\d*))?$/); if(!m || (!m[2] && q.trim().length > 1)) return null;
+  if(!m[2]) return [icdN(m[1], 0), icdN(m[1], 99) + .99];
+  if(m[2].length === 1) return [icdN(m[1], +m[2] * 10), icdN(m[1], +m[2] * 10 + 9) + .99];
+  return [icdN(m[1], +m[2]), icdN(m[1], +m[2]) + .99]; };
+
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.state = { tab:'protocols' };
+    this.qRef = React.createRef(); this.barRef = React.createRef(); this.closeRef = React.createRef();
+    const p = qs();
+    this.state = {
+      q: p.get('q') || '', cat: CATS.includes(p.get('cat')) ? p.get('cat') : '', type: p.get('type') || '', ch: p.get('icd') || '', year: p.get('year') || '',
+      sort: SORTS.some((s) => s.id === p.get('sort')) ? p.get('sort') : 'upd', view: p.get('view') === 'table' ? 'table' : 'grid',
+      page: 1, more: 0, catQ: '', dd: '', side: false, open: DATA.some((d) => d.id === p.get('doc')) ? p.get('doc') : '', toast: '', loading: true, error: p.get('state') === 'error', tick: 0,
+    };
   }
   componentDidMount(){
-    const h=(location.hash||'').replace('#','');
-    if(h==='standards'||h==='protocols') this.setState({ tab:h });
-    this._onHash=()=>{ const x=(location.hash||'').replace('#',''); if(x==='standards'||x==='protocols') this.setState({ tab:x }); };
-    window.addEventListener('hashchange', this._onHash);
+    this._ready = () => this.setState({ tick: Date.now() });
+    window.addEventListener('mp-home-ready', this._ready);
+    this._key = (e) => {
+      if(e.key !== 'Escape') return;
+      if(this.state.open) this.closeDoc(); else if(this.state.dd) this.setState({ dd:'' });
+    };
+    window.addEventListener('keydown', this._key);
+    if(this.state.open) try { document.documentElement.style.overflow = 'hidden'; } catch(e){}
+    this.load();
   }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('keydown', this._key); clearTimeout(this._lt); clearTimeout(this._tt); clearTimeout(this._qt); }
+  // запрос к реестру: короткая загрузка со скелетонами; при ошибке — блок «Не удалось загрузить»
+  load(){ clearTimeout(this._lt); this.setState({ loading:true }); this._lt = setTimeout(() => this.setState({ loading:false }), 360); }
+  sync(){
+    const s = this.state, p = new URLSearchParams();
+    if(s.cat) p.set('cat', s.cat); if(s.q.trim()) p.set('q', s.q.trim()); if(s.type) p.set('type', s.type); if(s.ch) p.set('icd', s.ch); if(s.year) p.set('year', s.year);
+    if(s.sort !== 'upd') p.set('sort', s.sort); if(s.view === 'table') p.set('view', 'table'); if(s.error) p.set('state', 'error');
+    try { history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : '')); } catch(e){}
+  }
+  set(patch, quiet){ this.setState({ ...patch, page:1, more:0, dd:'' }, () => { this.sync(); if(!quiet) this.load(); }); }
+  match(d, s, skip){
+    if(skip !== 'cat' && s.cat && d.cat !== s.cat) return false;
+    if(s.type && d.type !== s.type) return false;
+    if(s.ch && d.ch !== s.ch) return false;
+    if(s.year && String(d.year) !== s.year) return false;
+    const q = s.q.trim();
+    if(q){
+      const cqs = codeQs(q);
+      if(cqs.length) return cqs.some((cq) => d.rg.some(([a, b]) => a <= cq[1] && b >= cq[0]));
+      return norm(q).split(/\s+/).every((w) => d.text.includes(w));
+    }
+    return true;
+  }
+  toastMsg(t){ clearTimeout(this._tt); this.setState({ toast:t }); this._tt = setTimeout(() => this.setState({ toast:'' }), 2800); }
+  openDoc(id, e){
+    if(e){ e.preventDefault(); e.stopPropagation(); }
+    this._back = document.activeElement;
+    this.setState({ open:id, dd:'' }, () => { const c = this.closeRef.current; if(c) c.focus(); });
+    try { document.documentElement.style.overflow = 'hidden'; } catch(er){}
+  }
+  closeDoc(){
+    this.setState({ open:'' }, () => this.sync());
+    try { document.documentElement.style.overflow = ''; } catch(er){}
+    if(this._back && this._back.focus) try { this._back.focus(); } catch(er){}
+  }
+  pdf(d, e){ if(e){ e.preventDefault(); e.stopPropagation(); } this.toastMsg('Скачивание: ' + d.name + '.pdf · ' + d.size); }
+  goPage(n){
+    this.setState({ page:n, more:0 }, () => { this.load(); const b = this.barRef.current; if(b) b.scrollIntoView({ behavior:'smooth', block:'start' }); });
+  }
   renderVals(){
-    const s=this.state;
-    const tabsData=[ {id:'protocols',label:'Справочник клинических протоколов'}, {id:'standards',label:'Стандарты медицинской помощи'} ];
-    const tabs=tabsData.map(t=>{ const on=s.tab===t.id; return { ...t, onClick:()=>{ location.hash=t.id; this.setState({ tab:t.id }); },
-      style:`position:relative;padding:0 18px 14px;border:none;background:none;font-family:inherit;font-size:14.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
-      underline:`position:absolute;left:0;right:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:${on?'#4D42E9':'transparent'};` }; });
-    const standards=[
-      { name:'Стандарт организации оказания первичной медико-санитарной помощи', href:'https://adilet.zan.kz/rus/docs/V2300032160', date:'2023', doc:'НПА № V2300032160' },
-      { name:'Стандарт организации оказания медицинской помощи в стационарных условиях', href:'https://adilet.zan.kz/rus/docs/V2200027218', date:'2022', doc:'НПА № V2200027218' },
-      { name:'Стандарт организации оказания медицинской помощи в стационарозамещающих условиях', href:'https://adilet.zan.kz/rus/docs/V2300032740', date:'2023', doc:'НПА № V2300032740' },
-      { name:'Стандарт организации оказания скорой медицинской помощи', href:'https://adilet.zan.kz/rus/docs/V2200026873', date:'2022', doc:'НПА № V2200026873' },
-      { name:'Стандарт организации оказания акушерско-гинекологической помощи', href:'https://adilet.zan.kz/rus/docs/V2400034064', date:'2024', doc:'НПА № V2400034064' },
-      { name:'Стандарт организации оказания педиатрической помощи', href:'https://adilet.zan.kz/rus/docs/V2300033174', date:'2023', doc:'НПА № V2300033174' },
-      { name:'Стандарт организации оказания онкологической помощи', href:'https://adilet.zan.kz/rus/docs/V2200029088', date:'2022', doc:'НПА № V2200029088' },
-      { name:'Стандарт организации оказания медико-социальной помощи в области психического здоровья', href:'https://adilet.zan.kz/rus/docs/V2000021712', date:'2020', doc:'НПА № V2000021712' },
-      { name:'Стандарт организации оказания патологоанатомической диагностики', href:'https://adilet.zan.kz/rus/docs/V2000021790', date:'2020', doc:'НПА № V2000021790' },
-      { name:'Стандарт оказания первой помощи', href:'https://adilet.zan.kz/rus/docs/V2000021814', date:'2020', doc:'НПА № V2000021814' },
-    ];
-    return { tabs, isProtocols:s.tab==='protocols', isStandards:s.tab==='standards', standards, stdCount:standards.length };
+    const s = this.state, H = window.mpHome;
+    const found = DATA.filter((d) => this.match(d, s)).sort((a, b) =>
+      s.sort === 'az' ? a.name.localeCompare(b.name, 'ru') : s.sort === 'icd' ? (a.rg[0] ? a.rg[0][0] : 0) - (b.rg[0] ? b.rg[0][0] : 0) : s.sort === 'old' ? a.up - b.up || a.name.localeCompare(b.name, 'ru') : b.up - a.up || a.name.localeCompare(b.name, 'ru'));
+    const N = found.length, pagesN = Math.max(1, Math.ceil(N / PER));
+    const page = Math.min(s.page, pagesN), last = Math.min(pagesN, page + s.more);
+    const from = (page - 1) * PER, to = Math.min(N, last * PER);
+    const facet = {}; DATA.forEach((d) => { if(this.match(d, s, 'cat')) facet[d.cat] = (facet[d.cat] || 0) + 1; });
+    const facetAll = Object.values(facet).reduce((a, b) => a + b, 0);
+    const cq = norm(s.catQ.trim());
+    const cats = CATS.filter((c) => !cq || norm(c).includes(cq)).map((c) => ({ name:c, n: facet[c] || 0, on: s.cat === c ? 'true' : 'false',
+      cls: 'cp-cat' + (facet[c] ? '' : ' zero'), onClick: () => this.set({ cat: s.cat === c ? '' : c, side:false }) }));
+    const dd = (id) => () => this.setState({ dd: s.dd === id ? '' : id });
+    const opt = (key, val, label, extra) => ({ label, on: s[key] === val ? 'true' : 'false', hasCode:false, code:'', ...extra, onClick: () => this.set({ [key]: val }) });
+    const filters = [
+      { id:'type', label:'Тип документа', all:'Все типы', menuCls:'cp-menu', options:[ opt('type', '', 'Все типы'), ...TYPES.map((t) => opt('type', t.id, t.label)) ],
+        value: s.type ? (TYPES.find((t) => t.id === s.type) || {}).label : 'Все типы' },
+      { id:'ch', label:'Категория МКБ-10', menuCls:'cp-menu wide', options:[ opt('ch', '', 'Все категории МКБ'), ...CHAPTERS.map((c) => opt('ch', c.id, c.label, { hasCode:true, code:c.id.replace('-', '–') })) ],
+        value: s.ch ? s.ch.replace('-', '–') + ' · ' + ((CHAPTERS.find((c) => c.id === s.ch) || {}).label || '') : 'Все категории МКБ' },
+      { id:'year', label:'Год утверждения', menuCls:'cp-menu', options:[ opt('year', '', 'Все годы'), ...YEARS.map((y) => opt('year', String(y), String(y))) ],
+        value: s.year || 'Все годы' },
+    ].map((f) => ({ ...f, lid:'cp-f-' + f.id, open: s.dd === f.id ? 'true' : 'false', show: s.dd === f.id, onToggle: dd(f.id), cls: 'cp-sel' + (s[f.id] ? ' set' : '') }));
+    const activeN = [s.cat, s.type, s.ch, s.year, s.q.trim()].filter(Boolean).length;
+    const lastUp = DATA.reduce((m, d) => d.up > m ? d.up : m, DATA[0].up);
+    const items = found.slice(from, to).map((d, k) => ({
+      ...d, updated: fmt(d.up), href: '?doc=' + d.id, delay: 'animation-delay:' + Math.min(k % PER, 11) * 25 + 'ms;',
+      approvedTip: 'Утверждён ' + fmt(d.ap) + ', протокол ОКК № ' + d.okk, pdfAria: 'Скачать PDF, ' + d.size,
+      onOpen: (e) => this.openDoc(d.id, e), onPdf: (e) => this.pdf(d, e),
+    }));
+    // страницы: 1 … 4 5 6 … 20
+    const want = new Set([1, pagesN, page - 1, page, last, last + 1]);
+    const nums = [...want].filter((n) => n >= 1 && n <= pagesN).sort((a, b) => a - b);
+    const pages = []; nums.forEach((n, k) => { if(k && n - nums[k - 1] > 1) pages.push({ gap:true, num:false, n:'', key:'g' + n }); pages.push({ gap:false, num:true, n, cur: n >= page && n <= last ? 'page' : 'false', aria:'Страница ' + n, onClick: () => this.goPage(n) }); });
+    const rest = N - to, nextN = Math.min(PER, rest);
+    const D = s.open ? DATA.find((d) => d.id === s.open) : null;
+    const T = D ? TYPES.find((t) => t.id === D.type) : null;
+    const busy = s.loading && !s.error;
+    return {
+      qRef:this.qRef, barRef:this.barRef, closeRef:this.closeRef,
+      homeHref: (() => { try { return localStorage.getItem('mp-home-page') || 'Главная H - Витрина.dc.html'; } catch(e){ return 'Главная H - Витрина.dc.html'; } })(),
+      dlOpen: s.dd === 'dl' ? 'true' : 'false', dlShow: s.dd === 'dl', toggleDl: dd('dl'),
+      dlOpts: [
+        { label:'Перечень протоколов (Excel)', meta:'XLSX · 0,4 МБ', icon:'ri-file-excel-2-line', fiCls:'fi xls', onClick: () => { this.setState({ dd:'' }); this.toastMsg('Скачивание: Реестр клинических протоколов.xlsx · 0,4 МБ'); } },
+        { label:'Все протоколы в PDF (ZIP)', meta:'ZIP · 1,2 ГБ', icon:'ri-folder-zip-line', fiCls:'fi zip', onClick: () => { this.setState({ dd:'' }); this.toastMsg('Скачивание: Клинические протоколы РК.zip · 1,2 ГБ'); } },
+      ],
+      closeAll: () => this.setState({ dd:'' }),
+      stats: [
+        { label:'Всего протоколов', value: num(DATA.length), icon:'ri-file-list-3-line', cls:'cp-stat', tip:'Одобрены Объединённой комиссией по качеству медицинских услуг МЗ РК', live:false },
+        { label:'Разделов медицины', value: String(CATS.length), icon:'ri-stethoscope-line', cls:'cp-stat', tip:'', live:false },
+        { label:'Последнее обновление', value: lastUp.getDate() + ' ' + MONTHS[lastUp.getMonth()] + ' ' + lastUp.getFullYear() + ' г.', icon:'ri-refresh-line', cls:'cp-stat',
+          tip: 'Обновлено протоколов: ' + DATA.filter((d) => +d.up === +lastUp).length, live:false },
+        { label:'Статус базы', value:'Действующая', icon:'ri-shield-check-line', cls:'cp-stat ok', tip:'Все протоколы реестра действуют и применяются', live:true },
+      ],
+      sideCls: 'cp-side' + (s.side ? ' open' : ''), sideOpen: s.side ? 'true' : 'false', toggleSide: () => this.setState({ side: !s.side }),
+      catCount: CATS.length, catLabel: s.cat || 'Все разделы', catQ: s.catQ, onCatQ: (e) => this.setState({ catQ: e.target.value }),
+      allCat: { n: facetAll, on: s.cat ? 'false' : 'true', onClick: () => this.set({ cat:'', side:false }) },
+      cats, catsNone: !cats.length,
+      q: s.q, hasQ: !!s.q,
+      onQ: (e) => { const v = e.target.value; this.setState({ q:v, page:1, more:0, loading:true }); clearTimeout(this._qt); this._qt = setTimeout(() => { this.sync(); this.load(); }, 260); },
+      clearQ: () => { this.set({ q:'' }); const i = this.qRef.current; if(i) i.focus(); },
+      filters, reset: () => this.set({ q:'', cat:'', type:'', ch:'', year:'' }), resetOff: !activeN, hasActive: activeN > 0, activeN,
+      foundLabel: num(N),
+      sortOpen: s.dd === 'sort' ? 'true' : 'false', sortShow: s.dd === 'sort', toggleSort: dd('sort'),
+      sortLabel: SORTS.find((x) => x.id === s.sort).label,
+      sorts: SORTS.map((x) => ({ ...x, on: s.sort === x.id ? 'true' : 'false', onClick: () => this.set({ sort:x.id }) })),
+      isGridStr: s.view === 'grid' ? 'true' : 'false', isTableStr: s.view === 'table' ? 'true' : 'false',
+      viewGrid: () => this.setState({ view:'grid' }, () => this.sync()), viewTable: () => this.setState({ view:'table' }, () => this.sync()),
+      showSkel: busy, skel: [1, 2, 3, 4, 5, 6],
+      showError: s.error, retry: () => { this.setState({ error:false }); this.load(); },
+      showEmpty: !busy && !s.error && !N,
+      emptyText: s.q.trim() ? 'По запросу «' + s.q.trim() + '» ничего не нашлось. Проверьте написание или поищите по коду МКБ-10.' : 'Под выбранные условия не подходит ни один протокол. Измените или сбросьте фильтры.',
+      showGrid: !busy && !s.error && N > 0 && s.view === 'grid', showTable: !busy && !s.error && N > 0 && s.view === 'table',
+      items,
+      showPager: !busy && !s.error && N > 0,
+      hasMore: rest > 0, moreLabel: 'Показать ещё ' + nextN + ' ' + plural(nextN, 'протокол', 'протокола', 'протоколов'),
+      loadMore: () => this.setState({ more: s.more + 1 }),
+      shownFrom: num(from + 1), shownTo: num(to), pages,
+      prevOff: page <= 1, nextOff: last >= pagesN, prevPage: () => this.goPage(page - 1), nextPage: () => this.goPage(last + 1),
+      hasOpen: !!D, closeDoc: () => this.closeDoc(),
+      doc: D ? { name:D.name, cat:D.cat, code:D.code, typeName:T.label, kind:T.kind, approved:fmt(D.ap), updated:fmt(D.up), okk:D.okk, size:D.size, toc:TOC[D.type], onPdf: (e) => this.pdf(D, e) }
+        : { name:'', cat:'', code:'', typeName:'', kind:'', approved:'', updated:'', okk:'', size:'', toc:[], onPdf: () => {} },
+      copyLink: () => {
+        const url = location.href.split('?')[0] + '?doc=' + (D ? D.id : '');
+        try { navigator.clipboard.writeText(url); } catch(e){}
+        this.toastMsg('Ссылка на протокол скопирована');
+      },
+      hasToast: !!s.toast, toast: s.toast,
+    };
   }
 }
 </script>
+<template id="__bundler_thumbnail" data-bg-color="#EEF8FC"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#fff"/><rect width="1200" height="300" fill="#EEF8FC"/><rect x="60" y="80" width="560" height="44" rx="8" fill="#0A0D14"/><rect x="60" y="140" width="420" height="20" rx="6" fill="#868C98"/><rect x="900" y="90" width="240" height="52" rx="12" fill="#0B7AA6"/><g fill="#fff" stroke="#E2E4E9" stroke-width="3"><rect x="60" y="200" width="255" height="72" rx="14"/><rect x="335" y="200" width="255" height="72" rx="14"/><rect x="610" y="200" width="255" height="72" rx="14"/><rect x="885" y="200" width="255" height="72" rx="14"/><rect x="60" y="330" width="250" height="440" rx="20"/><rect x="330" y="330" width="810" height="100" rx="20"/><rect x="330" y="460" width="255" height="150" rx="18"/><rect x="607" y="460" width="255" height="150" rx="18"/><rect x="885" y="460" width="255" height="150" rx="18"/></g><rect x="76" y="392" width="218" height="34" rx="10" fill="#0B7AA6"/></svg></template>
 </body>
 </html>
