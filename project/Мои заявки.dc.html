@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Мои заявки: единый список заявок КНФ, на цены, ЕД и АЛО.
+  Постановка «Обновление меню кабинета бизнеса и раздела „Мои заявки“» (29.10.2026), п. 3–4;
+  референс панели фильтров и таблицы — скриншот действующей системы.
+
+  По постановке:
+    • фильтры — «Поиск заявки» (по номеру), «Статус заявки» и «Наименование услуги» (по умолчанию «Все»),
+      «Дата начала» / «Дата окончания» (период по дате создания), «Применить», «Сбросить» (очищает всё);
+      работают совместно; дата окончания раньше даты начала — ошибка под полем, применить нельзя;
+    • таблица — № заявки (ссылка на карточку), наименование услуги, дата создания, дата подачи («—», если нет),
+      статус (цветная метка с текстом), заявитель, «⋮» — меню доступных действий;
+    • сортировка по номеру, услуге, датам и статусу; по умолчанию новые сверху (дата создания ↓);
+      постраничный вывод (по 10) и количество найденных заявок;
+    • состояния: без фильтров, с фильтрами, заявок нет, ничего не найдено, загрузка, ошибка загрузки
+      с повтором, ошибка периода, открытое меню действий.
+  Решения по UX:
+    • полные наименования КНФ, ЕД и АЛО начинаются одинаково — под наименованием метка направления,
+      тип продукции и торговое наименование, иначе строки не различить;
+    • в «⋮» только доступные действия: у черновика — «Продолжить заполнение» и «Удалить»
+      (с подтверждением), у поданной заявки — «Открыть карточку»;
+    • сортировка по статусу — в порядке статусов в фильтре (ход рассмотрения), а не по алфавиту;
+    • фильтры, сортировка и страница переживают уход в карточку и возврат (sessionStorage).
+
+  Данные: ЕД и АЛО — EdData.dc.html (window.mpEd, живые заявки мастера), КНФ и цены — демо-набор ниже
+  + заявки, отправленные из мастеров КНФ / регистрации цены (localStorage mp-knf, mp-price-<ls|mi>).
+  Возврат из мастера ЕД / АЛО: ?sent=<№> / ?draft=<№> — уведомление и подсветка строки.
+  Панель «Прототип»: загрузка, ошибка загрузки, пустой список.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--red:#DF1C41;--red-dk:#AF1D38;--red-l:#F8C9D2;--red-ll:#FDEDF0;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes mp-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes mp-shimmer{0%{background-position:-240px 0}100%{background-position:calc(240px + 100%) 0}}
+  @keyframes mp-flash{0%,60%{background:#EEF2FF}100%{background:#fff}}
+  @keyframes mp-spin{to{transform:rotate(360deg)}}
+
+  .rq-main{padding:8px 32px 96px;}
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-d{border:none;background:var(--red);color:#fff;}
+  .btn-d:hover{background:var(--red-dk);}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .ib{width:32px;height:32px;padding:0;border:none;border-radius:8px;background:transparent;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;transition:background .15s,color .15s;}
+  .ib:hover{background:var(--n100);color:var(--n900);}
+  .ib[aria-expanded="true"]{background:var(--n100);color:var(--n900);}
+  .ib:disabled{color:var(--n300);cursor:not-allowed;background:none;}
+
+  /* поля фильтров — одна высота, рамка, ховер и фокус у всех */
+  .inp{width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 12px;font-family:inherit;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .inp::placeholder{color:var(--n400);}
+  .inp::-webkit-search-cancel-button{display:none;}
+  .inp:hover{border-color:var(--n300);}
+  .inp:focus,.inp[aria-expanded="true"]{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .inp-err,.inp-err:hover{border-color:var(--red);}
+  .inp-err:focus{border-color:var(--red);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--red-l);}
+  .inp:disabled{background:var(--n50);color:var(--n400);cursor:not-allowed;}
+  .sel{display:flex;align-items:center;gap:8px;text-align:left;cursor:pointer;}
+  .lbl{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
+  .opt{width:100%;display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border:none;border-radius:8px;background:transparent;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .opt:hover,.opt:focus-visible{background:var(--n100);outline:none;}
+  .opt[aria-selected="true"]{font-weight:500;}
+  .tag{display:inline-flex;align-items:center;height:18px;padding:0 6px;border-radius:5px;font-size:11px;line-height:16px;font-weight:600;letter-spacing:.02em;white-space:nowrap;flex:0 0 auto;}
+
+  /* фильтры: 3 поля в ряд, ниже — период и кнопки */
+  .flt{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;container-type:inline-size;}
+  .flt-r1{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 24px;}
+  .flt-r2{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px;}
+  .fld{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .fld-d{width:180px;}
+  .flt-btns{display:flex;gap:8px;margin-top:26px;}
+  /* узкая карточка: 2 колонки, кнопки отдельной строкой справа; совсем узкая — всё в столбик */
+  @container (max-width:760px){
+    .flt-r1{grid-template-columns:minmax(0,1fr) minmax(0,1fr);} .flt-r1 .fld:first-child{grid-column:1/-1;}
+    .flt-r2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 24px;} .fld-d{width:auto;}
+    .flt-btns{grid-column:1/-1;margin-top:0;justify-content:flex-end;}
+  }
+  @container (max-width:460px){
+    .flt-r1,.flt-r2{grid-template-columns:minmax(0,1fr);}
+    .flt-btns .btn{flex:1;}
+  }
+
+  /* таблица */
+  .tbl-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;}
+  .tbl-scroll{position:relative;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#CDD0D5 transparent;}
+  .th{display:flex;align-items:center;padding:8px 12px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);white-space:nowrap;}
+  .sort{display:inline-flex;align-items:center;gap:4px;margin:-4px -6px;padding:4px 6px;border:none;border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer;transition:background .15s,color .15s;}
+  .sort:hover{background:var(--n200);color:var(--n900);}
+  .sort i{font-size:16px;color:var(--n400);transition:color .15s;}
+  .sort:hover i{color:var(--n500);}
+  .sort[data-on="true"]{color:var(--n900);}
+  .sort[data-on="true"] i{color:var(--primary);}
+  .row{display:flex;align-items:center;min-height:76px;border-top:1px solid var(--stroke);background:#fff;transition:background .12s;}
+  .row:hover{background:var(--n50);}
+  .row[data-menu="true"]{background:var(--n50);}
+  .td{padding:12px;font-size:14px;line-height:20px;color:var(--n600);}
+  .num{font-size:14px;line-height:20px;font-weight:500;color:var(--primary-dark);text-decoration:none;border-radius:4px;}
+  .num:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px;}
+  .clamp1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .tnum{font-variant-numeric:tabular-nums;}
+  .c-num{width:116px;flex:0 0 auto;padding-left:20px;}
+  .c-svc{flex:1 1 auto;min-width:200px;}
+  .c-date{width:116px;flex:0 0 auto;}
+  .c-st{width:216px;flex:0 0 auto;}
+  .c-who{width:152px;flex:0 0 auto;}
+  .c-act{width:60px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:8px 12px 8px 0;}
+  /* узкая область: таблица прокручивается вбок, № и «⋮» остаются на месте */
+  .c-num,.c-act{position:sticky;z-index:1;align-self:stretch;display:flex;align-items:center;background:inherit;transition:box-shadow .15s;}
+  .c-num{left:0;}
+  .c-act{right:0;}
+  .tbl-scroll[data-l="true"] .c-num{box-shadow:1px 0 0 var(--stroke),8px 0 12px -8px rgba(10,13,20,.14);}
+  .tbl-scroll[data-r="true"] .c-act{box-shadow:-1px 0 0 var(--stroke),-8px 0 12px -8px rgba(10,13,20,.14);}
+  .sk{background:linear-gradient(90deg,#F6F8FA 0,#EDEFF3 120px,#F6F8FA 240px);background-size:240px 100%;animation:mp-shimmer 1.2s linear infinite;border-radius:6px;display:block;}
+
+  /* меню действий */
+  .menu{position:fixed;z-index:46;width:232px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:6px;animation:mp-drop .12s ease;}
+  .mi{width:100%;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);cursor:pointer;text-align:left;text-decoration:none;}
+  .mi i{font-size:18px;color:var(--n500);}
+  .mi:hover,.mi:focus-visible{background:var(--n100);outline:none;}
+  .mi-d,.mi-d i{color:var(--red);}
+  .mi-d:hover,.mi-d:focus-visible{background:var(--red-ll);}
+  .mi-sep{height:1px;margin:4px 6px;background:var(--stroke);}
+
+  /* пагинация */
+  .pg{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--stroke);border-radius:8px;background:#fff;color:var(--n500);font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s,border-color .15s;}
+  .pg:hover{background:var(--n100);color:var(--n900);}
+  .pg:disabled{color:var(--n300);background:#fff;cursor:not-allowed;}
+  .pg[aria-current="page"]{background:var(--primary-lighter);color:var(--primary);border-color:var(--primary-light);}
+  .pg-gap{min-width:24px;text-align:center;color:var(--n400);font-size:14px;}
+
+  .btn:focus-visible,.ib:focus-visible,.num:focus-visible,.pg:focus-visible,.sort:focus-visible,.demo-b:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  @media (max-width:1023px){ .rq-main{padding:8px 24px 96px;} }
+  @media (prefers-reduced-motion:reduce){ .sk{animation:none;} .row{animation:none !important;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <dc-import name="EdData" hint-size="0px,0px"></dc-import>
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="requests" hint-size="272px,827px"></dc-import>
+    </div>
+
+    <main class="rq-main" style="flex:1;min-width:0;">
+      <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 0 8px;">
+          <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Мои заявки</h1>
+          <!-- Панель прототипа: состояния списка -->
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;max-width:100%;padding:3px 3px 3px 10px;border:1px dashed var(--n300);border-radius:10px;background:var(--n0);">
+            <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
+            <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
+            <div style="display:flex;flex-wrap:wrap;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+              <sc-for list="{{ demo }}" as="d" hint-placeholder-count="3"><button type="button" class="demo-b" onClick="{{ d.onClick }}" aria-pressed="{{ d.on }}" style="{{ d.style }}">{{ d.label }}</button></sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- Фильтры -->
+        <form class="flt" onSubmit="{{ apply }}" role="search" aria-label="Фильтры заявок" novalidate>
+          <div class="flt-r1">
+            <div class="fld">
+              <label for="rq-q" class="lbl">Поиск заявки</label>
+              <div style="position:relative;">
+                <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
+                <input id="rq-q" class="inp tnum" type="search" value="{{ fq }}" onChange="{{ onQ }}" placeholder="Номер заявки" autoComplete="off" spellCheck="false" enterKeyHint="search" style="{{ qStyle }}" />
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                  <button type="button" class="ib" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить" style="position:absolute;right:4px;top:4px;"><i class="ri-close-circle-fill" style="font-size:18px;color:var(--n400);"></i></button>
+                </sc-if>
+              </div>
+            </div>
+            <sc-for list="{{ selects }}" as="f" hint-placeholder-count="2">
+              <div class="fld">
+                <div id="{{ f.lbl }}" class="lbl">{{ f.label }}</div>
+                <div style="position:relative;">
+                  <button type="button" class="inp sel" onClick="{{ f.toggle }}" onKeyDown="{{ f.onKey }}" aria-haspopup="listbox" aria-expanded="{{ f.open }}" aria-labelledby="{{ f.lblBoth }}" id="{{ f.btnId }}" style="padding-right:36px;">
+                    <sc-if value="{{ f.hasTag }}" hint-placeholder-val="{{ false }}"><span class="tag" style="{{ f.tagStyle }}">{{ f.tag }}</span></sc-if>
+                    <span class="clamp1" style="{{ f.valStyle }}">{{ f.display }}</span>
+                    <i class="ri-arrow-down-s-line" aria-hidden="true" style="{{ f.chev }}"></i>
+                  </button>
+                  <sc-if value="{{ f.open }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ closePop }}" style="position:fixed;inset:0;z-index:24;"></div>
+                    <div role="listbox" aria-labelledby="{{ f.lbl }}" onKeyDown="{{ f.onListKey }}" style="{{ f.pop }}">
+                      <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4">
+                        <button type="button" role="option" aria-selected="{{ o.on }}" class="opt" onClick="{{ o.pick }}">
+                          <sc-if value="{{ o.hasTag }}" hint-placeholder-val="{{ false }}"><span class="tag" style="{{ o.tagStyle }}">{{ o.tag }}</span></sc-if>
+                          <span style="flex:1;min-width:0;">{{ o.label }}</span>
+                          <i class="ri-check-line" style="{{ o.check }}"></i>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div class="flt-r2">
+            <sc-for list="{{ dates }}" as="d" hint-placeholder-count="2">
+              <div class="fld fld-d">
+                <label for="{{ d.id }}" class="lbl">{{ d.label }}</label>
+                <div style="position:relative;">
+                  <button type="button" class="ib" onClick="{{ d.pick }}" aria-label="{{ d.pickLabel }}" title="Выбрать в календаре" style="position:absolute;left:4px;top:4px;"><i class="ri-calendar-2-line" style="font-size:18px;"></i></button>
+                  <input id="{{ d.id }}" class="{{ d.cls }}" value="{{ d.value }}" onChange="{{ d.onChange }}" onBlur="{{ d.onBlur }}" placeholder="дд.мм.гггг" inputMode="numeric" maxLength="10" autoComplete="off" aria-invalid="{{ d.invalid }}" aria-describedby="{{ d.msgId }}" style="padding-left:40px;" />
+                  <input id="{{ d.nid }}" type="date" tabIndex="-1" aria-hidden="true" min="{{ d.min }}" max="{{ d.max }}" onChange="{{ d.onNative }}" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;" />
+                </div>
+                <div id="{{ d.msgId }}" aria-live="polite">
+                  <sc-if value="{{ d.hasErr }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:4px;font-size:12px;line-height:16px;color:var(--red);"><i class="ri-error-warning-fill" style="font-size:16px;flex:0 0 auto;"></i>{{ d.err }}</span></sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <div class="flt-btns">
+              <button type="button" class="btn btn-s" onClick="{{ reset }}" disabled="{{ resetDisabled }}">Сбросить</button>
+              <button type="submit" class="btn btn-p" disabled="{{ applyDisabled }}">Применить</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Количество найденных -->
+        <sc-if value="{{ showCount }}" hint-placeholder-val="{{ true }}">
+          <div aria-live="polite" style="font-size:14px;line-height:20px;color:var(--n500);">{{ foundText }}</div>
+        </sc-if>
+
+        <!-- Таблица -->
+        <div class="tbl-card">
+          <div class="tbl-scroll" ref="{{ scrollRef }}" onScroll="{{ onTblScroll }}">
+            <div role="table" aria-label="Мои заявки" aria-busy="{{ loading }}" aria-rowcount="{{ rowCount }}" style="min-width:976px;">
+              <!-- шапка таблицы — только когда есть что сортировать -->
+              <sc-if value="{{ showHead }}" hint-placeholder-val="{{ true }}">
+                <div role="row" style="display:flex;background:var(--n100);">
+                  <sc-for list="{{ cols }}" as="c" hint-placeholder-count="7">
+                    <div role="columnheader" class="{{ c.cls }}" aria-sort="{{ c.ariaSort }}">
+                      <sc-if value="{{ c.sortable }}" hint-placeholder-val="{{ true }}">
+                        <button type="button" class="sort" onClick="{{ c.onSort }}" data-on="{{ c.on }}" title="{{ c.sortTitle }}" disabled="{{ c.sortDisabled }}">{{ c.label }}<i class="{{ c.icon }}" aria-hidden="true"></i></button>
+                      </sc-if>
+                      <sc-if value="{{ c.plain }}" hint-placeholder-val="{{ false }}"><span>{{ c.label }}</span></sc-if>
+                      <sc-if value="{{ c.srOnly }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">{{ c.label }}</span></sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+                </sc-if>
+
+              <!-- Загрузка -->
+              <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <sc-for list="{{ skel }}" as="k" hint-placeholder-count="6">
+                    <div class="row" aria-hidden="true" style="pointer-events:none;">
+                      <div class="td c-num"><span class="sk" style="width:64px;height:14px;"></span></div>
+                      <div class="td c-svc" style="display:flex;flex-direction:column;gap:8px;"><span class="sk" style="{{ k.w1 }}"></span><span class="sk" style="{{ k.w2 }}"></span></div>
+                      <div class="td c-date"><span class="sk" style="width:78px;height:14px;"></span></div>
+                      <div class="td c-date"><span class="sk" style="width:78px;height:14px;"></span></div>
+                      <div class="td c-st"><span class="sk" style="{{ k.w3 }}"></span></div>
+                      <div class="td c-who"><span class="sk" style="width:112px;height:14px;"></span></div>
+                      <div class="c-act"><span class="sk" style="width:20px;height:20px;border-radius:6px;"></span></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                <div role="row" class="row" data-menu="{{ r.menuOpen }}" style="{{ r.rowStyle }}">
+                  <div role="cell" class="td c-num">
+                    <a class="num tnum" href="{{ r.href }}" title="{{ r.linkTitle }}">{{ r.num }}</a>
+                  </div>
+                  <div role="cell" class="td c-svc" style="display:flex;flex-direction:column;gap:4px;">
+                    <div class="clamp2" title="{{ r.service }}" style="font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ r.service }}</div>
+                    <div style="display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;line-height:16px;color:var(--n500);">
+                      <span class="tag" style="{{ r.tagStyle }}">{{ r.tag }}</span>
+                      <span class="clamp1" title="{{ r.metaTitle }}">{{ r.meta }}</span>
+                    </div>
+                  </div>
+                  <div role="cell" class="td c-date tnum">{{ r.created }}</div>
+                  <div role="cell" class="td c-date tnum" style="{{ r.sentStyle }}">{{ r.sent }}</div>
+                  <div role="cell" class="td c-st">
+                    <span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span>
+                  </div>
+                  <div role="cell" class="td c-who"><span class="clamp1" title="{{ r.whoFull }}" style="display:block;">{{ r.who }}</span></div>
+                  <div role="cell" class="c-act">
+                    <button type="button" class="ib" onClick="{{ r.onMenu }}" aria-label="{{ r.menuLabel }}" aria-haspopup="menu" aria-expanded="{{ r.menuOpen }}"><i class="ri-more-2-fill" style="font-size:20px;"></i></button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Заявок нет / ничего не найдено / ошибка загрузки -->
+          <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+            <div role="status" style="{{ emptyWrap }}">
+              <div style="{{ emptyIconWrap }}"><i class="{{ emptyIcon }}" style="{{ emptyIconStyle }}"></i></div>
+              <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);">{{ emptyTitle }}</div>
+                <sc-if value="{{ hasEmptyText }}" hint-placeholder-val="{{ true }}"><div style="max-width:380px;font-size:14px;line-height:20px;color:var(--n500);">{{ emptyText }}</div></sc-if>
+              </div>
+              <button type="button" class="{{ emptyBtnCls }}" onClick="{{ emptyAction }}" style="margin-top:4px;"><i class="{{ emptyBtnIcon }}" style="font-size:18px;"></i>{{ emptyBtn }}</button>
+            </div>
+          </sc-if>
+
+          <!-- Пагинация -->
+          <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
+            <nav aria-label="Страницы списка заявок" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--stroke);">
+              <div class="tnum" style="font-size:14px;line-height:20px;color:var(--n500);">{{ rangeText }}</div>
+              <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+                <button type="button" class="pg" onClick="{{ prev }}" disabled="{{ noPrev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i></button>
+                <sc-for list="{{ pageBtns }}" as="p" hint-placeholder-count="3">
+                  <sc-if value="{{ p.isGap }}" hint-placeholder-val="{{ false }}"><span class="pg-gap" aria-hidden="true">…</span></sc-if>
+                  <sc-if value="{{ p.isBtn }}" hint-placeholder-val="{{ true }}"><button type="button" class="pg tnum" onClick="{{ p.go }}" aria-current="{{ p.cur }}" aria-label="{{ p.aria }}">{{ p.n }}</button></sc-if>
+                </sc-for>
+                <button type="button" class="pg" onClick="{{ next }}" disabled="{{ noNext }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line" style="font-size:18px;"></i></button>
+              </div>
+            </nav>
+          </sc-if>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Меню действий заявки -->
+  <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:45;"></div>
+    <div class="menu" role="menu" ref="{{ menuRef }}" aria-label="{{ menuAria }}" onKeyDown="{{ menuKey }}" style="{{ menuStyle }}">
+      <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="2">
+        <sc-if value="{{ m.sep }}" hint-placeholder-val="{{ false }}"><div class="mi-sep" role="separator"></div></sc-if>
+        <sc-if value="{{ m.isLink }}" hint-placeholder-val="{{ true }}"><a role="menuitem" class="mi" href="{{ m.href }}"><i class="{{ m.icon }}"></i>{{ m.label }}</a></sc-if>
+        <sc-if value="{{ m.isBtn }}" hint-placeholder-val="{{ false }}"><button type="button" role="menuitem" class="{{ m.cls }}" onClick="{{ m.onClick }}"><i class="{{ m.icon }}"></i>{{ m.label }}</button></sc-if>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <!-- Подтверждение удаления черновика -->
+  <sc-if value="{{ confirm }}" hint-placeholder-val="{{ false }}">
+    <div onKeyDown="{{ confirmKey }}" style="position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;">
+      <div onClick="{{ closeConfirm }}" style="position:absolute;inset:0;background:rgba(10,13,20,.24);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:mp-fade .15s ease;"></div>
+      <div role="alertdialog" aria-modal="true" aria-labelledby="del-title" aria-describedby="del-text" style="position:relative;width:400px;max-width:100%;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);padding:20px;display:flex;flex-direction:column;gap:20px;animation:mp-pop .18s ease;">
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--red-ll);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-delete-bin-line" style="font-size:20px;color:var(--red);"></i></div>
+          <div style="display:flex;flex-direction:column;gap:4px;padding-top:2px;min-width:0;">
+            <div id="del-title" style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Удалить черновик № {{ confirmNum }}?</div>
+            <div id="del-text" style="font-size:14px;line-height:20px;color:var(--n500);">Восстановить его будет нельзя.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-s" onClick="{{ closeConfirm }}" autoFocus="{{ true }}" style="flex:1;">Отмена</button>
+          <button type="button" class="btn btn-d" onClick="{{ doDelete }}" style="flex:1;">Удалить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Уведомление -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;top:89px;right:24px;z-index:80;width:360px;max-width:calc(100vw - 48px);display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-slidein .2s ease;">
+      <i class="{{ toastIcon }}" style="{{ toastIconStyle }}"></i>
+      <div style="flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;">{{ toastTitle }}</div>
+      <button type="button" class="ib" onClick="{{ closeToast }}" aria-label="Закрыть уведомление" style="width:24px;height:24px;margin:-2px -4px 0 0;"><i class="ri-close-line" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const UIKEY = 'mp-biz-req-ui';
+const DELKEY = 'mp-biz-req-removed';
+const PER = 10;
+const EMPTY_F = { q:'', status:'Все', service:'Все', from:'', to:'' };
+const DEF_SORT = { key:'created', dir:'desc' };
+const ME = 'Сейтжанова Аружан Маратовна';
+
+// Наименования услуг — как в «Государственных услугах» и реестрах кабинета
+const SVC = {
+  knf:     { tag:'КНФ',  tone:['#EEF2FF','#312D86'], name:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр' },
+  priceLs: { tag:'Цены', tone:['#FEF3EB','#6E330C'], name:'Регистрация цены или внесение изменений в зарегистрированную цену производителя лекарственного средства' },
+  priceMi: { tag:'Цены', tone:['#FEF3EB','#6E330C'], name:'Регистрация цены или внесение изменений в зарегистрированную цену производителя медицинского изделия' },
+  ed:      { tag:'ЕД',   tone:['#EBFAFF','#164564'], name:'' },   // полные наименования ЕД и АЛО — из EdData
+  alo:     { tag:'АЛО',  tone:['#EFFAF6','#176448'], name:'' },
+};
+const SVC_ORDER = ['knf', 'priceLs', 'priceMi', 'ed', 'alo'];
+// Статусы — общий публичный перечень (EdData FILTER); запасной список, пока EdData не загрузился
+const STATUS_FALLBACK = ['Черновик','В работе','Ожидает оплаты 20%','Выставлены замечания','Решение принято','Отказано','Завершено'];
+
+// Демо-заявки КНФ и на цены: [№, услуга, торговое наименование, создана, подана, статус, заявитель]
+const DEMO = [
+  ['4097105', 'knf',     'Розувастатин Сандоз',               '28.10.2026 16:20', null,               'Черновик',             ME],
+  ['4097012', 'knf',     'Эналаприл-Дарница',                 '21.10.2026 10:05', '22.10.2026',       'В работе',             'Ахметов Данияр Серикович'],
+  ['4096540', 'knf',     'Кларитромицин Экозитрин',           '08.10.2026 11:40', '09.10.2026',       'Ожидает оплаты 20%',   ME],
+  ['4096862', 'knf',     'Аторвастатин-Тева',                 '02.10.2026 09:15', '03.10.2026',       'Решение принято',      ME],
+  ['4095310', 'knf',     'Метформин Канон',                   '15.09.2026 14:30', '16.09.2026',       'Отказано',             'Ахметов Данияр Серикович'],
+  ['4094877', 'knf',     'Бисопролол-Акрихин',                '27.08.2026 12:00', '28.08.2026',       'Завершено',            'Ким Елена Викторовна'],
+  ['5120501', 'priceLs', 'Парацетамол-Вива',                  '29.10.2026 09:10', null,               'Черновик',             ME],
+  ['5120447', 'priceLs', 'Амоксиклав',                        '26.10.2026 15:45', '26.10.2026',       'В работе',             'Ким Елена Викторовна'],
+  ['5120318', 'priceLs', 'Нурофен',                           '12.10.2026 10:20', '13.10.2026',       'Выставлены замечания', ME],
+  ['5119902', 'priceLs', 'Цефтриаксон-КМП',                   '18.09.2026 17:05', '18.09.2026',       'Решение принято',      'Ким Елена Викторовна'],
+  ['6230115', 'priceMi', 'Шприц инъекционный трёхкомпонентный 5 мл', '23.10.2026 11:30', '24.10.2026', 'В работе',          'Ким Елена Викторовна'],
+  ['6229870', 'priceMi', 'Система для вливания инфузионных растворов ПК-21', '30.09.2026 13:15', '01.10.2026', 'Отказано',   'Ахметов Данияр Серикович'],
+  ['6229544', 'priceMi', 'Перчатки смотровые нитриловые',     '04.09.2026 10:00', '05.09.2026',       'Завершено',            'Ахметов Данияр Серикович'],
+];
+
+const pad = (n) => String(n).padStart(2, '0');
+const fmtD = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); };
+const parseD = (s) => {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})(?: (\d{2}):(\d{2}))?$/.exec(String(s || '').trim());
+  if(!m) return null;
+  const d = new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0));
+  if(d.getFullYear() !== +m[3] || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[1]) return null;
+  return d;
+};
+const toIso = (d) => d ? d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) : '';
+const mask = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '.' + d.slice(2, 4) + '.' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '.' + d.slice(2) : d; };
+// «Сейтжанова Аружан Маратовна» → «Сейтжанова А. М.»
+const shortFio = (f) => { const p = String(f || '').trim().split(/\s+/); return p.length < 2 ? f : p[0] + ' ' + p.slice(1).map(x => x[0] + '.').join(' '); };
+const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many; };
+const zayavok = (n) => n + ' ' + plural(n, 'заявка', 'заявки', 'заявок');
+
+class Component extends DCLogic {
+  scrollRef = React.createRef();
+  menuRef = React.createRef();
+
+  constructor(props){
+    super(props);
+    let ui = null;
+    try { ui = JSON.parse(sessionStorage.getItem(UIKEY) || 'null'); } catch(e){}
+    const applied = ui && ui.applied ? { ...EMPTY_F, ...ui.applied } : { ...EMPTY_F };
+    let removed = [];
+    try { removed = JSON.parse(localStorage.getItem(DELKEY) || '[]'); } catch(e){}
+    this.state = { phase:'loading', ed:[], removed, draft:{ ...applied }, applied, errs:{},
+      sort: ui && ui.sort || { ...DEF_SORT }, page: ui && ui.page || 1,
+      pop:null, menu:null, confirm:null, toast:null, flash:null, demo:null };
+  }
+  componentDidMount(){
+    this._onEd = () => { if(this.state.phase === 'ready') this.setState({ ed: this.edApps() }); };
+    window.addEventListener('mp-ed-change', this._onEd);
+    this._onReady = () => { if(this._waiting) this.finishLoad(); };
+    window.addEventListener('mp-ed-ready', this._onReady);
+    this._esc = (e) => {
+      if(e.key !== 'Escape') return;
+      if(this.state.menu){ this.closeMenu(true); return; }
+      if(this.state.pop){ const k = this.state.pop; this.setState({ pop:null }); this.focusId('rq-sel-' + k); }
+    };
+    window.addEventListener('keydown', this._esc);
+    // меню действий «приклеено» к кнопке — при прокрутке и ресайзе закрываем
+    this._onScrollAny = (e) => { if(e && e.type === 'resize') this.edges(); if(this.state.menu) this.setState({ menu:null }); };
+    window.addEventListener('scroll', this._onScrollAny, { passive:true });
+    window.addEventListener('resize', this._onScrollAny);
+    this.load();
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-ed-change', this._onEd);
+    window.removeEventListener('mp-ed-ready', this._onReady);
+    window.removeEventListener('keydown', this._esc);
+    window.removeEventListener('scroll', this._onScrollAny);
+    window.removeEventListener('resize', this._onScrollAny);
+    clearTimeout(this._tl); clearTimeout(this._tt); clearTimeout(this._tf);
+  }
+
+  // ── загрузка ──
+  load(){
+    clearTimeout(this._tl);
+    this.setState({ phase:'loading', menu:null, pop:null });
+    this._tl = setTimeout(() => {
+      if(this.state.demo === 'loading') return;
+      if(this.state.demo === 'error'){ this.setState({ phase:'error' }); return; }
+      if(window.mpEd) this.finishLoad(); else this._waiting = true;
+    }, 800);
+  }
+  finishLoad(){
+    this._waiting = false;
+    this.setState({ phase:'ready', ed: this.edApps() });
+    if(this._returned) return;
+    this._returned = true;
+    // возврат из мастера ЕД / АЛО: ?sent=№ — заявка отправлена, ?draft=№ — черновик сохранён
+    const q = new URLSearchParams(location.search);
+    const sent = q.get('sent'), draft = q.get('draft');
+    if(sent) this.toast('ok', 'Заявка № ' + sent + ' отправлена');
+    else if(draft) this.toast('ok', 'Черновик № ' + draft + ' сохранён');
+    if(sent || draft){
+      try { history.replaceState(null, '', location.pathname); } catch(e){}
+      this.flash(sent || draft);
+    }
+  }
+  edApps(){
+    const ED = window.mpEd; if(!ED) return [];
+    return ED.list().map(app => {
+      const sm = ED.summary(app), draft = app.status === 'Черновик';
+      return { key:'ed:' + app.num, num:app.num, svc: sm.svc === 'alo' ? 'alo' : 'ed', name: sm.svcName,
+        cat: sm.catShort, trade: sm.trade, created: app.created, sent: app.sentAt || null, status: app.status, app,
+        who: (app.signer && app.signer.fio) || ME, draft, ed:true,
+        href: draft ? 'Заявка ЕД.dc.html?n=' + app.num : 'Карточка заявки ЕД.dc.html?n=' + app.num };
+    });
+  }
+  // КНФ и цены: демо-набор + заявки, отправленные из мастеров прототипа
+  demoApps(){
+    const out = DEMO.map(([num, svc, trade, created, sent, status, who]) => {
+      const draft = status === 'Черновик', mi = svc === 'priceMi';
+      const href = svc === 'knf' ? (draft ? 'Заявление КНФ.dc.html' : 'Заявление КНФ.dc.html#result')
+        : 'Заявка на регистрацию цены.dc.html#' + (mi ? 'mi' : 'ls') + (draft ? '' : '-result');
+      return { key:'d:' + num, num, svc, name:SVC[svc].name, cat: mi ? 'МИ' : 'ЛС', trade,
+        created: parseD(created).getTime(), sent: sent ? parseD(sent).getTime() : null, status, who, draft, href };
+    });
+    try {
+      const knf = localStorage.getItem('mp-knf');
+      if(knf) out.push({ key:'d:000002', num:'000002', svc:'knf', name:SVC.knf.name, cat:'ЛС', trade:'Аторвастатин',
+        created: parseD('15.09.2026 10:00').getTime(), sent: parseD('15.09.2026').getTime(),
+        status: knf === 'done' ? 'Решение принято' : knf === 'invoice' ? 'Ожидает оплаты 20%' : 'В работе', who:ME, draft:false, href:'Заявление КНФ.dc.html#result' });
+      ['ls', 'mi'].forEach(id => {
+        const v = localStorage.getItem('mp-price-' + id); if(!v) return;
+        const svc = id === 'mi' ? 'priceMi' : 'priceLs';
+        out.push({ key:'d:000001' + id, num:'000001', svc, name:SVC[svc].name, cat: id === 'mi' ? 'МИ' : 'ЛС', trade:'',
+          created: parseD('15.09.2026 11:00').getTime(), sent: parseD('15.09.2026').getTime(),
+          status: v === 'ok' ? 'Решение принято' : v === 'no' ? 'Отказано' : 'В работе', who:ME, draft:false, href:'Заявка на регистрацию цены.dc.html#' + id + '-result' });
+      });
+    } catch(e){}
+    return out.filter(a => this.state.removed.indexOf(a.key) === -1);
+  }
+  all(){ return this.state.demo === 'empty' ? [] : this.demoApps().concat(this.state.ed); }
+
+  statuses(){ const ED = window.mpEd; return ED ? ED.FILTER : STATUS_FALLBACK; }
+  svcName(id){ const ED = window.mpEd; if(SVC[id].name) return SVC[id].name; return ED ? ED.SVCS[id].name : ''; }
+
+  persist(patch){
+    const s = this.state;
+    const ui = { applied: s.applied, sort: s.sort, page: s.page, ...(patch || {}) };
+    try { sessionStorage.setItem(UIKEY, JSON.stringify(ui)); } catch(e){}
+  }
+  toast(kind, title){ clearTimeout(this._tt); this.setState({ toast:{ kind, title } }); this._tt = setTimeout(() => this.setState({ toast:null }), 4500); }
+  flash(num){
+    this.setState({ flash:num, applied:{ ...EMPTY_F }, draft:{ ...EMPTY_F }, sort:{ ...DEF_SORT }, page:1, errs:{} });
+    this.persist({ applied:{ ...EMPTY_F }, sort:{ ...DEF_SORT }, page:1 });
+    clearTimeout(this._tf); this._tf = setTimeout(() => this.setState({ flash:null }), 2400);
+  }
+  // тени у закреплённых столбцов — только когда за ними есть прокрученное содержимое
+  // (атрибуты ставим напрямую, без перерисовки на каждый кадр прокрутки)
+  edges(){
+    const el = this.scrollRef.current; if(!el) return;
+    const l = el.scrollLeft > 0 ? 'true' : 'false', r = el.scrollLeft < el.scrollWidth - el.clientWidth - 1 ? 'true' : 'false';
+    if(el.dataset.l !== l) el.dataset.l = l;
+    if(el.dataset.r !== r) el.dataset.r = r;
+  }
+  componentDidUpdate(){ this.edges(); }
+  focusId(id){ setTimeout(() => { const el = document.getElementById(id); if(el) el.focus(); }, 0); }
+
+  // ── фильтры ──
+  checkDates(f, strict){
+    const errs = {};
+    const a = f.from ? parseD(f.from) : null, b = f.to ? parseD(f.to) : null;
+    // неполную дату подсвечиваем только при применении или уходе из поля
+    if(f.from && !a && (strict || f.from.length === 10)) errs.from = 'Укажите дату в формате дд.мм.гггг';
+    if(f.to && !b && (strict || f.to.length === 10)) errs.to = 'Укажите дату в формате дд.мм.гггг';
+    if(a && b && b.getTime() < a.getTime()) errs.to = 'Дата окончания раньше даты начала';
+    return errs;
+  }
+  setDraft(patch, strict){
+    const draft = { ...this.state.draft, ...patch };
+    this.setState({ draft, errs: this.checkDates(draft, strict) });
+  }
+  applyF(next){
+    const f = next || this.state.draft;
+    const errs = this.checkDates(f, true);
+    this.setState({ errs, pop:null, draft:{ ...f } });
+    if(Object.keys(errs).length){ this.focusId(errs.from ? 'rq-from' : 'rq-to'); return; }
+    const applied = { ...f, q:f.q.trim() };
+    this.setState({ applied, draft:{ ...applied }, page:1 });
+    this.persist({ applied, page:1 });
+  }
+  filtered(){
+    const f = this.state.applied;
+    const q = f.q.toLowerCase().replace(/\s+/g, '');
+    const a = f.from ? parseD(f.from) : null, b = f.to ? parseD(f.to) : null;
+    return this.all().filter(r => {
+      if(q && String(r.num).toLowerCase().indexOf(q) === -1) return false;
+      if(f.status !== 'Все' && r.status !== f.status) return false;
+      if(f.service !== 'Все' && r.svc !== f.service) return false;
+      if(a && r.created < a.getTime()) return false;
+      if(b && r.created >= b.getTime() + 864e5) return false;
+      return true;
+    });
+  }
+  sorted(list){
+    const { key, dir } = this.state.sort, k = dir === 'asc' ? 1 : -1;
+    const st = this.statuses();
+    const val = (r) => key === 'num' ? r.num : key === 'service' ? (SVC[r.svc].tag + ' ' + this.svcName(r.svc)) : key === 'status' ? st.indexOf(r.status) : r[key];
+    return list.slice().sort((x, y) => {
+      const a = val(x), b = val(y);
+      // без даты подачи — всегда в конце
+      if(a == null && b != null) return 1;
+      if(b == null && a != null) return -1;
+      let c = 0;
+      if(typeof a === 'number' && typeof b === 'number') c = a - b;
+      else c = String(a).localeCompare(String(b), 'ru', { numeric:true });
+      if(c === 0) c = y.created - x.created;
+      else c *= k;
+      return c;
+    });
+  }
+
+  // ── меню действий ──
+  openMenu(e, r){
+    if(this.state.menu && this.state.menu.key === r.key){ this.closeMenu(true); return; }
+    const b = e.currentTarget.getBoundingClientRect();
+    const h = r.draft ? 92 : 50;
+    const up = b.bottom + 4 + h > window.innerHeight - 8;
+    this._menuBtn = e.currentTarget;
+    this.setState({ pop:null, menu:{ key:r.key, num:r.num, href:r.href, draft:r.draft, ed:!!r.ed,
+      top: up ? Math.max(8, b.top - 4 - h) : b.bottom + 4, right: Math.max(8, window.innerWidth - b.right) } });
+    setTimeout(() => { const m = this.menuRef.current; const f = m && m.querySelector('.mi'); if(f) f.focus(); }, 0);
+  }
+  closeMenu(refocus){
+    this.setState({ menu:null });
+    if(refocus && this._menuBtn && document.contains(this._menuBtn)) this._menuBtn.focus();
+  }
+  menuKey(e){
+    const m = this.menuRef.current; if(!m) return;
+    const items = [...m.querySelectorAll('.mi')], i = items.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+    if(e.key === 'Tab'){ e.preventDefault(); this.closeMenu(true); }
+  }
+  doDelete(){
+    const c = this.state.confirm; if(!c) return;
+    if(c.ed){ const ED = window.mpEd; if(ED) ED.remove(c.num); this.setState({ ed: this.edApps() }); }
+    else {
+      const removed = this.state.removed.concat(c.key);
+      try { localStorage.setItem(DELKEY, JSON.stringify(removed)); } catch(e){}
+      this.setState({ removed });
+    }
+    this.setState({ confirm:null });
+    this.toast('ok', 'Черновик № ' + c.num + ' удалён');
+  }
+
+  renderVals(){
+    const s = this.state, ED = window.mpEd;
+    const ready = s.phase === 'ready', loading = s.phase === 'loading', fail = s.phase === 'error';
+    const D = s.draft, A = s.applied;
+
+    // ── выпадающие списки ──
+    const tagStyleOf = (id) => `background:${SVC[id].tone[0]};color:${SVC[id].tone[1]};`;
+    const selDef = [
+      { key:'status', label:'Статус заявки', opts: ['Все'].concat(this.statuses()).map(v => ({ v, label:v })) },
+      { key:'service', label:'Наименование услуги', opts: [{ v:'Все', label:'Все' }].concat(SVC_ORDER.map(id => ({ v:id, label:this.svcName(id), tag:SVC[id].tag, tagStyle:tagStyleOf(id) }))) },
+    ];
+    const selects = selDef.map(d => {
+      const open = s.pop === d.key, val = D[d.key];
+      const cur = d.opts.find(o => o.v === val) || d.opts[0];
+      const pick = (v) => { this.setDraft({ [d.key]:v }); this.setState({ pop:null }); this.focusId('rq-sel-' + d.key); };
+      const focusOpt = (dir) => setTimeout(() => {
+        const list = [...document.querySelectorAll('[role="listbox"] .opt')]; if(!list.length) return;
+        const i = list.indexOf(document.activeElement);
+        const sel = list.findIndex(x => x.getAttribute('aria-selected') === 'true');
+        const n = dir === 0 ? Math.max(0, sel) : (Math.max(i, 0) + dir + list.length) % list.length;
+        list[n].focus();
+      }, 0);
+      return { label:d.label, lbl:'rq-lbl-' + d.key, btnId:'rq-sel-' + d.key, lblBoth:'rq-lbl-' + d.key + ' rq-sel-' + d.key, open,
+        display: cur.label, hasTag: !!cur.tag, tag: cur.tag || '', tagStyle: cur.tagStyle || '',
+        valStyle:`flex:1;min-width:0;color:${val === 'Все' ? '#525866' : '#0A0D14'};`,
+        chev:`position:absolute;right:10px;top:10px;font-size:20px;color:#868C98;transition:transform .15s;${open ? 'transform:rotate(180deg);' : ''}`,
+        toggle: () => { this.setState({ pop: open ? null : d.key, menu:null }); if(!open) focusOpt(0); },
+        onKey: (e) => { if((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !open){ e.preventDefault(); this.setState({ pop:d.key, menu:null }); focusOpt(0); } },
+        onListKey: (e) => {
+          if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); focusOpt(e.key === 'ArrowDown' ? 1 : -1); }
+          if(e.key === 'Tab'){ this.setState({ pop:null }); }
+        },
+        pop:`position:absolute;${d.key === 'service' ? 'right:0;width:max(100%,440px);' : 'left:0;width:max(100%,280px);'}max-width:calc(100vw - 32px);top:calc(100% + 4px);z-index:25;max-height:340px;overflow-y:auto;background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.16);padding:6px;animation:mp-drop .12s ease;`,
+        opts: d.opts.map(o => ({ label:o.label, hasTag: !!o.tag, tag:o.tag || '', tagStyle:(o.tagStyle || '') + 'margin-top:1px;', on: val === o.v, pick: () => pick(o.v),
+          check:`font-size:18px;color:#4D42E9;flex:0 0 auto;${val === o.v ? '' : 'visibility:hidden;'}` })) };
+    });
+
+    // ── даты ──
+    const fromD = parseD(D.from), toD = parseD(D.to);
+    const dates = [ ['from', 'Дата начала'], ['to', 'Дата окончания'] ].map(([k, label]) => {
+      const err = s.errs[k] || '';
+      return { label, id:'rq-' + k, nid:'rq-' + k + '-n', msgId:'rq-' + k + '-m', value: D[k], err, hasErr: !!err, invalid: !!err,
+        cls: 'inp tnum' + (err ? ' inp-err' : ''), pickLabel: label + ': выбрать в календаре',
+        // календарь сам не даст выбрать конец раньше начала
+        min: k === 'to' ? toIso(fromD) : '', max: k === 'from' ? toIso(toD) : '',
+        onChange: (e) => this.setDraft({ [k]: mask(e.target.value) }),
+        onBlur: () => { if(D[k] && D[k].length < 10) this.setState({ errs: this.checkDates(this.state.draft, true) }); },
+        pick: () => { const el = document.getElementById('rq-' + k + '-n'); if(!el) return; const cur = parseD(D[k]); el.value = toIso(cur); try { el.showPicker(); } catch(x){ el.click(); } },
+        onNative: (e) => { const v = e.target.value; if(v){ const [y, m, dd] = v.split('-'); this.setDraft({ [k]: dd + '.' + m + '.' + y }); } } };
+    });
+
+    const isDef = (f) => f.q.trim() === '' && f.status === 'Все' && f.service === 'Все' && !f.from && !f.to;
+    const dirty = JSON.stringify({ ...D, q:D.q.trim() }) !== JSON.stringify(A);
+    const hasErrs = Object.keys(s.errs).length > 0;
+
+    // ── строки ──
+    const total = ready ? this.all().length : 0;
+    const list = ready ? this.sorted(this.filtered()) : [];
+    const pages = Math.max(1, Math.ceil(list.length / PER));
+    const page = Math.min(s.page, pages);
+    const slice = list.slice((page - 1) * PER, page * PER);
+    const rows = slice.map(r => {
+      const b0 = ED ? ED.badge(r.status, r.app) : { label:r.status, style:'font-size:12px;', dot:'display:none;' };
+      // самые длинные статусы («Рассмотрение заблокировано») переносятся внутри метки, а не вылезают из столбца
+      const badge = { ...b0, style: b0.style + 'max-width:100%;height:auto;min-height:24px;padding-top:4px;padding-bottom:4px;white-space:normal;' };
+      const menuOpen = !!(s.menu && s.menu.key === r.key);
+      const meta = [r.cat, r.trade].filter(Boolean).join(' · ');
+      return { num:r.num, href:r.href, linkTitle: r.draft ? 'Продолжить заполнение' : 'Открыть карточку заявки',
+        service: r.name, tag: SVC[r.svc].tag, tagStyle: tagStyleOf(r.svc), meta, metaTitle: meta,
+        created: fmtD(r.created), sent: r.sent ? fmtD(r.sent) : '—', sentStyle: r.sent ? '' : 'color:#868C98;',
+        badge, who: shortFio(r.who), whoFull: r.who,
+        menuOpen, menuLabel:'Действия с заявкой № ' + r.num,
+        onMenu: (e) => this.openMenu(e, r),
+        rowStyle: s.flash === r.num ? 'animation:mp-flash 2.4s ease;' : '' };
+    });
+
+    // ── заголовки и сортировка ──
+    const colDef = [
+      { key:'num', label:'№ заявки', cls:'th c-num', sort:true },
+      { key:'service', label:'Наименование услуги', cls:'th c-svc', sort:true },
+      { key:'created', label:'Дата создания', cls:'th c-date', sort:true },
+      { key:'sent', label:'Дата подачи', cls:'th c-date', sort:true },
+      { key:'status', label:'Статус', cls:'th c-st', sort:true },
+      { key:'who', label:'Заявитель', cls:'th c-who', sort:false },
+      { key:'act', label:'Действия', cls:'th c-act', sort:false, sr:true },
+    ];
+    const cols = colDef.map(c => {
+      const on = s.sort.key === c.key;
+      const dir = on ? s.sort.dir : null;
+      return { label:c.label, cls:c.cls, sortable: c.sort, plain: !c.sort && !c.sr, srOnly: !!c.sr, on,
+        ariaSort: on ? (dir === 'asc' ? 'ascending' : 'descending') : 'none',
+        icon: on ? (dir === 'asc' ? 'ri-arrow-up-line' : 'ri-arrow-down-line') : 'ri-arrow-up-down-line',
+        sortTitle: on ? (dir === 'asc' ? 'Сортировка по возрастанию' : 'Сортировка по убыванию') : 'Сортировать',
+        sortDisabled: !ready || list.length < 2,
+        onSort: () => {
+          // даты — сначала новые, номер / услуга / статус — по возрастанию
+          const first = c.key === 'created' || c.key === 'sent' ? 'desc' : 'asc';
+          const sort = on ? { key:c.key, dir: dir === 'asc' ? 'desc' : 'asc' } : { key:c.key, dir:first };
+          this.setState({ sort, page:1 }); this.persist({ sort, page:1 });
+        } };
+    });
+
+    // ── пагинация ──
+    const nums = [];
+    if(pages <= 7){ for(let i = 1; i <= pages; i++) nums.push(i); }
+    else {
+      const lo = Math.max(2, page - 1), hi = Math.min(pages - 1, page + 1);
+      nums.push(1); if(lo > 2) nums.push(0);
+      for(let i = lo; i <= hi; i++) nums.push(i);
+      if(hi < pages - 1) nums.push(0); nums.push(pages);
+    }
+    const goPage = (p) => { this.setState({ page:p, menu:null }); this.persist({ page:p }); const sc = this.scrollRef.current; if(sc){ const top = sc.getBoundingClientRect().top; if(top < 90) window.scrollBy({ top: top - 160 }); } };
+    const pageBtns = nums.map(n => n === 0 ? { isGap:true, isBtn:false } : { isGap:false, isBtn:true, n:String(n), cur: n === page ? 'page' : 'false', aria:'Страница ' + n, go: () => goPage(n) });
+
+    // ── пустые состояния ──
+    const filteredOut = ready && total > 0 && list.length === 0;
+    const noApps = ready && total === 0;
+    const showEmpty = fail || filteredOut || noApps;
+    const E = fail ? { icon:'ri-error-warning-line', title:'Не удалось загрузить заявки', text:'Проверьте подключение к интернету и повторите попытку.', btn:'Повторить попытку', btnIcon:'ri-refresh-line', cls:'btn btn-s', act: () => { if(s.demo === 'error') this.setState({ demo:null }); this.load(); }, tone:['#FDEDF0','#DF1C41'] }
+      : filteredOut ? { icon:'ri-search-line', title:'Заявки не найдены', text:'Измените условия поиска или сбросьте фильтры.', btn:'Сбросить фильтры', btnIcon:'ri-filter-off-line', cls:'btn btn-s', act: () => this.applyF({ ...EMPTY_F }), tone:['#F6F8FA','#868C98'] }
+      : { icon:'ri-file-list-3-line', title:'Заявок пока нет', text:'', btn:'Подать заявку', btnIcon:'ri-add-line', cls:'btn btn-p', act: () => window.dispatchEvent(new CustomEvent('mp-biz-directions')), tone:['#EEF2FF','#4D42E9'] };
+
+    const filtersOn = !isDef(A);
+    const M = s.menu;
+    const menuItems = !M ? [] : M.draft ? [
+      { isLink:true, isBtn:false, sep:false, href:M.href, icon:'ri-edit-line', label:'Продолжить заполнение' },
+      { isLink:false, isBtn:true, sep:true, cls:'mi mi-d', icon:'ri-delete-bin-line', label:'Удалить', onClick: () => { this.setState({ menu:null, confirm:{ key:M.key, num:M.num, ed:M.ed } }); } },
+    ] : [
+      { isLink:true, isBtn:false, sep:false, href:M.href, icon:'ri-file-text-line', label:'Открыть карточку' },
+    ];
+
+    const seg = (on) => `height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
+    const T = s.toast;
+    const sk = [[78, 46, 132], [64, 38, 110], [84, 52, 148], [70, 30, 120], [58, 44, 104], [80, 36, 140]];
+
+    return {
+      scrollRef: this.scrollRef, menuRef: this.menuRef,
+      fq: D.q, hasQ: !!D.q, qStyle: `padding-left:40px;${D.q ? 'padding-right:40px;' : ''}`,
+      onQ: (e) => this.setDraft({ q:e.target.value }),
+      clearQ: () => { this.setDraft({ q:'' }); this.focusId('rq-q'); },
+      selects, dates, closePop: () => this.setState({ pop:null }),
+      apply: (e) => { if(e && e.preventDefault) e.preventDefault(); if(!ready || !dirty || hasErrs) return; this.applyF(); },
+      applyDisabled: !ready || !dirty || hasErrs,
+      reset: () => this.applyF({ ...EMPTY_F }),
+      resetDisabled: !ready || (isDef(D) && isDef(A)),
+
+      showCount: ready && list.length > 0,
+      foundText: filtersOn ? 'Найдено: ' + zayavok(list.length) : 'Всего: ' + zayavok(total),
+      cols, loading, rowCount: String(list.length), skel: sk.map(([a, b, c]) => ({ w1:`width:${a}%;height:12px;`, w2:`width:${b}%;height:10px;`, w3:`width:${c}px;height:22px;border-radius:999px;` })),
+      showHead: !showEmpty,
+      rows, onTblScroll: () => { this.edges(); if(s.menu) this.setState({ menu:null }); },
+
+      showEmpty, emptyTitle:E.title, emptyText:E.text, hasEmptyText: !!E.text, emptyBtn:E.btn, emptyBtnIcon:E.btnIcon, emptyBtnCls:E.cls, emptyAction:E.act, emptyIcon:E.icon,
+      emptyWrap:'display:flex;flex-direction:column;align-items:center;gap:16px;padding:56px 16px 64px;text-align:center;animation:mp-fade .2s ease;',
+      emptyIconWrap:`width:56px;height:56px;border-radius:16px;background:${E.tone[0]};display:flex;align-items:center;justify-content:center;`,
+      emptyIconStyle:`font-size:26px;color:${E.tone[1]};`,
+
+      hasPager: ready && list.length > 0,
+      rangeText: list.length ? ((page - 1) * PER + 1) + '–' + Math.min(page * PER, list.length) + ' из ' + list.length : '',
+      pageBtns, noPrev: page <= 1, noNext: page >= pages,
+      prev: () => goPage(Math.max(1, page - 1)), next: () => goPage(Math.min(pages, page + 1)),
+
+      menuOpen: !!M, menuAria: M ? 'Действия с заявкой № ' + M.num : '',
+      menuStyle: M ? `top:${M.top}px;right:${M.right}px;` : '', menuItems,
+      closeMenu: () => this.closeMenu(false), menuKey: (e) => this.menuKey(e),
+
+      confirm: !!s.confirm, confirmNum: s.confirm ? s.confirm.num : '',
+      closeConfirm: () => this.setState({ confirm:null }),
+      confirmKey: (e) => { if(e.key === 'Escape') this.setState({ confirm:null }); },
+      doDelete: () => this.doDelete(),
+
+      hasToast: !!T, toastTitle: T ? T.title : '',
+      toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : '#38C793'};`,
+      closeToast: () => this.setState({ toast:null }),
+
+      demo: [
+        { id:'loading', label:'Загрузка' },
+        { id:'error', label:'Ошибка загрузки' },
+        { id:'empty', label:'Нет заявок' },
+      ].map(d => { const on = s.demo === d.id; return { label:d.label, on, style: seg(on), onClick: () => {
+        const next = on ? null : d.id;
+        this.setState({ demo:next, menu:null });
+        if(d.id === 'empty'){ this.setState({ page:1 }); if(s.phase !== 'ready') this.load(); return; }
+        this.load();
+      } }; }),
+    };
+  }
+}
+</script>
+</body>
+</html>

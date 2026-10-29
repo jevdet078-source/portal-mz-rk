@@ -114,7 +114,7 @@
 
   <div style="display:flex;align-items:flex-start;">
     <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
-      <dc-import name="BusinessNav" style="height:100%;" active="other" collapsed="1" hint-size="80px,827px"></dc-import>
+      <dc-import name="BusinessNav" style="height:100%;" active="requests" collapsed="1" hint-size="80px,827px"></dc-import>
     </div>
 
     <main class="cd-main" style="flex:1;min-width:0;padding:24px 32px 96px;">
@@ -132,7 +132,7 @@
             <div style="width:64px;height:64px;border-radius:50%;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-file-search-line" style="font-size:28px;color:var(--n400);"></i></div>
             <h1 style="margin:0;font-size:16px;line-height:24px;font-weight:500;">Заявка не найдена</h1>
             <div style="font-size:14px;line-height:20px;color:var(--n500);">Возможно, черновик был удалён.</div>
-            <a class="btn btn-s" href="Прочие услуги.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>К списку заявок</a>
+            <a class="btn btn-s" href="Мои заявки.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>К списку заявок</a>
           </div>
         </sc-if>
 
@@ -142,8 +142,8 @@
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
               <div style="display:flex;flex-direction:column;gap:8px;min-width:0;">
                 <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
-                  <i class="ri-apps-2-line" style="font-size:18px;"></i>
-                  <a class="crumb" href="Прочие услуги.dc.html">Прочие услуги</a>
+                  <i class="ri-file-list-3-line" style="font-size:18px;"></i>
+                  <a class="crumb" href="Мои заявки.dc.html">Мои заявки</a>
                   <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
                   <span aria-current="page" style="color:var(--n900);">Заявка № {{ num }}</span>
                 </nav>
@@ -159,7 +159,7 @@
                   <span aria-hidden="true">·</span><span>Подана {{ sent }}</span>
                 </div>
               </div>
-              <a class="btn btn-s" href="Прочие услуги.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться к списку заявок</a>
+              <a class="btn btn-s" href="Мои заявки.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться к списку заявок</a>
             </div>
 
             <!-- Шкала этапов -->
@@ -370,7 +370,7 @@
                     <sc-if value="{{ fixEditable }}" hint-placeholder-val="{{ true }}">
                       <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 20px;border-top:1px solid var(--stroke);flex-wrap:wrap;">
                         <span style="flex:1;min-width:200px;font-size:12px;line-height:16px;color:var(--n400);display:flex;align-items:center;gap:4px;"><i class="ri-quill-pen-line" style="font-size:14px;"></i>Заявка подписывается ЭЦП</span>
-                        <a class="btn btn-s" href="Прочие услуги.dc.html">Назад</a>
+                        <a class="btn btn-s" href="Мои заявки.dc.html">Назад</a>
                         <span class="tip" style="{{ fixSendWrap }}">
                           <button class="btn btn-p" onClick="{{ fixSend }}" disabled="{{ fixSendOff }}">Подписать и отправить<i class="ri-arrow-right-s-line" style="font-size:20px;"></i></button>
                           <sc-if value="{{ fixSendOff }}" hint-placeholder-val="{{ false }}"><span class="tip-b" role="tooltip" style="left:auto;right:0;">{{ fixSendTip }}</span></sc-if>
@@ -1127,7 +1127,7 @@ class Component extends DCLogic {
       ppHasFk: !!(app.nn && app.nn.stage === 'Рассмотрение формулярной комиссией'), ppFkHref: (() => { const A = window.mpArm; const c = A && A.ready ? A.commissionOf(app.num) : null; return c ? 'Комиссия ФК.dc.html?id=' + encodeURIComponent(c.id) : 'АРМ ФК.dc.html#active'; })(),
       failOn, ppFailStyle: failOn ? 'background:#FDEDF0;border-color:#F8C9D2;color:#710E21;' : '',
       ppFail: () => { ED.setFail(!failOn); },
-      ppReset: () => { ED.reset(); location.href = 'Прочие услуги.dc.html'; },
+      ppReset: () => { ED.reset(); location.href = 'Мои заявки.dc.html'; },
     };
   }
 }
