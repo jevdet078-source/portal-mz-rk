@@ -776,7 +776,7 @@ class Component extends DCLogic {
     const showEmpty = fail || filteredOut || noApps;
     const E = fail ? { icon:'ri-error-warning-line', title:'Не удалось загрузить заявки', text:'Проверьте подключение к интернету и повторите попытку.', btn:'Повторить попытку', btnIcon:'ri-refresh-line', cls:'btn btn-s', act: () => { if(s.demo === 'error') this.setState({ demo:null }); this.load(); }, tone:['#FDEDF0','#DF1C41'] }
       : filteredOut ? { icon:'ri-search-line', title:'Заявки не найдены', text:'Измените условия поиска или сбросьте фильтры.', btn:'Сбросить фильтры', btnIcon:'ri-filter-off-line', cls:'btn btn-s', act: () => this.applyF({ ...EMPTY_F }), tone:['#F6F8FA','#868C98'] }
-      : { icon:'ri-file-list-3-line', title:'Заявок пока нет', text:'', btn:'Подать заявку', btnIcon:'ri-add-line', cls:'btn btn-p', act: () => window.dispatchEvent(new CustomEvent('mp-biz-directions')), tone:['#EEF2FF','#4D42E9'] };
+      : { icon:'ri-file-list-3-line', title:'Заявок пока нет', text:'', btn:'Подать заявку', btnIcon:'ri-add-line', cls:'btn btn-p', act: () => { location.href = 'Услуги.dc.html?cat=pharma'; }, tone:['#EEF2FF','#4D42E9'] };
 
     const filtersOn = !isDef(A);
     const M = s.menu;

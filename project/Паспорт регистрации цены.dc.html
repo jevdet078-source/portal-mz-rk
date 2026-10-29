@@ -335,7 +335,7 @@ class Component extends DCLogic {
     return {
       p, steps, docTabs, docGroups, results, extra, chips,
       refusals: p.refusals.map((text, i) => ({ n:i + 1, text })),
-      listHref: 'Услуги.dc.html#' + s.id,
+      listHref: 'Услуги.dc.html?cat=pharma',
       loading: s.loading,
       apply: () => {
         this.setState({ loading:true });

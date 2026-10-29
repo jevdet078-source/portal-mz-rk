@@ -12,32 +12,132 @@
 </head>
 <body>
 <!--
-  Кабинет бизнеса → Услуги (реестр заявок заявителя).
-  Источник: Figma e-Health (cMe8P7iJNaTBgG04okquEG), секции «Регистрация цены ЛС» 11654:232433 и «МИ» 15855:324470:
-    открытый сайдбар — 13989:271586 · родительская заявка раскрыта — 13989:274677 · опции строки — 13989:273939
-    выбор вида услуги (ЛС) — 13989:271897, 13989:272224 (подтипы), 13989:272565 · МИ — 15855:334788
-  Контент 1:1, оболочка — портальная (Header + BusinessNav).
-  Геометрия (design context 13989:271589): Section Header px32 py16, «Создать» h40 r10, Button Group r8,
-  фильтры — карточка r12 p24 gap16 (поиск 320 · статус · услуга · даты 154), таблица r12:
-  колонки 60 · № 143 · услуга 408 · создана 146 · подана 132 · статус 231 · действия 64, строка h64.
-  Бейдж «Родительская» r6 p4/8 12 medium; статусы — Badge r999 px8 py2.
-  Модалка выбора (13989:272536): r20, header p16/16/16/20, Radio Card r12 p16, подтипы pl48 p12.
-  Подтипы у МИ в Figma не показаны — сделаны по аналогии с ЛС.
-  Строка «000001» появляется после отправки заявки из мастера (localStorage['mp-price-<ls|mi>']).
+  Кабинет бизнеса → Услуги: каталог услуг для авторизованного пользователя.
+  Замечание к постановке «Обновление меню кабинета бизнеса» (29.10.2026): вложенные категории в меню
+  (длинные названия, большая прокрутка) заменены страницей — по аналогии с «Государственными услугами»
+  для бизнеса (неавторизованная часть портала):
+    • слева блок «Услуги»: «Все услуги», «Фармацевтика», «Лицензирование и аккредитация»;
+    • справа — название категории с числом услуг, поиск по наименованию в пределах категории, перечень;
+      пусто — «Услуги не найдены», «Сбросить поиск» и «Искать во всех услугах»;
+    • композитная услуга «Единого окна» открывает то же окно «Выберите вид услуги» (компонент ServiceKinds:
+      segmented control ЛС / МИ и виды услуги), «Далее» → паспорт услуги, из паспорта — заявка;
+    • внешние услуги (eGov.kz, «Е-лицензирование») — адрес сайта и ↗, новая вкладка.
+  Раскладка — по ширине области контента (container queries), а не окна: меню бывает 272 или 80 px.
+    ноутбук (контент 900–1300 px) — колонка категорий 280 px, перечень в один столбец;
+    мониторы 24–27″ (перечень шире 1100 px) — шире колонка категорий, крупнее строки, перечень в два столбца,
+      чтобы по краям не оставалось пустоты;
+    узко (планшет) — категории чипами над перечнем.
+
+  Адрес: Услуги.dc.html?cat=<all|pharma|lic>&q=<запрос> — категория и запрос пишутся в адрес.
+  Входящие ссылки ?svc=<safety|reg|price|knf|alo|ed>&type=<ls|mi> (старые ссылки портала):
+    price / alo / ed — сразу паспорт услуги, knf — заявление КНФ (паспорта КНФ пока нет),
+    safety / reg — окно выбора с отмеченным видом.
+  Раньше здесь был реестр заявок ЛС / МИ — его заменила страница «Мои заявки».
 -->
 <x-dc>
 <helmet>
 <style>
-  :root{
-    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
-    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
-    --teal-l:#EBFAFF;--teal-d:#164564;--stroke:#E2E4E9;
-    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
-  }
+  :root{--primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;--stroke:#E2E4E9;--sh-xs:0 1px 2px rgba(10,13,20,.03);}
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes us-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .us-main{flex:1;min-width:0;padding:8px 32px 64px;container-type:inline-size;container-name:us;}
+  .us-h1{margin:0;padding:16px 0 20px;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;}
+  .us-grid{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start;animation:mp-slidein .2s ease;}
+  .us-card{background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+
+  /* Блок «Услуги» — категории */
+  .us-aside{position:sticky;top:89px;}
+  .us-nav{padding:12px;}
+  .us-eyebrow{margin:0;padding:4px 8px 8px;font-size:11.5px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);}
+  .us-cats{display:flex;flex-direction:column;gap:2px;}
+  .us-cat{width:100%;display:flex;align-items:center;gap:12px;padding:10px;border:none;border-radius:12px;background:transparent;font-family:inherit;text-align:left;cursor:pointer;color:var(--n600);transition:background .12s,color .12s;}
+  .us-cat:hover{background:var(--n100);}
+  .us-cat[aria-current="true"],.us-cat[aria-current="true"]:hover{background:var(--primary-lighter);color:var(--primary-darker);}
+  .us-cat-label{flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;}
+  .us-cat[aria-current="true"] .us-cat-label{font-weight:600;}
+  .us-cat-sep{height:1px;margin:6px 10px;background:var(--stroke);}
+
+  /* Перечень */
+  .us-sec{min-width:0;container-type:inline-size;container-name:list;}
+  .us-head{position:sticky;top:73px;z-index:5;padding:20px 24px 16px;background:#fff;border-radius:16px 16px 0 0;transition:box-shadow .15s,border-radius .15s;}
+  .us-head[data-stuck="true"]{border-radius:0;box-shadow:0 1px 0 var(--stroke),0 8px 16px -12px rgba(10,13,20,.14);}
+  .us-h2{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
+  .us-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 8px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;line-height:1;font-weight:600;font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .us-search{display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:#fff;transition:border-color .12s,box-shadow .12s;}
+  .us-search:hover{border-color:var(--n300);}
+  .us-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .us-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .us-search input::placeholder{color:var(--n400);}
+  .us-search input::-webkit-search-cancel-button{display:none;}
+  .us-kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;margin-right:6px;border:1px solid var(--stroke);border-radius:6px;background:var(--n50);color:var(--n400);font-size:12px;font-weight:600;flex:0 0 auto;}
+  .us-search:focus-within .us-kbd{display:none;}
+  .us-list{padding:0 12px 16px;animation:us-in .16s ease;}
+  .us-group-head{display:flex;align-items:center;gap:8px;padding:14px 12px 6px;}
+  .us-group + .us-group{margin-top:6px;border-top:1px solid var(--n100);}
+  .us-ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:2px 12px;}
+
+  /* Строка услуги: № · наименование · куда ведёт */
+  .us-row{width:100%;height:100%;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:start;column-gap:12px;padding:12px;border:none;border-radius:12px;background:transparent;font-family:inherit;text-align:left;text-decoration:none;color:var(--n900);cursor:pointer;transition:background .12s;}
+  .us-row:hover{background:var(--n100);}
+  .us-num{font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;text-align:right;}
+  .us-name{font-size:14px;line-height:20px;font-weight:500;overflow-wrap:anywhere;hyphens:auto;transition:color .12s;}
+  .us-row:hover .us-name{color:var(--primary-darker);}
+  .us-side{display:inline-flex;align-items:center;gap:4px;height:20px;white-space:nowrap;}
+  .us-site{color:var(--n400);font-size:13px;line-height:20px;font-weight:500;transition:color .12s;}
+  .us-site i{font-size:16px;line-height:20px;transition:transform .12s;}
+  .us-row:hover .us-site{color:var(--primary);}
+  .us-row:hover .us-site i{transform:translate(1px,-1px);}
+  /* композитная услуга — открывает окно выбора вида */
+  .us-go{width:28px;height:28px;margin-top:-4px;border-radius:999px;background:var(--primary-lighter);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;transition:background .12s,color .12s,transform .12s;}
+  .us-go i{font-size:18px;}
+  .us-row:hover .us-go{background:var(--primary);color:#fff;transform:translateX(2px);}
+
+  .us-btn{transition:background .12s,color .12s;}
+  .us-btn:hover{background:var(--n100) !important;color:var(--n600) !important;}
+  .us-link{transition:background .12s,border-color .12s;}
+  .us-link:hover{background:var(--primary-lighter) !important;border-color:var(--primary-light) !important;}
+  .us-cat:focus-visible,.us-row:focus-visible,.us-btn:focus-visible,.us-link:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .us-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+
+  /* широкий перечень (мониторы 24–27″): два столбца, крупнее строки */
+  @container list (min-width:1100px){
+    .us-ul{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .us-name{font-size:15px;line-height:22px;}
+    .us-num{line-height:22px;}
+    .us-side{height:22px;}
+    .us-head{padding:24px 28px 18px;}
+    .us-list{padding:0 16px 20px;}
+  }
+  @container us (min-width:1500px){
+    .us-grid{grid-template-columns:340px minmax(0,1fr);gap:24px;}
+    .us-cat-label{font-size:15px;line-height:22px;}
+    .us-h2{font-size:20px;line-height:28px;}
+  }
+  /* узкий перечень — «куда ведёт» под наименованием */
+  @container list (max-width:560px){
+    .us-row{grid-template-columns:22px minmax(0,1fr);row-gap:6px;padding:12px 10px;column-gap:10px;}
+    .us-side{grid-column:2;justify-self:start;}
+    .us-go{margin-top:0;}
+  }
+  /* узкая область (планшет): категории — чипами над перечнем */
+  @container us (max-width:760px){
+    .us-grid{grid-template-columns:minmax(0,1fr);gap:12px;}
+    .us-aside{position:static;}
+    .us-nav{padding:0;background:none;border:none;box-shadow:none;}
+    .us-eyebrow,.us-cat-sep,.us-cat-ico{display:none !important;}
+    .us-cats{flex-direction:row;flex-wrap:wrap;gap:8px;}
+    .us-cat{width:auto;flex:0 0 auto;min-height:40px;padding:6px 14px;border:1px solid var(--stroke);border-radius:999px;background:#fff;}
+    .us-cat[aria-current="true"],.us-cat[aria-current="true"]:hover{border-color:var(--primary-light);}
+    .us-cat-label{white-space:nowrap;}
+    .us-head{padding:16px 16px 12px;}
+    .us-list{padding:0 6px 10px;}
+  }
+  @media (max-width:1023px){ .us-main{padding:8px 24px 64px;} }
+  @media (hover:none){ .us-kbd{display:none;} }
+  @media (prefers-reduced-motion:reduce){ .us-list,.us-grid{animation:none;} }
 </style>
 </helmet>
 
@@ -46,339 +146,334 @@
 
   <div style="display:flex;align-items:flex-start;">
     <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
-      <dc-import name="BusinessNav" style="height:100%;" active="requests" hint-size="272px,827px"></dc-import>
+      <dc-import name="BusinessNav" style="height:100%;" active="services" hint-size="272px,827px"></dc-import>
     </div>
 
-    <main style="flex:1;min-width:0;padding:8px 0 64px;">
-      <div style="display:flex;flex-direction:column;gap:32px;animation:mp-slidein .2s ease;">
-
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:center;gap:12px;padding:16px 32px;">
-            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
-              <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Услуги</div>
-              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">Подайте заявку и следите за историей полученных услуг в одном месте.</div>
-            </div>
-            <button onClick="{{ openCreate }}" style="height:40px;padding:10px 12px;border:none;border-radius:10px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;gap:4px;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);"><i class="ri-add-line" style="font-size:20px;"></i><span style="padding:0 4px;">Создать</span></button>
-          </div>
-          <div style="padding-left:32px;">
-            <div style="display:inline-flex;border:1px solid var(--primary);border-radius:8px;overflow:hidden;background:var(--n0);">
-              <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
-                <button onClick="{{ t.onClick }}" style="{{ t.style }}"><i class="{{ t.icon }}" style="font-size:20px;"></i>{{ t.label }}</button>
+    <main class="us-main">
+      <h1 class="us-h1">Услуги</h1>
+      <div class="us-grid">
+        <!-- Блок «Услуги» — категории -->
+        <aside class="us-aside">
+          <nav class="us-nav us-card" aria-labelledby="us-nav-title">
+            <h2 id="us-nav-title" class="us-eyebrow">Услуги</h2>
+            <div class="us-cats" ref="{{ catsRef }}" onKeyDown="{{ onCatsKey }}">
+              <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
+                <button class="us-cat" type="button" onClick="{{ c.onClick }}" aria-current="{{ c.current }}">
+                  <span class="us-cat-ico" style="{{ c.iconWrap }}"><i class="{{ c.icon }}" style="font-size:18px;"></i></span>
+                  <span class="us-cat-label">{{ c.label }}</span>
+                </button>
+                <sc-if value="{{ c.sepAfter }}" hint-placeholder-val="{{ false }}"><div class="us-cat-sep" aria-hidden="true"></div></sc-if>
               </sc-for>
             </div>
-          </div>
-        </div>
+          </nav>
+        </aside>
 
-        <div style="padding:0 32px;display:flex;flex-direction:column;gap:16px;">
-          <!-- Фильтры -->
-          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:12px;padding:24px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;">
-            <div style="flex:0 0 320px;display:flex;flex-direction:column;gap:4px;">
-              <div style="font-size:14px;line-height:20px;font-weight:500;">Поиск заявки</div>
-              <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 10px 12px;border:1px solid var(--stroke);border-radius:10px;background:#fff;box-shadow:var(--sh-xs);font-size:14px;line-height:20px;color:var(--n400);"><i class="ri-search-2-line" style="font-size:20px;"></i>Поиск...</div>
-            </div>
-            <sc-for list="{{ selects }}" as="f" hint-placeholder-count="2">
-              <div style="flex:1 1 280px;display:flex;flex-direction:column;gap:4px;">
-                <div style="font-size:14px;line-height:20px;font-weight:500;">{{ f.label }}</div>
-                <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 10px 12px;border:1px solid var(--stroke);border-radius:10px;background:#fff;box-shadow:var(--sh-xs);font-size:14px;line-height:20px;color:var(--n500);"><span style="flex:1;">Все</span><i class="ri-arrow-down-s-line" style="font-size:20px;color:var(--n400);"></i></div>
+        <!-- Выбранная категория: название, поиск, перечень -->
+        <section class="us-sec us-card" aria-labelledby="us-list-title">
+          <div ref="{{ sentinelRef }}" style="height:0;"></div>
+          <div class="us-head" ref="{{ headRef }}">
+            <h2 id="us-list-title" class="us-h2"><span style="min-width:0;">{{ listTitle }}</span><span class="us-count" aria-label="{{ listCountLabel }}">{{ listCount }}</span></h2>
+            <label class="us-search">
+              <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;"></i>
+              <input ref="{{ inputRef }}" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onInputKey }}" placeholder="Поиск по наименованию услуги" aria-label="{{ searchAria }}" aria-describedby="us-live" autoComplete="off" spellCheck="false" enterKeyHint="search">
+              <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                <button class="us-btn" type="button" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить" style="width:32px;height:32px;border:none;border-radius:8px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+              </sc-if>
+              <sc-if value="{{ showKbd }}" hint-placeholder-val="{{ true }}">
+                <span class="us-kbd" aria-hidden="true" title="Нажмите «/», чтобы перейти к поиску">/</span>
+              </sc-if>
+            </label>
+            <span id="us-live" class="us-sr" aria-live="polite">{{ liveText }}</span>
+          </div>
+
+          <div class="us-list" ref="{{ listRef }}" onKeyDown="{{ onListKey }}">
+            <sc-for list="{{ groups }}" as="g" hint-placeholder-count="1">
+              <div class="us-group" role="group" aria-label="{{ g.label }}">
+                <sc-if value="{{ g.showHead }}" hint-placeholder-val="{{ false }}">
+                  <div class="us-group-head" aria-hidden="true">
+                    <i class="{{ g.icon }}" style="{{ g.iconStyle }}"></i>
+                    <span style="font-size:11.5px;line-height:16px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">{{ g.label }}</span>
+                    <span style="font-size:12px;line-height:16px;font-weight:600;color:var(--n400);font-variant-numeric:tabular-nums;">{{ g.count }}</span>
+                  </div>
+                </sc-if>
+                <ul class="us-ul">
+                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="6">
+                    <li>
+                      <!-- композитная услуга — окно выбора вида услуги -->
+                      <sc-if value="{{ it.isPortal }}" hint-placeholder-val="{{ false }}">
+                        <button class="us-row" type="button" onClick="{{ it.onOpen }}" aria-haspopup="dialog" title="Выбор вида услуги" aria-label="{{ it.aria }}">
+                          <span class="us-num" aria-hidden="true">{{ it.num }}</span>
+                          <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                          <span class="us-side" aria-hidden="true"><span class="us-go"><i class="ri-arrow-right-s-line"></i></span></span>
+                        </button>
+                      </sc-if>
+                      <!-- внешняя услуга — eGov.kz / «Е-лицензирование» в новой вкладке -->
+                      <sc-if value="{{ it.isExt }}" hint-placeholder-val="{{ true }}">
+                        <a class="us-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" title="{{ it.hint }}" aria-label="{{ it.aria }}">
+                          <span class="us-num" aria-hidden="true">{{ it.num }}</span>
+                          <span class="us-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                          <span class="us-side us-site" aria-hidden="true">{{ it.site }}<i class="ri-arrow-right-up-line"></i></span>
+                        </a>
+                      </sc-if>
+                    </li>
+                  </sc-for>
+                </ul>
               </div>
             </sc-for>
-            <div style="display:flex;gap:12px;">
-              <sc-for list="{{ dates }}" as="d" hint-placeholder-count="2">
-                <div style="width:154px;display:flex;flex-direction:column;gap:4px;">
-                  <div style="font-size:14px;line-height:20px;font-weight:500;">{{ d }}</div>
-                  <div style="display:flex;align-items:center;gap:8px;padding:10px 10px 10px 12px;border:1px solid var(--stroke);border-radius:10px;background:#fff;box-shadow:var(--sh-xs);font-size:14px;line-height:20px;color:var(--n400);"><i class="ri-calendar-2-line" style="font-size:20px;"></i>дд.мм.гггг</div>
-                </div>
-              </sc-for>
-            </div>
-            <span style="height:40px;padding:10px 16px;border-radius:10px;background:var(--n100);color:var(--n300);font-size:14px;line-height:20px;font-weight:500;">Применить</span>
-          </div>
 
-          <!-- Таблица -->
-          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);padding-bottom:24px;">
-            <div style="overflow-x:auto;">
-              <div style="min-width:1120px;">
-                <div style="display:flex;background:var(--n100);padding:6px 0;border-radius:12px 12px 0 0;">
-                  <sc-for list="{{ cols }}" as="c" hint-placeholder-count="7">
-                    <div style="{{ c.style }}">{{ c.label }}<sc-if value="{{ c.sort }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-up-down-line" style="font-size:16px;color:var(--n400);"></i></sc-if></div>
-                  </sc-for>
+            <!-- Услуги не найдены -->
+            <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:48px 16px 40px;">
+                <div style="width:56px;height:56px;border-radius:16px;background:var(--n100);display:flex;align-items:center;justify-content:center;margin-bottom:16px;"><i class="ri-search-eye-line" style="font-size:26px;color:var(--n400);"></i></div>
+                <div style="font-size:15px;line-height:22px;font-weight:600;color:var(--n900);">Услуги не найдены</div>
+                <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:18px;">
+                  <button class="us-link" type="button" onClick="{{ clearQ }}" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--primary);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"><i class="ri-arrow-go-back-line" style="font-size:16px;"></i>Сбросить поиск</button>
+                  <sc-if value="{{ hasAll }}" hint-placeholder-val="{{ false }}">
+                    <button class="us-link" type="button" onClick="{{ toAll }}" style="height:40px;padding:0 12px 0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:8px;"><i class="ri-apps-2-line" style="font-size:16px;color:var(--n400);"></i>Искать во всех услугах<span class="us-count" style="background:var(--primary-lighter);color:var(--primary);">{{ allHits }}</span></button>
+                  </sc-if>
                 </div>
-                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
-                  <div style="{{ r.rowStyle }}">
-                    <div style="width:60px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:12px 12px 12px 16px;">
-                      <sc-if value="{{ r.hasToggle }}" hint-placeholder-val="{{ true }}">
-                        <button onClick="{{ r.onToggle }}" title="Показать дочерние заявки" style="width:32px;height:32px;padding:0;border:1px solid var(--stroke);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);"><i class="{{ r.toggleIcon }}" style="font-size:20px;color:var(--n500);"></i></button>
-                      </sc-if>
-                    </div>
-                    <div style="{{ r.numCell }}">
-                      <sc-if value="{{ r.isChild }}" hint-placeholder-val="{{ false }}"><i class="ri-corner-down-right-line" style="font-size:16px;color:var(--n400);margin-right:8px;"></i></sc-if>
-                      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
-                        <a href="{{ r.href }}" onClick="{{ r.onOpen }}" style="font-size:14px;line-height:20px;font-weight:500;color:var(--primary-dark);text-decoration:none;">{{ r.id }}</a>
-                        <sc-if value="{{ r.isParent }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:6px;background:var(--primary-lighter);border:1px solid var(--primary-light);font-size:12px;line-height:16px;font-weight:500;color:var(--primary-dark);white-space:nowrap;"><i class="ri-git-branch-line" style="font-size:14px;"></i>Родительская</span></sc-if>
-                        <sc-if value="{{ r.isChild }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 4px;border-radius:6px;background:var(--teal-l);border:1px solid #B8E9F9;font-size:12px;line-height:16px;font-weight:500;color:var(--teal-d);white-space:nowrap;"><i class="ri-git-commit-line" style="font-size:14px;"></i>Дочерняя</span></sc-if>
-                      </div>
-                    </div>
-                    <div style="flex:1;min-width:0;padding:12px 20px 12px 12px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">
-                      <div style="{{ r.nameStyle }}">{{ r.name }}</div>
-                    </div>
-                    <div style="width:146px;flex:0 0 auto;padding:12px 20px 12px 12px;font-size:14px;line-height:20px;color:var(--n500);">{{ r.created }}</div>
-                    <div style="width:132px;flex:0 0 auto;padding:12px 20px 12px 12px;font-size:14px;line-height:20px;color:var(--n500);">{{ r.sent }}</div>
-                    <div style="width:231px;flex:0 0 auto;padding:12px;"><span style="{{ r.statusStyle }}">{{ r.statusLabel }}</span></div>
-                    <div style="width:64px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;position:relative;">
-                      <button onClick="{{ r.onMenu }}" title="Действия" style="{{ r.menuBtn }}"><i class="ri-more-2-fill" style="font-size:20px;color:var(--n500);"></i></button>
-                      <sc-if value="{{ r.menuOpen }}" hint-placeholder-val="{{ false }}">
-                        <div onClick="{{ closeMenu }}" style="position:fixed;inset:0;z-index:25;"></div>
-                        <div style="position:absolute;right:12px;top:calc(100% - 8px);z-index:26;width:176px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:6px;animation:mp-fade .12s ease;">
-                          <a href="{{ r.href }}" onClick="{{ r.onOpen }}" style="display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:8px;font-size:14px;color:var(--n900);text-decoration:none;"><i class="ri-eye-line" style="font-size:18px;color:var(--n500);"></i>Открыть</a>
-                          <button onClick="{{ closeMenu }}" style="width:100%;display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;color:var(--n900);cursor:pointer;"><i class="ri-file-copy-line" style="font-size:18px;color:var(--n500);"></i>Сделать копию</button>
-                          <sc-if value="{{ r.canDelete }}" hint-placeholder-val="{{ false }}">
-                            <button onClick="{{ closeMenu }}" style="width:100%;display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;color:var(--n900);cursor:pointer;"><i class="ri-delete-bin-line" style="font-size:18px;color:var(--n500);"></i>Удалить</button>
-                          </sc-if>
-                        </div>
-                      </sc-if>
-                    </div>
-                  </div>
-                </sc-for>
               </div>
-            </div>
-
-            <!-- Pagination Group -->
-            <div style="display:flex;align-items:center;gap:24px;padding:24px 24px 0;border-top:1px solid var(--stroke);">
-              <div style="width:200px;font-size:14px;line-height:20px;color:var(--n500);">Страница 1 из 9</div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;">
-                <i class="ri-arrow-left-s-line" style="font-size:20px;color:var(--n400);padding:6px;"></i>
-                <sc-for list="{{ pages }}" as="p" hint-placeholder-count="7">
-                  <span style="{{ p.style }}">{{ p.label }}</span>
-                </sc-for>
-                <i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n500);padding:6px;"></i>
-              </div>
-              <div style="width:200px;display:flex;justify-content:flex-end;">
-                <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 6px 6px 12px;border:1px solid var(--stroke);border-radius:8px;font-size:14px;line-height:20px;box-shadow:var(--sh-xs);">6 строк<i class="ri-arrow-down-s-line" style="font-size:20px;color:var(--n400);"></i></span>
-              </div>
-            </div>
+            </sc-if>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   </div>
 
-  <!-- Модалка «Выберите вид услуги» -->
-  <sc-if value="{{ modal }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeCreate }}" style="position:fixed;inset:0;z-index:60;background:rgba(10,13,20,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:mp-fade .15s ease;">
-      <div onClick="{{ stop }}" style="width:498px;max-width:100%;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 16px 40px -8px rgba(10,13,20,.16);overflow:hidden;">
-        <div style="position:relative;display:flex;flex-direction:column;gap:6px;padding:16px 48px 16px 20px;border-bottom:1px solid var(--stroke);">
-          <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Выберите вид услуги</div>
-          <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:2px;padding:2px 8px 2px 4px;border-radius:999px;background:var(--primary-light);font-size:12px;line-height:16px;font-weight:500;color:var(--primary-darker);"><i class="{{ tabIcon }}" style="font-size:14px;"></i>{{ tabLabel }}</span>
-          <button onClick="{{ closeCreate }}" title="Закрыть" style="position:absolute;right:16px;top:16px;padding:2px;border:none;background:none;border-radius:6px;cursor:pointer;display:flex;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
-        </div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;">
-          <sc-for list="{{ options }}" as="o" hint-placeholder-count="4">
-            <div style="{{ o.cardStyle }}">
-              <button onClick="{{ o.onPick }}" style="{{ o.headStyle }}">
-                <span style="{{ o.dot }}"></span>
-                <span style="flex:1;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ o.label }}</span>
-              </button>
-              <sc-if value="{{ o.showSubs }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;flex-direction:column;gap:8px;padding:12px 16px 16px 48px;">
-                  <div style="font-size:12px;line-height:16px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--n500);">Выберите тип услуги</div>
-                  <sc-for list="{{ o.subs }}" as="sb" hint-placeholder-count="2">
-                    <button onClick="{{ sb.onPick }}" style="{{ sb.style }}"><span style="{{ sb.dot }}"></span><span style="flex:1;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n900);">{{ sb.label }}</span></button>
-                  </sc-for>
-                </div>
-              </sc-if>
-            </div>
-          </sc-for>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;border-top:1px solid var(--stroke);">
-          <div style="flex:1;font-size:12px;line-height:16px;color:var(--n400);">{{ hint }}</div>
-          <button onClick="{{ closeCreate }}" style="padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;box-shadow:0 1px 2px rgba(82,88,102,.06);">Отмена</button>
-          <button onClick="{{ goNext }}" disabled="{{ nextDisabled }}" style="{{ nextStyle }}"><span style="padding:0 4px;">Далее</span><i class="ri-arrow-right-s-line" style="font-size:20px;"></i></button>
-        </div>
-      </div>
-    </div>
-  </sc-if>
+  <!-- Окно «Выберите вид услуги» — общий компонент (тот же, что в «Государственных услугах») -->
+  <dc-import name="ServiceKinds" cabinet="1" hint-size="1px,1px"></dc-import>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script>
-class Component extends DCLogic {
-  state = { tab:'ls', open:{ '7040250':true }, menu:null, modal:false, pick:null, sub:null, submitted:{ ls:null, mi:null }, knf:null };
-  componentDidMount(){
-    const read = () => {
-      const tab = (location.hash || '').replace('#','') === 'mi' ? 'mi' : 'ls';
-      const submitted = { ls:null, mi:null };
-      let knf = null;
-      try { ['ls','mi'].forEach(id => { submitted[id] = localStorage.getItem('mp-price-' + id); }); } catch(e){}
-      try { knf = localStorage.getItem('mp-knf'); } catch(e){}
-      this.setState({ tab, submitted, knf, menu:null });
-    };
-    read();
-    // ?svc=<safety|reg|price|knf|alo|ed>&type=<ls|mi> — вид услуги «Единого окна» и тип продукции, выбранные
-    // на странице «Государственные услуги»: сразу открываем сценарий оформления.
-    // Сценариев заключения и регистрации в прототипе ещё нет — для них окно выбора с отмеченным видом
-    try {
-      const q = new URLSearchParams(location.search), svc = q.get('svc');
-      const type = q.get('type') === 'mi' ? 'mi' : 'ls';
-      if(svc === 'knf' && type === 'ls'){ location.replace('Заявление КНФ.dc.html'); return; }
-      // профессиональные экспертизы АЛО и ЕД — паспорт услуги (как «Прочие услуги» → «Выбор услуги»)
-      if(svc === 'alo'){ location.replace('Паспорт услуги АЛО.dc.html?cat=' + type); return; }
-      if(svc === 'ed'){ location.replace('Паспорт услуги ЕД.dc.html?cat=' + type); return; }
-      if(svc === 'price'){ location.replace('Паспорт регистрации цены.dc.html#' + type); return; }
-      if(svc === 'safety' || svc === 'reg'){
-        history.replaceState(history.state, '', location.pathname + '#' + type);
-        this.setState({ tab:type, modal:true, pick:svc, sub:null });
-      }
-    } catch(e){}
-    this._onHash = read;
-    window.addEventListener('hashchange', this._onHash);
-  }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const EGOV = 'https://egov.kz/ru/services/presale/';
+const ELICENSE = 'https://elicense.kz/';
+const HDR = 73;
 
-  data(tab){
-    if(tab === 'ls'){
-      const KNF = 'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр';
-      const CHG = 'Внесение изменений в зарегистрированную цену производителя лекарственного средства';
-      return [
-        { id:'7040250', name:KNF, parent:true, status:'done', href:'Процесс.dc.html#ls', children:[
-          { id:'7191300', name:KNF, status:'assigned' }, { id:'7191301', name:KNF, status:'rejected' },
-          { id:'7191302', name:KNF, status:'assigned' }, { id:'7191303', name:KNF, status:'done' } ] },
-        { id:'7040547', name:KNF, parent:true, status:'assigned', href:'Процесс.dc.html#ls', children:[
-          { id:'7191310', name:KNF, status:'done' }, { id:'7191311', name:KNF, status:'assigned' } ] },
-        { id:'5640547', name:CHG, status:'done' },
-        { id:'5640548', name:CHG, status:'rejected' },
-        { id:'4340547', name:CHG, status:'draft' },
-        { id:'4840547', name:KNF, parent:true, status:'assigned', href:'Процесс.dc.html#ls', children:[
-          { id:'7191320', name:KNF, status:'assigned' } ] },
-      ];
+// Наименования и ссылки — как в «Государственных услугах» для бизнеса (постановка «Анализ ГУ МЗ»)
+const CATS = [
+  { id:'pharma', label:'Фармацевтика', icon:'ri-capsule-line', tone:['#EFFAF6','#176448'], items:[
+    ['Композитная государственная услуга по регистрации лекарственных средств и медицинских изделий с подачей пакета документов по принципу «Единого окна»', 'portal'],
+    ['Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', 'P709'],
+  ] },
+  { id:'lic', label:'Лицензирование и аккредитация', icon:'ri-award-line', tone:['#EEF2FF','#4D42E9'], items:[
+    ['Выдача сертификата специалиста для допуска к клинической практике', ELICENSE],
+    ['Аккредитация организации по оценке знаний в области здравоохранения', 'approval_documents_pass153-5_mz'],
+    ['Аккредитация субъектов здравоохранения, осуществляющих независимую экспертизу', 'accreditation_passEL4-R22_mz'],
+    ['Выдача сертификата менеджера в области здравоохранения', 'approval_documents_pass163_mz'],
+    ['Аккредитация медицинских организаций (стандарты аккредитации)', 'approval_documents_477pass_mz'],
+    ['Выдача лицензии на дезинфекцию, дезинсекцию, дератизацию в здравоохранении', 'licensing_pass603012_mz'],
+    ['Выдача лицензии на ввоз/вывоз органов, тканей, крови человека (не члены ЕАЭС)', 'licensing_2F151_mzsr_6'],
+    ['Выдача лицензии на оборот наркотических средств в здравоохранении', 'licensing_2F490pass_mz'],
+    ['Выдача лицензии на фармацевтическую деятельность', 'licensing_489pass_mz'],
+    ['Выдача лицензии на медицинскую деятельность', 'med_accreditatio_2F487pass_mz'],
+  ] },
+].map(c => ({ ...c, items: c.items.map(([name, ref]) => {
+  if(ref === 'portal') return { name, portal: true, norm: norm(name) };
+  const ext = /^https?:/.test(ref);
+  return { name, href: ext ? ref : EGOV + ref, site: ext ? 'Е‑лицензирование' : 'eGov.kz', norm: norm(name) };
+}) }));
+const ALL = { id:'all', label:'Все услуги', icon:'ri-apps-2-line', tone:['#F6F8FA','#525866'] };
+const ALLOWED = [ALL].concat(CATS);
+// старые ссылки портала на виды композитной услуги: паспорт там, где он есть
+const SVC_HREF = { price:(t) => 'Паспорт регистрации цены.dc.html#' + t, alo:(t) => 'Паспорт услуги АЛО.dc.html?cat=' + t, ed:(t) => 'Паспорт услуги ЕД.dc.html?cat=' + t, knf:() => 'Заявление КНФ.dc.html' };
+
+function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
+function tokensOf(q){ return norm(q).trim().split(/\s+/).filter(Boolean); }
+function matchAll(it, tokens){ return tokens.every(tk => it.norm.includes(tk)); }
+// наименование частями с подсветкой всех вхождений слов запроса
+function highlight(name, tokens){
+  if(!tokens.length) return [{ t:name, style:'' }];
+  const low = norm(name), mark = new Array(name.length).fill(false);
+  tokens.forEach(tk => { let i = low.indexOf(tk); while(i !== -1){ for(let k = i; k < i + tk.length; k++) mark[k] = true; i = low.indexOf(tk, i + tk.length); } });
+  const parts = []; let cur = '', on = mark[0];
+  for(let i = 0; i < name.length; i++){
+    if(mark[i] !== on){ parts.push({ t:cur, on }); cur = ''; on = mark[i]; }
+    cur += name[i];
+  }
+  parts.push({ t:cur, on });
+  return parts.filter(p => p.t).map(p => ({ t:p.t, style: p.on ? 'background:#EEF2FF;color:#312D86;border-radius:3px;box-shadow:0 0 0 1px #EEF2FF;' : '' }));
+}
+function plural(n){
+  const m10 = n % 10, m100 = n % 100;
+  if(m10 === 1 && m100 !== 11) return 'услуга';
+  if(m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'услуги';
+  return 'услуг';
+}
+
+class Component extends DCLogic {
+  headRef = React.createRef();
+  sentinelRef = React.createRef();
+  inputRef = React.createRef();
+  listRef = React.createRef();
+  catsRef = React.createRef();
+
+  constructor(props){
+    super(props);
+    let cat = '', q = '', pre = null;
+    try {
+      const p = new URLSearchParams(location.search);
+      cat = p.get('cat') || ''; q = p.get('q') || '';
+      const svc = p.get('svc'), type = p.get('type') === 'mi' ? 'mi' : 'ls';
+      if(svc && SVC_HREF[svc] && !(svc === 'knf' && type === 'mi')){ location.replace(SVC_HREF[svc](type)); }
+      else if(svc === 'safety' || svc === 'reg'){ pre = { seg:type, kind:svc }; cat = 'pharma'; }
+    } catch(e){}
+    this._pre = pre;
+    this.state = { cat, q, live:'' };
+  }
+
+  componentDidMount(){
+    // «/» — к поиску, если фокус не в поле ввода и окно закрыто
+    this._onKey = (e) => {
+      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || document.body.hasAttribute('data-mp-modal')) return;
+      const t = e.target, tag = t && t.tagName;
+      if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      e.preventDefault(); this.focusSearch(true);
+    };
+    window.addEventListener('keydown', this._onKey);
+    // тень у «прилипшего» поиска (атрибут напрямую — без перерисовки на каждый кадр)
+    this._onScroll = () => {
+      const head = this.headRef.current, sent = this.sentinelRef.current;
+      if(!head || !sent) return;
+      const stuck = sent.getBoundingClientRect().top < HDR - 1 ? 'true' : 'false';
+      if(head.getAttribute('data-stuck') !== stuck) head.setAttribute('data-stuck', stuck);
+    };
+    window.addEventListener('scroll', this._onScroll, { passive:true });
+    this._onScroll();
+    // ?svc=safety|reg — окно с отмеченным видом (компонент окна грузится асинхронно)
+    if(this._pre){
+      const pre = this._pre; this._pre = null; let n = 0;
+      const tryOpen = () => {
+        if(document.querySelector('.skd-dlg')) return;
+        window.dispatchEvent(new CustomEvent('mp-svc-kinds-open', { detail: pre }));
+        if(++n < 20) this._tp = setTimeout(tryOpen, 150);
+      };
+      this._tp = setTimeout(tryOpen, 300);
     }
-    const REG = 'Государственная регистрация, перерегистрация медицинского изделия, внесение изменений в регистрационное досье медицинского изделия';
-    const CHG = 'Внесение изменений в зарегистрированную цену производителя медицинского изделия';
-    return [
-      { id:'8040120', name:REG, parent:true, status:'assigned', href:'Процесс.dc.html#mi', children:[
-        { id:'8191200', name:'Выдача заключения о безопасности, качестве и эффективности медицинских изделий', status:'done' },
-        { id:'8191201', name:'Регистрация цены производителя медицинского изделия', status:'assigned' } ] },
-      { id:'6640547', name:CHG, status:'done' },
-      { id:'6640548', name:CHG, status:'rejected' },
-      { id:'6340547', name:CHG, status:'draft' },
-    ];
+    this.syncUrl();
+  }
+  componentWillUnmount(){
+    window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('scroll', this._onScroll);
+    clearTimeout(this._tp);
+  }
+  componentDidUpdate(){ this.syncUrl(); }
+
+  activeCat(){ return ALLOWED.find(c => c.id === this.state.cat) || ALL; }
+  itemsOf(c){ return c.id === 'all' ? CATS.flatMap(x => x.items) : c.items; }
+  hits(c){ const tk = tokensOf(this.state.q); return tk.length ? this.itemsOf(c).filter(it => matchAll(it, tk)) : this.itemsOf(c); }
+
+  // категория и запрос — в адресе: «Назад» из паспорта возвращает ту же выборку
+  syncUrl(){
+    const key = this.activeCat().id + ':' + this.state.q.trim();
+    if(key === this._urlKey) return;
+    this._urlKey = key;
+    try {
+      const p = new URLSearchParams();
+      p.set('cat', this.activeCat().id);
+      if(this.state.q.trim()) p.set('q', this.state.q.trim());
+      history.replaceState(history.state, '', location.pathname + '?' + p.toString());
+    } catch(e){}
+  }
+  // подтянуть начало перечня под шапку, если страница прокручена ниже
+  revealList(){
+    const s = this.sentinelRef.current; if(!s) return;
+    const top = s.getBoundingClientRect().top - HDR;
+    if(top < 0) window.scrollTo({ top: window.scrollY + top - 8 });
+  }
+  focusSearch(select){
+    const i = this.inputRef.current; if(!i) return;
+    const r = i.getBoundingClientRect();
+    i.focus({ preventScroll: r.top > HDR && r.bottom < window.innerHeight });
+    if(select && i.value) i.select();
+  }
+  rows(){ const l = this.listRef.current; return l ? [...l.querySelectorAll('.us-row')] : []; }
+  pickCat(c){
+    if(this.activeCat().id === c.id) return;
+    const n = this.hits(c).length;
+    this.setState({ cat:c.id, live:`${c.label}: ${n} ${plural(n)}` });
+    this.revealList();
+  }
+  openDlg(e){
+    const opener = (e && e.currentTarget && e.currentTarget.focus ? e.currentTarget : null) || document.activeElement;
+    window.dispatchEvent(new CustomEvent('mp-svc-kinds-open', { detail:{ opener } }));
+  }
+  // категории: ↑/↓ (←/→ чипами) переключают, Home/End — крайние
+  onCatsKey(e){
+    const keys = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if(!keys.includes(e.key)) return;
+    const btns = [...(this.catsRef.current ? this.catsRef.current.querySelectorAll('button.us-cat') : [])];
+    if(!btns.length) return;
+    e.preventDefault();
+    let i = btns.indexOf(document.activeElement);
+    if(e.key === 'Home') i = 0;
+    else if(e.key === 'End') i = btns.length - 1;
+    else i = (i + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + btns.length) % btns.length;
+    btns[i].focus(); btns[i].click();
+  }
+  // из поиска ↓ — к первой услуге; Esc очищает запрос
+  onInputKey(e){
+    if(e.key === 'Escape' && this.state.q){ e.preventDefault(); this.setState({ q:'' }); return; }
+    if(e.key === 'ArrowDown'){ const r = this.rows(); if(r.length){ e.preventDefault(); r[0].focus(); } }
+  }
+  onListKey(e){
+    if(e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const r = this.rows(), i = r.indexOf(document.activeElement);
+    if(i === -1) return;
+    e.preventDefault();
+    if(e.key === 'ArrowDown' && i < r.length - 1) r[i + 1].focus();
+    else if(e.key === 'ArrowUp') (i > 0 ? r[i - 1] : this.inputRef.current).focus();
   }
 
   renderVals(){
     const s = this.state;
-    const noop = (e) => { if(e && e.preventDefault) e.preventDefault(); };
+    const cur = this.activeCat();
+    const tokens = tokensOf(s.q);
+    const searching = tokens.length > 0;
 
-    const tabs = [
-      { id:'ls', label:'Лекарственные средства', icon:'ri-capsule-fill' },
-      { id:'mi', label:'Медицинские изделия', icon:'ri-stethoscope-fill' },
-    ].map((t, i) => {
-      const on = s.tab === t.id;
-      return { ...t, onClick: () => { location.hash = t.id; },
-        style:`display:flex;align-items:center;gap:6px;padding:8px 12px;border:none;${i ? 'border-left:1px solid #E2E4E9;' : ''}font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;${on ? 'background:#4D42E9;color:#fff;' : 'background:#fff;color:#4D42E9;'}` };
+    const cats = ALLOWED.map((c, i) => {
+      const active = cur.id === c.id;
+      return { label:c.label, icon:c.icon, current: active ? 'true' : 'false', sepAfter: c.id === 'all',
+        onClick: () => this.pickCat(c),
+        iconWrap:`width:32px;height:32px;border-radius:9px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;background:${active && c.id === 'all' ? '#fff' : c.tone[0]};color:${c.id === 'all' && active ? '#4D42E9' : c.tone[1]};` };
     });
 
-    const hc = 'display:flex;align-items:center;gap:2px;padding:8px 12px;font-size:14px;line-height:20px;color:#525866;white-space:nowrap;box-sizing:border-box;';
-    const cols = [
-      { label:'', sort:false, style: hc + 'width:60px;flex:0 0 auto;' },
-      { label:'№ заявки', sort:true, style: hc + 'width:143px;flex:0 0 auto;' },
-      { label:'Наименование услуги', sort:true, style: hc + 'flex:1;min-width:0;' },
-      { label:'Дата создания', sort:true, style: hc + 'width:146px;flex:0 0 auto;' },
-      { label:'Дата подачи', sort:true, style: hc + 'width:132px;flex:0 0 auto;' },
-      { label:'Статус', sort:true, style: hc + 'width:231px;flex:0 0 auto;' },
-      { label:'', sort:false, style: hc + 'width:64px;flex:0 0 auto;' },
-    ];
-
-    const S = {
-      done:['Завершена','#CBF5E5','#176448'], rejected:['Завершена','#FDEDF0','#710E21'],
-      assigned:['Назначена главному эксперту','#FBDFB1','#693D11'], draft:['Черновик','#F6F8FA','#525866'],
-      pending:['На проверке','#EEF2FF','#362DA6'],
-    };
-    let list = this.data(s.tab);
-    const sub = s.submitted[s.tab];
-    if(sub){
-      list = [{ id:'000001', name: s.tab === 'ls' ? 'Регистрация цены производителя лекарственного средства' : 'Регистрация цены производителя медицинского изделия',
-        created:'15.09.2026', sent:'15.09.2026', status: sub === 'pending' ? 'pending' : sub === 'ok' ? 'done' : 'rejected',
-        href:'Заявка на регистрацию цены.dc.html#' + s.tab + '-result' }, ...list];
-    }
-    // отправленное заявление КНФ (localStorage['mp-knf'])
-    if(s.knf && s.tab === 'ls'){
-      list = [{ id:'000002', name:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр',
-        created:'15.09.2026', sent:'15.09.2026', status: s.knf === 'done' ? 'done' : 'pending',
-        href:'Заявление КНФ.dc.html#result' }, ...list];
-    }
-
-    const view = (r, child, parentOpen) => {
-      const st = S[r.status];
-      const menuOpen = s.menu === r.id;
-      return { ...r,
-        created: r.created || '01.01.2025',
-        sent: r.sent || (r.status === 'draft' ? '—' : '30.03.2025'),
-        hasToggle: !!r.parent, isParent: !!r.parent, isChild: child,
-        toggleIcon: parentOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-right-s-line',
-        onToggle: () => this.setState(st2 => ({ open:{ ...st2.open, [r.id]: !st2.open[r.id] } })),
-        href: r.href || '#', onOpen: (e) => { if(!r.href) noop(e); this.setState({ menu:null }); },
-        statusLabel: st[0],
-        statusStyle:`display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:${st[1]};color:${st[2]};font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;`,
-        menuOpen, canDelete: r.status === 'draft',
-        onMenu: () => this.setState({ menu: menuOpen ? null : r.id }),
-        menuBtn:`width:32px;height:32px;padding:0;border:none;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:${menuOpen ? '#F6F8FA' : 'transparent'};`,
-        rowStyle:`display:flex;align-items:center;min-height:64px;border-top:1px solid #E2E4E9;background:${parentOpen ? '#EEF2FF' : '#fff'};`,
-        numCell:`width:143px;flex:0 0 auto;display:flex;align-items:center;padding:12px 12px 12px ${child ? 0 : 12}px;${child ? 'margin-left:-24px;width:167px;' : ''}`,
-        nameStyle: r.name.length > 90 ? 'overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;' : '',
-      };
-    };
-    const rows = [];
-    list.forEach(r => {
-      const isOpen = !!(r.parent && s.open[r.id]);
-      rows.push(view(r, false, isOpen));
-      if(isOpen) (r.children || []).forEach(c => rows.push(view(c, true, false)));
+    let num = 0;
+    const toItems = (items) => items.map(it => {
+      num += 1;
+      const parts = highlight(it.name, tokens);
+      if(it.portal) return { num, parts, isPortal:true, isExt:false, href:'', site:'', onOpen: (e) => this.openDlg(e), aria: it.name + '. Выбор вида услуги' };
+      return { num, parts, isPortal:false, isExt:true, href:it.href, site:it.site, onOpen:null,
+        hint:'Откроется на ' + it.site + ' в новой вкладке', aria: it.name + ' — откроется на ' + it.site + ' в новой вкладке' };
     });
 
-    const pages = ['1','2','3','4','5','...','9'].map((label, i) => ({ label,
-      style:`min-width:32px;height:32px;padding:6px;border:1px solid #E2E4E9;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:20px;font-weight:500;box-sizing:border-box;${i === 0 ? 'background:#F6F8FA;color:#0A0D14;' : 'background:#fff;color:#525866;'}` }));
-
-    const OPT = s.tab === 'ls' ? [
-      { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности лекарственных средств' },
-      { id:'reg', label:'Государственная регистрация, перерегистрация лекарственного средства, внесение изменений в регистрационное досье лекарственного средства' },
-      { id:'price', label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя лекарственного средства', subs:[
-        { id:'new', label:'Регистрация цены производителя лекарственного средства' },
-        { id:'change', label:'Внесение изменений в зарегистрированную цену производителя лекарственного средства' } ] },
-      { id:'knf', label:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр' },
-    ] : [
-      { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности медицинских изделий' },
-      { id:'reg', label:'Государственная регистрация, перерегистрация медицинского изделия, внесение изменений в регистрационное досье медицинского изделия' },
-      { id:'price', label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя медицинского изделия', subs:[
-        { id:'new', label:'Регистрация цены производителя медицинского изделия' },
-        { id:'change', label:'Внесение изменений в зарегистрированную цену производителя медицинского изделия' } ] },
-    ];
-    const dot = (on) => `width:16px;height:16px;margin:2px;border-radius:50%;box-sizing:border-box;flex:0 0 auto;background:#fff;${on ? 'border:5px solid #4D42E9;' : 'border:1.5px solid #CDD0D5;'}`;
-    const options = OPT.map(o => {
-      const on = s.pick === o.id;
-      return { ...o, dot: dot(on), showSubs: on && !!o.subs,
-        onPick: () => this.setState({ pick:o.id, sub:null }),
-        cardStyle:`border-radius:12px;overflow:hidden;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};box-shadow:0 1px 1px rgba(10,13,20,.03);`,
-        headStyle:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:16px;border:none;font-family:inherit;text-align:left;cursor:pointer;background:${on && o.subs ? '#EEF2FF' : '#fff'};`,
-        subs: (o.subs || []).map(sb => {
-          const son = s.sub === sb.id;
-          return { ...sb, dot: dot(son), onPick: () => this.setState({ sub:sb.id }),
-            style:`width:100%;display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;border:1px solid ${son ? '#4D42E9' : '#E2E4E9'};background:#fff;font-family:inherit;text-align:left;cursor:pointer;` };
-        }),
-      };
-    });
-    const canNext = (s.pick === 'price' && !!s.sub) || s.pick === 'knf';
+    // «Все услуги» — каталог по группам; категория — её перечень. Поиск — в пределах выбранного
+    const src = cur.id === 'all' ? CATS : [cur];
+    const parts = src.map(c => ({ c, items: searching ? c.items.filter(it => matchAll(it, tokens)) : c.items })).filter(x => x.items.length);
+    const groups = parts.map(({ c, items }) => ({
+      showHead: cur.id === 'all' && parts.length > 1,
+      label:c.label, icon:c.icon, count:items.length,
+      iconStyle:`font-size:16px;color:${c.tone[1]};`,
+      items: toItems(items),
+    }));
+    const total = parts.reduce((n, x) => n + x.items.length, 0);
+    const allHits = searching && !total && cur.id !== 'all' ? this.hits(ALL).length : 0;
 
     return {
-      tabs, cols, rows, pages,
-      selects:[ { label:'Статус заявки' }, { label:'Наименование услуги' } ],
-      dates:['Дата начала', 'Дата окончания'],
-      closeMenu: () => this.setState({ menu:null }),
-      modal: s.modal, options,
-      tabLabel: s.tab === 'ls' ? 'Лекарственные средства' : 'Медицинские изделия',
-      tabIcon: s.tab === 'ls' ? 'ri-capsule-fill' : 'ri-stethoscope-fill',
-      openCreate: () => this.setState({ modal:true, pick:null, sub:null }),
-      closeCreate: () => this.setState({ modal:false }),
-      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
-      hint: s.pick && s.pick !== 'price' && s.pick !== 'knf' ? 'В прототипе показаны регистрация цены и экспертиза КНФ' : '',
-      nextDisabled: !canNext,
-      goNext: () => { if(!canNext) return; location.href = s.pick === 'knf' ? 'Заявление КНФ.dc.html' : 'Паспорт регистрации цены.dc.html#' + s.tab; },
-      nextStyle:`display:inline-flex;align-items:center;gap:4px;padding:10px 10px 10px 14px;border:none;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;${canNext ? 'background:#4D42E9;color:#fff;cursor:pointer;box-shadow:0 1px 2px rgba(77,66,233,.08);' : 'background:#F6F8FA;color:#CDD0D5;cursor:not-allowed;'}`,
+      headRef:this.headRef, sentinelRef:this.sentinelRef, inputRef:this.inputRef, listRef:this.listRef, catsRef:this.catsRef,
+      cats, onCatsKey: (e) => this.onCatsKey(e),
+      listTitle: cur.label, listCount: total,
+      listCountLabel: searching ? `Найдено: ${total} ${plural(total)}` : `${total} ${plural(total)}`,
+      groups,
+      searchAria: `Поиск по наименованию услуги в категории «${cur.label}»`,
+      q: s.q, hasQ: !!s.q, showKbd: !s.q,
+      onQ: (e) => this.setState({ q:e.target.value }),
+      onInputKey: (e) => this.onInputKey(e),
+      onListKey: (e) => this.onListKey(e),
+      clearQ: () => { this.setState({ q:'' }); this.focusSearch(false); },
+      empty: searching && total === 0,
+      hasAll: allHits > 0, allHits,
+      toAll: () => { this.setState({ cat:'all', live:`Все услуги: найдено ${allHits} ${plural(allHits)}` }); this.revealList(); },
+      liveText: searching ? (total ? `Найдено: ${total} ${plural(total)}` : 'Услуги не найдены') : s.live,
     };
   }
 }

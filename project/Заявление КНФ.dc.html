@@ -61,7 +61,7 @@
             <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">{{ title }}</div>
             <div style="display:flex;align-items:center;gap:6px;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);">
               <i class="ri-file-copy-line" style="font-size:20px;"></i>
-              <a href="{{ listHref }}" style="color:var(--n500);text-decoration:none;">Услуги</a>
+              <a href="Услуги.dc.html?cat=pharma" style="color:var(--n500);text-decoration:none;">Услуги</a>
               <i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n300);"></i>
               <span style="color:var(--n900);">{{ crumb }}</span>
             </div>
@@ -640,12 +640,12 @@ class Component extends DCLogic {
     return {
       title: s.result ? serviceName : 'Создание новой заявки',
       crumb: s.result ? '№ заявки 000002' : 'Новая заявка',
-      listHref:'Услуги.dc.html#ls',
+      listHref:'Мои заявки.dc.html',
       isForm: !s.result, isResult: s.result,
       groups, cards, showStatus, showInvoice, showNotice, noop,
       hasDraft: !!s.draftAt, draftAt: s.draftAt,
       saveDraft: () => { const t = this.now(); this.setState({ draftAt:t }); this.toast('Черновик сохранён', 'Вы можете вернуться к заявлению позже.'); },
-      backHref: s.step === 0 ? 'Услуги.dc.html#ls' : '#',
+      backHref: s.step === 0 ? 'Мои заявки.dc.html' : '#',
       back: (e) => { if(s.step > 0){ noop(e); this.go(s.step - 1); } },
       nextLabel: s.step === last ? 'Подписать и отправить' : 'Далее',
       nextDisabled: !canNext,
