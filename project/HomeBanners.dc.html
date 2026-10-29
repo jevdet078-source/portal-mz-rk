@@ -145,6 +145,9 @@
   @media (prefers-reduced-motion:reduce){
     .hb-slide, .hb-copy > *, .hb-art, .hb-copy{ transition:none !important; }
   }
+  /* подписи всех вкладок не помещаются в ряд (меряется скриптом) — остаются полоски-таймеры, название — в подсказке и aria-label */
+  .hb-nolbl .hb-tl{ display:none; }
+  .hb-nolbl .hb-tab{ gap:0; padding:18px 0; }
   /* узкий баннер — подписи вкладок не помещаются: остаются полоски-таймеры (название — в aria-label) */
   @media (max-width:1180px){
     .hb-tl{ display:none; }
@@ -180,7 +183,7 @@
     <sc-for list="{{ slides }}" as="s" hint-placeholder-count="1">
       <article class="{{ s.cls }}" style="{{ s.vars }}" role="group" aria-roledescription="слайд" aria-label="{{ s.label }}" aria-hidden="{{ s.hidden }}">
         <div class="hb-copy">
-          <sc-if value="{{ s.hasTag }}" hint-placeholder-val="{{ false }}"><span class="hb-tag"><i class="ri-sparkling-2-fill"></i>{{ s.tag }}</span></sc-if>
+          <sc-if value="{{ s.hasTag }}" hint-placeholder-val="{{ false }}"><span class="hb-tag"><i class="{{ s.tagIco }}"></i>{{ s.tag }}</span></sc-if>
           <h2 class="hb-title">{{ s.title }}</h2>
           <p class="hb-sub">{{ s.sub }}</p>
           <a class="hb-cta" href="{{ s.href }}" target="{{ s.target }}" rel="noopener" tabIndex="{{ s.ti }}" data-tip="{{ s.tip }}">{{ s.cta }}<i class="{{ s.ctaIcon }}"></i></a>
@@ -208,7 +211,7 @@
     <div class="hb-bar">
       <div class="hb-tabs">
         <sc-for list="{{ dots }}" as="d" hint-placeholder-count="5">
-          <button type="button" class="{{ d.tabCls }}" aria-label="{{ d.aria }}" aria-current="{{ d.cur }}" onClick="{{ d.onClick }}"><span class="hb-track"><span class="hb-fill"></span></span><span class="hb-tl" aria-hidden="true">{{ d.tab }}</span></button>
+          <button type="button" class="{{ d.tabCls }}" aria-label="{{ d.aria }}" aria-current="{{ d.cur }}" onClick="{{ d.onClick }}" data-tip="{{ d.tip }}"><span class="hb-track"><span class="hb-fill"></span></span><span class="hb-tl" aria-hidden="true">{{ d.tab }}</span></button>
         </sc-for>
       </div>
       <div class="hb-btns">
@@ -256,12 +259,26 @@ class Component extends DCLogic {
     this._clk = (e) => { if(this._swiped && Date.now() - this._swiped < 450){ e.preventDefault(); e.stopPropagation(); } };
     if(root){ root.addEventListener('animationend', this._end); root.addEventListener('keydown', this._key); }
     if(stage){ stage.addEventListener('pointerdown', this._pd); stage.addEventListener('pointerup', this._pu); stage.addEventListener('pointercancel', () => { this._sx = null; }); stage.addEventListener('click', this._clk, true); }
+    // помещаются ли подписи вкладок целиком — иначе показываем только полоски
+    this._fit = () => {
+      const tabs = root && root.querySelector('.hb-tabs'); if(!tabs) return;
+      const tl = tabs.querySelector('.hb-tl'), cs = tl ? getComputedStyle(tl) : null;
+      const ctx = this._cv || (this._cv = document.createElement('canvas').getContext('2d'));
+      ctx.font = '600 ' + (cs ? cs.fontSize : '14px') + ' ' + (cs ? cs.fontFamily : 'Inter, sans-serif');
+      const names = this.list().map((b) => b.tab);
+      const need = names.reduce((a, t) => a + Math.ceil(ctx.measureText(t).width) + 2, 0) + (names.length - 1) * (parseFloat(getComputedStyle(tabs).columnGap) || 0);
+      const nolbl = need > tabs.clientWidth;
+      if(nolbl !== this.state.nolbl) this.setState({ nolbl });
+    };
+    if(window.ResizeObserver && root){ this._ro = new ResizeObserver(() => this._fit()); this._ro.observe(root); }
     this.paint();
+    this._fit();
   }
-  componentDidUpdate(){ this.paint(); }
+  componentDidUpdate(){ this.paint(); if(this._fit) this._fit(); }
   componentWillUnmount(){
     window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready);
     window.removeEventListener('mp-role-change', this._role); document.removeEventListener('visibilitychange', this._vis);
+    if(this._ro) this._ro.disconnect();
   }
   paint(){ if(window.mpArt) window.mpArt.paint(this.rootRef.current); }
   list(){ return (window.mpArt && window.mpHome) ? window.mpArt.banners(this.state.role) : []; }
@@ -276,7 +293,7 @@ class Component extends DCLogic {
     const pos = (idx) => { const o = (idx - i + N) % N; return o === 0 ? 'p0' : o === N - 1 && N > 2 ? 'pout' : o === 1 ? 'p1' : o === 2 ? 'p2' : 'px'; };
     const slides = list.map((b, idx) => {
       const on = idx === i;
-      return { ...b, hasTag: !!b.tag, hidden: on ? 'false' : 'true', ti: on ? 0 : -1,
+      return { ...b, hasTag: !!b.tag, tagIco: b.tagIcon || 'ri-sparkling-2-fill', hidden: on ? 'false' : 'true', ti: on ? 0 : -1,
         label: (idx + 1) + ' из ' + N + ': ' + b.title,
         cls: 'hb-slide ' + (deck ? pos(idx) : (on ? 'on' : 'off')),
         artCls: 'art hb-art' + (on ? ' float' : ''),
@@ -286,12 +303,12 @@ class Component extends DCLogic {
     const dots = list.map((b, idx) => {
       const st = idx === i ? ' hb-cur' + kc : (deck && idx < i ? ' hb-done' : '');
       return { tab: b.tab, cur: idx === i ? 'true' : 'false', aria: 'Слайд ' + (idx + 1) + ' из ' + N + ': ' + b.tab,
-        cls: 'hb-seg' + st, tabCls: 'hb-tab' + st, onClick: () => this.go(idx) };
+        cls: 'hb-seg' + st, tabCls: 'hb-tab' + st, tip: s.nolbl ? b.tab : '', onClick: () => this.go(idx) };
     });
     const pad = (x) => String(x).padStart(2, '0');
     return {
       rootRef: this.rootRef, stageRef: this.stageRef,
-      rootCls: 'hb hb-' + look + (s.paused ? ' is-paused' : '') + (s.hidden ? ' is-hidden' : '') + (still ? ' is-still' : ''),
+      rootCls: 'hb hb-' + look + (s.nolbl && !deck ? ' hb-nolbl' : '') + (s.paused ? ' is-paused' : '') + (s.hidden ? ' is-hidden' : '') + (still ? ' is-still' : ''),
       isDeck: deck, isLight: !deck,
       live: still ? 'polite' : 'off',
       slides, dots, counter: pad(i + 1) + ' / ' + pad(N),

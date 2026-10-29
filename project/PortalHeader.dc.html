@@ -14,6 +14,8 @@
           | glass    — прозрачная поверх тёмного баннера, при прокрутке — матовое стекло
           | official — белая + верхняя служебная строка (официальный ресурс, телефоны 103 / 112 / 1414)
     roles = "0"      — не показывать вкладки ролей (вариант C выбирает роль в баннере)
+    section = protocols — открыт самостоятельный раздел «Клинические протоколы»: активен его пункт, а не роль;
+              роль и герб ведут на главную, с которой пришли (localStorage['mp-home-page'], её запоминает шапка главной)
   Роль — localStorage['mp-role'] + событие 'mp-role-change' (как у общей шапки Header).
   «Доступность» — размер текста и контраст (HomeData.setA11y), для старшей аудитории и слабовидящих.
 -->
@@ -40,15 +42,17 @@
 
   .ph-roles{ display:flex; align-items:stretch; align-self:stretch; gap:2px; }
   .ph-role{ position:relative; display:flex; align-items:center; gap:8px; padding:0 14px; border:none; background:none; font:500 14.5px/1 'Inter',sans-serif; color:var(--n500); cursor:pointer; white-space:nowrap; transition:color .15s; }
+  a.ph-role{ text-decoration:none; }
+  .ph-role:focus-visible{ outline:2px solid var(--b500); outline-offset:-4px; border-radius:10px; }
   .ph-role i{ font-size:18px; }
   .ph-role::after{ content:''; position:absolute; left:10px; right:10px; bottom:-1px; height:2.5px; border-radius:2px; background:transparent; transition:background .15s; }
   .ph-role:hover{ color:var(--n900); }
-  .ph-role[aria-current="true"]{ color:var(--b700); font-weight:600; }
-  .ph-role[aria-current="true"]::after{ background:var(--b600); }
+  .ph-role:is([aria-current="true"],[aria-current="page"]){ color:var(--b700); font-weight:600; }
+  .ph-role:is([aria-current="true"],[aria-current="page"])::after{ background:var(--b600); }
   .ph-glass:not(.ph-solid) .ph-role{ color:rgba(255,255,255,.72); }
   .ph-glass:not(.ph-solid) .ph-role:hover{ color:#fff; }
-  .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]{ color:#fff; }
-  .ph-glass:not(.ph-solid) .ph-role[aria-current="true"]::after{ background:#fff; }
+  .ph-glass:not(.ph-solid) .ph-role:is([aria-current="true"],[aria-current="page"]){ color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-role:is([aria-current="true"],[aria-current="page"])::after{ background:#fff; }
 
   .ph-acts{ margin-left:auto; display:flex; align-items:center; gap:8px; flex:0 0 auto; }
   .ph-ibtn{ height:40px; min-width:40px; padding:0 12px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:10px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n600); font:600 14px/1 'Inter',sans-serif; cursor:pointer; transition:.15s; white-space:nowrap; }
@@ -92,8 +96,12 @@
   .ph-util-in a i{ font-size:15px; color:var(--bacc); }
   .ph-util-in .ph-tel{ margin-left:auto; display:flex; gap:20px; }
 
-  @media (max-width:1180px){ .ph-name span{ display:none; } .ph-role{ padding:0 10px; } .ph-ibtn .ph-t{ display:none; } }
+  /* четыре пункта меню: на ноутбуках «Доступность» — значком (подсказка в title), название министерства — гербом */
+  @media (max-width:1520px){ .ph-ibtn .ph-t{ display:none; } }
+  @media (max-width:1360px){ .ph-name{ display:none; } }
+  @media (max-width:1180px){ .ph-name span{ display:none; } .ph-role{ padding:0 10px; } }
   @media (max-width:960px){
+    .ph-name{ display:block; }
     .ph-bar{ flex-wrap:wrap; height:auto; padding-top:12px; row-gap:6px; }
     .ph-roles{ order:3; flex:1 0 100%; height:46px; overflow-x:auto; scrollbar-width:none; margin:0 calc(-1 * var(--gut,16px)); padding:0 calc(var(--gut,16px) - 10px); border-top:1px solid var(--n200); }
     .ph-glass:not(.ph-solid) .ph-roles{ border-top-color:rgba(255,255,255,.14); }
@@ -132,6 +140,7 @@
           <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
             <button class="ph-role" onClick="{{ r.onClick }}" aria-current="{{ r.on }}"><i class="{{ r.icon }}"></i>{{ r.label }}</button>
           </sc-for>
+          <a class="ph-role" href="Клинические протоколы.dc.html" aria-current="{{ protoCur }}"><i class="ri-file-list-3-line"></i>Клинические протоколы</a>
         </nav>
       </sc-if>
 
@@ -196,6 +205,10 @@ class Component extends DCLogic {
     this._onScroll();
     this._esc = (e) => { if(e.key === 'Escape' && (this.state.a11yOpen || this.state.langOpen)) this.setState({ a11yOpen:false, langOpen:false }); };
     window.addEventListener('keydown', this._esc);
+    // главная запоминает себя — с внутренней страницы раздела вернёмся на тот же вариант
+    if(!this.props.section){
+      try { const f = decodeURIComponent(location.pathname.split('/').pop() || ''); if(/^Главная .+\.dc\.html$/.test(f)) localStorage.setItem('mp-home-page', f); } catch(e){}
+    }
   }
   componentWillUnmount(){
     window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-a11y-change', this._onA11y);
@@ -205,7 +218,10 @@ class Component extends DCLogic {
     this.setState({ role:id });
     if(window.mpHome) window.mpHome.setRole(id);
     else { try { localStorage.setItem('mp-role', id); window.dispatchEvent(new CustomEvent('mp-role-change', { detail:id })); } catch(e){} }
+    // в самостоятельном разделе роль — это переход на главную этой роли
+    if(this.props.section) location.href = this.home();
   }
+  home(){ return lsGet('mp-home-page') || 'Главная H - Витрина.dc.html'; }
   setA11y(patch){
     const a = { ...this.state.a11y, ...patch };
     this.setState({ a11y:a });
@@ -213,16 +229,17 @@ class Component extends DCLogic {
   }
   renderVals(){
     const s = this.state, look = this.props.look || 'light';
-    const glass = look === 'glass';
+    const glass = look === 'glass', sec = this.props.section || '';
     const sizes = [ { id:'md', label:'A', title:'Обычный', fs:15 }, { id:'lg', label:'A+', title:'Крупный', fs:18 }, { id:'xl', label:'A++', title:'Очень крупный', fs:21 } ]
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
       official: look === 'official',
       cls: 'ph' + (look === 'bare' ? ' ph-bare' : '') + (glass ? ' ph-glass' : '') + (glass && s.solid ? ' ph-solid' : ''),
-      homeHref: '#',
+      homeHref: sec ? this.home() : '#',
       showRoles: this.props.roles !== '0',
       showBrand: this.props.brand !== '0',
-      roles: ROLES.map(r => ({ ...r, on: s.role === r.id ? 'true' : 'false', onClick:() => this.setRole(r.id) })),
+      roles: ROLES.map(r => ({ ...r, on: !sec && s.role === r.id ? 'true' : 'false', onClick:() => this.setRole(r.id) })),
+      protoCur: sec === 'protocols' ? 'page' : 'false',
       a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
       toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),
       toggleContrast: () => this.setA11y({ contrast:!s.a11y.contrast }),
