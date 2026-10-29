@@ -17,13 +17,25 @@
   в кадрах 14202:259827 (развёрнуто, 272px) и 14202:257698 (свёрнуто, 80px).
   Логотип «Единое окно МЗ РК» из шапки сайдбара убран — бренд теперь в Header портала.
 
-  Пропсы:
-    active    — home | contracts | payments | services | other | processes | users | orgs | calendar
-    collapsed — "1", чтобы стартовать свёрнутым (как на странице процесса)
+  Постановка «Обновление меню кабинета бизнеса и раздела „Мои заявки“» (29.10.2026):
+    п. 1  порядок — Главная · Услуги · Мои заявки · Договоры · Платежи. «Услуги» раскрываются,
+          «Мои заявки» — обычный пункт без вложенного меню (общая страница «Мои заявки.dc.html»);
+    п. 2  в «Услугах» две раскрывающиеся категории — «Фармацевтика» и «Лицензирование и аккредитация»,
+          отдельной страницы каталога нет. Длинные наименования переносятся целиком (без обрезки);
+          у внешних переходов (eGov.kz, «Е-лицензирование») — значок ↗, открываются в новой вкладке;
+    п. 2  композитная услуга «Единого окна» открывает окно «Выберите направление»: КНФ · Цены · ЕД · АЛО,
+          выбор сразу ведёт в сценарий оформления заявки (DIRS ниже), крестик / Esc / фон закрывают окно.
+  Состояния групп (раскрыта / свёрнута) запоминаются — localStorage['mp-biz-nav-open'];
+  группа с активным пунктом при открытии страницы раскрыта всегда.
+  Свёрнутое меню (80px): «Услуги» — иконка; нажатие разворачивает меню сразу с открытой группой.
+  Экран уже 1200px: меню по умолчанию свёрнуто, развёрнутое ложится поверх страницы (фон затемняется).
+  Окно направлений можно открыть с любой страницы событием window 'mp-biz-directions'
+  (например, из пустого списка «Мои заявки»).
 
-  Все пункты видны сразу: онбординг в кабинете бизнеса удалён по замечанию аналитика 14.10.2026
-  (раньше пункты открывались по шагам mp-biz-step, Figma 5787:107798). Иначе композитная услуга,
-  открытая с портала после входа, попадала бы на «Услуги» без пункта «Услуги» в меню.
+  Пропсы:
+    active    — home | requests | composite | contracts | payments | users | orgs | calendar | notifications
+                (старые значения: services / other → composite, processes → requests)
+    collapsed — "1", чтобы стартовать свёрнутым (как на страницах мастеров и карточек)
 
   Роль в организации — localStorage['mp-biz-role'] = applicant | admin,
   смена рассылается событием window 'mp-biz-role-change' (переключатель в шапке).
@@ -34,104 +46,392 @@
 <x-dc>
 <helmet>
 <style>
-  :root{--primary:#4D42E9;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--primary-darker:#312D86;--n0:#fff;--n400:#868C98;--n500:#525866;--n900:#0A0D14;--stroke:#E2E4E9;}
+  :root{--primary:#4D42E9;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--primary-darker:#312D86;--n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;}
+  @keyframes bn-fade{from{opacity:0}to{opacity:1}}
+  @keyframes bn-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes bn-drop{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+  @keyframes bn-slide{from{transform:translateX(-12px);opacity:.6}to{transform:none;opacity:1}}
+
+  .bn-list{scrollbar-width:thin;scrollbar-color:#E2E4E9 transparent;}
+  .bn-it{display:flex;align-items:center;gap:8px;border:none;border-radius:8px;background:transparent;color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;text-decoration:none;text-align:left;cursor:pointer;box-sizing:border-box;transition:background .15s,color .15s;}
+  .bn-it:hover{background:var(--n100);color:var(--n900);}
+  .bn-it[data-on="true"],.bn-it[data-on="true"]:hover{background:var(--primary-lighter);color:var(--primary);}
+  /* родитель свёрнутой группы, внутри которой активный пункт */
+  .bn-it[data-in="true"]{color:var(--primary);}
+  .bn-it[data-in="true"]:hover{color:var(--primary);}
+  .bn-chev{font-size:18px;color:var(--n400);flex:0 0 auto;transition:transform .18s ease,color .15s;}
+  .bn-it:hover .bn-chev{color:var(--n500);}
+  .bn-it[aria-expanded="false"] .bn-chev{transform:rotate(-90deg);}
+
+  /* дерево «Услуг»: направляющая линия под иконкой группы */
+  .bn-tree{margin:2px 0 4px 21px;border-left:1px solid var(--stroke);display:flex;flex-direction:column;gap:2px;}
+  .bn-cat{width:calc(100% + 1px);margin-left:-1px;min-height:36px;padding:8px 8px 8px 17px;border-radius:0 8px 8px 0;color:var(--n600);}
+  .bn-cat .bn-t{flex:1;min-width:0;}
+  .bn-subs{display:flex;flex-direction:column;gap:2px;padding:0 0 4px;}
+  .bn-sub{width:calc(100% + 1px);margin-left:-1px;align-items:flex-start;padding:7px 8px 7px 17px;border-radius:0 8px 8px 0;font-size:13px;line-height:18px;font-weight:400;letter-spacing:0;color:var(--n500);}
+  .bn-sub .bn-t{flex:1;min-width:0;overflow-wrap:anywhere;hyphens:auto;}
+  .bn-sub[data-on="true"],.bn-sub[data-on="true"]:hover{font-weight:500;color:var(--primary-darker);box-shadow:inset 2px 0 0 var(--primary);}
+  .bn-ext{white-space:nowrap;}
+  .bn-ext i{font-size:14px;line-height:1;margin-left:3px;vertical-align:-2px;color:var(--n400);transition:color .15s,transform .15s;display:inline-block;}
+  .bn-sub:hover .bn-ext i{color:var(--primary);transform:translate(1px,-1px);}
+
+  .bn-it:focus-visible,.bn-tg:focus-visible,.bn-x:focus-visible,.bn-dir:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .bn-sub[data-on="true"]:focus-visible{box-shadow:inset 2px 0 0 var(--primary),0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .bn-tg{transition:background .15s,color .15s;}
+  .bn-tg:hover{background:var(--n100);color:var(--n900);}
+
+  /* окно «Выберите направление» */
+  .bn-ov{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:24px;font-family:'Inter',sans-serif;}
+  .bn-ov-bg{position:absolute;inset:0;background:rgba(10,13,20,.24);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:bn-fade .15s ease;}
+  .bn-dlg{position:relative;width:100%;max-width:520px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);overflow:hidden;animation:bn-pop .18s ease;}
+  .bn-dlg:focus{outline:none;}
+  .bn-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
+  .bn-x:hover{background:var(--n100);color:var(--n900);}
+  .bn-dir{width:100%;display:flex;align-items:center;gap:14px;padding:14px 14px 14px 16px;border:1px solid var(--stroke);border-radius:14px;background:#fff;font-family:inherit;text-align:left;text-decoration:none;color:var(--n900);cursor:pointer;box-sizing:border-box;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .bn-dir:hover{border-color:var(--primary-light);background:var(--n50);box-shadow:0 1px 2px rgba(10,13,20,.04),0 4px 12px -6px rgba(77,66,233,.18);}
+  .bn-dir-go{font-size:20px;color:var(--n300);flex:0 0 auto;transition:color .15s,transform .15s;}
+  .bn-dir:hover .bn-dir-go,.bn-dir:focus-visible .bn-dir-go{color:var(--primary);transform:translateX(2px);}
+  @media (max-width:719px){
+    .bn-ov{align-items:flex-end;padding:0;}
+    .bn-dlg{max-width:none;border-radius:20px 20px 0 0;}
+  }
+  @media (prefers-reduced-motion:reduce){ .bn-dlg,.bn-ov-bg,.bn-panel{animation:none !important;} .bn-chev{transition:none;} }
 </style>
 </helmet>
-<nav style="{{ rootStyle }}">
-  <div style="{{ topStyle }}">
-    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
-      <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ caption }}</div>
-    </sc-if>
-    <button onClick="{{ toggle }}" title="{{ toggleTitle }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--n500);flex:0 0 auto;"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
-  </div>
+<nav ref="{{ rootRef }}" aria-label="Меню кабинета бизнеса" style="{{ rootStyle }}">
+  <div class="bn-panel" style="{{ panelStyle }}">
+    <div style="{{ topStyle }}">
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ caption }}</div>
+      </sc-if>
+      <button class="bn-tg" type="button" onClick="{{ toggle }}" title="{{ toggleTitle }}" aria-label="{{ toggleTitle }}" aria-expanded="{{ expanded }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--n500);flex:0 0 auto;"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
+    </div>
 
-  <div style="{{ listStyle }}">
-    <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
-      <sc-if value="{{ it.hasGroupLabel }}" hint-placeholder-val="{{ false }}">
-        <div style="padding:16px 12px 6px;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.group }}</div>
-      </sc-if>
-      <sc-if value="{{ it.hasGroupRule }}" hint-placeholder-val="{{ false }}">
-        <div title="{{ it.group }}" style="width:24px;height:1px;background:var(--stroke);margin:10px 0;"></div>
-      </sc-if>
-      <a href="{{ it.href }}" onClick="{{ it.onClick }}" title="{{ it.label }}" style="{{ it.style }}">
-        <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
-        <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span></sc-if>
-        <sc-if value="{{ it.showBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:16px;height:16px;padding:2px;border-radius:999px;background:var(--primary-light);color:var(--primary-darker);font-size:11px;line-height:12px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;">{{ it.badge }}</span></sc-if>
+    <div class="bn-list" style="{{ listStyle }}">
+      <!-- Главная -->
+      <a class="bn-it" href="Кабинет бизнеса.dc.html" data-on="{{ homeOn }}" aria-current="{{ homeCur }}" title="{{ railTitleHome }}" style="{{ l1Style }}">
+        <i class="ri-home-4-line" style="font-size:20px;flex:0 0 auto;"></i>
+        <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">Главная</span></sc-if>
       </a>
-    </sc-for>
+
+      <!-- Услуги: раскрывающийся раздел с категориями -->
+      <button class="bn-it" type="button" onClick="{{ toggleServices }}" aria-expanded="{{ servicesExpanded }}" aria-controls="bn-services" data-in="{{ servicesIn }}" data-on="{{ servicesRailOn }}" title="{{ railTitleServices }}" style="{{ l1Style }}">
+        <i class="ri-apps-2-line" style="font-size:20px;flex:0 0 auto;"></i>
+        <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+          <span style="flex:1;min-width:0;white-space:nowrap;">Услуги</span>
+          <i class="ri-arrow-down-s-line bn-chev" aria-hidden="true"></i>
+        </sc-if>
+      </button>
+      <sc-if value="{{ showServices }}" hint-placeholder-val="{{ true }}">
+        <div id="bn-services" class="bn-tree" role="group" aria-label="Услуги">
+          <sc-for list="{{ cats }}" as="c" hint-placeholder-count="2">
+            <button class="bn-it bn-cat" type="button" onClick="{{ c.toggle }}" aria-expanded="{{ c.open }}" aria-controls="{{ c.listId }}" data-in="{{ c.hasActive }}">
+              <span class="bn-t">{{ c.label }}</span>
+              <i class="ri-arrow-down-s-line bn-chev" aria-hidden="true"></i>
+            </button>
+            <sc-if value="{{ c.open }}" hint-placeholder-val="{{ true }}">
+              <div id="{{ c.listId }}" class="bn-subs" role="group" aria-label="{{ c.label }}">
+                <sc-for list="{{ c.items }}" as="it" hint-placeholder-count="2">
+                  <!-- услуга кабинета: окно выбора направления -->
+                  <sc-if value="{{ it.isDlg }}" hint-placeholder-val="{{ true }}">
+                    <button class="bn-it bn-sub" type="button" onClick="{{ it.onOpen }}" aria-haspopup="dialog" data-on="{{ it.on }}" aria-current="{{ it.cur }}"><span class="bn-t">{{ it.label }}</span></button>
+                  </sc-if>
+                  <!-- внешняя услуга: eGov.kz / «Е-лицензирование», новая вкладка -->
+                  <sc-if value="{{ it.isExt }}" hint-placeholder-val="{{ false }}">
+                    <a class="bn-it bn-sub" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" title="{{ it.hint }}" aria-label="{{ it.aria }}"><span class="bn-t">{{ it.head }}<span class="bn-ext">{{ it.tail }}<i class="ri-arrow-right-up-line" aria-hidden="true"></i></span></span></a>
+                  </sc-if>
+                </sc-for>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- Мои заявки · Договоры · Платежи (+ «Администрирование» у администратора) -->
+      <sc-for list="{{ items }}" as="it" hint-placeholder-count="3">
+        <sc-if value="{{ it.hasGroupLabel }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 12px 6px;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ it.group }}</div>
+        </sc-if>
+        <sc-if value="{{ it.hasGroupRule }}" hint-placeholder-val="{{ false }}">
+          <div title="{{ it.group }}" style="width:24px;height:1px;background:var(--stroke);margin:10px 0;"></div>
+        </sc-if>
+        <a class="bn-it" href="{{ it.href }}" data-on="{{ it.on }}" aria-current="{{ it.cur }}" title="{{ it.railTitle }}" style="{{ it.style }}">
+          <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
+          <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span></sc-if>
+        </a>
+      </sc-for>
+    </div>
+
+    <div style="{{ footStyle }}">
+      <a class="bn-it" href="Портал Минздрава - Главная.dc.html" onClick="{{ logout }}" title="{{ railTitleLogout }}" style="{{ l1Style }}">
+        <i class="ri-logout-box-r-line" style="font-size:20px;flex:0 0 auto;"></i>
+        <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span>Выйти</span></sc-if>
+      </a>
+    </div>
   </div>
 
-  <div style="flex:1;"></div>
+  <!-- узкий экран: развёрнутое меню поверх страницы -->
+  <sc-if value="{{ overlayOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ collapse }}" aria-hidden="true" style="position:fixed;left:0;right:0;bottom:0;top:73px;z-index:1;background:rgba(10,13,20,.16);animation:bn-fade .15s ease;"></div>
+  </sc-if>
 
-  <div style="{{ footStyle }}">
-    <a href="Портал Минздрава - Главная.dc.html" onClick="{{ logout }}" title="Выйти" style="{{ logoutStyle }}">
-      <i class="ri-logout-box-r-line" style="font-size:20px;flex:0 0 auto;"></i>
-      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span>Выйти</span></sc-if>
-    </a>
-  </div>
+  <!-- Окно «Выберите направление» (композитная услуга «Единого окна») -->
+  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
+    <div class="bn-ov">
+      <div class="bn-ov-bg" onClick="{{ closeDlg }}"></div>
+      <div class="bn-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="bn-dlg-t" tabIndex="-1" onKeyDown="{{ onDlgKey }}">
+        <div style="display:flex;align-items:center;gap:12px;padding:18px 16px 16px 24px;border-bottom:1px solid var(--stroke);">
+          <h2 id="bn-dlg-t" style="flex:1;min-width:0;margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;color:var(--n900);">Выберите направление</h2>
+          <button type="button" class="bn-x" onClick="{{ closeDlg }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:22px;"></i></button>
+        </div>
+        <ul style="list-style:none;margin:0;padding:20px 24px 24px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
+          <sc-for list="{{ dirs }}" as="d" hint-placeholder-count="4">
+            <li>
+              <a class="bn-dir" href="{{ d.href }}" onClick="{{ d.onGo }}">
+                <span style="{{ d.tile }}"><i class="{{ d.icon }}" style="{{ d.iconStyle }}"></i></span>
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                  <span style="font-size:15px;line-height:22px;font-weight:600;letter-spacing:-.01em;color:var(--n900);">{{ d.label }}</span>
+                  <span style="font-size:13px;line-height:18px;color:var(--n500);">{{ d.text }}</span>
+                </span>
+                <i class="ri-arrow-right-s-line bn-dir-go" aria-hidden="true"></i>
+              </a>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+    </div>
+  </sc-if>
 </nav>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:272,&quot;height&quot;:827}}">
+const OPEN_KEY = 'mp-biz-nav-open';
+const EGOV = 'https://egov.kz/ru/services/presale/';
+const ELICENSE = 'https://elicense.kz/';
+const NARROW = 1200;
+
+// Постановка 29.10.2026, п. 2: состав и порядок категорий «Услуг»; наименования и ссылки —
+// как в каталоге «Государственные услуги» (постановка «Анализ ГУ МЗ»)
+const CATS = [
+  { id:'pharma', label:'Фармацевтика', items:[
+    ['Композитная государственная услуга по регистрации лекарственных средств и медицинских изделий с подачей пакета документов по принципу «Единого окна»', 'dlg'],
+    ['Информация о предоставленных лекарственных средствах, спецпродуктах, изделиях медицинского назначения', 'P709'],
+  ] },
+  { id:'lic', label:'Лицензирование и аккредитация', items:[
+    ['Выдача сертификата специалиста для допуска к клинической практике', ELICENSE],
+    ['Аккредитация организации по оценке знаний в области здравоохранения', 'approval_documents_pass153-5_mz'],
+    ['Аккредитация субъектов здравоохранения, осуществляющих независимую экспертизу', 'accreditation_passEL4-R22_mz'],
+    ['Выдача сертификата менеджера в области здравоохранения', 'approval_documents_pass163_mz'],
+    ['Аккредитация медицинских организаций (стандарты аккредитации)', 'approval_documents_477pass_mz'],
+    ['Выдача лицензии на дезинфекцию, дезинсекцию, дератизацию в здравоохранении', 'licensing_pass603012_mz'],
+    ['Выдача лицензии на ввоз/вывоз органов, тканей, крови человека (не члены ЕАЭС)', 'licensing_2F151_mzsr_6'],
+    ['Выдача лицензии на оборот наркотических средств в здравоохранении', 'licensing_2F490pass_mz'],
+    ['Выдача лицензии на фармацевтическую деятельность', 'licensing_489pass_mz'],
+    ['Выдача лицензии на медицинскую деятельность', 'med_accreditatio_2F487pass_mz'],
+  ] },
+];
+
+// Направления композитной услуги (постановка, п. 2) → сценарий оформления заявки.
+// ЕД и АЛО — мастер подачи сразу с новой заявкой (категория ЛС / МИ выбирается в его первом шаге)
+const DIRS = [
+  { id:'knf',   label:'КНФ',  text:'Включение в Казахстанский национальный лекарственный формуляр', icon:'ri-book-2-line',        tone:['#EEF2FF','#4D42E9'], href: () => 'Заявление КНФ.dc.html' },
+  { id:'price', label:'Цены', text:'Регистрация цены или внесение изменений в цену производителя',   icon:'ri-price-tag-3-line',   tone:['#FEF3EB','#F17B2C'], href: () => 'Заявка на регистрацию цены.dc.html#ls' },
+  { id:'ed',    label:'ЕД',   text:'Включение в перечень закупа у Единого дистрибьютора',             icon:'ri-truck-line',         tone:['#EBFAFF','#35B9E9'], href: () => 'Заявка ЕД.dc.html?new=' + Date.now().toString(36) },
+  { id:'alo',   label:'АЛО',  text:'Включение в перечень амбулаторного лекарственного обеспечения',   icon:'ri-capsule-line',       tone:['#EFFAF6','#38C793'], href: () => 'Заявка ЕД.dc.html?svc=alo&new=' + Date.now().toString(36) },
+];
+
+// Старые значения active со страниц, которые ещё не переименованы
+const ALIAS = { services:'composite', other:'composite', processes:'requests' };
+
+const narrowNow = () => { try { return window.innerWidth < NARROW; } catch(e){ return false; } };
+
 class Component extends DCLogic {
-  state = { role:'applicant', collapsed:null };
+  rootRef = React.createRef();
+  dlgRef = React.createRef();
+
+  constructor(props){
+    super(props);
+    let open = null;
+    try { open = JSON.parse(localStorage.getItem(OPEN_KEY) || 'null'); } catch(e){}
+    open = { services:true, pharma:true, lic:false, ...(open || {}) };
+    // группа с активным пунктом раскрыта при входе на страницу
+    if(this.activeId() === 'composite'){ open.services = true; open.pharma = true; }
+    this.state = { role:'applicant', collapsed:null, open, dlg:false, narrow: narrowNow() };
+  }
+  activeId(){ const a = (this.props || {}).active; return ALIAS[a] || a; }
+
   componentDidMount(){
     try { const r = localStorage.getItem('mp-biz-role'); if(r) this.setState({ role:r }); } catch(e){}
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-biz-role-change', this._onRole);
+    this._onDirs = () => this.openDlg();
+    window.addEventListener('mp-biz-directions', this._onDirs);
+    this._onResize = () => { const n = narrowNow(); if(n !== this.state.narrow) this.setState({ narrow:n, collapsed:null }); };
+    window.addEventListener('resize', this._onResize);
+    this._onEsc = (e) => { if(e.key === 'Escape' && !e.defaultPrevented && !this.state.dlg && this.state.narrow && this.isExpanded()) this.setState({ collapsed:true }); };
+    window.addEventListener('keydown', this._onEsc);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-biz-role-change', this._onRole); }
-  renderVals(){
-    const s = this.state, p = this.props || {};
-    const collapsed = s.collapsed === null ? p.collapsed === '1' : s.collapsed;
-    const expanded = !collapsed;
-    const isAdmin = s.role === 'admin';
+  componentWillUnmount(){
+    window.removeEventListener('mp-biz-role-change', this._onRole);
+    window.removeEventListener('mp-biz-directions', this._onDirs);
+    window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('keydown', this._onEsc);
+    this.raise(false);
+  }
 
+  isExpanded(){
+    const s = this.state, p = this.props || {};
+    // узкий экран — по умолчанию свёрнуто; иначе — как задала страница
+    const def = s.narrow ? true : p.collapsed === '1';
+    return !(s.collapsed === null ? def : s.collapsed);
+  }
+  setOpen(patch){
+    const open = { ...this.state.open, ...patch };
+    this.setState({ open });
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch(e){}
+  }
+
+  // Меню живёт в «липкой» обёртке страницы (z-index ниже шапки) — на время окна поднимаем её,
+  // чтобы затемнение легло и на шапку
+  raise(on){
+    let el = this.rootRef.current && this.rootRef.current.parentElement;
+    while(el && el !== document.body){
+      if(on){ if(el.style.zIndex){ el.dataset.bnZ = el.style.zIndex; el.style.zIndex = '90'; } }
+      else if(el.dataset.bnZ){ el.style.zIndex = el.dataset.bnZ; delete el.dataset.bnZ; }
+      el = el.parentElement;
+    }
+    try { document.documentElement.style.overflow = on ? 'hidden' : ''; } catch(e){}
+  }
+  openDlg(e){
+    const t = e && e.target && e.target.closest ? e.target.closest('button,a') : null;
+    this._opener = (e && e.currentTarget && e.currentTarget.focus ? e.currentTarget : null) || t || document.activeElement;
+    this.setState({ dlg:true });
+    this.raise(true);
+    setTimeout(() => { const d = this.dlgRef.current; if(!d) return; const first = d.querySelector('.bn-dir'); (first || d).focus({ preventScroll:true }); }, 30);
+  }
+  closeDlg(){
+    this.setState({ dlg:false });
+    this.raise(false);
+    const o = this._opener; this._opener = null;
+    if(o && o.focus && document.contains(o)) setTimeout(() => o.focus({ preventScroll:true }), 0);
+  }
+  onDlgKey(e){
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.closeDlg(); return; }
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      const d = this.dlgRef.current; if(!d) return;
+      const list = [...d.querySelectorAll('.bn-dir')], i = list.indexOf(document.activeElement);
+      if(!list.length) return;
+      e.preventDefault();
+      list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length].focus();
+      return;
+    }
+    if(e.key !== 'Tab') return;
+    // фокус не уходит из окна
+    const d = this.dlgRef.current; if(!d) return;
+    const f = [...d.querySelectorAll('button,a[href]')];
+    if(!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+
+  renderVals(){
+    const s = this.state;
+    const expanded = this.isExpanded();
+    const active = this.activeId();
+    const isAdmin = s.role === 'admin';
+    const overlay = s.narrow && expanded;
+
+    // ── «Услуги» ──
+    const cats = CATS.map(c => {
+      const open = !!s.open[c.id];
+      const items = c.items.map(([name, ref]) => {
+        if(ref === 'dlg'){
+          const on = active === 'composite';
+          return { label:name, isDlg:true, isExt:false, on, cur: on ? 'page' : 'false', onOpen: (e) => this.openDlg(e) };
+        }
+        const ext = /^https?:/.test(ref);
+        const site = ext ? '«Е-лицензирование»' : 'eGov.kz';
+        // последнее слово и ↗ не разрываются переносом
+        const cut = name.lastIndexOf(' ');
+        return { isDlg:false, isExt:true, href: ext ? ref : EGOV + ref,
+          head: cut > 0 ? name.slice(0, cut + 1) : '', tail: cut > 0 ? name.slice(cut + 1) : name,
+          hint:'Откроется на ' + site + ' в новой вкладке', aria: name + ' — откроется на ' + site + ' в новой вкладке' };
+      });
+      const hasActive = c.id === 'pharma' && active === 'composite';
+      return { id:c.id, label:c.label, open, listId:'bn-cat-' + c.id, items,
+        hasActive: hasActive && !open, toggle: () => this.setOpen({ [c.id]: !open }) };
+    });
+    const inServices = active === 'composite';
+    const servicesOpen = !!s.open.services;
+
+    // ── остальные пункты ──
     const applicant = [
-      { id:'home', label:'Главная', icon:'ri-home-4-line', href:'Кабинет бизнеса.dc.html' },
-      { id:'contracts', label:'Договора', icon:'ri-file-text-line', href:'Договора.dc.html' },
+      { id:'requests', label:'Мои заявки', icon:'ri-file-list-3-line', href:'Мои заявки.dc.html' },
+      { id:'contracts', label:'Договоры', icon:'ri-file-text-line', href:'Договора.dc.html' },
       { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html' },
-      { id:'services', label:'Услуги', icon:'ri-file-copy-line', href:'Услуги.dc.html' },
-      // ЕД не входит в композитную услугу ЛС / МИ — отдельный реестр (UC01.13 §1)
-      { id:'other', label:'Прочие услуги', icon:'ri-apps-2-line', href:'Прочие услуги.dc.html' },
-      { id:'processes', label:'Мои процессы', icon:'ri-file-list-line', href:'Мои процессы.dc.html', badge:'2' },
     ];
     // Роль администратора — надстройка, а не отдельный кабинет: тот же сотрудник ведёт
     // справочники организации и подаёт заявки. Поэтому разделы заявителя остаются на месте,
     // а «Администрирование» добавляется отдельной группой — и ни одна страница кабинета
     // не оказывается открытой при меню, в котором её нет.
-    // Модули администратора: учётные записи и полномочия, реестр организаций,
-    // рабочий календарь для таймеров КНФ и ЕД.
     const admin = [
       { id:'users', label:'Пользователи', icon:'ri-user-settings-line', href:'Пользователи.dc.html', group:'Администрирование' },
       { id:'orgs', label:'Организации', icon:'ri-building-2-line', href:'Организации.dc.html' },
       { id:'calendar', label:'Рабочий календарь', icon:'ri-calendar-schedule-line', href:'Рабочий календарь.dc.html' },
     ];
-    const data = applicant.concat(isAdmin ? admin : []);
-    const items = data.map(it => {
-      const on = p.active === it.id;
-      return { ...it,
+    const l1Style = expanded ? 'width:100%;height:40px;padding:8px 12px;flex:0 0 auto;' : 'width:36px;height:36px;padding:0;justify-content:center;flex:0 0 auto;';
+    const items = applicant.concat(isAdmin ? admin : []).map(it => {
+      const on = active === it.id;
+      return { ...it, on, cur: on ? 'page' : 'false',
         showLabel: expanded,
-        showBadge: expanded && !!it.badge,
         group: it.group || '',
         hasGroupLabel: expanded && !!it.group,
         hasGroupRule: !expanded && !!it.group,
-        // Договора / Платежи / Услуги ещё переносятся из Figma — ссылки-заглушки не уводят со страницы
-        onClick: (e) => { if(it.href === '#' && e && e.preventDefault) e.preventDefault(); },
-        style: `display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;transition:background .15s,color .15s;box-sizing:border-box;${expanded ? 'width:100%;height:40px;padding:8px 12px;' : 'width:36px;height:36px;padding:0;justify-content:center;'}${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:transparent;color:#525866;'}`,
+        railTitle: expanded ? '' : it.label,
+        style: l1Style,
       };
     });
 
+    const W = expanded ? 272 : 80;
+    const panel = `width:${W}px;height:100%;background:#fff;border-right:1px solid #E2E4E9;box-shadow:${overlay ? '8px 0 24px -8px rgba(10,13,20,.16)' : '2px 4px 12px rgba(10,13,20,.02)'};display:flex;flex-direction:column;font-family:'Inter',sans-serif;box-sizing:border-box;overflow:hidden;transition:width .2s ease;`;
+
     return {
-      expanded, items,
+      rootRef: this.rootRef, dlgRef: this.dlgRef,
+      expanded, cats, items, l1Style,
       caption: 'Кабинет бизнеса',
-      toggle: () => this.setState({ collapsed: !collapsed }),
+      homeOn: active === 'home', homeCur: active === 'home' ? 'page' : 'false',
+      railTitleHome: expanded ? '' : 'Главная',
+      railTitleServices: expanded ? '' : 'Услуги',
+      railTitleLogout: expanded ? '' : 'Выйти',
+      // свёрнутое меню: «Услуги» разворачивает его сразу с открытой группой
+      toggleServices: () => {
+        if(!expanded){ this.setState({ collapsed:false }); if(!servicesOpen) this.setOpen({ services:true }); return; }
+        this.setOpen({ services: !servicesOpen });
+      },
+      servicesExpanded: expanded ? servicesOpen : false,
+      showServices: expanded && servicesOpen,
+      servicesIn: expanded && inServices && !servicesOpen,
+      servicesRailOn: !expanded && inServices,
+      toggle: () => this.setState({ collapsed: expanded }),
+      collapse: () => this.setState({ collapsed:true }),
+      overlayOpen: overlay,
       toggleTitle: expanded ? 'Свернуть меню' : 'Развернуть меню',
       logout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-biz-role'); } catch(e){} },
-      rootStyle: `width:${expanded ? 272 : 80}px;height:100%;min-height:100%;background:#fff;border-right:1px solid #E2E4E9;box-shadow:2px 4px 12px rgba(10,13,20,.02);display:flex;flex-direction:column;font-family:'Inter',sans-serif;transition:width .2s ease;box-sizing:border-box;overflow:hidden;`,
-      topStyle: expanded ? 'display:flex;align-items:center;gap:8px;padding:16px 20px 0 32px;' : 'display:flex;justify-content:center;padding:16px 0 0;',
-      listStyle: `display:flex;flex-direction:column;gap:4px;${expanded ? 'padding:12px 20px 16px;' : 'padding:12px 8px 16px;align-items:center;'}`,
-      footStyle: expanded ? 'padding:16px 20px;border-top:1px solid #E2E4E9;' : 'padding:16px 8px;border-top:1px solid #E2E4E9;display:flex;justify-content:center;',
-      logoutStyle: `display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;color:#525866;box-sizing:border-box;${expanded ? 'height:40px;padding:8px 12px;' : 'width:36px;height:36px;justify-content:center;'}`,
+      // на узком экране место в раскладке — всегда 80px, развёрнутая панель ложится поверх
+      rootStyle: `position:relative;width:${s.narrow ? 80 : W}px;height:100%;min-height:100%;flex:0 0 auto;transition:width .2s ease;`,
+      panelStyle: overlay ? panel + 'position:absolute;left:0;top:0;z-index:2;animation:bn-slide .18s ease;' : panel + 'position:relative;',
+      topStyle: expanded ? 'display:flex;align-items:center;gap:8px;padding:16px 20px 0 32px;flex:0 0 auto;' : 'display:flex;justify-content:center;padding:16px 0 0;flex:0 0 auto;',
+      listStyle: `flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:4px;${expanded ? 'padding:12px 20px 16px;' : 'padding:12px 8px 16px;align-items:center;'}`,
+      footStyle: expanded ? 'padding:16px 20px;border-top:1px solid #E2E4E9;flex:0 0 auto;' : 'padding:16px 8px;border-top:1px solid #E2E4E9;display:flex;justify-content:center;flex:0 0 auto;',
+
+      dlg: s.dlg,
+      closeDlg: () => this.closeDlg(),
+      onDlgKey: (e) => this.onDlgKey(e),
+      dirs: DIRS.map(d => ({ label:d.label, text:d.text, icon:d.icon, href: d.href(),
+        // адрес ЕД / АЛО с меткой новой заявки — на момент нажатия
+        onGo: (e) => { if(e && e.preventDefault) e.preventDefault(); this.raise(false); location.href = d.href(); },
+        tile:`width:44px;height:44px;border-radius:12px;background:${d.tone[0]};display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
+        iconStyle:`font-size:22px;color:${d.tone[1]};` })),
     };
   }
 }

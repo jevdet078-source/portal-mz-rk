@@ -135,8 +135,8 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
           <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
             <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);">
-              <i class="ri-apps-2-line" style="font-size:18px;"></i>
-              <a class="crumb" href="Прочие услуги.dc.html" onClick="{{ onCrumb }}">Прочие услуги</a>
+              <i class="ri-file-list-3-line" style="font-size:18px;"></i>
+              <a class="crumb" href="Мои заявки.dc.html" onClick="{{ onCrumb }}">Мои заявки</a>
               <i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
               <span aria-current="page" style="color:var(--n900);">{{ crumb }}</span>
             </nav>
@@ -699,13 +699,13 @@ class Component extends DCLogic {
     ED.put(app);
     ED.session.clear();
     this._leaving = true;
-    location.href = 'Прочие услуги.dc.html?draft=' + app.num;
+    location.href = 'Мои заявки.dc.html?draft=' + app.num;
   }
   requestLeave(to){
     if(this.isDirty()){ this.setState({ leave:true, leaveTo:to }); return; }
     this._leaving = true; window.mpEd.session.clear(); location.href = to;
   }
-  leaveNow(){ this._leaving = true; window.mpEd.session.clear(); location.href = this.state.leaveTo || 'Прочие услуги.dc.html'; }
+  leaveNow(){ this._leaving = true; window.mpEd.session.clear(); location.href = this.state.leaveTo || 'Мои заявки.dc.html'; }
 
   // ───────── отправка ─────────
   submit(d){
@@ -717,7 +717,7 @@ class Component extends DCLogic {
       ED.apply(app.num, 'submit', { signer:d.signer }, d.at || Date.now());
       ED.session.clear();
       this._leaving = true;
-      location.href = 'Прочие услуги.dc.html?sent=' + app.num;
+      location.href = 'Мои заявки.dc.html?sent=' + app.num;
     }, 900);
   }
 
@@ -1028,7 +1028,7 @@ class Component extends DCLogic {
     return {
       ...common,
       loading:false, notReady:false,
-      onCrumb: (e) => { if(this.isDirty()){ if(e && e.preventDefault) e.preventDefault(); this.requestLeave('Прочие услуги.dc.html'); } else { this._leaving = true; ED.session.clear(); } },
+      onCrumb: (e) => { if(this.isDirty()){ if(e && e.preventDefault) e.preventDefault(); this.requestLeave('Мои заявки.dc.html'); } else { this._leaving = true; ED.session.clear(); } },
       crumb: 'Заявка ' + S.short + ' № ' + app.num,
       title: (app.saved ? 'Черновик заявки ' : 'Новая заявка ') + S.short + ' № ' + app.num,
       saveNote: dirty ? 'Есть несохранённые изменения' : lastSaved ? 'Сохранено ' + lastSaved : 'Черновик ещё не сохранён',
@@ -1045,7 +1045,7 @@ class Component extends DCLogic {
       nextLabel: step === 3 ? 'Подписать и отправить' : 'Далее',
       next: () => this.next(),
       back: () => this.go(step - 1),
-      cancel: () => this.requestLeave('Прочие услуги.dc.html'),
+      cancel: () => this.requestLeave('Мои заявки.dc.html'),
       saveDraft: () => this.saveDraft(),
 
       // оферта
