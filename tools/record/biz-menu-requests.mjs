@@ -189,7 +189,7 @@ export default async function record(ctx) {
     await say('Черновик', '«Продолжить заполнение» и «Удалить» с подтверждением', 3600);
     await page.keyboard.press('Escape');
     await sleep(400);
-    await click('', 'button[aria-label="Действия с заявкой № 4096862"]');
+    await click('', 'button[aria-label="Действия с заявкой № 0000126"]');
     await sleep(800);
     await say('Поданная заявка', '«Открыть карточку»; номер заявки в таблице — тоже ссылка на карточку', 3800);
     await page.keyboard.press('Escape');
