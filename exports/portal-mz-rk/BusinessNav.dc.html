@@ -18,10 +18,14 @@
   Логотип «Единое окно МЗ РК» из шапки сайдбара убран — бренд теперь в Header портала.
 
   Постановка «Обновление меню кабинета бизнеса и раздела „Мои заявки“» (29.10.2026), п. 1:
-  Главная · Услуги · Мои заявки · Договоры · Платежи. Все пункты — обычные ссылки без вложенных меню.
-  Замечание 29.10.2026: категории услуг в меню давали длинную прокрутку и многострочные названия —
-  «Услуги» теперь открывают страницу каталога (Услуги.dc.html) по аналогии с «Государственными услугами»;
-  окно выбора вида композитной услуги живёт там (компонент ServiceKinds).
+  Главная · Услуги · Мои заявки · Договоры · Платежи.
+  Замечания аналитика 29–30.10.2026: перечень услуг в меню не выводим (длинные названия, прокрутка);
+  «Услуги» — раскрывающийся раздел с двумя подразделами «Фармацевтика» и «Лицензирование и аккредитация».
+  Подраздел открывает Услуги.dc.html?cat=<pharma|lic> — справа только услуги этого подраздела.
+  На самой странице «Услуги» подразделы переключаются без перезагрузки: адрес меняется (pushState),
+  странице уходит событие window 'mp-biz-svc-cat' (detail — pharma | lic).
+  Раскрыт ли раздел — localStorage['mp-biz-nav-services']; на страницах услуг (каталог, паспорта, мастера)
+  раскрыт всегда, подсвечен подраздел. В свёрнутом меню «Услуги» разворачивают его с открытым разделом.
   Экран уже 1200px: меню по умолчанию свёрнуто, развёрнутое ложится поверх страницы (фон затемняется).
 
   Пропсы:
@@ -46,6 +50,14 @@
   .bn-it:hover{background:var(--n100);color:var(--n900);}
   .bn-it[data-on="true"],.bn-it[data-on="true"]:hover{background:var(--primary-lighter);color:var(--primary);}
   .bn-it:focus-visible,.bn-tg:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  /* родитель свёрнутого раздела, внутри которого открыта страница */
+  .bn-it[data-in="true"],.bn-it[data-in="true"]:hover{color:var(--primary);}
+  .bn-chev{font-size:18px;color:var(--n400);flex:0 0 auto;transition:transform .18s ease,color .15s;}
+  .bn-it:hover .bn-chev{color:var(--n500);}
+  .bn-it[aria-expanded="false"] .bn-chev{transform:rotate(-90deg);}
+  .bn-subs{display:flex;flex-direction:column;gap:2px;}
+  /* подраздел: текст — по линии подписи пунктов, длинное название переносится */
+  .bn-sub{width:100%;min-height:36px;padding:8px 12px 8px 40px;white-space:normal;}
   .bn-tg{transition:background .15s,color .15s;}
   .bn-tg:hover{background:var(--n100);color:var(--n900);}
   @media (prefers-reduced-motion:reduce){ .bn-panel{animation:none !important;} }
@@ -68,10 +80,29 @@
         <sc-if value="{{ it.hasGroupRule }}" hint-placeholder-val="{{ false }}">
           <div title="{{ it.group }}" style="width:24px;height:1px;background:var(--stroke);margin:10px 0;"></div>
         </sc-if>
-        <a class="bn-it" href="{{ it.href }}" data-on="{{ it.on }}" aria-current="{{ it.cur }}" title="{{ it.railTitle }}" style="{{ it.style }}">
-          <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
-          <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span></sc-if>
-        </a>
+        <sc-if value="{{ it.isLink }}" hint-placeholder-val="{{ true }}">
+          <a class="bn-it" href="{{ it.href }}" data-on="{{ it.on }}" aria-current="{{ it.cur }}" title="{{ it.railTitle }}" style="{{ it.style }}">
+            <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
+            <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}"><span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span></sc-if>
+          </a>
+        </sc-if>
+        <!-- «Услуги» — раскрывающийся раздел с двумя подразделами -->
+        <sc-if value="{{ it.isGroup }}" hint-placeholder-val="{{ false }}">
+          <button class="bn-it" type="button" onClick="{{ it.onToggle }}" aria-expanded="{{ it.open }}" aria-controls="bn-subs" data-on="{{ it.on }}" data-in="{{ it.inside }}" title="{{ it.railTitle }}" style="{{ it.style }}">
+            <i class="{{ it.icon }}" style="font-size:20px;flex:0 0 auto;"></i>
+            <sc-if value="{{ it.showLabel }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;min-width:0;white-space:nowrap;">{{ it.label }}</span>
+              <i class="ri-arrow-down-s-line bn-chev" aria-hidden="true"></i>
+            </sc-if>
+          </button>
+          <sc-if value="{{ it.showSubs }}" hint-placeholder-val="{{ true }}">
+            <div id="bn-subs" class="bn-subs" role="group" aria-label="{{ it.label }}">
+              <sc-for list="{{ it.subs }}" as="sb" hint-placeholder-count="2">
+                <a class="bn-it bn-sub" href="{{ sb.href }}" onClick="{{ sb.onClick }}" data-on="{{ sb.on }}" aria-current="{{ sb.cur }}">{{ sb.label }}</a>
+              </sc-for>
+            </div>
+          </sc-if>
+        </sc-if>
       </sc-for>
     </div>
 
@@ -94,9 +125,39 @@ const NARROW = 1200;
 // Старые значения active со страниц мастеров, паспортов и прежних реестров
 const ALIAS = { composite:'services', other:'services', processes:'requests' };
 const narrowNow = () => { try { return window.innerWidth < NARROW; } catch(e){ return false; } };
+const OPEN_KEY = 'mp-biz-nav-services';
+const SVC_PAGE = 'Услуги.dc.html';
+// подразделы «Услуг» — замечание аналитика 30.10.2026
+const SUBS = [ { id:'pharma', label:'Фармацевтика' }, { id:'lic', label:'Лицензирование и аккредитация' } ];
+const onSvcPage = () => { try { return decodeURIComponent(location.pathname).endsWith('/' + SVC_PAGE); } catch(e){ return false; } };
+const urlCat = () => { try { return new URLSearchParams(location.search).get('cat') === 'lic' ? 'lic' : 'pharma'; } catch(e){ return 'pharma'; } };
 
 class Component extends DCLogic {
-  state = { role:'applicant', collapsed:null, narrow: narrowNow() };
+  constructor(props){
+    super(props);
+    const p = props || {};
+    let open = false;
+    try { open = localStorage.getItem(OPEN_KEY) === '1'; } catch(e){}
+    // на страницах услуг (каталог, паспорта, мастера) раздел раскрыт всегда
+    if((ALIAS[p.active] || p.active) === 'services') open = true;
+    // паспорта и мастера композитной услуги — это «Фармацевтика»
+    this.state = { role:'applicant', collapsed:null, narrow: narrowNow(), open, cat: onSvcPage() ? urlCat() : 'pharma' };
+  }
+  setOpen(open){
+    this.setState({ open });
+    try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch(e){}
+  }
+  // подраздел на самой странице «Услуги» — без перезагрузки: адрес меняется, странице уходит событие
+  pickSub(e, id){
+    if(!onSvcPage()) return;
+    if(e && e.preventDefault) e.preventDefault();
+    if(this.state.cat !== id){
+      try { history.pushState(null, '', location.pathname + '?cat=' + id); } catch(err){}
+      this.setState({ cat:id });
+      window.dispatchEvent(new CustomEvent('mp-biz-svc-cat', { detail:id }));
+    }
+    if(this.state.narrow) this.setState({ collapsed:true });
+  }
 
   componentDidMount(){
     try { const r = localStorage.getItem('mp-biz-role'); if(r) this.setState({ role:r }); } catch(e){}
@@ -106,11 +167,15 @@ class Component extends DCLogic {
     window.addEventListener('resize', this._onResize);
     this._onEsc = (e) => { if(e.key === 'Escape' && !e.defaultPrevented && !document.body.hasAttribute('data-mp-modal') && this.state.narrow && this.isExpanded()) this.setState({ collapsed:true }); };
     window.addEventListener('keydown', this._onEsc);
+    // «Назад» / «Вперёд» браузера на странице «Услуги»
+    this._onPop = () => { if(onSvcPage()) this.setState({ cat: urlCat() }); };
+    window.addEventListener('popstate', this._onPop);
   }
   componentWillUnmount(){
     window.removeEventListener('mp-biz-role-change', this._onRole);
     window.removeEventListener('resize', this._onResize);
     window.removeEventListener('keydown', this._onEsc);
+    window.removeEventListener('popstate', this._onPop);
   }
   isExpanded(){
     const s = this.state, p = this.props || {};
@@ -128,7 +193,7 @@ class Component extends DCLogic {
     // Постановка 29.10.2026, п. 1 — порядок пунктов
     const applicant = [
       { id:'home', label:'Главная', icon:'ri-home-4-line', href:'Кабинет бизнеса.dc.html' },
-      { id:'services', label:'Услуги', icon:'ri-apps-2-line', href:'Услуги.dc.html' },
+      { id:'services', label:'Услуги', icon:'ri-apps-2-line', subs:SUBS },
       { id:'requests', label:'Мои заявки', icon:'ri-file-list-3-line', href:'Мои заявки.dc.html' },
       { id:'contracts', label:'Договоры', icon:'ri-file-text-line', href:'Договора.dc.html' },
       { id:'payments', label:'Платежи', icon:'ri-bank-card-line', href:'Платежи.dc.html' },
@@ -145,10 +210,23 @@ class Component extends DCLogic {
     const l1Style = expanded ? 'width:100%;height:40px;padding:8px 12px;flex:0 0 auto;' : 'width:36px;height:36px;padding:0;justify-content:center;flex:0 0 auto;';
     const items = applicant.concat(s.role === 'admin' ? admin : []).map(it => {
       const on = active === it.id;
-      return { ...it, on, cur: on ? 'page' : 'false',
+      const base = { ...it, cur: on ? 'page' : 'false',
         showLabel: expanded, group: it.group || '',
         hasGroupLabel: expanded && !!it.group, hasGroupRule: !expanded && !!it.group,
-        railTitle: expanded ? '' : it.label, style: l1Style };
+        railTitle: expanded ? '' : it.label, style: l1Style, isLink: !it.subs, isGroup: !!it.subs };
+      if(!it.subs) return { ...base, on };
+      // «Услуги»: в развёрнутом меню — раздел с подразделами (подсвечен подраздел, а не раздел),
+      // в свёрнутом — иконка, которая разворачивает меню сразу с открытым разделом
+      const open = expanded && s.open;
+      return { ...base, open, on: !expanded && on, inside: expanded && on && !s.open, showSubs: open,
+        onToggle: () => {
+          if(!expanded){ this.setState({ collapsed:false }); if(!s.open) this.setOpen(true); return; }
+          this.setOpen(!s.open);
+        },
+        subs: it.subs.map(sb => {
+          const son = on && s.cat === sb.id;
+          return { label:sb.label, href: SVC_PAGE + '?cat=' + sb.id, on: son, cur: son ? 'page' : 'false', onClick: (e) => this.pickSub(e, sb.id) };
+        }) };
     });
 
     const W = expanded ? 272 : 80;
