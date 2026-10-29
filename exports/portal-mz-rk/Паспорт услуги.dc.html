@@ -481,7 +481,7 @@ class Component extends DCLogic {
       appBadge: APP ? `font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;background:${APP[1]};color:${APP[2]};` : '',
       appAt: s.appAt || '—',
       appHref: 'Заявка на регистрацию цены.dc.html#' + (cur.cabinetId || 'ls') + '-result',
-      myAppsHref: 'Услуги.dc.html#' + (cur.cabinetId || 'ls'),
+      myAppsHref: 'Мои заявки.dc.html',
       ctaLabel: business && APP ? 'Подать новую заявку' : 'Получить услугу',
       ctaHintIcon: !business ? 'ri-key-2-line' : preparing ? 'ri-list-check-3' : 'ri-window-line',
       ctaHint: !business ? 'Потребуется вход с ЭЦП организации'

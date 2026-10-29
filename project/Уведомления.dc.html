@@ -231,7 +231,7 @@ class Component extends DCLogic {
       return { ...r,
         unread,
         status: r.ed ? r.edStatus : 'Завершена', rowTip: r.ed ? r.tip : '',
-        href: r.ed ? 'Карточка заявки ЕД.dc.html?n=' + r.appId : 'Услуги.dc.html#ls',
+        href: r.ed ? 'Карточка заявки ЕД.dc.html?n=' + r.appId : 'Мои заявки.dc.html',
         onOpen: open(r.n),
         rowStyle:`display:flex;align-items:center;min-height:56px;border-bottom:1px solid #E2E4E9;text-decoration:none;color:inherit;background:${unread ? '#FBFCFD' : i % 2 ? '#fff' : '#FBFCFD'};`,
         numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:12px 10px;',

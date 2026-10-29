@@ -24,9 +24,9 @@
             (segmented control «Лекарственные средства» / «Медицинские изделия»), под ним виды услуги этого типа —
             ЛС: заключение, регистрация, цена, КНФ, АЛО, ЕД; МИ: заключение, регистрация, цена, АЛО, ЕД
             (замечание 28.10.2026). Смена типа сбрасывает выбранный вид; «Далее» активна только после выбора;
-    п. 4    «Далее» передаёт вид услуги в кабинет бизнеса: Услуги.dc.html?svc=<safety|reg|price|knf>&type=<ls|mi>,
-            кабинет сам открывает сценарий оформления; АЛО и ЕД — сразу паспорт услуги
-            (Паспорт услуги АЛО / ЕД.dc.html?cat=<ls|mi>). Без профиля «Бизнес» — через «Вход» с возвратом.
+    п. 4    окно — общий компонент ServiceKinds (тот же, что в кабинете бизнеса → «Услуги»). «Далее» сначала
+            открывает паспорт услуги (замечание 29.10.2026): цена — Паспорт регистрации цены, АЛО / ЕД — их паспорта;
+            без профиля «Бизнес» — через «Вход» с возвратом в паспорт.
             В блоке «Услуги» слева счётчиков нет (замечание 28.10.2026) — число услуг только у заголовка перечня.
             «Отмена» и крестик закрывают окно, категория и запрос остаются; при новом открытии выбор сброшен.
             Внешние услуги (eGov.kz, «Е-лицензирование») — в новой вкладке; в перечне справа у них
@@ -126,68 +126,8 @@
   .gs-btn:hover{background:var(--n100) !important;color:var(--n600) !important;}
   .gs-link{transition:background .12s,border-color .12s;}
   .gs-link:hover{background:var(--primary-lighter) !important;border-color:var(--primary-light) !important;}
-  .gs-cat:focus-visible,.gs-row:focus-visible,.gs-btn:focus-visible,.gs-link:focus-visible,.gs-back:focus-visible,.gs-crumbs a:focus-visible,.gs-x:focus-visible,.gs-b:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .gs-cat:focus-visible,.gs-row:focus-visible,.gs-btn:focus-visible,.gs-link:focus-visible,.gs-back:focus-visible,.gs-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .gs-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
-
-  /* Окно «Выберите вид услуги» */
-  .gs-ov{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .gs-ov-bg{position:absolute;inset:0;background:rgba(10,13,20,.24);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);animation:gs-fade .15s ease;}
-  .gs-dlg{position:relative;width:100%;max-width:600px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:gs-pop .18s ease;overflow:hidden;}
-  .gs-dlg:focus{outline:none;}
-  .gs-dlg form{display:flex;flex-direction:column;min-height:0;margin:0;}
-  .gs-dlg-h{display:flex;align-items:center;gap:12px;padding:18px 16px 16px 24px;border-bottom:1px solid var(--stroke);flex:0 0 auto;}
-  .gs-dlg-t{flex:1;min-width:0;margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
-  .gs-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
-  .gs-x:hover{background:var(--n100);color:var(--n900);}
-  .gs-dlg-b{overflow-y:auto;padding:16px 24px 20px;overscroll-behavior:contain;}
-  /* при прокрутке списка видов — тени у шапки и подвала окна (видно, что вариантов больше, чем помещается) */
-  .gs-dlg-b{background:linear-gradient(#fff 30%,rgba(255,255,255,0)) top/100% 40px no-repeat local,linear-gradient(rgba(255,255,255,0),#fff 70%) bottom/100% 40px no-repeat local,radial-gradient(farthest-side at 50% 0,rgba(10,13,20,.10),rgba(10,13,20,0)) top/100% 12px no-repeat scroll,radial-gradient(farthest-side at 50% 100%,rgba(10,13,20,.10),rgba(10,13,20,0)) bottom/100% 12px no-repeat scroll;background-color:#fff;}
-  .gs-fs{margin:0;padding:0;border:none;min-width:0;}
-  /* Тип продукции — segmented control (AlignUI: подложка neutral-100, активный сегмент белый с тенью) */
-  .gs-seg-wrap{padding:20px 24px 4px;flex:0 0 auto;}
-  .gs-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:var(--n100);}
-  .gs-seg-b{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;height:40px;padding:0 12px;border:none;border-radius:9px;background:transparent;color:var(--n500);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,box-shadow .15s;}
-  .gs-seg-b i{font-size:18px;color:var(--n400);transition:color .15s;}
-  .gs-seg-b span{overflow:hidden;text-overflow:ellipsis;}
-  .gs-seg-b:hover{color:var(--n900);}
-  .gs-seg-b:hover i{color:var(--n500);}
-  .gs-seg-b[aria-selected="true"]{background:#fff;color:var(--n900);box-shadow:0 1px 2px rgba(10,13,20,.06),0 2px 6px -2px rgba(10,13,20,.08);}
-  .gs-seg-b[aria-selected="true"] i{color:var(--primary);}
-  .gs-seg-b:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);}
-  .gs-seg-b[aria-selected="true"]:focus-visible{box-shadow:0 1px 2px rgba(10,13,20,.06),0 0 0 2px var(--primary-light);}
-  .gs-panels{display:grid;}
-  .gs-panel{grid-area:1/1;min-width:0;}
-  .gs-panel[data-active="true"]{animation:gs-in .16s ease;}
-  .gs-panel[data-active="false"]{visibility:hidden;pointer-events:none;}
-  .gs-dlg form{flex:1 1 auto;}
-  .gs-dlg-b{flex:1 1 auto;}
-  /* невысокий экран (ноутбук): перечень ЛС не помещается — окно на всю доступную высоту для обоих типов,
-     а скрытая панель не занимает место (иначе под коротким перечнем МИ прокручивалась бы пустота) */
-  @media (min-width:720px) and (max-height:920px){
-    .gs-dlg{height:calc(100vh - 48px);}
-    .gs-panel[data-active="false"]{display:none;}
-  }
-  .gs-opts{display:flex;flex-direction:column;gap:8px;}
-  .gs-opt{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid var(--stroke);border-radius:12px;background:#fff;cursor:pointer;transition:border-color .12s,background .12s,box-shadow .12s;}
-  .gs-opt:hover{border-color:var(--n300);background:var(--n50);}
-  .gs-opt[data-on="true"],.gs-opt[data-on="true"]:hover{border-color:var(--primary);background:var(--primary-lighter);box-shadow:0 0 0 1px var(--primary) inset;}
-  .gs-opt input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none;}
-  .gs-opt:has(input:focus-visible){box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
-  .gs-opt[data-on="true"]:has(input:focus-visible){box-shadow:0 0 0 1px var(--primary) inset,0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
-  .gs-dot{width:20px;height:20px;border-radius:50%;flex:0 0 auto;background:#fff;border:1.5px solid var(--n300);transition:border .12s;}
-  .gs-opt:hover .gs-dot{border-color:var(--n400);}
-  .gs-opt[data-on="true"] .gs-dot{border:6px solid var(--primary);}
-  .gs-opt-t{flex:1;min-width:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
-  /* короткое имя услуги: полные наименования АЛО и ЕД совпадают в начале */
-  .gs-tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;margin-right:8px;border-radius:6px;background:#EBFAFF;color:#164564;font-size:12px;line-height:16px;font-weight:600;letter-spacing:.02em;vertical-align:top;}
-  .gs-opt[data-on="true"] .gs-tag{background:#fff;}
-  .gs-dlg-f{display:flex;justify-content:flex-end;gap:12px;padding:16px 24px;border-top:1px solid var(--stroke);flex:0 0 auto;}
-  .gs-b{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
-  .gs-b-sec{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:0 1px 2px rgba(82,88,102,.06);}
-  .gs-b-sec:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
-  .gs-b-pri{min-width:120px;padding:0 12px 0 18px;border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.12);}
-  .gs-b-pri:hover:not([disabled]){background:var(--primary-darker);}
-  .gs-b-pri[disabled]{background:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
 
   /* Большие мониторы 24–27″ — шире колонка и крупнее строки */
   @media (min-width:1600px){
@@ -196,7 +136,6 @@
     .gs-name,.gs-cat-label{font-size:15px !important;line-height:22px;}
     .gs-num{line-height:22px;}
     .gs-side{height:22px;}
-    .gs-dlg{max-width:680px;}
   }
   /* Планшет */
   @media (max-width:1023px){
@@ -238,24 +177,10 @@
     .gs-list{padding:0 6px 10px;}
     .gs-search input{font-size:16px;}
     .gs-kbd{display:none;}
-    /* окно — нижний лист на всю ширину */
-    .gs-ov{align-items:flex-end;padding:0;}
-    .gs-dlg{max-width:none;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);border-radius:20px 20px 0 0;animation:gs-up .2s ease;}
-    .gs-dlg-h{padding:16px 12px 14px 20px;}
-    .gs-dlg-b{padding:16px 20px 20px;}
-    .gs-seg-wrap{padding:16px 20px 4px;}
-    .gs-seg-b{height:auto;min-height:48px;padding:6px 8px;font-size:13.5px;line-height:18px;white-space:normal;text-align:center;}
-    .gs-seg-b span{overflow:visible;}
-    .gs-seg-b i{display:none;}
-    /* на телефоне окно и так во всю высоту — скрытая панель не нужна для выравнивания */
-    .gs-panel[data-active="false"]{display:none;}
-    .gs-opt{padding:14px;}
-    .gs-dlg-f{display:grid;grid-template-columns:1fr 1fr;padding:12px 20px calc(16px + env(safe-area-inset-bottom));}
-    .gs-b-pri{min-width:0;}
   }
   @media (hover:none){ .gs-kbd{display:none;} }
   @media (prefers-reduced-motion:reduce){
-    .gs-list,.gs-dlg,.gs-ov-bg,.gs-panel[data-active="true"]{animation:none;}
+    .gs-list{animation:none;}
     html{scroll-behavior:auto !important;}
   }
 </style>
@@ -380,60 +305,14 @@
   <div style="margin-top:24px;"><dc-import name="Footer" hint-size="100%,360px"></dc-import></div>
   <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
 
-  <!-- Окно «Выберите вид услуги» (композитная услуга «Единого окна») -->
-  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
-    <div class="gs-ov">
-      <div class="gs-ov-bg" onClick="{{ closeDlg }}"></div>
-      <div class="gs-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="gs-dlg-t" tabIndex="-1" onKeyDown="{{ onDlgKey }}">
-        <form onSubmit="{{ goNext }}" novalidate>
-          <div class="gs-dlg-h">
-            <h2 id="gs-dlg-t" class="gs-dlg-t">Выберите вид услуги</h2>
-            <button type="button" class="gs-x" onClick="{{ closeDlg }}" aria-label="Закрыть"><i class="ri-close-line" style="font-size:22px;"></i></button>
-          </div>
-          <!-- Тип продукции: от него зависит перечень видов услуги ниже -->
-          <div class="gs-seg-wrap">
-            <div class="gs-seg" role="tablist" aria-label="Тип продукции" onKeyDown="{{ onSegKey }}">
-              <sc-for list="{{ segs }}" as="sg" hint-placeholder-count="2">
-                <button type="button" class="gs-seg-b" role="tab" id="{{ sg.tabId }}" aria-selected="{{ sg.selected }}" aria-controls="{{ sg.panelId }}" tabIndex="{{ sg.tabIndex }}" onClick="{{ sg.onPick }}"><i class="{{ sg.icon }}" aria-hidden="true"></i><span>{{ sg.label }}</span></button>
-              </sc-for>
-            </div>
-          </div>
-          <div class="gs-dlg-b">
-            <!-- Обе панели в одной ячейке сетки: высота окна не прыгает при переключении -->
-            <div class="gs-panels">
-              <sc-for list="{{ segs }}" as="sg" hint-placeholder-count="2">
-                <div class="gs-panel" role="tabpanel" id="{{ sg.panelId }}" aria-labelledby="{{ sg.tabId }}" data-active="{{ sg.selected }}" aria-hidden="{{ sg.hidden }}">
-                  <fieldset class="gs-fs">
-                    <legend class="gs-sr">{{ sg.legend }}</legend>
-                    <div class="gs-opts">
-                      <sc-for list="{{ sg.kinds }}" as="k" hint-placeholder-count="6">
-                        <label class="gs-opt" data-on="{{ k.on }}">
-                          <input type="radio" name="{{ sg.radioName }}" value="{{ k.id }}" checked="{{ k.checked }}" onChange="{{ k.onPick }}">
-                          <span class="gs-dot" aria-hidden="true"></span>
-                          <span class="gs-opt-t"><sc-if value="{{ k.hasTag }}" hint-placeholder-val="{{ false }}"><span class="gs-tag" title="{{ k.tagHint }}">{{ k.tag }}</span></sc-if>{{ k.label }}</span>
-                        </label>
-                      </sc-for>
-                    </div>
-                  </fieldset>
-                </div>
-              </sc-for>
-            </div>
-          </div>
-          <div class="gs-dlg-f">
-            <button type="button" class="gs-b gs-b-sec" onClick="{{ closeDlg }}">Отмена</button>
-            <button type="submit" class="gs-b gs-b-pri" disabled="{{ nextDisabled }}">Далее<i class="ri-arrow-right-s-line" style="font-size:20px;"></i></button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </sc-if>
+  <!-- Окно «Выберите вид услуги» — общий компонент (тот же, что в кабинете бизнеса) -->
+  <dc-import name="ServiceKinds" hint-size="1px,1px"></dc-import>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900}}">
 const HOME = 'Портал Минздрава - Главная.dc.html';
 const EGOV = 'https://egov.kz/ru/services/presale/';
 const ELICENSE = 'https://elicense.kz/';
-const CABINET = 'Услуги.dc.html';   // кабинет бизнеса → «Услуги»: по ?svc= открывает сценарий оформления
 const PAGE = 'Государственные услуги.dc.html';
 
 // Источник — постановка «Анализ ГУ МЗ»: наименования и ссылки один в один.
@@ -487,37 +366,6 @@ const CATS = [
 // «Все услуги» — весь каталог раздела (постановка 28.10.2026, п. 1–2)
 const ALL = { id:'all', label:'Все услуги', icon:'ri-apps-2-line', tone:['#F6F8FA','#525866'] };
 
-// Постановка 28.10.2026, п. 3: виды композитной услуги. Сначала тип продукции (segmented control
-// «Лекарственные средства» / «Медицинские изделия»), под ним — виды услуги этого типа.
-// Состав МИ — как в кабинете бизнеса (Услуги.dc.html, вкладка МИ); экспертиза КНФ — только для ЛС.
-// Профессиональные экспертизы АЛО (UC01.14) и ЕД (UC01.13) — и для ЛС, и для МИ: есть в обоих типах,
-// «Далее» ведёт в паспорт услуги с выбранной категорией (?cat=ls|mi — мастер заявки подставит её сам).
-// Наименования АЛО и ЕД — EdData.dc.html (SERVICE_ALO, SERVICE), один в один.
-const ALO = { id:'alo', tag:'АЛО', tagHint:'Амбулаторное лекарственное обеспечение', passport:'Паспорт услуги АЛО.dc.html',
-  label:'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий для бесплатного и (или) льготного амбулаторного обеспечения отдельных категорий граждан Республики Казахстан с определенными заболеваниями (состояниями)' };
-const ED = { id:'ed', tag:'ЕД', tagHint:'Единый дистрибьютор', passport:'Паспорт услуги ЕД.dc.html',
-  label:'Проведение профессиональной экспертизы на лекарственные средства или медицинские изделия для включения в перечень лекарственных средств и медицинских изделий, закупаемых у единого дистрибьютора' };
-const SEGS = [
-  { id:'ls', label:'Лекарственные средства', icon:'ri-capsule-line', kinds:[
-    { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности лекарственных средств' },
-    { id:'reg',    label:'Государственная регистрация, перерегистрация лекарственного средства, внесение изменений в регистрационное досье лекарственного средства' },
-    { id:'price',  label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя лекарственного средства' },
-    { id:'knf',    label:'Проведение профессиональной экспертизы для включения в Казахстанский национальный лекарственный формуляр' },
-    ALO, ED,
-  ] },
-  { id:'mi', label:'Медицинские изделия', icon:'ri-stethoscope-line', kinds:[
-    { id:'safety', label:'Выдача заключения о безопасности, качестве и эффективности медицинских изделий' },
-    { id:'reg',    label:'Государственная регистрация, перерегистрация медицинского изделия, внесение изменений в регистрационное досье медицинского изделия' },
-    { id:'price',  label:'Регистрация цены или внесение изменений в зарегистрированную цену производителя медицинского изделия' },
-    ALO, ED,
-  ] },
-];
-// Куда ведёт «Далее»: АЛО / ЕД — паспорт услуги, остальное — кабинет бизнеса (Услуги.dc.html?svc=<id>&type=<ls|mi>)
-const kindHref = (seg, id) => {
-  const k = (SEGS.find(x => x.id === seg) || SEGS[0]).kinds.find(x => x.id === id);
-  return k && k.passport ? k.passport + '?cat=' + seg : CABINET + '?svc=' + id + '&type=' + seg;
-};
-
 // Тип пользователя → доступные категории. «Медперсоналу» раздела нет — такой адрес уводит на главную
 const AUD = {
   citizens: { label:'Гражданам', for:'Для граждан', icon:'ri-user-3-line', cats:['med'],
@@ -562,7 +410,6 @@ class Component extends DCLogic {
   inputRef = React.createRef();
   listRef = React.createRef();
   catsRef = React.createRef();
-  dlgRef = React.createRef();
 
   constructor(props){
     super(props);
@@ -579,7 +426,7 @@ class Component extends DCLogic {
     // У «Медперсоналу» раздела нет: старые ссылки и закладки ведут на главную раздела
     if(medical) try { location.replace(HOME); } catch(e){}
     this._syncRole = fromUrl;
-    this.state = { role, cat, q, live:'', dlg:false, seg:'ls', kind:null };
+    this.state = { role, cat, q, live:'' };
   }
 
   componentDidMount(){
@@ -598,7 +445,7 @@ class Component extends DCLogic {
 
     // «/» — к поиску (как на большинстве сервисов), если фокус не в поле ввода и окно закрыто
     this._onKey = (e) => {
-      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || this.state.dlg) return;
+      if(e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || document.body.hasAttribute('data-mp-modal')) return;
       const t = e.target, tag = t && t.tagName;
       if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
       e.preventDefault(); this.focusSearch(true);
@@ -634,7 +481,6 @@ class Component extends DCLogic {
     window.removeEventListener('resize', this._measure);
     window.removeEventListener('scroll', this._onScroll);
     if(this._ro) this._ro.disconnect();
-    this.unlockScroll();
   }
   // Рантайм dc не передаёт prevState — сравниваем с последним записанным в адрес
   componentDidUpdate(){ this.syncUrl(); }
@@ -664,8 +510,7 @@ class Component extends DCLogic {
   }
   applyRole(r){
     const keep = AUD[r].cats.includes(this.state.cat) ? this.state.cat : '';
-    this.setState({ role:r, cat:keep, dlg:false, live:`Показаны государственные услуги раздела «${AUD[r].label}»` });
-    this.unlockScroll();
+    this.setState({ role:r, cat:keep, live:`Показаны государственные услуги раздела «${AUD[r].label}»` });
   }
 
   hdrH(){ const h = this.hdrRef.current; return h ? h.getBoundingClientRect().height : 0; }
@@ -690,76 +535,11 @@ class Component extends DCLogic {
   }
   hits(c){ const tk = tokensOf(this.state.q); return tk.length ? this.itemsOf(c).filter(it => matchAll(it, tk)) : this.itemsOf(c); }
 
-  // ───────── окно «Выберите вид услуги» ─────────
+  // ───────── окно «Выберите вид услуги» — компонент ServiceKinds ─────────
+  // «Далее» ведёт в паспорт услуги; без профиля «Бизнес» — через «Вход», «Вернуться» — к этой же выборке
   openDlg(e){
-    this._opener = (e && e.currentTarget) || document.activeElement;
-    // При каждом открытии выбор сброшен (постановка, п. 4): тип — ЛС, вид не выбран
-    this.setState({ dlg:true, seg:'ls', kind:null });
-    this.lockScroll();
-    setTimeout(() => {
-      const d = this.dlgRef.current; if(!d) return;
-      const tab = d.querySelector('[role="tab"][aria-selected="true"]');
-      (tab || d).focus({ preventScroll:true });
-    }, 30);
-  }
-  // Смена типа продукции: перечень другой — выбранный вид сбрасываем, список — к началу
-  pickSeg(id){
-    if(this.state.seg === id) return;
-    this.setState({ seg:id, kind:null });
-    const b = this.dlgRef.current && this.dlgRef.current.querySelector('.gs-dlg-b');
-    if(b) b.scrollTop = 0;
-  }
-  // Сегменты — одна остановка табуляции; ←/→, Home/End переключают тип (как вкладки WAI-ARIA)
-  onSegKey(e){
-    if(!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
-    e.preventDefault();
-    const i = SEGS.findIndex(x => x.id === this.state.seg);
-    const n = e.key === 'Home' ? 0 : e.key === 'End' ? SEGS.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + SEGS.length) % SEGS.length;
-    this.pickSeg(SEGS[n].id);
-    setTimeout(() => { const t = document.getElementById('gs-seg-' + SEGS[n].id); if(t) t.focus(); }, 0);
-  }
-  closeDlg(){
-    if(!this.state.dlg) return;
-    this.setState({ dlg:false, seg:'ls', kind:null });
-    this.unlockScroll();
-    const o = this._opener; this._opener = null;
-    setTimeout(() => { if(o && document.contains(o)) o.focus({ preventScroll:true }); }, 0);
-  }
-  goNext(e){
-    if(e && e.preventDefault) e.preventDefault();
-    const k = this.state.kind; if(!k) return;
-    const target = kindHref(this.state.seg, k);
-    // Без профиля «Бизнес» — вход с возвратом прямо в выбранный сценарий; «Вернуться» без входа — сюда же
-    if(signedBiz()){ location.href = target; return; }
-    const back = PAGE + '?for=business&cat=' + this.activeCat().id;
-    location.href = 'Вход.dc.html?profile=business&return=' + encodeURIComponent(target) + '&back=' + encodeURIComponent(back);
-  }
-  onDlgKey(e){
-    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.closeDlg(); return; }
-    if(e.key !== 'Tab') return;
-    // Фокус не выходит из окна
-    const d = this.dlgRef.current; if(!d) return;
-    // У группы радиокнопок одна остановка табуляции — выбранная, а без выбора первая (только видимая панель);
-    // у сегментов — активный
-    const radios = [...d.querySelectorAll('.gs-panel[data-active="true"] input[type="radio"]')];
-    const stop = radios.find(r => r.checked) || radios[0];
-    const f = [...d.querySelectorAll('button:not([disabled]), input[type="radio"]')]
-      .filter(el => el.type === 'radio' ? el === stop : el.tabIndex >= 0);
-    if(!f.length) return;
-    const first = f[0], last = f[f.length - 1];
-    if(e.shiftKey && (document.activeElement === first || document.activeElement === d)){ e.preventDefault(); last.focus(); }
-    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
-  }
-  lockScroll(){
-    if(this._bodyCss) return;
-    const sb = window.innerWidth - document.documentElement.clientWidth;
-    this._bodyCss = [document.body.style.overflow, document.body.style.paddingRight];
-    document.body.style.overflow = 'hidden';
-    if(sb > 0) document.body.style.paddingRight = sb + 'px';
-  }
-  unlockScroll(){
-    if(!this._bodyCss) return;
-    [document.body.style.overflow, document.body.style.paddingRight] = this._bodyCss; this._bodyCss = null;
+    const opener = (e && e.currentTarget && e.currentTarget.focus ? e.currentTarget : null) || document.activeElement;
+    window.dispatchEvent(new CustomEvent('mp-svc-kinds-open', { detail:{ opener, back: PAGE + '?for=business&cat=' + this.activeCat().id } }));
   }
 
   // Категории: стрелки ↑/↓ (←/→ на телефоне) переключают категорию, Home/End — крайние
@@ -850,7 +630,7 @@ class Component extends DCLogic {
 
     return {
       pageRef: this.pageRef, hdrRef: this.hdrRef, headRef: this.headRef, sentinelRef: this.sentinelRef,
-      inputRef: this.inputRef, listRef: this.listRef, catsRef: this.catsRef, dlgRef: this.dlgRef,
+      inputRef: this.inputRef, listRef: this.listRef, catsRef: this.catsRef,
       audLabel: aud.label, audFor: aud.for, audIcon: aud.icon, lead: aud.lead,
       backHref: HOME, goBack: (e) => this.goBack(e),
       cats, single: allowed.length === 1 ? 'true' : 'false',
@@ -870,25 +650,7 @@ class Component extends DCLogic {
       toAll: () => { this.setState({ cat:'all', live:`Все услуги: найдено ${allHits} ${plural(allHits)}` }); this.revealList(); },
       liveText: searching ? (total ? `Найдено: ${total} ${plural(total)}` : 'Услуги не найдены') : s.live,
 
-      dlg: s.dlg,
-      closeDlg: () => this.closeDlg(),
-      onDlgKey: (e) => this.onDlgKey(e),
-      goNext: (e) => this.goNext(e),
-      nextDisabled: !s.kind,
-      onSegKey: (e) => this.onSegKey(e),
-      segs: SEGS.map(g => {
-        const sel = s.seg === g.id;
-        return { label:g.label, icon:g.icon, tabId:'gs-seg-' + g.id, panelId:'gs-pan-' + g.id, radioName:'gs-kind-' + g.id,
-          selected: sel ? 'true' : 'false', hidden: sel ? 'false' : 'true', tabIndex: sel ? 0 : -1,
-          legend: `Вид услуги: ${g.label.toLowerCase()}`,
-          onPick: () => this.pickSeg(g.id),
-          kinds: g.kinds.map(k => {
-            const on = sel && s.kind === k.id;
-            return { id:k.id, label:k.label, hasTag: !!k.tag, tag: k.tag || '', tagHint: k.tagHint || '',
-              on: on ? 'true' : 'false', checked: on,
-              onPick: () => this.setState({ kind:k.id }) };
-          }) };
-      }),
+
     };
   }
 }

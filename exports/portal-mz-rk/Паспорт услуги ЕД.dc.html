@@ -12,7 +12,7 @@
 </head>
 <body>
 <!--
-  Кабинет бизнеса → Прочие услуги → Выбор услуги → Паспорт услуги ЕД (UC01.13.1.1, экран B).
+  Кабинет бизнеса → Услуги → Выбор вида услуги → Паспорт услуги ЕД (UC01.13.1.1, экран B).
   Блоки паспорта — только просмотр. «Подать заявку» открывает мастер на шаге «Данные услуги»
   (не реестр, BR-1311-03); «Вернуться к списку» — реестр без поданной заявки.
 
@@ -73,7 +73,7 @@
         <div style="max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:14px;">
           <nav aria-label="Навигация" style="display:flex;align-items:center;gap:6px;font-size:13px;line-height:20px;font-weight:500;color:var(--n500);flex-wrap:wrap;">
             <i class="ri-apps-2-line" style="font-size:18px;"></i>
-            <a class="crumb" href="Прочие услуги.dc.html">Прочие услуги</a><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
+            <a class="crumb" href="Услуги.dc.html?cat=pharma">Услуги</a><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
             <span>Выбор услуги</span><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--n300);"></i>
             <span aria-current="page" style="color:var(--n900);">Паспорт услуги</span>
           </nav>
@@ -231,7 +231,7 @@
                 <div role="alert" style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:10px;background:var(--red-ll);font-size:13px;line-height:18px;color:var(--red-d);"><i class="ri-error-warning-fill" style="font-size:18px;color:var(--red);flex:0 0 auto;"></i>{{ err }}</div>
               </sc-if>
               <button class="btn btn-p" onClick="{{ apply }}"><i class="ri-add-line" style="font-size:18px;"></i>Подать заявку</button>
-              <a class="btn btn-s" href="Прочие услуги.dc.html"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться к списку</a>
+              <a class="btn btn-s" href="Услуги.dc.html?cat=pharma"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться к услугам</a>
             </div>
           </aside>
         </div>
