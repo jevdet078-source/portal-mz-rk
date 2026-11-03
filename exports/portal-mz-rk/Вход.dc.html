@@ -239,6 +239,8 @@
 const HANDOFF = 'mp-ecp-handoff';
 const NCELS_BIN = '980240003251';
 const CAB = { citizen:'Личный кабинет.dc.html', business:'Кабинет бизнеса.dc.html', medical:'Профиль врача.dc.html', gov:'АРМ ННЦРЗ.dc.html' };   // госорган — АРМ экспертов (ННЦРЗ; ФК — через переключатель ролей)
+// раздел только для авторизованных: возврат после входа — для любого профиля, без входа туда не вернуться
+const REPORTS_RET = /^Отчётные формы/;
 const ROLE_TAB = { citizen:'citizens', business:'business', medical:'medical' };
 const KIND = {
   citizen:  { label:'Гражданин',               icon:'ri-user-heart-line',  bg:'#EEF2FF', fg:'#4D42E9' },
@@ -375,8 +377,7 @@ class Component extends DCLogic {
       } catch(err){}
       const q = this.query();
       // госорган: сотрудник НЦЭЛС — в АРМ НЦЭЛС, остальные — в АРМ ННЦРЗ
-      // «Отчётные формы» — для любого профиля: права определяет сам раздел
-      location.href = q.ret && (p.kind === 'business' || /^Отчётные формы/.test(q.ret)) ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
+      location.href = q.ret && (p.kind === 'business' || REPORTS_RET.test(q.ret)) ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
     }, 700);
   }
 
@@ -423,7 +424,7 @@ class Component extends DCLogic {
         style:`width:100%;display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#fff;font-family:inherit;text-align:left;cursor:pointer;${rec ? 'border:1.5px solid #4D42E9;box-shadow:0 0 0 4px #EEF2FF;' : 'border:1px solid #E2E4E9;box-shadow:0 1px 2px rgba(10,13,20,.03);'}` };
     });
     const sel = s.sel ? this.profileView(s.sel) : { label:'', icon:'', desc:'', iconWrap:'' };
-    const backToService = q.back || (q.ret ? q.ret.replace(/\?[^#]*/, '') : '');
+    const backToService = q.back || (q.ret && !REPORTS_RET.test(q.ret) ? q.ret.replace(/\?[^#]*/, '') : '');
     const hasPassErr = !!s.passErr;
     const busy = s.waiting || s.checking;
     const secondary = !!(err && err.notFound);
