@@ -372,7 +372,8 @@ class Component extends DCLogic {
       } catch(err){}
       const q = this.query();
       // госорган: сотрудник НЦЭЛС — в АРМ НЦЭЛС, остальные — в АРМ ННЦРЗ
-      location.href = p.kind === 'business' && q.ret ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
+      // «Отчётные формы» — для любого профиля: права определяет сам раздел
+      location.href = q.ret && (p.kind === 'business' || /^Отчётные формы/.test(q.ret)) ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
     }, 700);
   }
 

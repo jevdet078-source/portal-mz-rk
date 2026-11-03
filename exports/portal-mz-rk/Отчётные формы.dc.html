@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  «Отчётные формы» — самостоятельный раздел портала: создание, заполнение, согласование и свод статистических отчётов.
+  Не публичный: пункт шапки (PortalHeader section="reports") и прямая ссылка без входа ведут на Вход.dc.html?return=…
+  Состав: хлебные крошки → заголовок и роли → рабочий контекст (организация, уровень, объект) →
+  единая плашка реестра: панель действий, фильтры, таблица, пагинация.
+  Рабочее окно отчёта, окно параметров и Excel — отдельные задачи: здесь боковая панель экземпляра и минимальное окно выбора
+  параметров, чтобы показать переход и условие свода («нет принятых отчётов нижестоящего уровня»).
+  «Показ прототипа» в строке крошек — только для демонстрации: шесть наборов прав и состояния из постановки, п. 7.
+  В системе роли и данные отдаёт API; здесь реестр строится детерминированно из FORMS и SCOPES.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  /* реестр — рабочий экран: на больших мониторах занимает всю ширину, боковые поля остаются только отступом --gut */
+  .rf{ --wrap:100%; display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .rf, .rf *, .rf *::before, .rf *::after{ box-sizing:border-box; }
+  .rf button{ font-family:inherit; }
+  .rf :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .rf-top{ position:sticky; top:0; z-index:40; }
+  .rf-main{ flex:1 0 auto; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0, #fff 340px); padding-bottom:clamp(32px,3.4vw,64px); }
+  html[data-fill="flat"] .rf-main{ background:#fff; }
+
+  /* ——— крошки и заголовок ——— */
+  .rf-crow{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:36px; padding-top:clamp(12px,1vw,18px); }
+  .rf-crumbs{ display:flex; align-items:center; gap:6px; margin:0; padding:0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); }
+  .rf-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .rf-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .rf-crumbs a:hover{ color:var(--b700); }
+  .rf-crumbs a i{ font-size:16px; }
+  .rf-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .rf-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+  .rf-hero{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; padding:clamp(10px,.9vw,16px) 0 clamp(14px,1.1vw,20px); }
+  .rf-h1{ margin:0; font-size:clamp(26px,1vw + 15px,38px); line-height:1.15; font-weight:600; letter-spacing:-.028em; }
+  .rf-roles{ display:flex; flex-wrap:wrap; gap:6px; }
+  .rf-role{ display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px 0 9px; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); font-size:13px; font-weight:600; white-space:nowrap; cursor:help; }
+  .rf-role i{ font-size:15px; color:var(--b600); }
+
+  /* показ прототипа */
+  .rf-demo{ position:relative; flex:0 0 auto; }
+  .rf-demo-btn{ height:32px; padding:0 8px 0 10px; display:inline-flex; align-items:center; gap:6px; border:1px dashed var(--n300); border-radius:9px; background:rgba(255,255,255,.7); color:var(--n500); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; transition:border-color .15s, color .15s, background .15s; }
+  .rf-demo-btn i{ font-size:16px; }
+  .rf-demo-btn:hover, .rf-demo-btn[aria-expanded="true"]{ border-color:var(--b400); color:var(--b700); background:#fff; }
+  .rf-demo .rf-menu{ left:auto; right:0; width:360px; max-height:min(560px,76vh); }
+  .rf-demo-lb{ padding:10px 10px 6px; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+
+  /* ——— рабочий контекст ——— */
+  .rf-ctx{ display:grid; grid-template-columns:minmax(0,1.5fr) auto minmax(0,1fr); border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200), var(--hm-sh1); }
+  .rf-ctx.one{ grid-template-columns:minmax(0,1fr); }
+  .rf-ctx.two{ grid-template-columns:minmax(0,1fr) auto; }
+  .rf-cell{ min-width:0; padding:13px clamp(16px,1.4vw,24px); }
+  .rf-cell + .rf-cell{ border-left:1px solid var(--n100); }
+  .rf-lb{ display:flex; align-items:center; gap:4px; margin:0 0 5px; font-size:12.5px; line-height:18px; font-weight:600; color:var(--n500); white-space:nowrap; }
+  .rf-lb .inf{ font-size:15px; color:var(--n400); cursor:help; }
+  .rf-val{ display:block; font-size:14.5px; line-height:20px; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .rf-val small{ display:block; font-size:13px; line-height:18px; font-weight:500; color:var(--n500); }
+  .rf-seg{ display:inline-flex; gap:2px; padding:3px; border-radius:11px; background:var(--n100); box-shadow:inset 0 0 0 1px var(--n200); }
+  .rf-seg button{ height:30px; padding:0 12px; border:none; border-radius:8px; background:none; color:var(--n500); font-size:13.5px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background .12s, color .12s, box-shadow .12s; }
+  .rf-seg button:hover{ color:var(--n900); }
+  .rf-seg button[aria-checked="true"]{ background:#fff; color:var(--b700); font-weight:600; box-shadow:0 1px 2px rgba(10,13,20,.08), 0 0 0 1px var(--n200); }
+
+  /* ——— плашка реестра ——— */
+  /* обводка — настоящей рамкой, не inset-тенью: фон шапки таблицы и наведение на строку перекрывают inset-тень по краям */
+  .rf-reg{ margin-top:clamp(12px,1vw,16px); border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .rf-rhead{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:68px; padding:12px clamp(16px,1.4vw,24px) 0; }
+  .rf-h2{ margin:0; font-size:clamp(18px,.4vw + 14px,22px); line-height:1.25; font-weight:600; letter-spacing:-.018em; }
+  .rf-cta{ flex:0 0 auto; height:44px; padding:0 18px 0 14px; display:inline-flex; align-items:center; gap:8px; border:none; border-radius:12px; background:var(--b600); color:#fff; font-size:14.5px; font-weight:600; white-space:nowrap; cursor:pointer; box-shadow:0 10px 20px -14px var(--b700); transition:background .15s, transform .1s; }
+  .rf-cta i{ font-size:20px; }
+  .rf-cta:hover{ background:var(--b700); }
+  .rf-cta:active{ transform:scale(.98); }
+
+  /* фильтры — одна строка на ноутбуке: таблица начинается выше */
+  .rf-filt{ display:grid; grid-template-columns:minmax(0,2.3fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,1.15fr) minmax(0,.72fr) minmax(0,1.05fr) auto; gap:12px; align-items:end; padding:10px clamp(16px,1.4vw,24px) 16px; border-bottom:1px solid var(--n200); }
+  .rf-f{ position:relative; min-width:0; }
+  .rf-f > label{ display:block; margin:0 0 5px 1px; font-size:12.5px; line-height:18px; font-weight:600; color:var(--n500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rf-sel{ width:100%; height:42px; padding:0 9px 0 12px; display:flex; align-items:center; gap:6px; border:none; border-radius:11px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font-size:14px; font-weight:500; text-align:left; cursor:pointer; transition:box-shadow .15s, background .15s; }
+  .rf-sel span{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rf-sel > i{ flex:0 0 auto; font-size:18px; color:var(--n400); transition:transform .2s; }
+  .rf-sel:hover:not(:disabled){ box-shadow:inset 0 0 0 1px var(--n300); background:var(--n50); }
+  .rf-sel[aria-expanded="true"]{ box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); background:#fff; }
+  .rf-sel[aria-expanded="true"] > i{ transform:rotate(180deg); color:var(--b600); }
+  .rf-sel.set{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); color:var(--b800); }
+  .rf-sel.set > i{ color:var(--b600); }
+  .rf-sel:disabled{ background:var(--n100); color:var(--n400); cursor:not-allowed; box-shadow:inset 0 0 0 1px var(--n200); }
+  .rf-sel:disabled > i{ color:var(--n300); }
+  .rf-fbtns{ display:flex; gap:8px; }
+  .rf-btn{ height:42px; padding:0 16px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:11px; font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; }
+  .rf-btn i{ font-size:18px; }
+  .rf-btn.pri{ background:var(--b600); color:#fff; }
+  .rf-btn.pri:hover:not(:disabled){ background:var(--b700); }
+  .rf-btn.sec{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .rf-btn.sec:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .rf-btn:disabled{ background:var(--n100); color:var(--n400); box-shadow:none; cursor:default; }
+
+  /* выпадающий список */
+  .rf-veil{ position:fixed; inset:0; z-index:59; }
+  .rf-menu{ position:absolute; left:0; top:calc(100% + 6px); z-index:60; min-width:100%; max-height:min(360px,60vh); overflow-y:auto; padding:6px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px rgba(10,13,20,.06), 0 20px 40px -16px rgba(10,13,20,.28); animation:rf-drop .16s ease; scrollbar-width:thin; }
+  .rf-menu.wide{ width:max(100%, 480px); }
+  .rf-menu.mid{ width:max(100%, 240px); }
+  @keyframes rf-drop{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  .rf-ms{ position:sticky; top:-6px; z-index:1; margin:-6px -6px 6px; padding:6px; background:#fff; border-bottom:1px solid var(--n100); }
+  .rf-ms i{ position:absolute; left:17px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--n400); pointer-events:none; }
+  .rf-ms input{ width:100%; height:38px; padding:0 12px 0 34px; border:none; border-radius:9px; background:var(--n100); font:500 14px/1 'Inter',sans-serif; color:var(--n900); }
+  .rf-ms input::placeholder{ color:var(--n400); }
+  .rf-ms input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
+  .rf-opt{ width:100%; display:flex; align-items:center; gap:10px; min-height:38px; padding:8px 10px; border:none; border-radius:9px; background:none; text-align:left; font-size:14px; line-height:1.35; font-weight:500; color:var(--n700); cursor:pointer; }
+  .rf-opt > span:not(.rf-st){ flex:1; min-width:0; }
+  .rf-opt .rf-st{ margin-right:auto; }
+  .rf-opt small{ display:block; margin-top:1px; font-size:12.5px; font-weight:500; color:var(--n500); }
+  .rf-opt code{ flex:0 0 auto; min-width:84px; font:600 12.5px/1.35 'Inter',sans-serif; color:var(--n500); }
+  .rf-opt > i{ flex:0 0 auto; font-size:18px; color:var(--b600); visibility:hidden; }
+  .rf-opt:hover, .rf-opt:focus-visible{ background:var(--n100); color:var(--n900); }
+  .rf .rf-opt:focus-visible{ outline:none; box-shadow:inset 0 0 0 1.5px var(--b400); }
+  .rf-opt[aria-selected="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .rf-opt[aria-selected="true"] > i{ visibility:visible; }
+  .rf-none{ padding:12px 10px; font-size:13.5px; color:var(--n400); }
+
+  /* ——— таблица ——— */
+  .rf-tw{ min-width:0; }
+  .rf-tbl{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:clamp(14px,.12vw + 12.4px,15px); }
+  .rf-tbl th{ position:sticky; top:72px; z-index:2; height:50px; padding:6px 10px; text-align:left; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); background:var(--n50); border-bottom:1px solid var(--n200); vertical-align:middle; }
+  .rf-tbl td{ height:60px; padding:9px 10px; border-bottom:1px solid var(--n100); vertical-align:middle; color:var(--n700); line-height:1.35; overflow-wrap:break-word; }
+  .rf-tbl th:first-child, .rf-tbl td:first-child{ padding-left:clamp(16px,1.4vw,24px); }
+  .rf-tbl th:last-child, .rf-tbl td:last-child{ padding-right:clamp(16px,1.4vw,24px); text-align:right; }
+  .rf-tbl td.c-idx, .rf-tbl td.c-lvl, .rf-tbl td.c-app{ white-space:nowrap; }
+  .rf-tbl .c-app{ width:clamp(104px,7vw,132px); } .rf-tbl .c-idx{ width:clamp(96px,6.6vw,132px); } .rf-tbl .c-per{ width:clamp(122px,7.6vw,168px); } .rf-tbl .c-lvl{ width:clamp(110px,6.8vw,136px); }
+  .rf-tbl .c-obj{ width:clamp(146px,10.5vw,300px); } .rf-tbl .c-st{ width:174px; } .rf-tbl .c-date{ width:clamp(100px,6.6vw,124px); } .rf-tbl .c-act{ width:138px; }
+  .rf-row{ cursor:pointer; transition:background .12s; }
+  .rf-row:hover{ background:var(--n50); }
+  .rf-row:hover .rf-nm{ color:var(--b700); }
+  .rf-row:last-child td{ border-bottom:none; }
+  .rf-nm{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-weight:600; color:var(--n900); transition:color .12s; }
+  .rf-cl{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .rf-sub{ display:block; margin-top:2px; font-size:13px; line-height:18px; color:var(--n500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rf-mini{ display:none; }
+  .rf-date{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .rf-open{ height:36px; padding:0 8px 0 12px; display:inline-flex; align-items:center; gap:4px; border:none; border-radius:10px; background:var(--b50); color:var(--b700); font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s; }
+  .rf-open i{ font-size:18px; transition:transform .15s; }
+  .rf-open:hover{ background:var(--b100); color:var(--b800); }
+  .rf-row:hover .rf-open i{ transform:translateX(2px); }
+
+  /* статус: значок + текст + цвет — не только цветом */
+  .rf-st{ display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px 0 7px; border-radius:999px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .rf-st i{ font-size:15px; }
+  .rf-st.work{ background:var(--b50); color:var(--b800); } .rf-st.work i{ color:var(--b600); }
+  .rf-st.agree{ background:var(--orange-l); color:#9A4A12; } .rf-st.agree i{ color:var(--orange); }
+  .rf-st.rework{ background:var(--red-l); color:var(--red-d); } .rf-st.rework i{ color:var(--red); }
+  .rf-st.sent{ background:var(--green-l); color:var(--green-d); } .rf-st.sent i{ color:var(--green-d); }
+
+  /* скелетон */
+  .rf-ln{ display:block; height:12px; border-radius:6px; background:linear-gradient(90deg, var(--n100) 0%, var(--n200) 50%, var(--n100) 100%); background-size:200% 100%; animation:rf-shim 1.2s linear infinite; }
+  @keyframes rf-shim{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
+
+  /* состояния */
+  .rf-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:clamp(40px,5vw,72px) 24px; }
+  .rf-state.card{ border-radius:20px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); margin-top:clamp(12px,1vw,16px); }
+  .rf-state .ic{ width:60px; height:60px; border-radius:18px; display:flex; align-items:center; justify-content:center; background:var(--n100); color:var(--n500); font-size:28px; }
+  .rf-state.err .ic{ background:var(--red-l); color:var(--red); }
+  .rf-state.warn .ic{ background:var(--orange-l); color:var(--orange); }
+  .rf-state h3{ margin:16px 0 0; max-width:56ch; font-size:17px; line-height:1.4; font-weight:600; letter-spacing:-.012em; text-wrap:balance; }
+  .rf-state .rf-btn{ margin-top:18px; }
+
+  /* пагинация */
+  .rf-pager{ display:flex; align-items:center; justify-content:space-between; gap:12px 16px; flex-wrap:wrap; padding:10px clamp(16px,1.4vw,24px); border-top:1px solid var(--n200); }
+  .rf-shown{ font-size:14px; color:var(--n500); font-variant-numeric:tabular-nums; }
+  .rf-shown b{ color:var(--n900); font-weight:600; }
+  .rf-shown s{ margin:0 8px; text-decoration:none; color:var(--n300); }
+  .rf-pages{ display:flex; align-items:center; gap:4px; }
+  .rf-pg{ min-width:38px; height:38px; padding:0 8px; border:none; border-radius:10px; background:none; color:var(--n700); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .rf-pg i{ font-size:19px; }
+  .rf-pg:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .rf-pg[aria-current="page"]{ background:var(--b600); color:#fff; }
+  .rf-pg[aria-current="page"]:hover{ background:var(--b700); color:#fff; }
+  .rf-pg:disabled{ color:var(--n300); cursor:default; }
+  .rf-gap{ min-width:24px; text-align:center; color:var(--n400); font-size:14px; }
+
+  /* ——— боковая панель экземпляра ——— */
+  .rf-ov{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.36); animation:rf-fade .2s ease; }
+  @keyframes rf-fade{ from{ opacity:0; } to{ opacity:1; } }
+  .rf-dr{ position:fixed; top:0; right:0; bottom:0; z-index:91; width:min(560px,100vw); display:flex; flex-direction:column; background:#fff; box-shadow:-24px 0 60px -24px rgba(10,13,20,.35); animation:rf-slide .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rf-slide{ from{ transform:translateX(40px); opacity:0; } to{ transform:none; opacity:1; } }
+  .rf-dr-hd{ display:flex; align-items:flex-start; gap:14px; padding:22px 22px 18px 26px; border-bottom:1px solid var(--n200); }
+  .rf-dr-hd > div{ flex:1; min-width:0; }
+  .rf-dr-hd h2{ margin:0; font-size:19px; line-height:1.32; font-weight:600; letter-spacing:-.018em; text-wrap:pretty; }
+  .rf-dr-hd p{ margin:6px 0 0; font-size:14px; line-height:1.4; color:var(--n500); }
+  .rf-close{ flex:0 0 auto; width:40px; height:40px; margin:-6px -4px 0 0; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .rf-close:hover{ background:var(--n100); color:var(--n900); }
+  .rf-dr-bd{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:22px 26px 26px; }
+  .rf-facts{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:1px; margin:0; border-radius:14px; overflow:hidden; background:var(--n200); box-shadow:0 0 0 1px var(--n200); }
+  .rf-facts > div{ min-width:0; padding:12px 14px; background:#fff; }
+  .rf-facts dt{ font-size:12.5px; font-weight:500; color:var(--n500); }
+  .rf-facts dd{ margin:4px 0 0; font-size:14.5px; line-height:1.4; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .rf-facts .full{ grid-column:1 / -1; }
+  .rf-dr-ft{ display:flex; flex-wrap:wrap; gap:10px; padding:16px 26px; border-top:1px solid var(--n200); background:var(--n50); }
+  .rf-dr-ft .rf-btn{ flex:1 1 auto; height:46px; }
+
+  /* ——— окно параметров ——— */
+  .rf-mw{ position:fixed; inset:0; z-index:92; display:flex; align-items:center; justify-content:center; padding:24px 16px; pointer-events:none; }
+  .rf-modal{ pointer-events:auto; width:min(560px,100%); max-height:100%; display:flex; flex-direction:column; border-radius:20px; background:#fff; box-shadow:0 32px 64px -24px rgba(10,13,20,.45); animation:rf-pop .2s ease; }
+  @keyframes rf-pop{ from{ opacity:0; transform:translateY(8px) scale(.985); } to{ opacity:1; transform:none; } }
+  .rf-m-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 18px 14px 24px; }
+  .rf-m-hd h2{ margin:0; font-size:19px; line-height:1.3; font-weight:600; letter-spacing:-.018em; }
+  .rf-m-hd .rf-close{ margin:0; }
+  .rf-m-bd{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; padding:2px 24px 20px; overflow:visible; }
+  .rf-m-bd .rf-f.full{ grid-column:1 / -1; }
+  .rf-m-bd .rf-menu.wide{ width:100%; }
+  .rf-m-bd .rf-menu{ max-height:min(240px,34vh); }
+  .rf-m-err{ grid-column:1 / -1; display:flex; gap:10px; padding:12px 14px; border-radius:12px; background:var(--orange-l); color:#9A4A12; font-size:14px; line-height:1.45; font-weight:500; }
+  .rf-m-err i{ flex:0 0 auto; font-size:19px; color:var(--orange); }
+  .rf-m-ft{ display:flex; justify-content:flex-end; gap:8px; padding:14px 24px; border-top:1px solid var(--n200); background:var(--n50); border-radius:0 0 20px 20px; }
+
+  .rf-toast{ position:fixed; left:50%; bottom:28px; z-index:95; transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100vw - 32px); padding:12px 18px 12px 14px; border-radius:14px; background:var(--n900); color:#fff; font-size:14px; font-weight:500; line-height:1.4; box-shadow:0 18px 40px -16px rgba(10,13,20,.5); animation:rf-toast .25s ease; }
+  .rf-toast i{ flex:0 0 auto; font-size:20px; color:var(--b300); }
+  @keyframes rf-toast{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
+  @media (prefers-reduced-motion:reduce){ .rf *{ animation:none !important; transition:none !important; } }
+
+  /* ——— адаптив ——— */
+  /* ноутбук 1280: уровень — подстрокой в «Объекте»; название формы получает ширину */
+  @media (max-width:1340px){
+    .rf-tbl .c-lvl{ display:none; }
+    .rf-mini.lvl{ display:block; margin-top:2px; font-size:13px; line-height:18px; color:var(--n500); }
+    .rf-th-obj-w{ display:none; } .rf-th-obj-n{ display:inline !important; }
+  }
+  .rf-th-obj-n{ display:none; }
+  @media (max-width:1240px){
+    .rf-filt{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .rf-fbtns{ grid-column:1 / -1; justify-content:flex-end; }
+  }
+  /* планшет: приложение и индекс — над названием, дата — под статусом; горизонтальной прокрутки нет */
+  @media (max-width:1024px){
+    .rf-tbl th{ position:static; }
+    .rf-ctx{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .rf-cell:first-child{ grid-column:1 / -1; border-bottom:1px solid var(--n100); }
+    .rf-cell:nth-child(2){ border-left:none; }
+    .rf-tbl .c-app, .rf-tbl .c-idx, .rf-tbl .c-date{ display:none; }
+    .rf-tbl th:nth-child(3), .rf-tbl td:nth-child(3){ padding-left:clamp(16px,1.4vw,24px); }
+    .rf-mini.tag{ display:block; margin-bottom:2px; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); }
+    .rf-mini.dt{ display:block; margin-top:4px; font-size:13px; color:var(--n500); }
+    .rf-tbl .c-per{ width:96px; } .rf-tbl .c-obj{ width:132px; } .rf-tbl .c-st{ width:168px; } .rf-tbl .c-act{ width:112px; }
+    .rf-open{ padding:0 12px; } .rf-open i{ display:none; }
+  }
+  @media (max-width:720px){
+    .rf-ctx{ grid-template-columns:minmax(0,1fr); }
+    .rf-cell + .rf-cell{ border-left:none; border-top:1px solid var(--n100); }
+    .rf-cell:first-child{ border-bottom:none; }
+    .rf-seg{ display:flex; flex-wrap:wrap; }
+    .rf-seg button{ flex:1 1 auto; }
+    .rf-filt{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .rf-f.nm{ grid-column:1 / -1; }
+    .rf-fbtns .rf-btn{ flex:1; }
+    .rf-rhead{ flex-wrap:wrap; }
+    .rf-cta{ width:100%; justify-content:center; }
+    .rf-demo-btn span{ display:none; }
+    .rf-demo .rf-menu{ width:min(360px, calc(100vw - 32px)); }
+    /* строки — карточками */
+    .rf-tbl, .rf-tbl tbody, .rf-tbl tr, .rf-tbl td{ display:block; width:auto; }
+    .rf-tbl thead{ display:none; }
+    .rf-row{ position:relative; padding:14px 16px; border-bottom:1px solid var(--n100); }
+    .rf-tbl td, .rf-tbl td:first-child, .rf-tbl td:last-child{ height:auto; padding:0; border:none; text-align:left; }
+    .rf-tbl td + td{ margin-top:6px; }
+    .rf-tbl td.c-app, .rf-tbl td.c-idx, .rf-tbl td.c-date, .rf-tbl td.c-lvl{ display:none; }
+    .rf-tbl td.c-act{ margin-top:10px; }
+    .rf-open{ width:100%; justify-content:center; }
+    .rf-pager{ justify-content:center; }
+    .rf-shown{ width:100%; text-align:center; }
+    .rf-m-bd{ grid-template-columns:minmax(0,1fr); }
+    .rf-facts{ grid-template-columns:minmax(0,1fr); }
+    .rf-menu.wide{ width:100%; }
+  }
+</style>
+</helmet>
+
+<div class="rf">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="rf-top"><dc-import name="PortalHeader" look="light" section="reports" hint-size="100%,72px"></dc-import></div>
+
+  <main class="rf-main">
+    <div class="hm-wrap">
+      <div class="rf-crow">
+        <nav aria-label="Хлебные крошки">
+          <ol class="rf-crumbs">
+            <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><span aria-current="page">Отчётные формы</span></li>
+          </ol>
+        </nav>
+        <div class="rf-demo">
+          <button type="button" class="rf-demo-btn" onClick="{{ toggleDemo }}" aria-expanded="{{ demoOpen }}" aria-haspopup="menu" aria-label="Показ прототипа: роль и состояние" data-tip="Только для показа прототипа: права пользователя и состояния раздела"><i class="ri-slideshow-3-line"></i><span>Показ прототипа</span><i class="ri-arrow-down-s-line"></i></button>
+          <sc-if value="{{ demoOpen }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-veil" onClick="{{ closeAll }}"></div>
+            <div class="rf-menu" role="menu">
+              <div class="rf-demo-lb">Права пользователя</div>
+              <sc-for list="{{ demoPersonas }}" as="o" hint-placeholder-count="6">
+                <button type="button" class="rf-opt" role="menuitemradio" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.label }}<small>{{ o.org }}</small></span><i class="ri-check-line"></i></button>
+              </sc-for>
+              <div class="rf-demo-lb">Состояние раздела</div>
+              <sc-for list="{{ demoStates }}" as="o" hint-placeholder-count="8">
+                <button type="button" class="rf-opt" role="menuitemradio" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.label }}</span><i class="ri-check-line"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div class="rf-hero">
+        <h1 class="rf-h1">Отчётные формы</h1>
+        <sc-if value="{{ showRoles }}" hint-placeholder-val="{{ true }}">
+          <div class="rf-roles" aria-label="Ваши роли">
+            <sc-for list="{{ roleChips }}" as="r" hint-placeholder-count="2">
+              <span class="rf-role" tabindex="0" data-tip="{{ r.tip }}"><i class="{{ r.icon }}"></i>{{ r.name }}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <!-- РАБОЧИЙ КОНТЕКСТ -->
+      <sc-if value="{{ showCtx }}" hint-placeholder-val="{{ true }}">
+        <section class="{{ ctxCls }}" aria-label="Рабочий контекст">
+          <div class="rf-cell">
+            <div class="rf-lb">Организация<i class="ri-information-line inf" tabindex="0" aria-label="Определяется автоматически после авторизации" data-tip="Определяется автоматически после авторизации"></i></div>
+            <span class="rf-val">{{ orgName }}<small>{{ orgDept }}</small></span>
+          </div>
+          <sc-if value="{{ showLevels }}" hint-placeholder-val="{{ true }}">
+            <div class="rf-cell">
+              <div class="rf-lb" id="rf-lvl">Уровень отчётности</div>
+              <sc-if value="{{ manyLevels }}" hint-placeholder-val="{{ false }}">
+                <div class="rf-seg" role="radiogroup" aria-labelledby="rf-lvl">
+                  <sc-for list="{{ levels }}" as="l" hint-placeholder-count="2">
+                    <button type="button" role="radio" aria-checked="{{ l.on }}" onClick="{{ l.onClick }}">{{ l.label }}</button>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ oneLevel }}" hint-placeholder-val="{{ true }}"><span class="rf-val">{{ levelName }}</span></sc-if>
+            </div>
+            <sc-if value="{{ showObject }}" hint-placeholder-val="{{ false }}">
+              <div class="rf-cell">
+                <div class="rf-lb">Объект отчётности</div>
+                <span class="rf-val">{{ objectName }}</span>
+              </div>
+            </sc-if>
+          </sc-if>
+        </section>
+      </sc-if>
+
+      <!-- НЕТ ДОСТУПА / НЕ НАСТРОЕНО -->
+      <sc-if value="{{ blocked }}" hint-placeholder-val="{{ false }}">
+        <div class="rf-state card warn" role="status">
+          <span class="ic"><i class="{{ blockIcon }}"></i></span>
+          <h3>{{ blockText }}</h3>
+        </div>
+      </sc-if>
+
+      <!-- РЕЕСТР -->
+      <sc-if value="{{ showReg }}" hint-placeholder-val="{{ true }}">
+        <section class="rf-reg" aria-labelledby="rf-reg-t">
+          <div class="rf-rhead">
+            <h2 class="rf-h2" id="rf-reg-t">Реестр отчётов</h2>
+            <sc-if value="{{ canCreate }}" hint-placeholder-val="{{ true }}">
+              <button type="button" class="rf-cta" onClick="{{ openModal }}" aria-haspopup="dialog"><i class="ri-add-line"></i>{{ ctaLabel }}</button>
+            </sc-if>
+          </div>
+
+          <form class="rf-filt" onSubmit="{{ onApply }}" aria-label="Фильтры реестра">
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+              <div class="{{ f.wrapCls }}" data-tip="{{ f.tip }}">
+                <label id="{{ f.lid }}">{{ f.label }}</label>
+                <button type="button" class="{{ f.cls }}" onClick="{{ f.onToggle }}" disabled="{{ f.off }}" aria-expanded="{{ f.open }}" aria-haspopup="listbox" aria-labelledby="{{ f.lid }}" title="{{ f.title }}"><span>{{ f.value }}</span><i class="ri-arrow-down-s-line"></i></button>
+                <sc-if value="{{ f.show }}" hint-placeholder-val="{{ false }}">
+                  <div class="rf-veil" onClick="{{ closeMenu }}"></div>
+                  <div class="{{ f.menuCls }}" role="listbox" aria-labelledby="{{ f.lid }}">
+                    <sc-if value="{{ f.search }}" hint-placeholder-val="{{ false }}">
+                      <div class="rf-ms"><i class="ri-search-line"></i><input type="text" value="{{ ddQ }}" onChange="{{ onDdQ }}" placeholder="Поиск" aria-label="Поиск по списку" autocomplete="off"></div>
+                    </sc-if>
+                    <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+                      <button type="button" class="rf-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}">
+                        <sc-if value="{{ o.hasCode }}" hint-placeholder-val="{{ false }}"><code>{{ o.code }}</code></sc-if>
+                        <sc-if value="{{ o.st }}" hint-placeholder-val="{{ false }}"><span class="{{ o.stCls }}"><i class="{{ o.stIcon }}"></i>{{ o.label }}</span></sc-if>
+                        <sc-if value="{{ o.plain }}" hint-placeholder-val="{{ true }}"><span>{{ o.label }}</span></sc-if>
+                        <i class="ri-check-line"></i>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ f.none }}" hint-placeholder-val="{{ false }}"><div class="rf-none">Ничего не найдено</div></sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <div class="rf-fbtns">
+              <button type="submit" class="rf-btn pri" disabled="{{ applyOff }}">Применить</button>
+              <button type="button" class="rf-btn sec" onClick="{{ reset }}" disabled="{{ resetOff }}">Сбросить</button>
+            </div>
+          </form>
+
+          <sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-state err" role="alert">
+              <span class="ic"><i class="ri-cloud-off-line"></i></span>
+              <h3>Не удалось загрузить отчёты. Повторите попытку</h3>
+              <button type="button" class="rf-btn pri" onClick="{{ retry }}"><i class="ri-refresh-line"></i>Повторить</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-state" role="status">
+              <span class="ic"><i class="ri-file-list-3-line"></i></span>
+              <h3>Отчёты не найдены</h3>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showNoRes }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-state" role="status">
+              <span class="ic"><i class="ri-file-search-line"></i></span>
+              <h3>По заданным параметрам отчёты не найдены</h3>
+              <button type="button" class="rf-btn sec" onClick="{{ reset }}"><i class="ri-refresh-line"></i>Сбросить фильтры</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+            <div class="rf-tw">
+              <table class="rf-tbl" aria-busy="{{ loading }}">
+                <thead><tr>
+                  <th class="c-app" scope="col">№ приложения</th>
+                  <th class="c-idx" scope="col">Индекс формы</th>
+                  <th scope="col">Наименование формы, таблица</th>
+                  <th class="c-per" scope="col">Отчётный период</th>
+                  <th class="c-lvl" scope="col">Уровень отчётности</th>
+                  <th class="c-obj" scope="col"><span class="rf-th-obj-w">Объект отчётности</span><span class="rf-th-obj-n">Объект и уровень</span></th>
+                  <th class="c-st" scope="col">Статус</th>
+                  <th class="c-date" scope="col">Дата изменения</th>
+                  <th class="c-act" scope="col">Действие</th>
+                </tr></thead>
+                <tbody>
+                  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                    <sc-for list="{{ skel }}" as="k" hint-placeholder-count="8">
+                      <tr>
+                        <td class="c-app"><span class="rf-ln" style="width:32px;"></span></td>
+                        <td class="c-idx"><span class="rf-ln" style="width:64px;"></span></td>
+                        <td><span class="rf-ln" style="{{ k.w1 }}"></span><span class="rf-ln" style="width:38%;margin-top:8px;"></span></td>
+                        <td class="c-per"><span class="rf-ln" style="width:84px;"></span></td>
+                        <td class="c-lvl"><span class="rf-ln" style="width:72px;"></span></td>
+                        <td class="c-obj"><span class="rf-ln" style="width:80%;"></span></td>
+                        <td class="c-st"><span class="rf-ln" style="width:112px;height:26px;border-radius:999px;"></span></td>
+                        <td class="c-date"><span class="rf-ln" style="width:72px;"></span></td>
+                        <td class="c-act"><span class="rf-ln" style="width:92px;height:36px;border-radius:10px;margin-left:auto;"></span></td>
+                      </tr>
+                    </sc-for>
+                  </sc-if>
+                  <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+                    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+                      <tr class="rf-row" onClick="{{ r.onOpen }}">
+                        <td class="c-app">{{ r.app }}</td>
+                        <td class="c-idx">{{ r.idx }}</td>
+                        <td>
+                          <span class="rf-mini tag">Прил. {{ r.app }} · {{ r.idx }}</span>
+                          <span class="rf-nm" data-full="{{ r.name }}">{{ r.name }}</span>
+                          <span class="rf-sub" title="{{ r.tableFull }}">{{ r.tableFull }}</span>
+                        </td>
+                        <td class="c-per">{{ r.period }}</td>
+                        <td class="c-lvl">{{ r.level }}</td>
+                        <td class="c-obj"><span class="rf-cl" data-full="{{ r.objFull }}">{{ r.obj }}</span><span class="rf-mini lvl">{{ r.level }}</span></td>
+                        <td class="c-st"><span class="{{ r.stCls }}"><i class="{{ r.stIcon }}"></i>{{ r.status }}</span><span class="rf-mini dt">{{ r.date }}</span></td>
+                        <td class="c-date"><span class="rf-date">{{ r.date }}</span></td>
+                        <td class="c-act"><button type="button" class="rf-open" onClick="{{ r.onOpen }}" aria-label="{{ r.openAria }}">Открыть<i class="ri-arrow-right-s-line"></i></button></td>
+                      </tr>
+                    </sc-for>
+                  </sc-if>
+                </tbody>
+              </table>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showPager }}" hint-placeholder-val="{{ true }}">
+            <nav class="rf-pager" aria-label="Страницы реестра">
+              <span class="rf-shown" aria-live="polite">Найдено: <b>{{ found }}</b><s>·</s>Показано: <b>{{ shownFrom }}–{{ shownTo }}</b></span>
+              <div class="rf-pages">
+                <button type="button" class="rf-pg" onClick="{{ prevPage }}" disabled="{{ prevOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button>
+                <sc-for list="{{ pages }}" as="g" hint-placeholder-count="5">
+                  <sc-if value="{{ g.gap }}" hint-placeholder-val="{{ false }}"><span class="rf-gap" aria-hidden="true">…</span></sc-if>
+                  <sc-if value="{{ g.num }}" hint-placeholder-val="{{ true }}"><button type="button" class="rf-pg" onClick="{{ g.onClick }}" aria-current="{{ g.cur }}" aria-label="{{ g.aria }}">{{ g.n }}</button></sc-if>
+                </sc-for>
+                <button type="button" class="rf-pg" onClick="{{ nextPage }}" disabled="{{ nextOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button>
+              </div>
+            </nav>
+          </sc-if>
+        </section>
+      </sc-if>
+    </div>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+
+  <!-- РАБОЧЕЕ ОКНО ЭКЗЕМПЛЯРА (переход; подробный дизайн — отдельная задача) -->
+  <sc-if value="{{ hasDoc }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-ov" onClick="{{ closeDoc }}"></div>
+    <aside class="rf-dr" role="dialog" aria-modal="true" aria-labelledby="rf-dr-t">
+      <div class="rf-dr-hd">
+        <div><h2 id="rf-dr-t">{{ doc.name }}</h2><p>{{ doc.tableFull }}</p></div>
+        <button type="button" class="rf-close" onClick="{{ closeDoc }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="rf-dr-bd">
+        <dl class="rf-facts">
+          <div><dt>№ приложения</dt><dd>{{ doc.app }}</dd></div>
+          <div><dt>Индекс формы</dt><dd>{{ doc.idx }}</dd></div>
+          <div><dt>Отчётный период</dt><dd>{{ doc.period }}</dd></div>
+          <div><dt>Уровень отчётности</dt><dd>{{ doc.level }}</dd></div>
+          <div class="full"><dt>Объект отчётности</dt><dd>{{ doc.objFull }}</dd></div>
+          <div><dt>Статус</dt><dd><span class="{{ doc.stCls }}"><i class="{{ doc.stIcon }}"></i>{{ doc.status }}</span></dd></div>
+          <div><dt>Дата изменения</dt><dd>{{ doc.date }}</dd></div>
+        </dl>
+      </div>
+      <sc-if value="{{ doc.hasActs }}" hint-placeholder-val="{{ false }}">
+        <div class="rf-dr-ft">
+          <sc-for list="{{ doc.acts }}" as="a" hint-placeholder-count="2">
+            <button type="button" class="{{ a.cls }}" onClick="{{ a.onClick }}">{{ a.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </aside>
+  </sc-if>
+
+  <!-- ОКНО ВЫБОРА ПАРАМЕТРОВ (переход; подробный дизайн — отдельная задача) -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-ov" onClick="{{ closeModal }}"></div>
+    <div class="rf-mw">
+      <div class="rf-modal" role="dialog" aria-modal="true" aria-labelledby="rf-m-t">
+        <div class="rf-m-hd">
+          <h2 id="rf-m-t">{{ ctaLabel }}</h2>
+          <button type="button" class="rf-close" onClick="{{ closeModal }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="rf-m-bd">
+          <sc-for list="{{ mFields }}" as="f" hint-placeholder-count="4">
+            <div class="{{ f.wrapCls }}" data-tip="{{ f.tip }}">
+              <label id="{{ f.lid }}">{{ f.label }}</label>
+              <button type="button" class="{{ f.cls }}" onClick="{{ f.onToggle }}" disabled="{{ f.off }}" aria-expanded="{{ f.open }}" aria-haspopup="listbox" aria-labelledby="{{ f.lid }}" title="{{ f.title }}"><span>{{ f.value }}</span><i class="ri-arrow-down-s-line"></i></button>
+              <sc-if value="{{ f.show }}" hint-placeholder-val="{{ false }}">
+                <div class="rf-veil" onClick="{{ closeMenu }}"></div>
+                <div class="{{ f.menuCls }}" role="listbox" aria-labelledby="{{ f.lid }}">
+                  <sc-if value="{{ f.search }}" hint-placeholder-val="{{ false }}">
+                    <div class="rf-ms"><i class="ri-search-line"></i><input type="text" value="{{ ddQ }}" onChange="{{ onDdQ }}" placeholder="Поиск" aria-label="Поиск по списку" autocomplete="off"></div>
+                  </sc-if>
+                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+                    <button type="button" class="rf-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><sc-if value="{{ o.hasCode }}" hint-placeholder-val="{{ false }}"><code>{{ o.code }}</code></sc-if><span>{{ o.label }}</span><i class="ri-check-line"></i></button>
+                  </sc-for>
+                  <sc-if value="{{ f.none }}" hint-placeholder-val="{{ false }}"><div class="rf-none">Ничего не найдено</div></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ mErr }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-m-err" role="alert"><i class="ri-error-warning-line"></i><span>Для выбранной формы, таблицы и периода нет принятых отчётов нижестоящего уровня</span></div>
+          </sc-if>
+        </div>
+        <div class="rf-m-ft">
+          <button type="button" class="rf-btn sec" onClick="{{ closeModal }}">Отмена</button>
+          <button type="button" class="rf-btn pri" onClick="{{ submitModal }}" disabled="{{ mOff }}">Продолжить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-toast" role="status"><i class="ri-information-line"></i><span>{{ toast }}</span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+// ——— Демонстрационные данные (в системе — API форм, прав и реестра) ———
+const TODAY = new Date(2026, 10, 3);
+const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const PERIODS = {
+  month: MONTHS.map((n, i) => ({ n, end:[i, 28] })),
+  quarter: ['I квартал','II квартал','III квартал','IV квартал'].map((n, i) => ({ n, end:[i * 3 + 2, 28] })),
+  half: [{ n:'I полугодие', end:[5, 28] }, { n:'II полугодие', end:[11, 28] }],
+  year: [{ n:'Год', end:[11, 28] }],
+};
+const FORMS = [
+  { id:'f5', app:'5', idx:'5-ТВК', name:'Дистанционные медицинские услуги', per:'month', depth:4, lv:['org','district','oblast','rk'], tables:[['1000','Телеконсультации'],['1001','Телемедицинские консилиумы']] },
+  { id:'f12', app:'12', idx:'12-здрав', name:'Отчёт о числе заболеваний, зарегистрированных у пациентов, проживающих в районе обслуживания медицинской организации', per:'quarter', depth:3, lv:['org','district','oblast','rk'], tables:[['1000','Дети 0–14 лет'],['2000','Подростки 15–17 лет'],['3000','Взрослые 18 лет и старше']] },
+  { id:'f14', app:'14', idx:'14-здрав', name:'Сведения о деятельности подразделений медицинской организации, оказывающей стационарную помощь', per:'half', depth:3, lv:['org'], tables:[['3100','Коечный фонд и его использование'],['3200','Хирургическая работа']] },
+  { id:'f28', app:'28-1', idx:'28-1-здрав', name:'Отчёт о деятельности службы скорой и неотложной медицинской помощи', per:'month', depth:3, lv:['org','district'], tables:[['2100','Вызовы и выезды бригад']] },
+  { id:'f30', app:'30', idx:'30-здрав', name:'Отчёт медицинской организации', per:'year', depth:3, lv:['org','district','oblast','rk'], tables:[['1001','Штаты медицинской организации'],['1100','Кабинеты и отделения']] },
+  { id:'f32', app:'32', idx:'32-здрав', name:'Отчёт о медицинской помощи беременным, роженицам и родильницам', per:'quarter', depth:3, lv:['org','district','oblast'], tables:[['2120','Диспансерное наблюдение беременных'],['2210','Родовспоможение']] },
+];
+const STATUS = [
+  { name:'В работе', cls:'work', icon:'ri-edit-2-line' },
+  { name:'На согласовании', cls:'agree', icon:'ri-time-line' },
+  { name:'На доработке', cls:'rework', icon:'ri-arrow-go-back-line' },
+  { name:'Отправлено в УО', cls:'sent', icon:'ri-send-plane-line' },
+];
+const ST = Object.fromEntries(STATUS.map(s => [s.name, s]));
+const ROLES = {
+  exec: { name:'Исполнитель', icon:'ri-edit-2-line', tip:'Просмотр доступных отчётов, создание отчёта, переход к заполнению и отправке на согласование' },
+  head: { name:'Руководитель', icon:'ri-user-star-line', tip:'Просмотр отчётов, поступивших на согласование, переход к согласованию или возврату на доработку' },
+  swod: { name:'Ответственный за свод', icon:'ri-stack-line', tip:'Просмотр поступивших отчётов, переход к приёму или возврату на доработку, формирование свода' },
+  view: { name:'Только просмотр', icon:'ri-eye-line', tip:'Просмотр разрешённых отчётов без функций создания и изменения' },
+};
+const LEVELS = {
+  org:      { label:'Организация', row:'Организация' },
+  district: { label:'Свод по району', row:'Район', own:'Аккольский район', sub:'Организация', from:['Центральная районная больница Аккольского района','Врачебная амбулатория с. Кенес','Городская поликлиника г. Акколь'] },
+  oblast:   { label:'Свод по области', row:'Область', own:'Акмолинская область', sub:'Район', from:['Аккольский район','Бурабайский район','Есильский район'] },
+  rk:       { label:'Свод по РК', row:'РК', own:'Республика Казахстан', sub:'Область', from:['Акмолинская область','Карагандинская область','Павлодарская область'] },
+};
+const CRB = { name:'Центральная районная больница Аккольского района', short:'ЦРБ Аккольского района', dept:'Организационно-методический отдел' };
+const PERSONAS = [
+  { id:'exec', label:'Исполнитель', roles:['exec'], org:CRB, levels:['org'] },
+  { id:'head', label:'Руководитель', roles:['head'], org:CRB, levels:['org'] },
+  { id:'swodObl', label:'Ответственный за свод · область', roles:['swod'], org:{ name:'Управление здравоохранения Акмолинской области', dept:'Отдел медицинской статистики' }, levels:['oblast'] },
+  { id:'swodRk', label:'Ответственный за свод · РК', roles:['swod'], org:{ name:'Министерство здравоохранения Республики Казахстан', dept:'Департамент цифровизации' }, levels:['rk'] },
+  { id:'multi', label:'Исполнитель и ответственный за свод', roles:['exec','swod'], org:CRB, levels:['org','district'] },
+  { id:'view', label:'Только просмотр', roles:['view'], org:CRB, levels:['org'] },
+];
+const DEMO_STATES = [
+  { id:'ok', label:'Реестр с данными' },
+  { id:'loading', label:'Загрузка данных' },
+  { id:'empty', label:'Реестр пуст' },
+  { id:'nores', label:'Нет результатов фильтрации' },
+  { id:'error', label:'Ошибка получения данных' },
+  { id:'noRights', label:'Не назначены права' },
+  { id:'noOrg', label:'Не определена организация' },
+  { id:'noScope', label:'Не назначен уровень или объект' },
+];
+const EMPTY = { form:'', idx:'', app:'', status:'', year:'', period:'' };
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const hash = (s) => { let h = 7; for(let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; };
+const pad = (n) => String(n).padStart(2, '0');
+const fmt = (d) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+const perLabel = (n, y) => n === 'Год' ? `${y} год` : `${n} ${y}`;
+
+// завершившиеся отчётные периоды формы, от последнего к старым
+function elapsed(form, count){
+  const list = PERIODS[form.per], out = [];
+  for(let y = TODAY.getFullYear(); y >= 2024 && out.length < count; y--){
+    for(let i = list.length - 1; i >= 0 && out.length < count; i--){
+      const end = new Date(y, list[i].end[0], list[i].end[1]);
+      if(end < TODAY) out.push({ n:list[i].n, y, end });
+    }
+  }
+  return out;
+}
+function makeRow(form, t, p, level, obj, status, date, own){
+  return { key:[form.id, t[0], p.n, p.y, obj].join('|'), form, tableCode:t[0], tableName:t[1], pName:p.n, year:p.y, period:perLabel(p.n, p.y), level, obj, status, date, own };
+}
+function dateFor(key, end, age){
+  const d = new Date(end.getTime() + (3 + hash(key) % 22) * 864e5);
+  return d > TODAY ? new Date(TODAY.getTime() - (hash(key) % 3) * 864e5) : d;
+}
+// реестр выбранного контекста: свои экземпляры + для свода поступившие от нижестоящего уровня
+function buildRows(persona, levelId){
+  const L = LEVELS[levelId], rows = [];
+  FORMS.filter(f => f.lv.includes(levelId)).forEach(f => f.tables.forEach(t => elapsed(f, f.depth).forEach((p, age) => {
+    const obj = levelId === 'org' ? persona.org.short : L.own;
+    const h = hash(f.id + t[0] + p.n + p.y + levelId);
+    const status = age === 0 ? (h % 3 === 0 ? 'На согласовании' : 'В работе') : age === 1 ? (h % 2 ? 'На доработке' : 'На согласовании') : 'Отправлено в УО';
+    const key = f.id + t[0] + p.n + p.y;
+    rows.push(makeRow(f, t, p, L.row, obj, status, dateFor(key, p.end, age), true));
+    if(L.from) L.from.forEach(src => {
+      const hs = hash(key + src);
+      if(hs % 3 === 2) return;
+      const inc = age === 0 ? (hs % 2 ? 'На согласовании' : 'На доработке') : 'Отправлено в УО';
+      rows.push(makeRow(f, t, p, L.sub, src, inc, dateFor(key + src, p.end, age), false));
+    });
+  })));
+  const vis = persona.roles.includes('head') && !persona.roles.includes('exec') ? rows.filter(r => r.status !== 'В работе') : rows;
+  return vis.sort((a, b) => b.date - a.date || a.key.localeCompare(b.key));
+}
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let demo = {};
+    try { demo = JSON.parse(lsGet('mp-reports-demo') || '{}') || {}; } catch(e){}
+    const profile = lsGet('mp-profile');
+    // раздел не публичный: без входа — авторизация с возвратом сюда
+    this.denied = !profile;
+    if(this.denied){ try { location.replace('Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html')); } catch(e){} }
+    const persona = PERSONAS.some(p => p.id === demo.persona) ? demo.persona : 'multi';
+    // профилю гражданина полномочия не назначены — раздел сообщает об этом
+    const state = DEMO_STATES.some(s => s.id === demo.state) ? demo.state : profile === 'citizen' ? 'noRights' : 'ok';
+    const lv = PERSONAS.find(p => p.id === persona).levels[0];
+    this.state = { persona, demoState:state, level:lv, draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1, pageSize:this.calcSize(), loading:true,
+      open:null, ddQ:'', demoOpen:false, doc:null, modalOpen:false, m:{ form:'', table:'', year:'', period:'' }, mErr:false, toast:'', created:[] };
+  }
+  componentDidMount(){
+    this.timer = setTimeout(() => this.setState({ loading:false }), 550);
+    this._key = (e) => this.onKey(e);
+    window.addEventListener('keydown', this._key);
+    this._rs = () => { clearTimeout(this._rt); this._rt = setTimeout(() => { this.fitSize(); this.markClamped(); }, 120); };
+    window.addEventListener('resize', this._rs);
+    this.markClamped();
+  }
+  componentWillUnmount(){
+    clearTimeout(this.timer); clearTimeout(this._rt); clearTimeout(this._tt);
+    window.removeEventListener('keydown', this._key); window.removeEventListener('resize', this._rs);
+  }
+  componentDidUpdate(){
+    const s = this.state, prev = this._prev;
+    this._prev = { open:s.open, modalOpen:s.modalOpen, doc:s.doc };
+    if(prev && prev.open !== s.open && s.open){
+      // открылся список: фокус в поиск или на выбранное значение
+      setTimeout(() => {
+        const menu = document.querySelector('.rf-f .rf-menu'); if(!menu) return;
+        const el = menu.querySelector('input') || menu.querySelector('[aria-selected="true"]') || menu.querySelector('.rf-opt');
+        if(el) el.focus();
+      }, 20);
+    }
+    if(prev && prev.open && !s.open && this._trigger){ try { this._trigger.focus(); } catch(e){} this._trigger = null; }
+    if(prev && !prev.modalOpen && s.modalOpen) setTimeout(() => { const b = document.querySelector('.rf-modal .rf-sel'); if(b) b.focus(); }, 20);
+    if(prev && prev.modalOpen && !s.modalOpen && !s.doc){ const c = document.querySelector('.rf-cta'); if(c) c.focus(); }
+    if(prev && !prev.doc && s.doc) setTimeout(() => { const b = document.querySelector('.rf-dr .rf-close'); if(b) b.focus(); }, 20);
+    this.markClamped();
+  }
+  // Длинное название обрезано двумя строками — полный текст в подсказке; не обрезано — подсказка не нужна
+  markClamped(){
+    document.querySelectorAll('.rf-nm, .rf-cl').forEach(el => {
+      if(el.scrollHeight > el.clientHeight + 1) el.setAttribute('data-tip', el.getAttribute('data-full') || el.textContent);
+      else el.removeAttribute('data-tip');
+    });
+  }
+  // Строк на странице — по высоте окна: на больших мониторах реестр занимает экран, а не оставляет пустоту
+  calcSize(){
+    const h = (typeof window !== 'undefined' && window.innerHeight) || 900;
+    return Math.max(8, Math.min(24, Math.floor((h - 440) / 60)));
+  }
+  fitSize(){
+    const size = this.calcSize(), s = this.state;
+    if(size === s.pageSize) return;
+    const first = (s.page - 1) * s.pageSize;
+    this.setState({ pageSize:size, page:Math.floor(first / size) + 1 });
+  }
+  onKey(e){
+    const s = this.state;
+    if(e.key === 'Escape'){
+      if(s.open) this.setState({ open:null, ddQ:'' });
+      else if(s.demoOpen) this.setState({ demoOpen:false });
+      else if(s.modalOpen) this.setState({ modalOpen:false });
+      else if(s.doc) this.setState({ doc:null });
+      return;
+    }
+    if(s.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')){
+      const menu = document.querySelector('.rf-f .rf-menu'); if(!menu) return;
+      const opts = Array.from(menu.querySelectorAll('.rf-opt')), a = document.activeElement;
+      if(e.key === 'Enter'){
+        // Enter в поиске — первое найденное значение
+        if(a && a.tagName === 'INPUT'){ e.preventDefault(); const pick = opts[0]; if(pick) pick.click(); }
+        return;
+      }
+      e.preventDefault();
+      const i = opts.indexOf(a), d = e.key === 'ArrowDown' ? 1 : -1;
+      const n = opts[i < 0 ? (d > 0 ? 0 : opts.length - 1) : (i + d + opts.length) % opts.length];
+      if(n) n.focus();
+    }
+    // окна держат фокус внутри себя
+    if(e.key === 'Tab' && (s.modalOpen || s.doc)){
+      const box = document.querySelector(s.modalOpen ? '.rf-modal' : '.rf-dr'); if(!box) return;
+      const items = Array.from(box.querySelectorAll('button:not(:disabled), input'));
+      if(!items.length) return;
+      const first = items[0], last = items[items.length - 1], a = document.activeElement;
+      if(e.shiftKey && (a === first || !box.contains(a))){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && (a === last || !box.contains(a))){ e.preventDefault(); first.focus(); }
+    }
+  }
+  say(text){ this.setState({ toast:text }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast:'' }), 3600); }
+  load(extra){
+    clearTimeout(this.timer);
+    this.setState({ ...(extra || {}), loading:true, open:null, ddQ:'' });
+    this.timer = setTimeout(() => this.setState({ loading:false }), 480);
+  }
+  saveDemo(p, st){ try { localStorage.setItem('mp-reports-demo', JSON.stringify({ persona:p, state:st })); } catch(e){} }
+  persona(){ return PERSONAS.find(p => p.id === this.state.persona); }
+  forms(level){ const l = level || this.state.level; return FORMS.filter(f => f.lv.includes(l)); }
+  allRows(){
+    const s = this.state;
+    if(this._cacheKey !== s.persona + s.level){ this._cacheKey = s.persona + s.level; this._cache = buildRows(this.persona(), s.level); }
+    const added = s.created.filter(r => r._ctx === s.persona + s.level);
+    return added.concat(this._cache);
+  }
+  filtered(){
+    const f = this.state.applied;
+    return this.allRows().filter(r => (!f.form || r.form.id === f.form) && (!f.status || r.status === f.status) && (!f.year || r.year === Number(f.year)) && (!f.period || r.pName === f.period));
+  }
+  // Форма, индекс и № приложения — одна сущность: выбор любого из трёх заполняет остальные, не допуская противоречий
+  setForm(id){
+    const form = FORMS.find(x => x.id === id);
+    this.setState(st => {
+      const keep = form && PERIODS[form.per].some(p => p.n === st.draft.period);
+      return { draft:{ ...st.draft, form:id || '', period:keep ? st.draft.period : '' }, open:null, ddQ:'' };
+    });
+  }
+  setDraft(key, v){ this.setState(st => ({ draft:{ ...st.draft, [key]:v, ...(key === 'year' ? { period:this.periodOpts(st.draft.form, v).some(p => p === st.draft.period) ? st.draft.period : '' } : {}) }, open:null, ddQ:'' })); }
+  periodOpts(formId, year){
+    const form = FORMS.find(x => x.id === formId); if(!form) return [];
+    const list = PERIODS[form.per];
+    if(Number(year) !== TODAY.getFullYear()) return list.map(p => p.n);
+    return list.filter(p => new Date(TODAY.getFullYear(), p.end[0], p.end[1]) < TODAY).map(p => p.n);
+  }
+  apply(e){
+    if(e && e.preventDefault) e.preventDefault();
+    this.load({ applied:{ ...this.state.draft }, page:1, demoState:this.state.demoState === 'nores' ? 'ok' : this.state.demoState });
+  }
+  reset(){
+    const s = this.state, st = s.demoState === 'nores' ? 'ok' : s.demoState;
+    this.saveDemo(s.persona, st);
+    this.load({ draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1, demoState:st });
+  }
+  setLevel(id){
+    const s = this.state;
+    if(id === s.level) return;
+    // смена контекста: несовместимые значения очищаются, совместимые остаются
+    const ok = this.forms(id).some(f => f.id === s.draft.form);
+    const lost = s.draft.form && !ok;
+    const clean = (f) => lost ? { ...f, form:'', period:'' } : f;
+    this.load({ level:id, draft:clean(s.draft), applied:clean(s.applied), page:1 });
+    if(lost) this.say('Выбранная форма недоступна на этом уровне — фильтр по форме очищен');
+  }
+  setPersona(id){
+    const lv = PERSONAS.find(p => p.id === id).levels[0];
+    const st = ['noRights','noOrg','noScope'].includes(this.state.demoState) ? 'ok' : this.state.demoState;
+    this.saveDemo(id, st);
+    this.load({ persona:id, level:lv, demoState:st, draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1, demoOpen:false, created:[], doc:null });
+  }
+  setDemoState(id){
+    this.saveDemo(this.state.persona, id);
+    this.load({ demoState:id, demoOpen:false, page:1 });
+  }
+  toggleDd(key){
+    this._trigger = document.activeElement;
+    this.setState(st => ({ open:st.open === key ? null : key, ddQ:'', demoOpen:false }));
+  }
+  // ——— выпадающий список ———
+  dd(key, label, cfg){
+    const s = this.state, open = s.open === key, q = s.ddQ.trim().toLowerCase();
+    const opts = (cfg.options || []).filter(o => !cfg.search || !q || (o.label + ' ' + (o.code || '') + ' ' + (o.q || '')).toLowerCase().includes(q));
+    return { key, label, lid:'rf-dd-' + key, value:cfg.value, title:cfg.long ? cfg.value : '', open:open ? 'true' : 'false', show:open && !cfg.off, off:!!cfg.off, tip:cfg.off ? cfg.tip : '',
+      wrapCls:'rf-f' + (cfg.wrap ? ' ' + cfg.wrap : ''), cls:'rf-sel' + (cfg.set ? ' set' : ''), menuCls:'rf-menu' + (cfg.menu ? ' ' + cfg.menu : ''), search:!!cfg.search, none:!opts.length,
+      onToggle:() => this.toggleDd(key),
+      options:opts.map(o => ({ ...o, on:o.on ? 'true' : 'false', hasCode:!!o.code, plain:!o.st, onClick:o.onClick })) };
+  }
+  filterFields(){
+    const s = this.state, d = s.draft, forms = this.forms(), sel = FORMS.find(f => f.id === d.form);
+    const all = (label, on, fn) => ({ label, on, onClick:fn });
+    const years = [...new Set(this.allRows().map(r => r.year))].sort((a, b) => b - a);
+    const periods = this.periodOpts(d.form, d.year);
+    return [
+      this.dd('form', 'Наименование формы', { value:sel ? sel.name : 'Все', long:!!sel, set:!!sel, search:true, wrap:'nm', menu:'wide',
+        options:[all('Все', !d.form, () => this.setForm(''))].concat(forms.map(f => ({ label:f.name, q:f.idx, on:f.id === d.form, onClick:() => this.setForm(f.id) }))) }),
+      this.dd('idx', 'Индекс формы', { value:sel ? sel.idx : 'Все', set:!!sel, search:true, menu:'mid',
+        options:[all('Все', !d.form, () => this.setForm(''))].concat(forms.map(f => ({ label:f.idx, on:f.id === d.form, onClick:() => this.setForm(f.id) }))) }),
+      this.dd('app', '№ приложения', { value:sel ? sel.app : 'Все', set:!!sel,
+        options:[all('Все', !d.form, () => this.setForm(''))].concat(forms.map(f => ({ label:f.app, on:f.id === d.form, onClick:() => this.setForm(f.id) }))) }),
+      this.dd('status', 'Статус', { value:d.status || 'Все', set:!!d.status, menu:'mid',
+        options:[all('Все', !d.status, () => this.setDraft('status', ''))].concat(STATUS.map(x => ({ label:x.name, on:x.name === d.status, st:true, stCls:'rf-st ' + x.cls, stIcon:x.icon, onClick:() => this.setDraft('status', x.name) }))) }),
+      this.dd('year', 'Год', { value:d.year || 'Все', set:!!d.year,
+        options:[all('Все', !d.year, () => this.setDraft('year', ''))].concat(years.map(y => ({ label:String(y), on:String(y) === d.year, onClick:() => this.setDraft('year', String(y)) }))) }),
+      this.dd('period', 'Отчётный период', { value:d.period || 'Все', set:!!d.period, off:!sel, tip:'Сначала выберите форму: периоды зависят от её периодичности', menu:'mid',
+        options:[all('Все', !d.period, () => this.setDraft('period', ''))].concat(periods.map(p => ({ label:p, on:p === d.period, onClick:() => this.setDraft('period', p) }))) }),
+    ];
+  }
+  modalFields(){
+    const s = this.state, m = s.m, forms = this.forms(), sel = FORMS.find(f => f.id === m.form);
+    const set = (patch) => this.setState(st => ({ m:{ ...st.m, ...patch }, open:null, ddQ:'', mErr:false }));
+    const tbl = sel && sel.tables.find(t => t[0] === m.table);
+    const years = [2026, 2025, 2024];
+    const periods = this.periodOpts(m.form, m.year);
+    return [
+      this.dd('m-form', 'Форма', { value:sel ? `${sel.idx} · ${sel.name}` : 'Выберите форму', long:!!sel, search:true, wrap:'full', menu:'wide',
+        options:forms.map(f => ({ label:f.name, code:f.idx, on:f.id === m.form, onClick:() => set({ form:f.id, table:f.tables.length === 1 ? f.tables[0][0] : '', period:'' }) })) }),
+      this.dd('m-table', 'Таблица', { value:tbl ? `${tbl[0]} · ${tbl[1]}` : 'Выберите таблицу', off:!sel, tip:'Сначала выберите форму', wrap:'full', menu:'wide',
+        options:(sel ? sel.tables : []).map(t => ({ label:t[1], code:t[0], on:t[0] === m.table, onClick:() => set({ table:t[0] }) })) }),
+      this.dd('m-year', 'Год', { value:m.year || 'Выберите год',
+        options:years.map(y => ({ label:String(y), on:String(y) === m.year, onClick:() => set({ year:String(y), period:'' }) })) }),
+      this.dd('m-period', 'Отчётный период', { value:m.period || 'Выберите период', off:!sel || !m.year, tip:'Сначала выберите форму и год',
+        options:periods.map(p => ({ label:p, on:p === m.period, onClick:() => set({ period:p }) })) }),
+    ];
+  }
+  submitModal(){
+    const s = this.state, m = s.m, L = LEVELS[s.level], rows = this.allRows(), form = FORMS.find(f => f.id === m.form);
+    const same = (r) => r.form.id === m.form && r.tableCode === m.table && r.pName === m.period && r.year === Number(m.year);
+    // условие свода проверяется после выбора параметров: кнопка заблокирована не бывает
+    if(s.level !== 'org' && !rows.some(r => same(r) && !r.own && r.status === 'Отправлено в УО')){ this.setState({ mErr:true }); return; }
+    // один экземпляр на таблицу, объект и период: существующий открывается, копия не создаётся
+    const existing = rows.find(r => same(r) && r.own);
+    if(existing){ this.setState({ modalOpen:false, doc:existing }); return; }
+    const t = form.tables.find(x => x[0] === m.table);
+    const row = { ...makeRow(form, t, { n:m.period, y:Number(m.year) }, s.level === 'org' ? 'Организация' : L.row, s.level === 'org' ? this.persona().org.short : L.own, 'В работе', TODAY, true), _ctx:s.persona + s.level };
+    this.setState(st => ({ created:[row, ...st.created], modalOpen:false, doc:row, applied:{ ...EMPTY }, draft:{ ...EMPTY }, page:1 }));
+  }
+  actionsFor(r){
+    const roles = this.persona().roles, out = [];
+    const add = (label) => out.push(label);
+    if(r.own && (roles.includes('exec') || (roles.includes('swod') && this.state.level !== 'org')) && (r.status === 'В работе' || r.status === 'На доработке')){ add('Перейти к заполнению'); add('Отправить на согласование'); }
+    if(r.own && roles.includes('head') && r.status === 'На согласовании'){ add('Перейти к согласованию'); add('Вернуть на доработку'); }
+    if(!r.own && roles.includes('swod') && r.status === 'Отправлено в УО'){ add('Перейти к приёму'); add('Вернуть на доработку'); }
+    return out.map((label, i) => ({ label, cls:'rf-btn ' + (i ? 'sec' : 'pri'), onClick:() => this.say('«' + label + '» — рабочее окно отчёта, отдельная задача') }));
+  }
+  rowView(r){
+    const st = ST[r.status];
+    return { ...r, objFull:r.obj === CRB.short ? CRB.name : r.obj, app:r.form.app, idx:r.form.idx, name:r.form.name, tableFull:`Таблица ${r.tableCode} · ${r.tableName}`, date:fmt(r.date), stCls:'rf-st ' + st.cls, stIcon:st.icon };
+  }
+  renderVals(){
+    const s = this.state, P = this.persona(), L = LEVELS[s.level], ds = s.demoState;
+    const blockedBy = { noRights:{ icon:'ri-lock-2-line', text:'У вас нет доступа к отчётным формам. Обратитесь к администратору' },
+      noOrg:{ icon:'ri-building-line', text:'Не определена рабочая организация или подразделение. Обратитесь к администратору' },
+      noScope:{ icon:'ri-map-pin-line', text:'Не настроен доступ к уровню или объекту отчётности. Обратитесь к администратору' } }[ds];
+    const isOrg = s.level === 'org';
+    const canCreate = isOrg ? P.roles.includes('exec') : P.roles.includes('swod');
+    const list = ds === 'empty' || ds === 'nores' ? [] : this.filtered();
+    const total = list.length, pages = Math.max(1, Math.ceil(total / s.pageSize)), page = Math.min(s.page, pages);
+    const from = (page - 1) * s.pageSize, cur = list.slice(from, from + s.pageSize);
+    const go = (n) => { this.setState({ page:n }); try { const t = document.querySelector('.rf-tw'); if(t && t.getBoundingClientRect().top < 72) window.scrollTo({ top:window.scrollY + t.getBoundingClientRect().top - 90, behavior:'smooth' }); } catch(e){} };
+    const nums = pages <= 7 ? Array.from({ length:pages }, (_, i) => i + 1) : [...new Set([1, page - 1, page, page + 1, pages].filter(n => n >= 1 && n <= pages))].sort((a, b) => a - b);
+    const pageItems = [];
+    nums.forEach((n, i) => { if(i && n - nums[i - 1] > 1) pageItems.push({ gap:true, num:false }); pageItems.push({ gap:false, num:true, n, cur:n === page ? 'page' : 'false', aria:'Страница ' + n, onClick:() => go(n) }); });
+    const isLoading = s.loading || ds === 'loading';
+    const applied = Object.values(s.applied).some(Boolean), drafted = Object.values(s.draft).some(Boolean);
+    const dirty = JSON.stringify(s.draft) !== JSON.stringify(s.applied);
+    const reg = !blockedBy;
+    const noRes = !isLoading && (ds === 'nores' || (ds === 'ok' && !total && applied));
+    const isEmpty = !isLoading && (ds === 'empty' || (ds === 'ok' && !total && !applied));
+    const isError = !isLoading && ds === 'error';
+    const doc = s.doc ? (() => { const v = this.rowView(s.doc), acts = this.actionsFor(s.doc); return { ...v, acts, hasActs:acts.length > 0 }; })() : {};
+    const m = s.m;
+    return {
+      homeHref: lsGet('mp-home-page') || 'Главная H - Витрина.dc.html',
+      showRoles: !this.denied && ds !== 'noRights', roleChips: P.roles.map(r => ROLES[r]),
+      showCtx: !this.denied && reg || ds === 'noScope',
+      ctxCls: 'rf-ctx' + (ds === 'noScope' ? ' one' : isOrg ? ' two' : ''),
+      showObject: !isOrg,
+      orgName: P.org.name, orgDept: P.org.dept,
+      showLevels: reg, manyLevels: P.levels.length > 1, oneLevel: P.levels.length === 1,
+      levels: P.levels.map(id => ({ id, label:LEVELS[id].label, on:id === s.level ? 'true' : 'false', onClick:() => this.setLevel(id) })),
+      levelName: L.label, objectName: L.own || '',
+      blocked: !!blockedBy && !this.denied, blockIcon: blockedBy ? blockedBy.icon : '', blockText: blockedBy ? blockedBy.text : '',
+      showReg: reg && !this.denied,
+      canCreate, ctaLabel: isOrg ? 'Сформировать отчёт' : 'Сформировать свод',
+      openModal: () => this.setState({ modalOpen:true, mErr:false, m:{ form:'', table:'', year:String(TODAY.getFullYear()), period:'' }, open:null }),
+      closeModal: () => this.setState({ modalOpen:false, open:null }),
+      submitModal: () => this.submitModal(),
+      modalOpen: s.modalOpen, mFields: s.modalOpen ? this.modalFields() : [], mErr: s.mErr,
+      mOff: !(m.form && m.table && m.year && m.period),
+      filters: reg && !this.denied ? this.filterFields() : [], ddQ: s.ddQ, onDdQ: (e) => this.setState({ ddQ:e.target.value }),
+      closeMenu: () => this.setState({ open:null, ddQ:'' }),
+      onApply: (e) => this.apply(e), applyOff: !dirty || isLoading,
+      reset: () => this.reset(), resetOff: (!drafted && !applied && ds !== 'nores') || isLoading,
+      showError: isError, showEmpty: isEmpty, showNoRes: noRes, retry: () => this.setDemoState('ok'),
+      showTable: isLoading || (!isError && !isEmpty && !noRes), loading: isLoading, ready: !isLoading,
+      skel: Array.from({ length:Math.min(s.pageSize, 8) }, (_, i) => ({ w1:`width:${[88,64,76,92,58,72,84,68][i]}%;` })),
+      rows: cur.map(r => ({ ...this.rowView(r), openAria:`Открыть: ${r.form.idx}, таблица ${r.tableCode}, ${r.period}`, onOpen:(e) => { if(e && e.stopPropagation) e.stopPropagation(); this.setState({ doc:r }); } })),
+      showPager: !isLoading && !isError && !isEmpty && !noRes,
+      found: total, shownFrom: total ? from + 1 : 0, shownTo: from + cur.length, pages: pageItems,
+      prevOff: page <= 1, nextOff: page >= pages, prevPage: () => go(page - 1), nextPage: () => go(page + 1),
+      hasDoc: !!s.doc, doc, closeDoc: () => this.setState({ doc:null }),
+      hasToast: !!s.toast, toast: s.toast,
+      demoOpen: s.demoOpen, toggleDemo: () => this.setState(st => ({ demoOpen:!st.demoOpen, open:null })), closeAll: () => this.setState({ demoOpen:false, open:null }),
+      demoPersonas: PERSONAS.map(p => ({ label:p.label, org:p.org.name, on:p.id === s.persona ? 'true' : 'false', onClick:() => this.setPersona(p.id) })),
+      demoStates: DEMO_STATES.map(x => ({ label:x.label, on:x.id === ds ? 'true' : 'false', onClick:() => this.setDemoState(x.id) })),
+    };
+  }
+}
+</script>
+</body>
+</html>
