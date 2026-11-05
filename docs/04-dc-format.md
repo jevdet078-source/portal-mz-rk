@@ -108,6 +108,9 @@ const tabs = data.map(t => ({
 | `mp-lmk-scn` (sessionStorage) | сценарий ответа `EH_GET_ALL_LMK` в прототипе: `ok` / `one` / `soon` / `no` / `partial` / `empty` / `slow` / `down` | `Личная медицинская карта` (панель «Прототип») |
 | `mp-doc-photo` | фото профиля врача — data:URL JPEG 320×320 | `Профиль врача` → `Header` (событие `mp-doc-photo-change`) |
 | `mp-doc-notif-read` | JSON-массив id прочитанных уведомлений врача | `Header` (`cabinet="medical"`) |
+| `mp-family` | `[{ iin, at }]` — дети, добавленные в «Мою семью» (родные из ГБД ФЛ и подопечные из РБДС) | `FamilyData` (window.mpFamily) ↔ `Моя семья`, `ЭПЗ ребёнка` (событие `mp-family-change`) |
+| `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
+| `mp-epz-child-scn` (sessionStorage) | сведения ЭПЗ ребёнка в прототипе: `data` / `partial` / `empty` / `slow` / `error` | `ЭПЗ ребёнка` (панель «Прототип») |
 
 Синхронно смена роли рассылается событием:
 `window.dispatchEvent(new CustomEvent('mp-role-change', { detail: id }))`.

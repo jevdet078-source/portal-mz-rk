@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет → Моя семья → ЭПЗ ребёнка. Адрес: «ЭПЗ ребёнка.dc.html?iin=<ИИН ребёнка>#vaccination».
+  Постановка «Добавление детей и просмотр ЭПЗ ребёнка», п. 6:
+    6.1 «Назад в раздел Моя семья», заголовок, индикатор «Доступ законного представителя активен», карточка ребёнка
+        (ФИО, ИИН, дата рождения и возраст, пол, группа крови при наличии, МО прикрепления, участок, участковый врач),
+        «Скачать выписку (PDF)», «Поделиться с врачом (QR)»;
+    6.2 вкладки: Все разделы ЭПЗ · Вакцинация (Прививочный паспорт) · Аллергологический анамнез ·
+        Диагнозы и диспансеризация · История приёмов (вкладка — в адресе: #all, #vaccination, #allergy, #dispensary, #visits);
+    6.3 блоки: Антропометрия и развитие, Аллергологический статус, Национальный календарь прививок,
+        Диспансерный учёт и текущие диагнозы, История обращений и приёмов, Лабораторная диагностика;
+    6.4 состояния каждого блока: сведения имеются / отсутствуют («Сведения отсутствуют») / загружаются / ошибка / частично.
+  Ребёнок — из раздела «Моя семья» (FamilyData, localStorage mp-family); без него страница сообщает, что ребёнок не найден.
+  Сценарий сведений в прототипе — sessionStorage mp-epz-child-scn: data | partial | empty | error | slow (панель «Прототип»).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-m:#CBF5E5;--green-dk:#2D9F75;--green-d:#176448;
+    --teal:#35B9E9;--teal-l:#EBFAFF;--teal-m:#C2EFFF;--teal-dk:#1F87AD;--teal-d:#164564;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-m:#FFDAC2;--orange-dk:#C2540A;--orange-d:#6E330C;
+    --yellow:#F2AE40;--yellow-l:#FEF7EC;--yellow-m:#FBDFB1;--yellow-d:#693D11;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-m:#F8C9D2;--red-dk:#AF1D38;--red-d:#710E21;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);--sh-2xl:0 40px 96px -24px rgba(14,18,27,.24);
+    --hdr:72px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes ez-pop{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes ez-spin{to{transform:rotate(360deg)}}
+  @keyframes ez-sh{0%{background-position:-320px 0}100%{background-position:320px 0}}
+  @keyframes ez-pulse{0%{box-shadow:0 0 0 0 rgba(56,199,147,.45)}70%{box-shadow:0 0 0 6px rgba(56,199,147,0)}100%{box-shadow:0 0 0 0 rgba(56,199,147,0)}}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+
+  /* Раскладка кабинета гражданина: на всю ширину окна, поля 32 (монитор) / 24 (ноутбук, планшет) / 16 px — как у шапки */
+  .ez-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .ez-wrap{padding:24px 24px 80px;} }
+  .ez-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .ez-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
+  .ez-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .ez-main{min-width:0;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;container-type:inline-size;container-name:ez;}
+
+  /* 6.1 Верхний блок */
+  .ez-back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;margin:0 0 -6px -8px;border-radius:8px;font-size:13.5px;line-height:20px;font-weight:500;color:var(--n500);text-decoration:none;transition:background .15s,color .15s;}
+  .ez-back i{font-size:18px;}
+  .ez-back:hover{background:var(--n200);color:var(--n900);}
+  .ez-head{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;}
+  .ez-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
+  .ez-access{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px;border-radius:999px;background:var(--green-l);border:1px solid var(--green-m);color:var(--green-d);font-size:13px;line-height:18px;font-weight:600;white-space:nowrap;cursor:default;}
+  .ez-access .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:ez-pulse 2.4s ease-out infinite;}
+
+  .ez-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);min-width:0;}
+  .ez-kid{container-type:inline-size;}
+  .ez-kid-h{display:flex;align-items:center;gap:16px;padding:20px 20px 18px 24px;flex-wrap:wrap;}
+  .ez-ava{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
+  .ez-ava.kin{background:var(--primary-lighter);color:var(--primary);}
+  .ez-ava.ward{background:var(--teal-l);color:var(--teal-dk);}
+  .ez-kid-name{flex:1;min-width:220px;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;overflow-wrap:anywhere;}
+  .ez-acts{display:flex;gap:8px;flex-wrap:wrap;}
+  .ez-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;border-top:1px solid var(--stroke);}
+  .ez-f{min-width:0;padding:14px 20px 14px 24px;border-right:1px solid var(--stroke);border-bottom:1px solid var(--stroke);}
+  .ez-f dt{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--n400);margin:0 0 4px;}
+  .ez-f dt i{font-size:14px;}
+  .ez-f dd{margin:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
+  .ez-f dd span{color:var(--n500);font-weight:400;}
+  .ez-f.wide{grid-column:span 2;}
+  /* последняя колонка и последняя строка без внутренних линий */
+  .ez-facts .ez-f.r-end{border-right:none;}
+  .ez-facts .ez-f.b-end{border-bottom:none;}
+  @container (min-width:1240px){
+    .ez-facts{grid-template-columns:repeat(8,minmax(0,1fr));}
+    .ez-facts .ez-f{border-bottom:none;}
+    .ez-facts .ez-f.r-end{border-right:1px solid var(--stroke);}
+    .ez-facts .ez-f.last{border-right:none;}
+  }
+
+  /* Кнопки */
+  .ez-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,opacity .15s;}
+  .ez-btn i{font-size:18px;line-height:1;}
+  .ez-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);}
+  .ez-btn.sec:not([disabled]):hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .ez-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .ez-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .ez-btn.sm{height:32px;padding:0 12px;font-size:13px;}
+  .ez-btn.sm i{font-size:16px;}
+  .ez-btn[disabled]{cursor:progress;}
+  .ez-spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:ez-spin .7s linear infinite;flex:0 0 auto;}
+
+  /* 6.2 Вкладки */
+  .ez-tabs-w{position:sticky;top:var(--hdr);z-index:20;}
+  .ez-tabs-w::before{content:"";position:absolute;left:0;right:0;top:-16px;bottom:-8px;background:var(--bg);z-index:-1;opacity:0;transition:opacity .15s;}
+  .ez-tabs-w.stuck::before{opacity:1;}
+  .ez-tabs{display:flex;gap:4px;padding:4px;border-radius:14px;background:var(--n0);border:1px solid var(--stroke);box-shadow:var(--sh-xs);overflow-x:auto;scrollbar-width:none;}
+  .ez-tabs::-webkit-scrollbar{display:none;}
+  .ez-tab{flex:1 0 auto;height:40px;padding:0 14px;border:none;border-radius:10px;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:background .15s,color .15s;}
+  .ez-tab i{font-size:18px;color:var(--n400);transition:color .15s;}
+  .ez-tab:hover{background:var(--n100);color:var(--n900);}
+  .ez-tab[aria-selected="true"]{background:var(--primary);color:#fff;font-weight:600;}
+  .ez-tab[aria-selected="true"] i{color:#fff;}
+  /* ноутбуки: без значков; узкая колонка — пять равных сегментов, длинные названия в две строки */
+  @container ez (max-width:1199px){ .ez-tab i{display:none;} .ez-tab{padding:0 10px;} }
+  @container ez (max-width:1059px){ .ez-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));} .ez-tab{height:48px;white-space:normal;text-align:center;font-size:13px;line-height:16px;padding:0 8px;} }
+  @container ez (max-width:640px){ .ez-tabs{display:flex;} .ez-tab{height:40px;white-space:nowrap;padding:0 12px;} }
+
+  /* 6.3 Блоки */
+  .ez-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch;}
+  .ez-grid.one{grid-template-columns:minmax(0,1fr);}
+  .ez-blk{display:flex;flex-direction:column;min-width:0;overflow:hidden;animation:mp-fade .2s ease;container-type:inline-size;container-name:blk;}
+  .ez-blk.wide{grid-column:1 / -1;}
+  .ez-grid.pair .ez-blk.half{height:100%;}
+  @container ez (min-width:1500px){
+    .ez-grid.all{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .ez-grid.all .o-disp{order:3;grid-column:auto;}
+    .ez-grid.all .o-vacc{order:4;}
+    .ez-grid.all .o-visits{order:5;}
+    .ez-grid.all .o-lab{order:6;}
+  }
+  .ez-bh{display:flex;align-items:center;gap:12px;min-height:64px;padding:12px 20px;border-bottom:1px solid var(--stroke);}
+  .ez-bic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;background:var(--primary-lighter);color:var(--primary);}
+  .ez-bt{flex:1;min-width:0;margin:0;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;}
+  .ez-bm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;font-size:13px;line-height:18px;color:var(--n500);}
+  .ez-bm b{font-weight:500;color:var(--n900);}
+  .ez-mdate{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:default;border-radius:6px;}
+  .ez-mdate i{font-size:15px;color:var(--n400);}
+  .ez-bt{overflow-wrap:anywhere;}
+  .ez-bb{padding:16px 20px 20px;flex:1;}
+  .ez-bb.flush{padding:0;}
+
+  .ez-chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;}
+  .ez-chip i{font-size:13px;}
+  .t-green{background:var(--green-l);color:var(--green-d);}
+  .t-blue{background:var(--primary-lighter);color:var(--primary-darker);}
+  .t-orange{background:var(--orange-l);color:var(--orange-d);}
+  .t-red{background:var(--red-l);color:var(--red-d);}
+  .t-gray{background:var(--n100);color:var(--n500);}
+  .t-yellow{background:var(--yellow-l);color:var(--yellow-d);}
+  .ez-part{cursor:help;}
+  .ez-miss{color:var(--n400);font-weight:400;cursor:help;}
+
+  /* состояния блока */
+  .ez-st{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:148px;padding:24px 20px;text-align:center;}
+  .ez-st-ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+  .ez-st-t{font-size:14px;line-height:20px;font-weight:500;color:var(--n500);}
+  .ez-st.err .ez-st-t{color:var(--n900);}
+  .ez-sk{border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,#EDEFF3 40px,var(--n100) 80px) var(--n100);background-size:640px 100%;animation:ez-sh 1.2s linear infinite;}
+  .ez-skel{display:flex;flex-direction:column;gap:12px;padding:20px;}
+
+  /* Антропометрия */
+  .ez-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  @container blk (min-width:640px){ .ez-tiles{grid-template-columns:repeat(4,minmax(0,1fr));} }
+  .ez-tile{min-width:0;padding:14px 16px;border-radius:12px;background:var(--n50);border:1px solid var(--stroke);display:flex;flex-direction:column;gap:6px;}
+  .ez-tile-l{font-size:12.5px;line-height:16px;color:var(--n500);}
+  .ez-tile-v{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .ez-tile-v small{font-size:13px;font-weight:500;color:var(--n500);letter-spacing:0;}
+  .ez-tile .ez-chip{align-self:flex-start;}
+
+  /* Аллергии */
+  .ez-alg{display:flex;flex-direction:column;gap:10px;}
+  .ez-al{display:flex;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--stroke);background:var(--n0);}
+  .ez-al.hi{border-color:var(--red-m);background:var(--red-l);}
+  .ez-al-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto;background:var(--n100);color:var(--n500);}
+  .ez-al.hi .ez-al-ic{background:var(--red);color:#fff;}
+  .ez-al-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+  .ez-al-h{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap;}
+  .ez-al-n{font-size:14.5px;line-height:20px;font-weight:600;color:var(--n900);margin-right:2px;}
+  .ez-al-d{font-size:13.5px;line-height:20px;color:var(--n600);}
+  .ez-al.hi .ez-al-d{color:var(--red-d);}
+
+  /* Таблицы: обводка — border карточки; шапка и ховер строк — внутри */
+  .ez-tw{overflow-x:auto;scrollbar-width:thin;}
+  .ez-tbl{width:100%;border-collapse:collapse;font-size:13.5px;line-height:20px;}
+  .ez-tbl th{padding:10px 12px;background:var(--n50);border-bottom:1px solid var(--stroke);text-align:left;font-size:11px;line-height:16px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);white-space:nowrap;}
+  .ez-tbl td{padding:12px;border-bottom:1px solid var(--stroke);vertical-align:top;color:var(--n700);}
+  .ez-tbl tr:last-child td{border-bottom:none;}
+  .ez-tbl td.rs-last{border-bottom:none;}
+  .ez-tbl th:first-child,.ez-tbl td:first-child{padding-left:20px;}
+  .ez-tbl th:last-child,.ez-tbl td:last-child{padding-right:20px;}
+  .ez-tbl tbody tr{transition:background .12s;}
+  .ez-tbl tbody tr:hover td{background:var(--n50);}
+  .ez-tbl .strong{font-weight:500;color:var(--n900);}
+  .ez-tbl .sub{display:block;font-size:12.5px;line-height:18px;color:var(--n500);}
+  .ez-tbl .nw{white-space:nowrap;}
+  .ez-tbl .num{font-variant-numeric:tabular-nums;}
+  .ez-tbl .r{text-align:right;}
+  .ez-tbl td.grp{background:var(--n0);}
+  .ez-tbl tbody.lab td.ind{padding-left:12px;}
+  .ez-tbl tbody.lab tr:hover td.grp{background:var(--n0);}
+  .ez-val-hi{color:var(--orange-dk);font-weight:600;}
+
+  /* Диспансерный учёт */
+  .ez-disp{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:16px;align-items:start;}
+  .ez-hg{padding:16px;border-radius:12px;background:var(--primary-lighter);border:1px solid #E0E6FF;display:flex;flex-direction:column;gap:2px;}
+  .ez-hg-l{font-size:12.5px;line-height:16px;color:var(--primary-darker);opacity:.8;}
+  .ez-hg-v{font-size:26px;line-height:34px;font-weight:700;letter-spacing:-.02em;color:var(--primary);}
+  .ez-dx{display:flex;flex-direction:column;border:1px solid var(--stroke);border-radius:12px;overflow:hidden;}
+  .ez-dx-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--stroke);transition:background .12s;}
+  .ez-dx-r:last-child{border-bottom:none;}
+  .ez-dx-r:hover{background:var(--n50);}
+  .ez-code{display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:26px;padding:0 8px;border-radius:7px;background:var(--n100);border:1px solid var(--stroke);font-size:12.5px;font-weight:600;color:var(--n700);font-variant-numeric:tabular-nums;}
+  .ez-dx-n{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
+  .ez-dx-d{font-size:12.5px;line-height:18px;color:var(--n500);}
+  @container ez (min-width:1500px){ .ez-grid.all .ez-disp{grid-template-columns:minmax(0,1fr);} }
+  @container blk (max-width:480px){ .ez-dx-r{grid-template-columns:auto minmax(0,1fr);align-items:start;} .ez-dx-r > .ez-chip{grid-column:2;justify-self:start;} .ez-code{min-width:52px;} }
+
+  /* Окно QR */
+  .ez-ov{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,13,20,.48);animation:mp-fade .15s ease;}
+  .ez-dlg{width:400px;max-width:100%;background:var(--n0);border-radius:20px;box-shadow:var(--sh-2xl);animation:ez-pop .2s ease;outline:none;overflow:hidden;}
+  .ez-dlg-h{display:flex;align-items:center;gap:8px;padding:18px 16px 0 24px;}
+  .ez-dlg-h h2{flex:1;margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;}
+  .ez-x{width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;padding:0;transition:background .15s,color .15s;}
+  .ez-x:hover{background:var(--n100);color:var(--n900);}
+  .ez-info{width:24px;height:24px;border:none;border-radius:6px;background:none;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;font-size:17px;cursor:help;padding:0;}
+  .ez-info:hover{background:var(--n100);color:var(--n600);}
+  .ez-qr{margin:20px auto 0;width:232px;height:232px;padding:8px;border-radius:16px;border:1px solid var(--stroke);background:#fff;}
+  
+  .ez-qr-n{margin:14px 24px 0;text-align:center;font-size:15px;line-height:22px;font-weight:600;}
+  .ez-qr-i{margin:2px 24px 0;text-align:center;font-size:13px;line-height:18px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .ez-dlg-f{display:flex;padding:20px 24px 24px;}
+  .ez-dlg-f .ez-btn{flex:1;}
+
+  .ez-toast{position:fixed;right:28px;bottom:96px;z-index:80;display:flex;align-items:center;gap:10px;max-width:380px;padding:12px 16px 12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);font-size:14px;line-height:20px;font-weight:500;animation:mp-slidein .2s ease;}
+
+  .ez-btn:focus-visible,.ez-tab:focus-visible,.ez-back:focus-visible,.ez-x:focus-visible,.ez-info:focus-visible,.ez-access:focus-visible,.pp-btn:focus-visible,.ez-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .hm-tip.on{opacity:1;transform:none;}
+
+  .pp{position:fixed;left:20px;bottom:20px;z-index:50;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .pp-h{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-cap{font-size:11px;line-height:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);}
+  .pp-b{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);}
+  .pp-btn{min-height:30px;padding:6px 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+
+  @media (max-width:1024px){
+    .ez-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @container ez (max-width:860px){
+    .ez-grid{grid-template-columns:minmax(0,1fr);}
+    .ez-facts{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .ez-disp{grid-template-columns:minmax(0,1fr);}
+  }
+  @media (max-width:640px){
+    .ez-wrap{padding:16px 16px 80px;}
+    .ez-crumbs{margin-bottom:16px;}
+    .ez-title{font-size:20px;line-height:28px;}
+    .ez-kid-h{padding:16px;}
+    .ez-acts{width:100%;}
+    .ez-acts .ez-btn{flex:1;padding:0 10px;}
+    .ez-f{padding:12px 16px;}
+    .ez-bh{padding:12px 16px;}
+    .ez-bb{padding:14px 16px 16px;}
+    .ez-tbl th:first-child,.ez-tbl td:first-child{padding-left:16px;}
+    .ez-toast{left:16px;right:16px;bottom:80px;max-width:none;}
+    .pp{left:16px;bottom:16px;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div class="ez-hdr" style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+  <dc-import name="FamilyData" hint-size="0px,0px"></dc-import>
+
+  <div class="ez-wrap">
+    <nav class="ez-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Моя семья.dc.html">Моя семья</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">ЭПЗ ребёнка</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="family" hint-size="300px,560px"></dc-import>
+      </aside>
+
+      <main class="ez-main">
+        <a class="ez-back" href="Моя семья.dc.html"><i class="ri-arrow-left-line" aria-hidden="true"></i>Назад в раздел Моя семья</a>
+        <div class="ez-head">
+          <h1 class="ez-title">Электронный паспорт здоровья (ЭПЗ) ребёнка</h1>
+          <sc-if value="{{ hasKid }}" hint-placeholder-val="{{ true }}">
+            <span class="ez-access" tabIndex="0" data-tip="{{ accessTip }}"><span class="dot" aria-hidden="true"></span>Доступ законного представителя активен</span>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ noKid }}" hint-placeholder-val="{{ false }}">
+          <div class="ez-card ez-st" style="min-height:240px;">
+            <span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-user-search-line"></i></span>
+            <div class="ez-st-t" style="color:var(--n900);">Ребёнок не найден в разделе «Моя семья»</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasKid }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <!-- Карточка ребёнка -->
+            <section class="ez-card ez-kid" aria-label="Сведения о ребёнке">
+              <div class="ez-kid-h">
+                <span class="{{ avaCls }}" aria-hidden="true">{{ ini }}</span>
+                <div class="ez-kid-name">{{ fio }}</div>
+                <div class="ez-acts">
+                  <button type="button" class="ez-btn sec" onClick="{{ pdf }}" disabled="{{ pdfBusy }}">
+                    <sc-if value="{{ pdfBusy }}" hint-placeholder-val="{{ false }}"><span class="ez-spin" aria-hidden="true"></span>Формирование…</sc-if>
+                    <sc-if value="{{ pdfIdle }}" hint-placeholder-val="{{ true }}"><i class="ri-file-download-line" aria-hidden="true"></i>Скачать выписку (PDF)</sc-if>
+                  </button>
+                  <button type="button" class="ez-btn sec" onClick="{{ openQr }}" aria-haspopup="dialog"><i class="ri-qr-code-line" aria-hidden="true"></i>Поделиться с врачом (QR)</button>
+                </div>
+              </div>
+              <dl class="ez-facts">
+                <sc-for list="{{ facts }}" as="f" hint-placeholder-count="7">
+                  <div class="{{ f.cls }}"><dt>{{ f.label }}</dt><dd>{{ f.value }}<sc-if value="{{ f.hasSub }}" hint-placeholder-val="{{ false }}"> <span>· {{ f.sub }}</span></sc-if></dd></div>
+                </sc-for>
+              </dl>
+            </section>
+
+            <!-- 6.2 Навигация по ЭПЗ -->
+            <div class="{{ tabsWrapCls }}" ref="{{ tabsRef }}">
+              <div class="ez-tabs" role="tablist" aria-label="Разделы ЭПЗ">
+                <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+                  <button type="button" class="ez-tab" role="tab" id="{{ t.domId }}" aria-selected="{{ t.sel }}" aria-controls="ez-panel" tabIndex="{{ t.tabIndex }}" onClick="{{ t.onClick }}" onKeyDown="{{ t.onKey }}"><i class="{{ t.icon }}" aria-hidden="true"></i>{{ t.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+
+            <!-- 6.3 Медицинские сведения -->
+            <div class="{{ gridCls }}" id="ez-panel" role="tabpanel" aria-labelledby="{{ panelBy }}">
+
+              <!-- Антропометрия и развитие -->
+              <sc-if value="{{ B.anthro.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.anthro.cls }}" aria-labelledby="ez-h-anthro">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true"><i class="ri-ruler-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-anthro">Антропометрия и развитие</h2>
+                    <div class="ez-bm">
+                      <sc-if value="{{ B.anthro.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if>
+                      <sc-if value="{{ B.anthro.ok }}" hint-placeholder-val="{{ true }}"><span class="ez-mdate" tabIndex="0" data-tip="Дата измерения" aria-label="Дата измерения {{ anthro.date }}"><i class="ri-calendar-line" aria-hidden="true"></i><b class="num">{{ anthro.date }}</b></span></sc-if>
+                    </div>
+                  </header>
+                  <sc-if value="{{ B.anthro.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><div class="ez-tiles"><sc-for list="{{ sk4 }}" as="z" hint-placeholder-count="4"><span class="ez-sk" style="height:96px;border-radius:12px;"></span></sc-for></div></div></sc-if>
+                  <sc-if value="{{ B.anthro.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.anthro.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.anthro.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.anthro.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-bb">
+                      <div class="ez-tiles">
+                        <sc-for list="{{ anthro.tiles }}" as="m" hint-placeholder-count="4">
+                          <div class="ez-tile">
+                            <span class="ez-tile-l">{{ m.label }}</span>
+                            <sc-if value="{{ m.has }}" hint-placeholder-val="{{ true }}">
+                              <span class="ez-tile-v">{{ m.value }}<small>{{ m.unit }}</small></span>
+                              <span class="{{ m.chipCls }}">{{ m.flag }}</span>
+                            </sc-if>
+                            <sc-if value="{{ m.miss }}" hint-placeholder-val="{{ false }}">
+                              <span class="ez-tile-v ez-miss" data-tip="{{ missTip }}" style="font-weight:500;">—</span>
+                            </sc-if>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <!-- Аллергологический статус -->
+              <sc-if value="{{ B.allergy.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.allergy.cls }}" aria-labelledby="ez-h-allergy">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true" style="{{ allergyIcStyle }}"><i class="ri-alert-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-allergy">Аллергологический статус</h2>
+                    <div class="ez-bm">
+                      <sc-if value="{{ B.allergy.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if>
+                      
+                    </div>
+                  </header>
+                  <sc-if value="{{ B.allergy.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><span class="ez-sk" style="height:62px;border-radius:12px;"></span><span class="ez-sk" style="height:62px;border-radius:12px;"></span></div></sc-if>
+                  <sc-if value="{{ B.allergy.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.allergy.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.allergy.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.allergy.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-bb">
+                      <ul class="ez-alg" style="list-style:none;margin:0;padding:0;">
+                        <sc-for list="{{ allergies }}" as="a" hint-placeholder-count="2">
+                          <li class="{{ a.cls }}">
+                            <span class="ez-al-ic" aria-hidden="true"><i class="{{ a.icon }}"></i></span>
+                            <div class="ez-al-b">
+                              <div class="ez-al-h"><span class="ez-al-n">{{ a.name }}</span><span class="ez-chip t-gray">{{ a.type }}</span><span class="{{ a.riskCls }}">{{ a.risk }}</span></div>
+                              <sc-if value="{{ a.hasDesc }}" hint-placeholder-val="{{ true }}"><div class="ez-al-d">{{ a.desc }}</div></sc-if>
+                              <sc-if value="{{ a.noDesc }}" hint-placeholder-val="{{ false }}"><div class="ez-al-d ez-miss" data-tip="{{ missTip }}">Описание реакции не указано</div></sc-if>
+                            </div>
+                          </li>
+                        </sc-for>
+                      </ul>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <!-- Национальный календарь прививок -->
+              <sc-if value="{{ B.vacc.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.vacc.cls }}" aria-labelledby="ez-h-vacc">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true" style="background:var(--green-l);color:var(--green-dk);"><i class="ri-syringe-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-vacc">Национальный календарь прививок</h2>
+                    <div class="ez-bm">
+                      <sc-if value="{{ B.vacc.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if>
+                      <sc-if value="{{ B.vacc.ok }}" hint-placeholder-val="{{ true }}"><span>Выполнено <b class="num">{{ vaccDone }}</b></span></sc-if>
+                    </div>
+                  </header>
+                  <sc-if value="{{ B.vacc.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><sc-for list="{{ sk5 }}" as="z" hint-placeholder-count="5"><span class="ez-sk" style="height:18px;"></span></sc-for></div></sc-if>
+                  <sc-if value="{{ B.vacc.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.vacc.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.vacc.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.vacc.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-tw">
+                      <table class="ez-tbl" style="min-width:880px;">
+                        <thead><tr><th style="width:26%;">Наименование</th><th>Возраст / этап</th><th>Дата введения</th><th>Препарат</th><th>Медорганизация</th><th class="r">Статус</th></tr></thead>
+                        <tbody>
+                          <sc-for list="{{ vaccines }}" as="v" hint-placeholder-count="6">
+                            <tr>
+                              <td><span class="strong">{{ v.name }}</span><span class="sub">{{ v.inf }}</span></td>
+                              <td class="nw">{{ v.stage }}</td>
+                              <td class="nw num"><sc-if value="{{ v.hasDate }}" hint-placeholder-val="{{ true }}">{{ v.date }}</sc-if><sc-if value="{{ v.noDate }}" hint-placeholder-val="{{ false }}"><span class="ez-miss" data-tip="{{ v.dateTip }}">—</span></sc-if></td>
+                              <td><sc-if value="{{ v.hasDrug }}" hint-placeholder-val="{{ true }}">{{ v.drug }}<span class="sub num">{{ v.series }}</span></sc-if><sc-if value="{{ v.noDrug }}" hint-placeholder-val="{{ false }}"><span class="ez-miss" data-tip="{{ v.missTip }}">—</span></sc-if></td>
+                              <td><sc-if value="{{ v.hasMo }}" hint-placeholder-val="{{ true }}">{{ v.mo }}</sc-if><sc-if value="{{ v.noMo }}" hint-placeholder-val="{{ false }}"><span class="ez-miss" data-tip="{{ v.missTip }}">—</span></sc-if></td>
+                              <td class="r"><span class="{{ v.stCls }}"><i class="{{ v.stIcon }}" aria-hidden="true"></i>{{ v.status }}</span></td>
+                            </tr>
+                          </sc-for>
+                        </tbody>
+                      </table>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <!-- Диспансерный учёт и текущие диагнозы -->
+              <sc-if value="{{ B.disp.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.disp.cls }}" aria-labelledby="ez-h-disp">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true" style="background:var(--teal-l);color:var(--teal-dk);"><i class="ri-stethoscope-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-disp">Диспансерный учёт и текущие диагнозы</h2>
+                    <div class="ez-bm"><sc-if value="{{ B.disp.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if></div>
+                  </header>
+                  <sc-if value="{{ B.disp.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><span class="ez-sk" style="height:56px;border-radius:12px;"></span><span class="ez-sk" style="height:56px;border-radius:12px;"></span></div></sc-if>
+                  <sc-if value="{{ B.disp.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.disp.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.disp.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.disp.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-bb">
+                      <div class="ez-disp">
+                        <div class="ez-hg">
+                          <span class="ez-hg-l">Группа здоровья</span>
+                          <sc-if value="{{ disp.hasGroup }}" hint-placeholder-val="{{ true }}"><span class="ez-hg-v">{{ disp.group }}</span></sc-if>
+                          <sc-if value="{{ disp.noGroup }}" hint-placeholder-val="{{ false }}"><span class="ez-hg-v ez-miss" data-tip="{{ missTip }}" style="color:var(--n400);">—</span></sc-if>
+                        </div>
+                        <sc-if value="{{ disp.hasDx }}" hint-placeholder-val="{{ true }}">
+                          <div class="ez-dx" role="list" aria-label="Диагнозы">
+                            <sc-for list="{{ disp.dx }}" as="d" hint-placeholder-count="3">
+                              <div class="ez-dx-r" role="listitem">
+                                <span class="ez-code" data-tip="Код МКБ-10">{{ d.code }}</span>
+                                <span style="min-width:0;display:flex;flex-direction:column;gap:2px;"><span class="ez-dx-n">{{ d.name }}</span><span class="ez-dx-d">{{ d.dateText }}</span></span>
+                                <span class="{{ d.stCls }}">{{ d.status }}</span>
+                              </div>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{ disp.noDx }}" hint-placeholder-val="{{ false }}">
+                          <div class="ez-dx" style="min-height:66px;align-items:center;justify-content:center;flex-direction:row;gap:8px;color:var(--n500);font-size:14px;font-weight:500;"><i class="ri-inbox-line" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>Диагнозы: сведения отсутствуют</div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <!-- История обращений и приёмов -->
+              <sc-if value="{{ B.visits.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.visits.cls }}" aria-labelledby="ez-h-visits">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true" style="background:var(--yellow-l);color:var(--orange-dk);"><i class="ri-calendar-check-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-visits">История обращений и приёмов</h2>
+                    <div class="ez-bm"><sc-if value="{{ B.visits.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if></div>
+                  </header>
+                  <sc-if value="{{ B.visits.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><sc-for list="{{ sk4 }}" as="z" hint-placeholder-count="4"><span class="ez-sk" style="height:18px;"></span></sc-for></div></sc-if>
+                  <sc-if value="{{ B.visits.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.visits.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.visits.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.visits.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-tw">
+                      <table class="ez-tbl" style="min-width:820px;">
+                        <thead><tr><th style="width:112px;">Дата</th><th style="width:20%;">Медорганизация</th><th style="width:20%;">Специалист</th><th style="width:24%;">Причина обращения</th><th>Результат приёма</th></tr></thead>
+                        <tbody>
+                          <sc-for list="{{ visits }}" as="v" hint-placeholder-count="4">
+                            <tr>
+                              <td class="nw num strong">{{ v.date }}</td>
+                              <td>{{ v.mo }}</td>
+                              <td><span class="strong">{{ v.spec }}</span><span class="sub">{{ v.doctor }}</span></td>
+                              <td>{{ v.reason }}</td>
+                              <td><sc-if value="{{ v.hasRes }}" hint-placeholder-val="{{ true }}">{{ v.result }}</sc-if><sc-if value="{{ v.noRes }}" hint-placeholder-val="{{ false }}"><span class="ez-miss" data-tip="{{ missTip }}">—</span></sc-if></td>
+                            </tr>
+                          </sc-for>
+                        </tbody>
+                      </table>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+
+              <!-- Лабораторная диагностика -->
+              <sc-if value="{{ B.lab.show }}" hint-placeholder-val="{{ true }}">
+                <section class="{{ B.lab.cls }}" aria-labelledby="ez-h-lab">
+                  <header class="ez-bh">
+                    <span class="ez-bic" aria-hidden="true" style="background:#EEEBFF;color:#6E3FF3;"><i class="ri-test-tube-line"></i></span>
+                    <h2 class="ez-bt" id="ez-h-lab">Лабораторная диагностика</h2>
+                    <div class="ez-bm"><sc-if value="{{ B.lab.partial }}" hint-placeholder-val="{{ false }}"><span class="ez-chip t-yellow ez-part" tabIndex="0" data-tip="{{ partTip }}"><i class="ri-error-warning-line" aria-hidden="true"></i>Частично</span></sc-if></div>
+                  </header>
+                  <sc-if value="{{ B.lab.loading }}" hint-placeholder-val="{{ false }}"><div class="ez-skel" aria-busy="true" aria-label="Загрузка"><sc-for list="{{ sk5 }}" as="z" hint-placeholder-count="5"><span class="ez-sk" style="height:18px;"></span></sc-for></div></sc-if>
+                  <sc-if value="{{ B.lab.error }}" hint-placeholder-val="{{ false }}"><div class="ez-st err" role="alert"><span class="ez-st-ic t-red" aria-hidden="true"><i class="ri-error-warning-line"></i></span><div class="ez-st-t">Не удалось получить сведения</div><button type="button" class="ez-btn sec sm" onClick="{{ B.lab.retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></div></sc-if>
+                  <sc-if value="{{ B.lab.empty }}" hint-placeholder-val="{{ false }}"><div class="ez-st"><span class="ez-st-ic t-gray" aria-hidden="true"><i class="ri-inbox-line"></i></span><div class="ez-st-t">Сведения отсутствуют</div></div></sc-if>
+                  <sc-if value="{{ B.lab.ok }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-tw">
+                      <table class="ez-tbl" style="min-width:860px;">
+                        <thead><tr><th style="width:112px;">Дата</th><th style="width:20%;">Анализ</th><th>Показатель</th><th class="r">Результат</th><th>Ед. изм.</th><th>Референсные значения</th><th class="r">Статус</th></tr></thead>
+                        <sc-for list="{{ labs }}" as="g" hint-placeholder-count="2">
+                          <tbody class="lab">
+                            <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                              <tr>
+                                <sc-if value="{{ r.first }}" hint-placeholder-val="{{ true }}">
+                                  <td class="nw num strong grp" rowSpan="{{ g.span }}" style="border-bottom:1px solid var(--stroke);">{{ g.date }}</td>
+                                  <td class="strong grp" rowSpan="{{ g.span }}" style="border-bottom:1px solid var(--stroke);">{{ g.name }}</td>
+                                </sc-if>
+                                <td class="ind" style="{{ r.tdStyle }}">{{ r.ind }}</td>
+                                <td class="r num nw" style="{{ r.tdStyle }}"><span class="{{ r.valCls }}">{{ r.value }}</span></td>
+                                <td class="nw" style="{{ r.tdStyle }}">{{ r.unit }}</td>
+                                <td class="num nw" style="{{ r.tdStyle }}"><sc-if value="{{ r.hasRef }}" hint-placeholder-val="{{ true }}">{{ r.ref }}</sc-if><sc-if value="{{ r.noRef }}" hint-placeholder-val="{{ false }}"><span class="ez-miss" data-tip="{{ missTip }}">—</span></sc-if></td>
+                                <td class="r" style="{{ r.tdStyle }}"><span class="{{ r.stCls }}">{{ r.status }}</span></td>
+                              </tr>
+                            </sc-for>
+                          </tbody>
+                        </sc-for>
+                      </table>
+                    </div>
+                  </sc-if>
+                </section>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <!-- Поделиться с врачом (QR) -->
+  <sc-if value="{{ qr }}" hint-placeholder-val="{{ false }}">
+    <div class="ez-ov" onMouseDown="{{ closeQr }}">
+      <div class="ez-dlg" ref="{{ qrRef }}" role="dialog" aria-modal="true" aria-labelledby="ez-qr-t" tabIndex="-1" onMouseDown="{{ stop }}" onKeyDown="{{ onQrKey }}">
+        <div class="ez-dlg-h">
+          <h2 id="ez-qr-t">Поделиться с врачом<button type="button" class="ez-info" aria-label="{{ qrTip }}" data-tip="{{ qrTip }}"><i class="ri-information-line" aria-hidden="true"></i></button></h2>
+          <button type="button" class="ez-x" onClick="{{ closeQr }}" aria-label="Закрыть"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </div>
+        <div class="ez-qr" role="img" aria-label="QR-код доступа к ЭПЗ ребёнка">
+          <canvas ref="{{ qrCanvas }}" width="400" height="400" style="display:block;width:100%;height:100%;" aria-hidden="true"></canvas>
+        </div>
+        <div class="ez-qr-n">{{ fio }}</div>
+        <div class="ez-qr-i">ИИН {{ iin }}</div>
+        <div class="ez-dlg-f"><button type="button" class="ez-btn sec" onClick="{{ closeQr }}">Закрыть</button></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="ez-toast" role="status" aria-live="polite"><i class="{{ toastIcon }}" style="{{ toastIconStyle }}" aria-hidden="true"></i>{{ toastText }}</div>
+  </sc-if>
+
+  <!-- Панель прототипа: сведения ЭПЗ -->
+  <div class="pp" style="{{ ppW }}">
+    <button type="button" class="pp-h" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span class="pp-cap" style="flex:1;">Прототип · ЭПЗ</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div class="pp-b" role="radiogroup" aria-label="Состояние сведений ЭПЗ">
+        <sc-for list="{{ scns }}" as="x" hint-placeholder-count="5">
+          <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1400}}">
+// Подсказки data-tip (как в HomeData)
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+// ---------- Вкладки (6.2) и блоки (6.3) ----------
+const TABS = [
+  { id:'all', label:'Все разделы ЭПЗ', icon:'ri-apps-2-line', blocks:['anthro', 'allergy', 'vacc', 'disp', 'visits', 'lab'] },
+  { id:'vaccination', label:'Вакцинация (Прививочный паспорт)', icon:'ri-syringe-line', blocks:['vacc'] },
+  { id:'allergy', label:'Аллергологический анамнез', icon:'ri-alert-line', blocks:['allergy'] },
+  { id:'dispensary', label:'Диагнозы и диспансеризация', icon:'ri-stethoscope-line', blocks:['disp'] },
+  { id:'visits', label:'История приёмов', icon:'ri-calendar-check-line', blocks:['visits'] },
+];
+const BLOCKS = ['anthro', 'allergy', 'vacc', 'disp', 'visits', 'lab'];
+const SCNS = [
+  { id:'data', label:'Сведения имеются', icon:'ri-file-list-3-line' },
+  { id:'partial', label:'Частично заполнены', icon:'ri-error-warning-line' },
+  { id:'empty', label:'Сведения отсутствуют', icon:'ri-inbox-line' },
+  { id:'slow', label:'Данные загружаются', icon:'ri-loader-4-line' },
+  { id:'error', label:'Ошибка получения', icon:'ri-close-circle-line' },
+];
+const SCN_KEY = 'mp-epz-child-scn';
+
+// ---------- Национальный календарь прививок РК (возраст в месяцах) ----------
+const BIRTH_MO = 'Городской перинатальный центр №1 г. Астаны';
+const CAL = [
+  { id:'bcg',   m:0,   stage:'1–4 дня',           name:'БЦЖ',                    inf:'Туберкулёз',                                    drug:'Вакцина БЦЖ',   ser:'серия 0418', birth:true, d:2 },
+  { id:'hb1',   m:0,   stage:'1–4 дня · V1',      name:'ВГВ',                    inf:'Вирусный гепатит B',                            drug:'Энджерикс B',   ser:'серия AHBVC812', birth:true, d:1 },
+  { id:'hex1',  m:2,   stage:'2 мес · V1',        name:'АбКДС-ИПВ-Хиб-ВГВ',      inf:'Дифтерия, столбняк, коклюш, полиомиелит, Хиб-инфекция, гепатит B', drug:'Гексаксим', ser:'серия U2K461', d:3 },
+  { id:'pcv1',  m:2,   stage:'2 мес · V1',        name:'ПКВ',                    inf:'Пневмококковая инфекция',                        drug:'Превенар 13',   ser:'серия FL5517', d:3 },
+  { id:'pent2', m:3,   stage:'3 мес · V2',        name:'АбКДС-ИПВ-Хиб',          inf:'Дифтерия, столбняк, коклюш, полиомиелит, Хиб-инфекция', drug:'Пентаксим', ser:'серия T3A12', d:5 },
+  { id:'hex3',  m:4,   stage:'4 мес · V3',        name:'АбКДС-ИПВ-Хиб-ВГВ',      inf:'Дифтерия, столбняк, коклюш, полиомиелит, Хиб-инфекция, гепатит B', drug:'Гексаксим', ser:'серия U2K488', d:4 },
+  { id:'pcv2',  m:4,   stage:'4 мес · V2',        name:'ПКВ',                    inf:'Пневмококковая инфекция',                        drug:'Превенар 13',   ser:'серия FL5603', d:4 },
+  { id:'mmr1',  m:12,  stage:'12 мес · V1',       name:'ККП',                    inf:'Корь, краснуха, эпидемический паротит',          drug:'Приорикс',      ser:'серия A69CF', d:6 },
+  { id:'pcv3',  m:12,  stage:'12 мес · RV',       name:'ПКВ',                    inf:'Пневмококковая инфекция',                        drug:'Превенар 13',   ser:'серия FL6022', d:6 },
+  { id:'pent4', m:18,  stage:'18 мес · RV1',      name:'АбКДС-ИПВ-Хиб',          inf:'Дифтерия, столбняк, коклюш, полиомиелит, Хиб-инфекция', drug:'Пентаксим', ser:'серия T3B07', d:8 },
+  { id:'tet',   m:72,  stage:'6 лет · RV2',       name:'АбКДС-ИПВ',              inf:'Дифтерия, столбняк, коклюш, полиомиелит',        drug:'Тетраксим',     ser:'серия R1C44', d:10 },
+  { id:'mmr2',  m:72,  stage:'6 лет · RV',        name:'ККП',                    inf:'Корь, краснуха, эпидемический паротит',          drug:'Приорикс',      ser:'серия A71BD', d:10 },
+  { id:'hpv',   m:132, stage:'11 лет · V1',       name:'ВПЧ',                    inf:'Папилломавирусная инфекция',                     drug:'Гардасил',      ser:'серия W0234', d:7, girls:true },
+  { id:'adsm',  m:144, stage:'12 лет · RV',       name:'АДС-М',                  inf:'Дифтерия, столбняк',                             drug:'АДС-М',         ser:'серия 1122', d:9 },
+  { id:'adsm2', m:192, stage:'16 лет · RV',       name:'АДС-М',                  inf:'Дифтерия, столбняк',                             drug:'АДС-М',         ser:'серия 1185', d:9 },
+];
+const ST = {
+  done:    { label:'Выполнено',     cls:'t-green',  icon:'ri-check-line' },
+  plan:    { label:'Запланировано', cls:'t-blue',   icon:'ri-calendar-line' },
+  overdue: { label:'Просрочено',    cls:'t-red',    icon:'ri-time-line' },
+  exempt:  { label:'Медотвод',      cls:'t-yellow', icon:'ri-forbid-line' },
+};
+
+// ---------- Медицинские сведения детей (в прототипе вместо сервисов ЭПЗ) ----------
+const D = (iso) => iso;
+const MED = {
+  '180512501208': {
+    anthro:{ date:'2026-10-15', h:128, w:25.4, bmi:15.5, bp:'100/64', flags:{ h:'n', w:'n', bmi:'n', bp:'n' } },
+    allergy:[
+      { name:'Пенициллины (амоксициллин)', type:'Лекарственная', risk:'hi', desc:'Крапивница, отёк Квинке (2021). Применение противопоказано.' },
+      { name:'Цитрусовые', type:'Пищевая', risk:'mid', desc:'Обострение атопического дерматита: высыпания на щеках и руках.' },
+      { name:'Пыльца полыни', type:'Пыльцевая', risk:'lo', desc:'Ринит и чихание в августе — сентябре.' },
+    ],
+    vacc:{},
+    disp:{ group:'II', dx:[
+      { code:'L20.8', name:'Атопический дерматит', date:'2020-06-18', st:'on' },
+      { code:'H52.1', name:'Миопия слабой степени', date:'2025-09-11', st:'on' },
+      { code:'J06.9', name:'Острая инфекция верхних дыхательных путей', date:'2026-02-05', st:'off' },
+    ] },
+    visits:[
+      { date:'2026-10-22', mo:'Городская поликлиника №4 г. Астаны', spec:'Аллерголог-иммунолог', doctor:'Сарсенова Д. Е.', reason:'Обострение атопического дерматита', result:'Назначена местная терапия, контрольный приём через месяц' },
+      { date:'2026-10-15', mo:'Городская поликлиника №4 г. Астаны', spec:'Педиатр', doctor:'Ахметова Г. К.', reason:'Профилактический осмотр', result:'Физическое развитие соответствует возрасту, направлен на анализы' },
+      { date:'2026-02-05', mo:'Городская поликлиника №4 г. Астаны', spec:'Педиатр', doctor:'Ахметова Г. К.', reason:'Кашель, температура 38,2 °C', result:'ОРВИ, симптоматическое лечение, выздоровление' },
+      { date:'2025-09-11', mo:'Городская поликлиника №4 г. Астаны', spec:'Офтальмолог', doctor:'Ким В. А.', reason:'Снижение остроты зрения', result:'Миопия слабой степени, назначена очковая коррекция' },
+    ],
+    lab:[
+      { date:'2026-10-15', name:'Общий анализ крови', rows:[
+        { ind:'Гемоглобин', v:'128', u:'г/л', ref:'115–135', st:'n' },
+        { ind:'Эритроциты', v:'4,5', u:'×10¹²/л', ref:'3,9–5,3', st:'n' },
+        { ind:'Лейкоциты', v:'6,8', u:'×10⁹/л', ref:'4,5–13,5', st:'n' },
+        { ind:'Эозинофилы', v:'7', u:'%', ref:'1–5', st:'hi' },
+        { ind:'СОЭ', v:'6', u:'мм/ч', ref:'2–10', st:'n' },
+      ] },
+      { date:'2026-10-15', name:'Общий анализ мочи', rows:[
+        { ind:'Удельный вес', v:'1018', u:'г/л', ref:'1010–1025', st:'n' },
+        { ind:'Белок', v:'Не обнаружен', u:'—', ref:'Не обнаружен', st:'n' },
+        { ind:'Лейкоциты', v:'1–2', u:'в п/зр', ref:'0–5', st:'n' },
+      ] },
+      { date:'2026-03-12', name:'Иммуноглобулин E общий', rows:[
+        { ind:'IgE общий', v:'186', u:'МЕ/мл', ref:'0–90', st:'hi' },
+      ] },
+    ],
+  },
+  '210904602300': {
+    anthro:{ date:'2026-08-12', h:110, w:18.2, bmi:15.0, bp:null, flags:{ h:'n', w:'n', bmi:'n' } },
+    allergy:[],
+    vacc:{},
+    disp:{ group:'I', dx:[] },
+    visits:[
+      { date:'2026-08-12', mo:'Городская поликлиника №4 г. Астаны', spec:'Педиатр', doctor:'Ахметова Г. К.', reason:'Профилактический осмотр', result:'Здорова, группа здоровья I' },
+      { date:'2026-03-03', mo:'Городская поликлиника №4 г. Астаны', spec:'Оториноларинголог', doctor:'Омаров Б. С.', reason:'Боль в ухе', result:null },
+    ],
+    lab:[],
+  },
+  '190715504109': {
+    anthro:{ date:'2026-09-20', h:119, w:24.6, bmi:17.4, bp:'98/62', flags:{ h:'n', w:'hi', bmi:'hi', bp:'n' } },
+    allergy:[ { name:'Пыльца берёзы', type:'Пыльцевая', risk:'mid', desc:'Сезонный аллергический ринит, конъюнктивит в апреле — мае.' } ],
+    vacc:{ tet:'overdue' },
+    disp:{ group:'II', dx:[ { code:'J35.0', name:'Хронический тонзиллит', date:'2024-04-03', st:'on' } ] },
+    visits:[
+      { date:'2026-09-20', mo:'Городская поликлиника №7 г. Астаны', spec:'Педиатр', doctor:'Жумабаева А. М.', reason:'Профилактический осмотр перед школой', result:'Избыточная масса тела, рекомендованы питание и режим' },
+      { date:'2026-04-14', mo:'Городская поликлиника №7 г. Астаны', spec:'Оториноларинголог', doctor:'Исаев Т. Н.', reason:'Боль в горле, затруднённое глотание', result:'Обострение тонзиллита, назначено лечение' },
+    ],
+    lab:[ { date:'2026-09-20', name:'Общий анализ крови', rows:[
+      { ind:'Гемоглобин', v:'121', u:'г/л', ref:'115–135', st:'n' },
+      { ind:'Лейкоциты', v:'7,2', u:'×10⁹/л', ref:'4,5–13,5', st:'n' },
+      { ind:'Тромбоциты', v:'265', u:'×10⁹/л', ref:'150–400', st:'n' },
+    ] } ],
+  },
+  '211028601402': {
+    anthro:{ date:'2026-06-10', h:106, w:17.1, bmi:null, bp:null, flags:{ h:'n', w:'n' } },
+    allergy:[],
+    vacc:{ mmr1:'exempt' },
+    disp:{ group:'I', dx:[] },
+    visits:[ { date:'2026-06-10', mo:'Городская поликлиника №7 г. Астаны', spec:'Педиатр', doctor:'Жумабаева А. М.', reason:'Профилактический осмотр', result:'Здорова' } ],
+    lab:[],
+  },
+  '110622503100': {
+    anthro:{ date:'2026-05-18', h:171, w:58.0, bmi:19.8, bp:'115/72', flags:{ h:'n', w:'n', bmi:'n', bp:'n' } },
+    allergy:[],
+    vacc:{},
+    disp:{ group:'I', dx:[] },
+    visits:[ { date:'2026-05-18', mo:'Городская поликлиника №2 г. Астаны', spec:'Педиатр', doctor:'Нуржанов Е. Б.', reason:'Профилактический осмотр', result:'Здоров, допущен к занятиям физкультурой' } ],
+    lab:[ { date:'2026-05-18', name:'Общий анализ крови', rows:[
+      { ind:'Гемоглобин', v:'142', u:'г/л', ref:'130–160', st:'n' },
+      { ind:'Лейкоциты', v:'5,9', u:'×10⁹/л', ref:'4,5–11,0', st:'n' },
+    ] } ],
+  },
+};
+
+const pad = n => String(n).padStart(2, '0');
+const fd = iso => { if(!iso) return ''; const [y, m, d] = iso.split('-'); return d + '.' + m + '.' + y; };
+const addMonths = (iso, m, d) => { const [y, mo, dd] = iso.split('-').map(Number); const t = new Date(y, mo - 1 + m, dd + (d || 0)); return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()); };
+const todayIso = () => { const t = new Date(); return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()); };
+const MONTHS = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+const num = v => String(v).replace('.', ',');
+
+// Прививки ребёнка по календарю: введённые — по дате рождения, будущие — «Запланировано»
+const vaccinesFor = (kid, over) => {
+  const now = todayIso();
+  return CAL.filter(c => !c.girls || kid.sex === 'f').map(c => {
+    const due = addMonths(kid.dob, c.m, c.d);
+    let st = due <= now ? 'done' : 'plan';
+    if(over[c.id]) st = over[c.id];
+    const given = st === 'done';
+    return { ...c, st, date: given ? due : null, plan: due,
+      mo: given ? (c.birth ? BIRTH_MO : kid.mo) : null, drug: given ? c.drug : null, ser: given ? c.ser : null };
+  });
+};
+
+// «Частично заполнены»: часть полей не передана МО
+const partialize = (m) => ({
+  anthro: m.anthro && { ...m.anthro, bmi:null, bp:null },
+  allergy: (m.allergy || []).map((a, i) => i === 0 ? a : { ...a, desc:null }),
+  vaccOver: m.vacc,
+  vaccPartial: true,
+  disp: m.disp && { ...m.disp, group:null },
+  visits: (m.visits || []).map((v, i) => i === 1 ? { ...v, result:null } : v),
+  lab: (m.lab || []).map(g => ({ ...g, rows:g.rows.map((r, i) => i % 2 ? { ...r, ref:null } : r) })),
+});
+
+// Псевдо-QR (в прототипе): поисковые узоры по углам + модули из ИИН
+const qrPath = (seed) => {
+  const N = 29, cells = [];
+  let x = 0; for(const ch of seed) x = (x * 31 + ch.charCodeAt(0)) >>> 0;
+  const rnd = () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+  const finder = (r, c) => (r >= 0 && r < 7 && c >= 0 && c < 7) ? ((r === 0 || r === 6 || c === 0 || c === 6) || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) : null;
+  for(let r = 0; r < N; r++) for(let c = 0; c < N; c++){
+    let f = finder(r, c); if(f === null) f = finder(r, c - (N - 7)); if(f === null) f = finder(r - (N - 7), c);
+    const inZone = (r < 8 && c < 8) || (r < 8 && c >= N - 8) || (r >= N - 8 && c < 8);
+    const on = f !== null ? f : inZone ? false : (r === 6 || c === 6) ? (r + c) % 2 === 0 : rnd() > .52;
+    if(on) cells.push([c, r]);
+  }
+  return { n:N, cells };
+};
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+class Component extends DCLogic {
+  state = { ready:false, kid:null, tab:'all', scn:'data', blk:{}, qr:false, pdfBusy:false, toast:null, ppOpen:false, stuck:false };
+  tabsRef = React.createRef(); qrRef = React.createRef(); qrCanvas = React.createRef();
+
+  componentDidMount(){
+    try { installTips(); } catch(e){}
+    let scn = 'data'; try { scn = sessionStorage.getItem(SCN_KEY) || 'data'; } catch(e){}
+    if(!SCNS.some(x => x.id === scn)) scn = 'data';
+    this.setState({ scn, tab:this.hashTab() });
+    this._onReady = () => this.init();
+    window.addEventListener('mp-family-ready', this._onReady);
+    if(window.mpFamily) this.init();
+    this._onHash = () => this.setState({ tab:this.hashTab() });
+    window.addEventListener('hashchange', this._onHash);
+    // высота шапки → отступ прилипающих вкладок; тень-подложка — когда вкладки прилипли
+    this._onScroll = () => {
+      const h = document.querySelector('.ez-hdr'); const hh = h ? h.offsetHeight : 72;
+      document.documentElement.style.setProperty('--hdr', hh + 'px');
+      const t = this.tabsRef.current; if(!t) return;
+      const stuck = t.getBoundingClientRect().top <= hh + 1;
+      if(stuck !== this.state.stuck) this.setState({ stuck });
+    };
+    window.addEventListener('scroll', this._onScroll, { passive:true });
+    window.addEventListener('resize', this._onScroll);
+    setTimeout(this._onScroll, 300);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-family-ready', this._onReady);
+    window.removeEventListener('hashchange', this._onHash);
+    window.removeEventListener('scroll', this._onScroll);
+    window.removeEventListener('resize', this._onScroll);
+    (this._timers || []).forEach(clearTimeout); clearTimeout(this._tt);
+    document.body.style.overflow = '';
+  }
+  hashTab(){ const h = (location.hash || '').slice(1); return TABS.some(t => t.id === h) ? h : 'all'; }
+
+  init(){
+    if(this.state.ready) return;
+    const F = window.mpFamily; if(!F) return;
+    let iin = ''; try { iin = new URLSearchParams(location.search).get('iin') || ''; } catch(e){}
+    const kid = F.has(iin) ? F.person(iin) : null;
+    this.setState({ ready:true, kid });
+    try { document.title = kid ? 'ЭПЗ ребёнка — ' + F.fio(kid) : 'ЭПЗ ребёнка'; } catch(e){}
+    if(kid) BLOCKS.forEach((b, i) => this.loadBlock(b, 450 + i * 160));
+  }
+  // Загрузка блока: сценарий error — ошибка, повтор по «Повторить» отдаёт сведения
+  loadBlock(b, ms, retry){
+    this._timers = this._timers || [];
+    this.setState({ blk:{ ...this.state.blk, [b]:'loading' } });
+    const scn = this.state.scn;
+    const wait = scn === 'slow' && !retry ? 6000 + ms : ms;
+    this._timers.push(setTimeout(() => {
+      const st = scn === 'error' && !retry ? 'error' : 'ready';
+      this.setState({ blk:{ ...this.state.blk, [b]:st } });
+    }, wait));
+  }
+  setScn(id){
+    try { sessionStorage.setItem(SCN_KEY, id); } catch(e){}
+    (this._timers || []).forEach(clearTimeout); this._timers = [];
+    this.setState({ scn:id });
+    if(this.state.kid) BLOCKS.forEach((b, i) => this.loadBlock(b, 350 + i * 140));
+  }
+  setTab(id, focus){
+    this.setState({ tab:id });
+    try { history.replaceState(null, '', location.pathname + location.search + (id === 'all' ? '' : '#' + id)); } catch(e){}
+    const t = this.tabsRef.current;
+    if(t && this.state.stuck){ const y = t.getBoundingClientRect().top + scrollY - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hdr')) || 72) - 8; window.scrollTo({ top:y }); }
+    if(focus) setTimeout(() => { const b = document.getElementById('ez-tab-' + id); if(b) b.focus(); }, 0);
+    // активная вкладка — в видимой части ленты
+    setTimeout(() => { const b = document.getElementById('ez-tab-' + id); if(b && b.scrollIntoView) b.scrollIntoView({ block:'nearest', inline:'nearest' }); }, 0);
+  }
+  toast(text, kind){
+    clearTimeout(this._tt);
+    this.setState({ toast:{ text, kind } });
+    this._tt = setTimeout(() => this.setState({ toast:null }), 3200);
+  }
+
+  // Модель сведений по сценарию
+  med(){
+    const kid = this.state.kid; if(!kid) return null;
+    const m = MED[kid.iin] || { anthro:null, allergy:[], vacc:{}, disp:null, visits:[], lab:[] };
+    if(this.state.scn === 'empty') return { anthro:null, allergy:[], vaccines:[], disp:null, visits:[], lab:[] };
+    if(this.state.scn === 'partial'){
+      const p = partialize(m);
+      const vaccines = vaccinesFor(kid, m.vacc || {}).map((v, i, a) => (v.st === 'done' && i >= a.filter(x => x.st === 'done').length - 3) ? { ...v, drug:null, ser:null, mo:null } : v);
+      return { anthro:p.anthro, allergy:p.allergy, vaccines, disp:p.disp, visits:p.visits, lab:p.lab };
+    }
+    return { anthro:m.anthro, allergy:m.allergy || [], vaccines:vaccinesFor(kid, m.vacc || {}), disp:m.disp, visits:m.visits || [], lab:m.lab || [] };
+  }
+
+  // Выписка: печатная форма (в браузере — «Сохранить как PDF»)
+  pdf(){
+    const F = window.mpFamily, kid = this.state.kid; if(!F || !kid || this.state.pdfBusy) return;
+    const w = window.open('', '_blank');
+    this.setState({ pdfBusy:true });
+    setTimeout(() => {
+      this.setState({ pdfBusy:false });
+      if(!w){ this.toast('Разрешите всплывающие окна, чтобы сохранить выписку', 'err'); return; }
+      const m = this.med(), today = fd(todayIso());
+      const row = (cells, th) => '<tr>' + cells.map(c => `<${th ? 'th' : 'td'}>${esc(c == null || c === '' ? '—' : c)}</${th ? 'th' : 'td'}>`).join('') + '</tr>';
+      const tbl = (head, rows) => rows.length ? `<table>${row(head, true)}${rows.map(r => row(r)).join('')}</table>` : '<p class="e">Сведения отсутствуют</p>';
+      const a = m.anthro;
+      const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>Выписка из ЭПЗ — ${esc(F.fio(kid))}</title>
+<style>body{font:13px/1.45 Inter,Arial,sans-serif;color:#0A0D14;margin:32px;}h1{font-size:20px;margin:0 0 4px;}h2{font-size:15px;margin:22px 0 8px;}
+.m{color:#525866;margin:0 0 16px;}dl{display:grid;grid-template-columns:200px 1fr;gap:4px 12px;margin:0;}dt{color:#525866;}dd{margin:0;}
+table{width:100%;border-collapse:collapse;}th,td{border:1px solid #E2E4E9;padding:6px 8px;text-align:left;vertical-align:top;}th{background:#F6F8FA;font-weight:600;}.e{color:#525866;}
+@media print{body{margin:12mm;}}</style></head><body>
+<h1>Выписка из электронного паспорта здоровья ребёнка</h1><p class="m">Портал Министерства здравоохранения Республики Казахстан · сформирована ${today}</p>
+<dl><dt>ФИО</dt><dd>${esc(F.fio(kid))}</dd><dt>ИИН</dt><dd>${kid.iin}</dd><dt>Дата рождения</dt><dd>${F.date(kid.dob)} (${F.age(kid.dob)})</dd><dt>Пол</dt><dd>${F.sexLabel(kid)}</dd>
+${kid.blood ? `<dt>Группа крови</dt><dd>${esc(kid.blood)}</dd>` : ''}<dt>Медицинская организация</dt><dd>${esc(kid.mo)}, участок ${esc(kid.area)}</dd><dt>Участковый врач</dt><dd>${esc(kid.doctor)}</dd></dl>
+<h2>Антропометрия и развитие</h2>${a ? tbl(['Дата измерения', 'Рост, см', 'Вес, кг', 'ИМТ', 'АД, мм рт. ст.'], [[fd(a.date), a.h && num(a.h), a.w && num(a.w), a.bmi && num(a.bmi), a.bp]]) : '<p class="e">Сведения отсутствуют</p>'}
+<h2>Аллергологический статус</h2>${tbl(['Аллерген', 'Тип', 'Степень риска', 'Реакция'], m.allergy.map(x => [x.name, x.type, { hi:'Высокий', mid:'Умеренный', lo:'Низкий' }[x.risk], x.desc]))}
+<h2>Национальный календарь прививок</h2>${tbl(['Наименование', 'Возраст / этап', 'Дата введения', 'Препарат', 'Медорганизация', 'Статус'], m.vaccines.map(v => [v.name + ' (' + v.inf + ')', v.stage, fd(v.date), v.drug ? v.drug + ', ' + v.ser : '', v.mo, ST[v.st].label]))}
+<h2>Диспансерный учёт и текущие диагнозы</h2>${m.disp ? `<p>Группа здоровья: ${esc(m.disp.group || '—')}</p>` + tbl(['Код МКБ', 'Диагноз', 'Дата постановки на учёт', 'Статус наблюдения'], (m.disp.dx || []).map(d => [d.code, d.name, fd(d.date), d.st === 'on' ? 'Наблюдается' : 'Снят с наблюдения'])) : '<p class="e">Сведения отсутствуют</p>'}
+<h2>История обращений и приёмов</h2>${tbl(['Дата', 'Медорганизация', 'Специалист', 'Причина обращения', 'Результат'], m.visits.map(v => [fd(v.date), v.mo, v.spec + ', ' + v.doctor, v.reason, v.result]))}
+<h2>Лабораторная диагностика</h2>${tbl(['Дата', 'Анализ', 'Показатель', 'Результат', 'Ед. изм.', 'Референсные значения', 'Статус'], [].concat(...m.lab.map(g => g.rows.map(r => [fd(g.date), g.name, r.ind, r.v, r.u, r.ref, { n:'Норма', hi:'Выше нормы', lo:'Ниже нормы' }[r.st]]))))}
+<script>setTimeout(function(){window.print();},300);<\/script></body></html>`;
+      try { w.document.open(); w.document.write(html); w.document.close(); } catch(e){}
+      this.toast('Выписка сформирована', 'ok');
+    }, 900);
+  }
+  openQr(){
+    this._ret = document.activeElement;
+    this.setState({ qr:true }); document.body.style.overflow = 'hidden';
+    setTimeout(() => { this.qrRef.current && this.qrRef.current.focus(); this.drawQr(); }, 30);
+  }
+  drawQr(){
+    const c = this.qrCanvas.current, kid = this.state.kid; if(!c || !kid) return;
+    const q = qrPath(kid.iin), N = q.n + 4, k = c.width / N, g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.fillStyle = '#0A0D14';
+    q.cells.forEach(([x, y]) => g.fillRect(Math.floor((x + 2) * k), Math.floor((y + 2) * k), Math.ceil(k), Math.ceil(k)));
+  }
+  closeQr(){
+    this.setState({ qr:false }); document.body.style.overflow = '';
+    const r = this._ret; setTimeout(() => { try { r && r.focus(); } catch(e){} }, 0);
+  }
+
+  renderVals(){
+    const s = this.state, F = window.mpFamily, kid = s.kid;
+    const tab = TABS.find(t => t.id === s.tab) || TABS[0];
+    const missTip = 'Сведения не переданы медицинской организацией';
+    const base = {
+      hasKid: s.ready && !!kid, noKid: s.ready && !kid,
+      missTip, partTip: 'Часть сведений не передана медицинской организацией',
+      sk4: [1, 2, 3, 4], sk5: [1, 2, 3, 4, 5],
+      ppOpen: s.ppOpen, ppW: 'width:' + (s.ppOpen ? 264 : 236) + 'px;',
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppToggle: () => this.setState({ ppOpen:!s.ppOpen }),
+      scns: SCNS.map(x => ({ ...x, on:String(s.scn === x.id), onClick:() => this.setScn(x.id) })),
+      hasToast: !!s.toast, toastText: s.toast ? s.toast.text : '',
+      toastIcon: s.toast && s.toast.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
+      toastIconStyle: 'font-size:22px;flex:0 0 auto;color:' + (s.toast && s.toast.kind === 'err' ? 'var(--red)' : 'var(--green)') + ';',
+      qr: false, B: {}, facts: [], tabs: [],
+    };
+    if(!kid || !F) return base;
+
+    const m = this.med();
+    const blocks = tab.blocks;
+    const single = blocks.length === 1;
+    const has = {
+      anthro: !!m.anthro, allergy: m.allergy.length > 0, vacc: m.vaccines.length > 0,
+      disp: !!m.disp, visits: m.visits.length > 0, lab: m.lab.length > 0,
+    };
+    const part = {
+      anthro: !!m.anthro && (m.anthro.h == null || m.anthro.w == null || m.anthro.bmi == null || m.anthro.bp == null),
+      allergy: m.allergy.some(a => !a.desc),
+      vacc: m.vaccines.some(v => v.st === 'done' && (!v.drug || !v.mo)),
+      disp: !!m.disp && (!m.disp.group || !(m.disp.dx || []).length),
+      visits: m.visits.some(v => !v.result),
+      lab: m.lab.some(g => g.rows.some(r => !r.ref)),
+    };
+    const wideMap = { anthro:false, allergy:false, vacc:true, disp:true, visits:true, lab:true };
+    const order = { anthro:'o-anthro', allergy:'o-allergy', vacc:'o-vacc', disp:'o-disp', visits:'o-visits', lab:'o-lab' };
+    const B = {};
+    BLOCKS.forEach(b => {
+      const st = s.blk[b] || 'loading';
+      const ready = st === 'ready';
+      B[b] = {
+        show: blocks.includes(b),
+        cls: 'ez-card ez-blk ' + order[b] + (single || wideMap[b] ? ' wide' : ' half'),
+        loading: st === 'loading', error: st === 'error',
+        empty: ready && !has[b], ok: ready && has[b], partial: ready && has[b] && part[b],
+        retry: () => this.loadBlock(b, 700, true),
+      };
+    });
+
+    // Антропометрия
+    const a = m.anthro;
+    const flag = f => f === 'hi' ? ['Выше нормы', 't-orange'] : f === 'lo' ? ['Ниже нормы', 't-orange'] : ['Норма', 't-green'];
+    const tile = (label, v, unit, f) => { const [t, c] = flag(f); return { label, has: v != null, miss: v == null, value: v != null ? num(v) : '', unit, flag: t, chipCls: 'ez-chip ' + c }; };
+    const anthro = a ? { date: fd(a.date), tiles: [
+      tile('Рост', a.h, 'см', a.flags.h), tile('Вес', a.w, 'кг', a.flags.w),
+      tile('Индекс массы тела', a.bmi, 'кг/м²', a.flags.bmi), tile('Артериальное давление', a.bp, 'мм рт. ст.', a.flags.bp),
+    ] } : { date:'', tiles:[] };
+
+    // Аллергии
+    const RISK = { hi:['Высокий риск', 'ez-chip t-red'], mid:['Умеренный риск', 'ez-chip t-orange'], lo:['Низкий риск', 'ez-chip t-gray'] };
+    const allergies = m.allergy.map(x => ({ name:x.name, type:x.type, risk:RISK[x.risk][0], riskCls:RISK[x.risk][1],
+      desc:x.desc || '', hasDesc:!!x.desc, noDesc:!x.desc,
+      cls: 'ez-al' + (x.risk === 'hi' ? ' hi' : ''), icon: x.risk === 'hi' ? 'ri-alarm-warning-fill' : x.type === 'Лекарственная' ? 'ri-capsule-line' : x.type === 'Пищевая' ? 'ri-restaurant-line' : 'ri-plant-line' }));
+    const allergyHi = B.allergy.ok && m.allergy.some(x => x.risk === 'hi');
+
+    // Прививки
+    const vaccines = m.vaccines.map(v => {
+      const S = ST[v.st];
+      const plan = new Date(v.plan);
+      const dateTip = v.st === 'plan' ? 'Плановый срок: ' + MONTHS[plan.getMonth()] + ' ' + plan.getFullYear() : v.st === 'overdue' ? 'Срок введения истёк: ' + fd(v.plan) : v.st === 'exempt' ? 'Медицинский отвод от прививки' : missTip;
+      const given = v.st === 'done';
+      return { name:v.name, inf:v.inf, stage:v.stage, date:fd(v.date), hasDate:!!v.date, noDate:!v.date, dateTip,
+        drug:v.drug || '', series:v.ser || '', hasDrug:!!v.drug, noDrug:!v.drug, mo:v.mo || '', hasMo:!!v.mo, noMo:!v.mo,
+        missTip: given ? missTip : S.label,
+        status:S.label, stCls:'ez-chip ' + S.cls, stIcon:S.icon };
+    });
+    const done = m.vaccines.filter(v => v.st === 'done').length;
+
+    // Диспансерный учёт
+    const dx = (m.disp && m.disp.dx) || [];
+    const disp = { group: m.disp && m.disp.group ? m.disp.group + ' группа' : '', hasGroup: !!(m.disp && m.disp.group), noGroup: !(m.disp && m.disp.group),
+      hasDx: dx.length > 0, noDx: dx.length === 0,
+      dx: dx.map(d => ({ code:d.code, name:d.name, dateText:(d.st === 'on' ? 'На учёте с ' : 'Дата постановки на учёт: ') + fd(d.date),
+        status: d.st === 'on' ? 'Наблюдается' : 'Снят с наблюдения', stCls: 'ez-chip ' + (d.st === 'on' ? 't-blue' : 't-gray') })) };
+
+    // Приёмы
+    const visits = m.visits.map(v => ({ date:fd(v.date), mo:v.mo, spec:v.spec, doctor:v.doctor, reason:v.reason, result:v.result || '', hasRes:!!v.result, noRes:!v.result }));
+
+    // Лаборатория
+    const LST = { n:['Норма', 'ez-chip t-green'], hi:['Выше нормы', 'ez-chip t-orange'], lo:['Ниже нормы', 'ez-chip t-orange'] };
+    const labs = m.lab.map((g, gi) => ({ date:fd(g.date), name:g.name, span:g.rows.length,
+      rows: g.rows.map((r, i) => ({ first:i === 0, ind:r.ind, value:r.v, unit:r.u, ref:r.ref || '', hasRef:!!r.ref, noRef:!r.ref,
+        valCls: r.st === 'n' ? '' : 'ez-val-hi', status:LST[r.st][0], stCls:LST[r.st][1],
+        tdStyle: i === g.rows.length - 1 && gi < m.lab.length - 1 ? 'border-bottom:1px solid var(--stroke);' : i === g.rows.length - 1 ? 'border-bottom:none;' : '' })) }));
+
+    // Карточка ребёнка: сведения 6.1
+    const facts = [
+      { label:'ИИН', value:kid.iin },
+      { label:'Дата рождения', value:F.date(kid.dob), sub:F.age(kid.dob) },
+      { label:'Пол', value:F.sexLabel(kid) },
+    ];
+    if(kid.blood) facts.push({ label:'Группа крови', value:kid.blood });
+    facts.push({ label:'Медорганизация прикрепления', value:kid.mo, wide:true });
+    facts.push({ label:'Участок', value:kid.area });
+    facts.push({ label:'Участковый врач', value:kid.doctor, wide:!kid.blood });
+    // разметка сетки (4 колонки, 8 на широком): границы у последней колонки и строки
+    let col = 0; const rows4 = [];
+    facts.forEach(f => { const span = f.wide ? 2 : 1; if(col + span > 4){ col = 0; } f._c = col; f._row = rows4.length && col ? rows4.length - 1 : rows4.push(1) - 1; col += span; f._end = col === 4; if(col === 4) col = 0; });
+    const lastRow = facts[facts.length - 1]._row;
+    const factsV = facts.map((f, i) => ({ label:f.label, value:f.value, sub:f.sub || '', hasSub:!!f.sub,
+      cls: 'ez-f' + (f.wide ? ' wide' : '') + (f._end ? ' r-end' : '') + (f._row === lastRow ? ' b-end' : '') + (i === facts.length - 1 ? ' last' : '') }));
+
+        return {
+      ...base,
+      fio: F.fio(kid), ini: F.initials(kid), iin: kid.iin, avaCls: 'ez-ava ' + kid.kind,
+      accessTip: (kid.kind === 'kin' ? 'Родство подтверждено ГБД ФЛ' : 'Опека подтверждена РБДС МП РК') + ': вы можете просматривать ЭПЗ ребёнка',
+      facts: factsV,
+      pdf: () => this.pdf(), pdfBusy: s.pdfBusy, pdfIdle: !s.pdfBusy,
+      openQr: () => this.openQr(),
+      qr: s.qr, qrRef: this.qrRef, closeQr: () => this.closeQr(), stop: (e) => e.stopPropagation(),
+      onQrKey: (e) => { if(e.key === 'Escape'){ e.preventDefault(); this.closeQr(); } if(e.key === 'Tab'){ e.preventDefault(); const b = this.qrRef.current && [...this.qrRef.current.querySelectorAll('button')]; if(b && b.length){ const i = b.indexOf(document.activeElement); b[(i + (e.shiftKey ? -1 : 1) + b.length) % b.length].focus(); } } },
+      qrTip: 'Покажите QR-код врачу: по нему откроется электронный паспорт здоровья ребёнка',
+      qrCanvas: this.qrCanvas,
+
+      tabsRef: this.tabsRef, tabsWrapCls: 'ez-tabs-w' + (s.stuck ? ' stuck' : ''),
+      tabs: TABS.map((t, i) => ({ ...t, domId:'ez-tab-' + t.id, sel:String(s.tab === t.id), tabIndex: s.tab === t.id ? 0 : -1,
+        onClick: () => this.setTab(t.id),
+        onKey: (e) => {
+          const k = e.key; if(k !== 'ArrowRight' && k !== 'ArrowLeft' && k !== 'Home' && k !== 'End') return;
+          e.preventDefault();
+          const j = k === 'Home' ? 0 : k === 'End' ? TABS.length - 1 : (i + (k === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length;
+          this.setTab(TABS[j].id, true);
+        } })),
+      panelBy: 'ez-tab-' + s.tab,
+      gridCls: 'ez-grid' + (single ? ' one' : ' all'),
+
+      B, anthro, allergies, allergyHi, vaccines, vaccDone: done + ' из ' + m.vaccines.length, disp, visits, labs,
+      allergyIcStyle: allergyHi ? 'background:var(--red-l);color:var(--red);' : 'background:var(--orange-l);color:var(--orange);',
+    };
+  }
+}
+</script>
+</body>
+</html>
