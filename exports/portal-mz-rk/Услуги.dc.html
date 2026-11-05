@@ -215,7 +215,7 @@ const CATS = [
 }) }));
 const catOf = (id) => CATS.find(c => c.id === id) || CATS[0];
 // старые ссылки портала на виды композитной услуги: паспорт там, где он есть
-const SVC_HREF = { price:(t) => 'Паспорт регистрации цены.dc.html#' + t, alo:(t) => 'Паспорт услуги АЛО.dc.html?cat=' + t, ed:(t) => 'Паспорт услуги ЕД.dc.html?cat=' + t, knf:() => 'Заявление КНФ.dc.html' };
+const SVC_HREF = { safety:(t) => t === 'ls' ? 'Паспорт услуги ЗОБ.dc.html' : null, price:(t) => 'Паспорт регистрации цены.dc.html#' + t, alo:(t) => 'Паспорт услуги АЛО.dc.html?cat=' + t, ed:(t) => 'Паспорт услуги ЕД.dc.html?cat=' + t, knf:() => 'Паспорт услуги КНФ.dc.html' };
 
 function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
 function tokensOf(q){ return norm(q).trim().split(/\s+/).filter(Boolean); }
@@ -253,8 +253,10 @@ class Component extends DCLogic {
     try {
       const p = new URLSearchParams(location.search);
       const svc = p.get('svc'), type = p.get('type') === 'mi' ? 'mi' : 'ls';
-      if(svc && SVC_HREF[svc] && !(svc === 'knf' && type === 'mi')) location.replace(SVC_HREF[svc](type));
+      const href = svc && SVC_HREF[svc] && !(svc === 'knf' && type === 'mi') ? SVC_HREF[svc](type) : null;
+      if(href) location.replace(href);
       else if(svc === 'safety' || svc === 'reg') pre = { seg:type, kind:svc };
+      else if(p.get('pick') === '1') pre = { seg:type };   // «Выбрать другую услугу» из окна «Услуга временно недоступна»
     } catch(e){}
     this._pre = pre;
     const u = readUrl();
