@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Данные раздела «Моя семья» (ЛК гражданина) — невидимый компонент, подключается в страницы раздела:
+    <dc-import name="FamilyData" hint-size="0px,0px"></dc-import>
+  Регистрирует window.mpFamily и рассылает событие window `mp-family-ready`, изменения — `mp-family-change`.
+
+  В прототипе вместо сервисов:
+    • ГБД ФЛ — родные дети авторизованного гражданина (ИИН 020116501540);
+    • РБДС МП РК — подопечные дети: ответ на запрос по ИИН ребёнка (rbds(iin) → список записей или []).
+  Добавленные дети — localStorage `mp-family`: [{ iin, at }] в порядке добавления.
+  Сценарий ответа РБДС — sessionStorage `mp-rbds-scn`: auto | down | fail (панель «Прототип» на «Моей семье»).
+  ИИН — 12 цифр, дата рождения в первых шести, контрольный разряд по алгоритму ИИН РК.
+-->
+<x-dc><div></div></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:10,&quot;height&quot;:10}}">
+const KEY = 'mp-family', SCN = 'mp-rbds-scn';
+
+// kind: kin — родные (ГБД ФЛ), ward — подопечные (РБДС МП РК). care: opeka | popech
+const PEOPLE = [
+  { iin:'180512501208', last:'Сейтжанов', first:'Алихан', middle:'Даниярович', dob:'2018-05-12', sex:'m', kind:'kin',
+    blood:'A (II) Rh+', mo:'Городская поликлиника №4 г. Астаны', area:'№12', doctor:'Ахметова Гульнара Кайратовна' },
+  { iin:'210904602300', last:'Сейтжанова', first:'Мадина', middle:'Данияровна', dob:'2021-09-04', sex:'f', kind:'kin',
+    blood:'', mo:'Городская поликлиника №4 г. Астаны', area:'№12', doctor:'Ахметова Гульнара Кайратовна' },
+  { iin:'190715504109', last:'Куанышев', first:'Арман', middle:'Бауржанович', dob:'2019-07-15', sex:'m', kind:'ward', care:'opeka',
+    doc:'Распоряжение акимата г. Астаны №412 от 14.03.2022',
+    blood:'B (III) Rh+', mo:'Городская поликлиника №7 г. Астаны', area:'№5', doctor:'Жумабаева Асель Маратовна' },
+  { iin:'211028601402', last:'Куанышева', first:'Дарина', middle:'Бауржановна', dob:'2021-10-28', sex:'f', kind:'ward', care:'opeka',
+    doc:'Распоряжение акимата г. Астаны №412 от 14.03.2022',
+    blood:'', mo:'Городская поликлиника №7 г. Астаны', area:'№5', doctor:'Жумабаева Асель Маратовна' },
+  { iin:'110622503100', last:'Сейткалиев', first:'Мирас', middle:'Ерланович', dob:'2011-06-22', sex:'m', kind:'ward', care:'popech',
+    doc:'',
+    blood:'O (I) Rh−', mo:'Городская поликлиника №2 г. Астаны', area:'№21', doctor:'Нуржанов Ерлан Болатович' },
+];
+const BY = {}; PEOPLE.forEach(p => { BY[p.iin] = p; });
+
+// ГБД ФЛ: дети авторизованного гражданина
+const GBD = ['180512501208', '210904602300'];
+// РБДС: запрос по ИИН ребёнка → все подопечные законного представителя
+const RBDS = {
+  '190715504109': ['190715504109'],
+  '211028601402': ['211028601402', '190715504109', '110622503100'],
+  '110622503100': ['110622503100'],
+};
+// Тестовые ИИН для панели «Прототип»
+const SAMPLES = [
+  { iin:'190715504109', label:'Найден 1 ребёнок' },
+  { iin:'211028601402', label:'Найдено несколько' },
+  { iin:'150326507706', label:'Нет сведений' },
+  { iin:'150326507701', label:'Некорректный ИИН' },
+];
+
+const pad = n => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+
+const F = {
+  PEOPLE, SAMPLES,
+  person: iin => BY[iin] || null,
+  fio: p => [p.last, p.first, p.middle].filter(Boolean).join(' '),
+  initials: p => ((p.last || '')[0] || '') + ((p.first || '')[0] || ''),
+  date: s => { const d = parse(s); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); },
+  age: s => {
+    const b = parse(s), t = today();
+    let y = t.getFullYear() - b.getFullYear();
+    if(t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) y--;
+    if(y >= 1) return y + ' ' + plural(y, ['год', 'года', 'лет']);
+    let m = (t.getFullYear() - b.getFullYear()) * 12 + t.getMonth() - b.getMonth(); if(t.getDate() < b.getDate()) m--;
+    m = Math.max(0, m); return m + ' ' + plural(m, ['месяц', 'месяца', 'месяцев']);
+  },
+  sexLabel: p => p.sex === 'f' ? 'Женский' : 'Мужской',
+  // Статус в карточке: сын / дочь / подопечный (опека или попечительство)
+  relation: p => p.kind === 'kin' ? (p.sex === 'f' ? 'Дочь' : 'Сын')
+    : (p.sex === 'f' ? 'Подопечная' : 'Подопечный') + (p.care === 'popech' ? ' (попечительство)' : ' (опека)'),
+  confirm: p => p.kind === 'kin' ? 'Родство подтверждено ГБД ФЛ' : 'Опека подтверждена РБДС МП РК',
+  source: p => p.kind === 'kin' ? 'ГБД ФЛ' : 'РБДС МП РК',
+
+  // Проверка ИИН: '' — корректный, иначе код ошибки
+  checkIin: v => {
+    if(!v) return 'empty';
+    if(!/^\d{12}$/.test(v)) return 'length';
+    const d = [...v].map(Number);
+    const mm = +v.slice(2, 4), dd = +v.slice(4, 6), c = d[6];
+    if(mm < 1 || mm > 12 || dd < 1 || dd > 31 || c < 1 || c > 6) return 'invalid';
+    const w1 = [1,2,3,4,5,6,7,8,9,10,11], w2 = [3,4,5,6,7,8,9,10,11,1,2];
+    let k = d.slice(0, 11).reduce((a, x, i) => a + x * w1[i], 0) % 11;
+    if(k === 10){ k = d.slice(0, 11).reduce((a, x, i) => a + x * w2[i], 0) % 11; if(k === 10) return 'invalid'; }
+    return k === d[11] ? '' : 'invalid';
+  },
+
+  // Добавленные дети
+  list: () => {
+    try { const v = JSON.parse(localStorage.getItem(KEY) || '[]'); if(Array.isArray(v)) return v.filter(x => x && BY[x.iin]); } catch(e){}
+    return [];
+  },
+  has: iin => F.list().some(x => x.iin === iin),
+  save: list => {
+    try { localStorage.setItem(KEY, JSON.stringify(list)); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-family-change')); } catch(e){}
+  },
+  add: iins => {
+    const cur = F.list(), at = Date.now();
+    iins.forEach(iin => { if(BY[iin] && !cur.some(x => x.iin === iin)) cur.push({ iin, at }); });
+    F.save(cur);
+  },
+  // Порядок в списке: родные, затем подопечные; внутри — от старшего к младшему
+  children: () => F.list().map(x => ({ ...BY[x.iin], at:x.at }))
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'kin' ? -1 : 1) || a.dob.localeCompare(b.dob)),
+  demo: () => F.save(PEOPLE.filter(p => p.iin !== '110622503100').map((p, i) => ({ iin:p.iin, at:i }))),
+  clear: () => F.save([]),
+
+  // Сервисы (в прототипе — с задержкой ответа)
+  gbd: () => new Promise(res => setTimeout(() => res(GBD.map(iin => BY[iin])), 700)),
+  scn: () => { try { return sessionStorage.getItem(SCN) || 'auto'; } catch(e){ return 'auto'; } },
+  setScn: v => { try { sessionStorage.setItem(SCN, v); } catch(e){} },
+  rbds: iin => new Promise((res, rej) => setTimeout(() => {
+    const s = F.scn();
+    if(s === 'down') return rej('down');
+    if(s === 'fail') return rej('fail');
+    res((RBDS[iin] || []).map(x => BY[x]));
+  }, 1400)),
+};
+
+class Component extends DCLogic {
+  constructor(props){ super(props); window.mpFamily = F; }
+  componentDidMount(){
+    window.mpFamily = F;
+    try { window.dispatchEvent(new CustomEvent('mp-family-ready')); } catch(e){}
+  }
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>
