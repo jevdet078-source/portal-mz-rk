@@ -89,6 +89,51 @@ const fileName = scenario.fileName ?? scenarioName;
  * 4) После съёмки дорожка собирается из фраз по этим моментам и вшивается в mp4.
  * Произношение: say(рубрика, текст, мс, «как читать») — четвёртый аргумент для аббревиатур. */
 const voiceOn = flags.has('voice') || scenario.voice === true;
+/*
+ * Движок: по умолчанию голос Windows; --tts=eleven — ElevenLabs (мужской «Brian», модель eleven_v4 → v3 → multilingual_v2).
+ * Ключ — переменная ELEVENLABS_API_KEY или строка ELEVENLABS_API_KEY=… в файле --eleven-env=<путь к .env.local>.
+ * Ключ только читается и уходит в заголовок запроса — не печатается и никуда не записывается.
+ */
+const engine = flags.get('tts') === 'eleven' ? 'eleven' : 'windows';
+const ELEVEN_VOICE = flags.get('eleven-voice') ?? 'nPczCjzI2devNBz1zQrb';
+const ELEVEN_RATE = 24000;
+let elevenModel = null;
+function elevenKey() {
+  if (process.env.ELEVENLABS_API_KEY) return process.env.ELEVENLABS_API_KEY.trim();
+  const f = flags.get('eleven-env');
+  if (f && existsSync(f)) {
+    const m = /^\s*ELEVENLABS_API_KEY\s*=\s*["']?([^"'\r\n]+)/m.exec(readFileSync(f, 'utf8'));
+    if (m) return m[1].trim();
+  }
+  console.error('Нет ключа ElevenLabs: задайте ELEVENLABS_API_KEY или --eleven-env=<путь к .env.local>');
+  process.exit(1);
+}
+/** Фраза → WAV (PCM 16 бит, моно, 24 кГц) */
+async function elevenWav(text) {
+  const key = elevenKey();
+  let lastErr;
+  for (const model of elevenModel ? [elevenModel] : ['eleven_v4', 'eleven_v3', 'eleven_multilingual_v2']) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE}?output_format=pcm_${ELEVEN_RATE}`, {
+        method: 'POST',
+        headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, model_id: model, language_code: 'ru', voice_settings: { stability: 0.5, similarity_boost: 0.8 } }),
+      });
+      if (r.status === 429 || r.status >= 500) { await new Promise((res) => setTimeout(res, 1500 * (attempt + 1))); continue; }
+      if (!r.ok) { lastErr = new Error(`ElevenLabs ${model} → ${r.status}: ${(await r.text()).slice(0, 300)}`); break; }
+      elevenModel = model;
+      const pcm = Buffer.from(await r.arrayBuffer());
+      const head = Buffer.alloc(44);
+      head.write('RIFF', 0, 'ascii'); head.writeUInt32LE(36 + pcm.length, 4); head.write('WAVE', 8, 'ascii');
+      head.write('fmt ', 12, 'ascii'); head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(1, 22);
+      head.writeUInt32LE(ELEVEN_RATE, 24); head.writeUInt32LE(ELEVEN_RATE * 2, 28); head.writeUInt16LE(2, 32); head.writeUInt16LE(16, 34);
+      head.write('data', 36, 'ascii'); head.writeUInt32LE(pcm.length, 40);
+      return Buffer.concat([head, pcm]);
+    }
+    if (elevenModel) break;
+  }
+  throw lastErr ?? new Error('ElevenLabs не ответил');
+}
 const voiceDir = join(outDir, '.voice');
 const voices = new Map(); // текст для чтения → { file, ms }
 const cues = [];
@@ -109,11 +154,14 @@ if (voiceOn) {
   const hashOf = (s) => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); };
   const todo = [];
   for (const text of phrases) {
-    const file = 'v' + rate + '-' + hashOf(text) + '.wav';
+    const file = (engine === 'eleven' ? 'el-' + ELEVEN_VOICE + '-' : 'v' + rate + '-') + hashOf(text) + '.wav';
     voices.set(text, { file });
     if (!existsSync(join(voiceDir, file))) todo.push({ file, text });
   }
-  if (todo.length) {
+  if (todo.length && engine === 'eleven') {
+    console.log(`Озвучка ElevenLabs (${ELEVEN_VOICE}): синтезирую ${todo.length} фраз…`);
+    for (const p of todo) writeFileSync(join(voiceDir, p.file), await elevenWav(p.text));
+  } else if (todo.length) {
     console.log(`Озвучка: синтезирую ${todo.length} фраз…`);
     writeFileSync(join(voiceDir, 'todo.json'), JSON.stringify(todo), 'utf8');
     const ps = [
@@ -245,8 +293,10 @@ await page.evaluateOnNewDocument(() => {
 });
 
 /** Субтитр внизу кадра: рубрика сверху, объяснение под ней. Переживает переход на другую страницу. */
+// --no-subs — субтитры не показываются (голос их читает); заставки остаются
+const noSubs = flags.has('no-subs');
 const caption = (section, text) =>
-  page.evaluate(
+  noSubs ? Promise.resolve() : page.evaluate(
     ([s, t]) => {
       try { sessionStorage.setItem('demo-cap', JSON.stringify([s, t])); } catch (e) {}
       window.__demoCaption && window.__demoCaption(s, t);
@@ -262,7 +312,8 @@ const say = async (section, text, minMs = 2600, spoken) => {
   await caption(section, text);
   const v = voiceOn ? voices.get(spoken ?? text) : null;
   if (v) cues.push({ at: Date.now(), v });
-  await sleep(Math.max(minMs, (section.length + text.length) * 58, v ? v.ms + 450 : 0));
+  // без субтитров ждём только голос; с субтитрами — ещё и время на чтение
+  await sleep(noSubs && v ? v.ms + 550 : Math.max(minMs, (section.length + text.length) * 58, v ? v.ms + 450 : 0));
 };
 
 /** Заставка на весь кадр — ею отбивают сценарии. */
