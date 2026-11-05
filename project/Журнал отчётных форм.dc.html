@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  «Журнал отчётных форм» первого руководителя медорганизации (ПЗ «Администрирование и журнал отчётных форм», раздел 4).
+  Созданные отчёты организации: каждая таблица формы — отдельный экземпляр. Фильтры: наименование, индекс, № приложения
+  (одна сущность — выбор любого заполняет остальные), отчётный период, статус; «Применить» / «Сбросить».
+  Четыре статуса — текстом, значком и цветом. Открытие — просмотр экземпляра без элементов редактирования показателей;
+  на согласовании руководителю доступны «Согласовать» (→ автоматически «Отправлено в УО») и «Отправить на доработку»
+  (причина обязательна). Пустые состояния — тексты постановки; загрузка и техническая ошибка — «Показ прототипа».
+  Доступ и данные — как у «Администрирования отчётности» (OrgRepData, OrgReportsTop).
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .rf{ --wrap:100%; display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .rf, .rf *, .rf *::before, .rf *::after{ box-sizing:border-box; }
+  .rf button, .rf textarea, .rf input{ font-family:inherit; }
+  .rf :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .rf-top{ position:sticky; top:0; z-index:40; }
+  .rf-main{ flex:1 0 auto; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0, #fff 340px); padding-bottom:clamp(32px,3.4vw,64px); }
+  html[data-fill="flat"] .rf-main{ background:#fff; }
+
+  .rf-crow{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:36px; padding-top:clamp(12px,1vw,18px); }
+  .rf-crumbs{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); }
+  .rf-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .rf-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .rf-crumbs a:hover{ color:var(--b700); }
+  .rf-crumbs a i{ font-size:16px; }
+  .rf-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .rf-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+
+  .rf-demo{ position:relative; flex:0 0 auto; }
+  .rf-demo-btn{ height:32px; padding:0 8px 0 10px; display:inline-flex; align-items:center; gap:6px; border:1px dashed var(--n300); border-radius:9px; background:rgba(255,255,255,.7); color:var(--n500); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; transition:border-color .15s, color .15s, background .15s; }
+  .rf-demo-btn i{ font-size:16px; }
+  .rf-demo-btn:hover, .rf-demo-btn[aria-expanded="true"]{ border-color:var(--b400); color:var(--b700); background:#fff; }
+  .rf-demo .rf-menu{ left:auto; right:0; width:340px; min-width:0; max-height:min(560px,76vh); }
+  .rf-demo-lb{ padding:10px 10px 6px; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+
+  /* ——— плашка журнала ——— */
+  .rf-reg{ margin-top:clamp(14px,1.2vw,20px); border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .rf-filt{ display:grid; grid-template-columns:minmax(0,2.4fr) minmax(0,1fr) minmax(0,.9fr) minmax(0,1.15fr) minmax(0,1.1fr) auto; gap:12px; align-items:end; padding:16px clamp(16px,1.4vw,24px); border-bottom:1px solid var(--n200); border-radius:20px 20px 0 0; }
+  .rf-f{ position:relative; min-width:0; }
+  .rf-f > label{ display:block; margin:0 0 5px 1px; font-size:12.5px; line-height:18px; font-weight:600; color:var(--n500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rf-sel{ width:100%; height:42px; padding:0 9px 0 12px; display:flex; align-items:center; gap:6px; border:none; border-radius:11px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font-size:14px; font-weight:500; text-align:left; cursor:pointer; transition:box-shadow .15s, background .15s; }
+  .rf-sel span{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rf-sel > i{ flex:0 0 auto; font-size:18px; color:var(--n400); transition:transform .2s; }
+  .rf-sel:hover:not(:disabled){ box-shadow:inset 0 0 0 1px var(--n300); background:var(--n50); }
+  .rf-sel[aria-expanded="true"]{ box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); background:#fff; }
+  .rf-sel[aria-expanded="true"] > i{ transform:rotate(180deg); color:var(--b600); }
+  .rf-sel.set{ box-shadow:inset 0 0 0 1px var(--b300); background:var(--b50); color:var(--b800); }
+  .rf-sel.set > i{ color:var(--b600); }
+  .rf-sel:disabled{ background:var(--n100); color:var(--n400); cursor:not-allowed; }
+  .rf-fbtns{ display:flex; gap:8px; }
+  .rf-btn{ height:42px; padding:0 16px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:none; border-radius:11px; font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s, transform .1s; }
+  .rf-btn i{ font-size:18px; }
+  .rf-btn:active:not(:disabled){ transform:scale(.98); }
+  .rf-btn.pri{ background:var(--b600); color:#fff; }
+  .rf-btn.pri:hover:not(:disabled){ background:var(--b700); }
+  .rf-btn.sec{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .rf-btn.sec:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .rf-btn.warn{ background:#fff; color:var(--red-d); box-shadow:inset 0 0 0 1px var(--red-light, #F8C9D2); }
+  .rf-btn.warn:hover:not(:disabled){ background:var(--red-l); }
+  .rf-btn:disabled{ background:var(--n100); color:var(--n400); box-shadow:none; cursor:not-allowed; }
+  .rf-btn.lg{ height:46px; padding:0 20px; font-size:14.5px; border-radius:12px; }
+  .rf-spin{ width:17px; height:17px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:rf-rot .7s linear infinite; }
+  @keyframes rf-rot{ to{ transform:rotate(360deg); } }
+
+  .rf-veil{ position:fixed; inset:0; z-index:59; }
+  .rf-menu{ position:absolute; left:0; top:calc(100% + 6px); z-index:60; min-width:100%; max-height:min(360px,60vh); overflow-y:auto; padding:6px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px rgba(10,13,20,.06), 0 20px 40px -16px rgba(10,13,20,.28); animation:rf-drop .16s ease; scrollbar-width:thin; }
+  .rf-menu.wide{ width:max(100%, 520px); }
+  .rf-menu.mid{ width:max(100%, 240px); }
+  @keyframes rf-drop{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  .rf-ms{ position:sticky; top:-6px; z-index:1; margin:-6px -6px 6px; padding:6px; background:#fff; border-bottom:1px solid var(--n100); }
+  .rf-ms i{ position:absolute; left:17px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--n400); pointer-events:none; }
+  .rf-ms input{ width:100%; height:38px; padding:0 12px 0 34px; border:none; border-radius:9px; background:var(--n100); font:500 14px/1 'Inter',sans-serif; color:var(--n900); }
+  .rf-ms input::placeholder{ color:var(--n400); font-weight:400; }
+  .rf-ms input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
+  .rf-opt{ width:100%; display:flex; align-items:center; gap:10px; min-height:38px; padding:8px 10px; border:none; border-radius:9px; background:none; text-align:left; font-size:14px; line-height:1.35; font-weight:500; color:var(--n700); cursor:pointer; }
+  .rf-opt > span:not(.rf-st){ flex:1; min-width:0; }
+  .rf-opt .rf-st{ margin-right:auto; }
+  .rf-opt code{ flex:0 0 auto; min-width:86px; font:600 12.5px/1.35 'Inter',sans-serif; color:var(--n500); }
+  .rf-opt > i{ flex:0 0 auto; font-size:18px; color:var(--b600); visibility:hidden; }
+  .rf-opt > i.ri{ visibility:visible; color:var(--n400); }
+  .rf-opt:hover, .rf-opt:focus-visible{ background:var(--n100); color:var(--n900); }
+  .rf .rf-opt:focus-visible{ outline:none; box-shadow:inset 0 0 0 1.5px var(--b400); }
+  .rf-opt[aria-selected="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .rf-opt[aria-selected="true"] > i{ visibility:visible; }
+  .rf-none{ padding:12px 10px; font-size:13.5px; color:var(--n400); }
+
+  /* ——— таблица ——— */
+  .rf-tbl{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:clamp(14px,.12vw + 12.4px,15px); }
+  .rf-tbl th{ position:sticky; top:72px; z-index:2; height:48px; padding:6px 10px; text-align:left; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); background:var(--n50); border-bottom:1px solid var(--n200); vertical-align:middle; }
+  .rf-tbl td{ height:62px; padding:10px; border-bottom:1px solid var(--n100); vertical-align:middle; color:var(--n700); line-height:1.35; overflow-wrap:break-word; }
+  .rf-tbl th:first-child, .rf-tbl td:first-child{ padding-left:clamp(16px,1.4vw,24px); }
+  .rf-tbl th:last-child, .rf-tbl td:last-child{ padding-right:clamp(16px,1.4vw,24px); text-align:right; }
+  .rf-tbl .c-app{ width:calc(clamp(16px,1.4vw,24px) + 106px); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .rf-tbl .c-idx{ width:clamp(118px,8vw,156px); white-space:nowrap; }
+  .rf-tbl td.c-idx{ white-space:nowrap; font-weight:600; color:var(--n900); }
+  .rf-tbl .c-tbl{ width:clamp(170px,15vw,340px); }
+  .rf-tbl .c-per{ width:clamp(132px,8.4vw,176px); white-space:nowrap; }
+  .rf-tbl .c-st{ width:178px; }
+  .rf-tbl .c-act{ width:132px; }
+  .rf-row{ cursor:pointer; transition:background .12s; }
+  .rf-row:hover{ background:var(--n50); }
+  .rf-row:hover .rf-nm{ color:var(--b700); }
+  .rf-row:last-child td{ border-bottom:none; }
+  .rf-nm{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-weight:600; color:var(--n900); transition:color .12s; }
+  .rf-cl{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .rf-cl b{ font-weight:600; color:var(--n900); }
+  .rf-mini{ display:none; }
+  .rf-open{ height:36px; padding:0 8px 0 12px; display:inline-flex; align-items:center; gap:4px; border:none; border-radius:10px; background:var(--b50); color:var(--b700); font-size:14px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s; }
+  .rf-open i{ font-size:18px; transition:transform .15s; }
+  .rf-open:hover{ background:var(--b100); color:var(--b800); }
+  .rf-row:hover .rf-open i{ transform:translateX(2px); }
+
+  .rf-st{ display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px 0 7px; border-radius:999px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .rf-st i{ font-size:15px; }
+  .rf-st.work{ background:var(--b50); color:var(--b800); } .rf-st.work i{ color:var(--b600); }
+  .rf-st.agree{ background:var(--orange-l); color:#9A4A12; } .rf-st.agree i{ color:var(--orange); }
+  .rf-st.rework{ background:var(--red-l); color:var(--red-d); } .rf-st.rework i{ color:var(--red); }
+  .rf-st.sent{ background:var(--green-l); color:var(--green-d); } .rf-st.sent i{ color:var(--green-d); }
+
+  .rf-ln{ display:block; height:12px; border-radius:6px; background:linear-gradient(90deg, var(--n100) 0%, var(--n200) 50%, var(--n100) 100%); background-size:200% 100%; animation:rf-shim 1.2s linear infinite; }
+  @keyframes rf-shim{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
+  .rf-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:clamp(40px,5vw,72px) 24px; }
+  .rf-state .ic{ width:60px; height:60px; border-radius:18px; display:flex; align-items:center; justify-content:center; background:var(--n100); color:var(--n500); font-size:28px; }
+  .rf-state.err .ic{ background:var(--red-l); color:var(--red); }
+  .rf-state h3{ margin:16px 0 0; max-width:56ch; font-size:17px; line-height:1.4; font-weight:600; letter-spacing:-.012em; text-wrap:balance; }
+  .rf-state .rf-btn{ margin-top:18px; }
+
+  .rf-pager{ display:flex; align-items:center; justify-content:space-between; gap:12px 16px; flex-wrap:wrap; padding:10px clamp(16px,1.4vw,24px); border-top:1px solid var(--n200); }
+  .rf-shown{ font-size:14px; color:var(--n500); font-variant-numeric:tabular-nums; }
+  .rf-shown b{ color:var(--n900); font-weight:600; }
+  .rf-shown s{ margin:0 8px; text-decoration:none; color:var(--n300); }
+  .rf-pages{ display:flex; align-items:center; gap:4px; }
+  .rf-pg{ min-width:38px; height:38px; padding:0 8px; border:none; border-radius:10px; background:none; color:var(--n700); font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .rf-pg i{ font-size:19px; }
+  .rf-pg:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .rf-pg[aria-current="page"]{ background:var(--b600); color:#fff; }
+  .rf-pg[aria-current="page"]:hover{ background:var(--b700); color:#fff; }
+  .rf-pg:disabled{ color:var(--n300); cursor:default; }
+  .rf-gap{ min-width:24px; text-align:center; color:var(--n400); font-size:14px; }
+
+  /* ——— просмотр экземпляра ——— */
+  .rf-ov{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.36); animation:rf-fade .2s ease; }
+  @keyframes rf-fade{ from{ opacity:0; } to{ opacity:1; } }
+  .rf-dr{ position:fixed; top:0; right:0; bottom:0; z-index:91; width:min(920px,100vw); display:flex; flex-direction:column; background:#fff; box-shadow:-24px 0 60px -24px rgba(10,13,20,.35); animation:rf-slide .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rf-slide{ from{ transform:translateX(40px); opacity:0; } to{ transform:none; opacity:1; } }
+  .rf-dr-hd{ display:flex; align-items:flex-start; gap:14px; padding:20px 18px 18px 28px; border-bottom:1px solid var(--n200); }
+  .rf-dr-hd > div{ flex:1; min-width:0; }
+  .rf-dr-k{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px; font-size:13px; font-weight:600; color:var(--n500); }
+  .rf-dr-k code{ font:600 13px/1 'Inter',sans-serif; color:var(--n900); }
+  .rf-dr-k s{ text-decoration:none; color:var(--n300); }
+  .rf-dr-hd h2{ margin:0; font-size:20px; line-height:1.32; font-weight:600; letter-spacing:-.018em; text-wrap:pretty; }
+  .rf-close{ flex:0 0 auto; width:40px; height:40px; margin-top:-4px; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .rf-close:hover{ background:var(--n100); color:var(--n900); }
+  .rf-dr-bd{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:22px 28px 30px; display:flex; flex-direction:column; gap:22px; }
+  .rf-facts{ display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:1px; margin:0; border-radius:14px; overflow:hidden; background:var(--n200); box-shadow:0 0 0 1px var(--n200); }
+  .rf-facts > div{ min-width:0; padding:12px 14px; background:#fff; }
+  .rf-facts .w2{ grid-column:span 2; }
+  .rf-facts dt{ font-size:12.5px; font-weight:500; color:var(--n500); }
+  .rf-facts dd{ margin:4px 0 0; font-size:14.5px; line-height:1.4; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .rf-reason{ display:flex; gap:12px; padding:14px 16px; border-radius:14px; background:var(--red-l); }
+  .rf-reason > i{ flex:0 0 auto; font-size:20px; color:var(--red); }
+  .rf-reason b{ display:block; font-size:13px; font-weight:600; color:var(--red-d); }
+  .rf-reason p{ margin:3px 0 0; font-size:14.5px; line-height:1.5; color:var(--n900); overflow-wrap:anywhere; }
+  .rf-h3{ display:flex; align-items:center; gap:8px; margin:0 0 10px; font-size:16px; line-height:1.3; font-weight:600; letter-spacing:-.012em; }
+  .rf-h3 .lock{ font-size:16px; color:var(--n400); cursor:help; }
+  .rf-ind{ border-radius:14px; box-shadow:inset 0 0 0 1px var(--n200); overflow:hidden; }
+  .rf-ind table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .rf-ind th{ padding:10px 14px; text-align:left; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); background:var(--n50); border-bottom:1px solid var(--n200); }
+  .rf-ind td{ padding:11px 14px; border-bottom:1px solid var(--n100); color:var(--n900); }
+  .rf-ind tr:last-child td{ border-bottom:none; }
+  .rf-ind .n{ width:96px; color:var(--n500); font-variant-numeric:tabular-nums; }
+  .rf-ind .v{ width:clamp(130px,16%,190px); text-align:right; font-variant-numeric:tabular-nums; font-weight:500; }
+  .rf-ind .sub{ padding-left:30px; color:var(--n700); }
+  .rf-ind tr.tot td{ font-weight:600; }
+  .rf-log{ margin:0; padding:0; list-style:none; }
+  .rf-log li{ position:relative; display:grid; grid-template-columns:150px minmax(0,1fr); gap:14px; padding:0 0 16px 22px; }
+  .rf-log li::before{ content:''; position:absolute; left:4px; top:6px; width:9px; height:9px; border-radius:50%; background:#fff; box-shadow:inset 0 0 0 2px var(--n300); }
+  .rf-log li::after{ content:''; position:absolute; left:8px; top:19px; bottom:2px; width:1px; background:var(--n200); }
+  .rf-log li:last-child{ padding-bottom:0; }
+  .rf-log li:last-child::after{ display:none; }
+  .rf-log li.ok::before{ box-shadow:inset 0 0 0 2px var(--green); } .rf-log li.back::before{ box-shadow:inset 0 0 0 2px var(--red); } .rf-log li.up::before{ box-shadow:inset 0 0 0 2px var(--orange); }
+  .rf-log time{ font-size:13.5px; line-height:20px; color:var(--n500); font-variant-numeric:tabular-nums; }
+  .rf-log b{ display:block; font-size:14px; line-height:20px; font-weight:600; color:var(--n900); }
+  .rf-log span{ display:block; font-size:13.5px; line-height:19px; color:var(--n500); }
+  .rf-log q{ display:block; margin-top:6px; padding:8px 12px; border-radius:10px; background:var(--n100); font-size:13.5px; line-height:1.45; color:var(--n700); quotes:none; }
+  .rf-dr-ft{ display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; padding:14px 28px; border-top:1px solid var(--n200); background:var(--n50); }
+
+  /* ——— окна решения ——— */
+  .rf-mw{ position:fixed; inset:0; z-index:93; display:flex; align-items:center; justify-content:center; padding:24px 16px; pointer-events:none; }
+  .rf-modal{ pointer-events:auto; width:min(560px,100%); max-height:100%; display:flex; flex-direction:column; border-radius:20px; background:#fff; box-shadow:0 32px 64px -24px rgba(10,13,20,.45); animation:rf-pop .2s ease; }
+  @keyframes rf-pop{ from{ opacity:0; transform:translateY(8px) scale(.985); } to{ opacity:1; transform:none; } }
+  .rf-m-hd{ display:flex; align-items:flex-start; gap:14px; padding:22px 18px 6px 24px; }
+  .rf-m-ic{ flex:0 0 auto; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--green-l); color:var(--green-d); }
+  .rf-m-ic.red{ background:var(--red-l); color:var(--red); }
+  .rf-m-hd > div{ flex:1; min-width:0; padding-top:2px; }
+  .rf-m-hd h2{ margin:0; font-size:18px; line-height:1.35; font-weight:600; letter-spacing:-.016em; }
+  .rf-m-hd p{ margin:4px 0 0; font-size:14px; line-height:1.45; color:var(--n500); }
+  .rf-m-hd .rf-close{ margin:-6px -2px 0 0; }
+  .rf-m-bd{ padding:14px 24px 20px; }
+  .rf-m-bd label{ display:flex; align-items:center; gap:4px; margin:0 0 6px 1px; font-size:13.5px; line-height:20px; font-weight:600; color:var(--n700); }
+  .rf-m-bd label span{ color:var(--red); }
+  .rf-ta{ display:block; width:100%; min-height:132px; padding:12px 14px; border:none; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); font-size:14.5px; line-height:1.5; color:var(--n900); resize:vertical; transition:box-shadow .15s; }
+  .rf-ta::placeholder{ color:var(--n400); }
+  .rf-ta:hover{ box-shadow:inset 0 0 0 1px var(--n300); }
+  .rf-ta:focus{ outline:none; box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); }
+  .rf-ta-ft{ display:flex; align-items:center; gap:12px; margin-top:8px; min-height:20px; }
+  .rf-ta-ft .rf-hint{ font-size:13px; }
+  .rf-cnt{ margin-left:auto; font-size:12.5px; color:var(--n400); font-variant-numeric:tabular-nums; }
+  .rf-m-ft{ display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:14px 24px; border-top:1px solid var(--n200); background:var(--n50); border-radius:0 0 20px 20px; }
+  .rf-hint{ margin-right:auto; display:inline-flex; align-items:center; gap:7px; font-size:13.5px; font-weight:500; color:var(--n500); }
+  .rf-hint i{ font-size:17px; color:var(--n400); }
+  .rf-hint.err{ color:var(--red-d); } .rf-hint.err i{ color:var(--red); }
+
+  .rf-toast{ position:fixed; left:50%; bottom:28px; z-index:95; transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100vw - 32px); padding:12px 18px 12px 14px; border-radius:14px; background:var(--n900); color:#fff; font-size:14px; font-weight:500; line-height:1.4; box-shadow:0 18px 40px -16px rgba(10,13,20,.5); animation:rf-toast .25s ease; }
+  .rf-toast i{ flex:0 0 auto; font-size:20px; color:var(--green); }
+  .rf-toast.err i{ color:#FF8EA3; }
+  @keyframes rf-toast{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
+  @media (prefers-reduced-motion:reduce){ .rf *{ animation:none !important; transition:none !important; } }
+
+  /* ——— адаптив ——— */
+  @media (max-width:1280px){
+    .rf-filt{ grid-template-columns:repeat(4, minmax(0,1fr)); }
+    .rf-f.nm{ grid-column:span 2; }
+    .rf-fbtns{ grid-column:span 2; justify-content:flex-end; }
+    .rf-tbl .c-app{ display:none; }
+    .rf-mini.tag{ display:block; margin-bottom:2px; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); }
+  }
+  @media (max-width:1024px){
+    .rf-tbl th{ position:static; }
+    .rf-tbl .c-idx, .rf-tbl .c-per{ display:none; }
+    .rf-mini.per{ display:block; margin-top:3px; font-size:13px; color:var(--n500); }
+    .rf-tbl .c-tbl{ width:200px; } .rf-tbl .c-st{ width:168px; } .rf-tbl .c-act{ width:112px; }
+    .rf-open{ padding:0 12px; } .rf-open i{ display:none; }
+    .rf-facts{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width:720px){
+    .rf-filt{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+    .rf-f.nm{ grid-column:1 / -1; }
+    .rf-fbtns{ grid-column:1 / -1; }
+    .rf-fbtns .rf-btn{ flex:1; }
+    .rf-demo-btn span{ display:none; }
+    .rf-tbl, .rf-tbl tbody, .rf-tbl tr, .rf-tbl td, .rf-tbl td.c-tbl, .rf-tbl td.c-st, .rf-tbl td.c-act{ display:block; width:auto; }
+    .rf-tbl thead{ display:none; }
+    .rf-row{ padding:14px 16px; border-bottom:1px solid var(--n100); }
+    .rf-tbl td, .rf-tbl td:first-child, .rf-tbl td:last-child{ height:auto; padding:0; border:none; text-align:left; }
+    .rf-tbl td + td{ margin-top:6px; }
+    .rf-tbl td.c-act{ margin-top:10px; }
+    .rf-open{ width:100%; justify-content:center; }
+    .rf-pager{ justify-content:center; }
+    .rf-shown{ width:100%; text-align:center; }
+    .rf-menu.wide{ width:100%; }
+    .rf-dr-hd{ padding:16px 12px 14px 16px; } .rf-dr-bd{ padding:18px 16px 24px; } .rf-dr-ft{ padding:12px 16px; }
+    .rf-dr-ft .rf-btn{ flex:1 1 0; }
+    .rf-facts{ grid-template-columns:minmax(0,1fr); }
+    .rf-facts .w2{ grid-column:auto; }
+    .rf-ind .n{ width:52px; } .rf-ind th, .rf-ind td{ padding:10px; } .rf-ind .sub{ padding-left:18px; }
+    .rf-log li{ grid-template-columns:minmax(0,1fr); gap:2px; }
+    .rf-m-ft{ flex-wrap:wrap; } .rf-hint{ flex:1 1 100%; } .rf-m-ft .rf-btn{ flex:1 1 0; }
+  }
+</style>
+</helmet>
+
+<div class="rf">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="OrgRepData" hint-size="0px,0px"></dc-import>
+  <div class="rf-top"><dc-import name="PortalHeader" look="light" section="reports" hint-size="100%,72px"></dc-import></div>
+
+  <main class="rf-main">
+    <div class="hm-wrap">
+      <div class="rf-crow">
+        <nav aria-label="Хлебные крошки">
+          <ol class="rf-crumbs">
+            <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><a href="Журнал отчётных форм.dc.html">Отчётные формы</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><span aria-current="page">Журнал отчётных форм</span></li>
+          </ol>
+        </nav>
+        <div class="rf-demo">
+          <button type="button" class="rf-demo-btn" onClick="{{ toggleDemo }}" aria-expanded="{{ demoOpen }}" aria-haspopup="menu" aria-label="Показ прототипа: данные и состояния" data-tip="Только для показа прототипа: данные организации и состояния раздела"><i class="ri-slideshow-3-line"></i><span>Показ прототипа</span><i class="ri-arrow-down-s-line"></i></button>
+          <sc-if value="{{ demoOpen }}" hint-placeholder-val="{{ false }}">
+            <div class="rf-veil" onClick="{{ closeDemo }}"></div>
+            <div class="rf-menu" role="menu">
+              <div class="rf-demo-lb">Данные организации</div>
+              <sc-for list="{{ demoData }}" as="o" hint-placeholder-count="2">
+                <button type="button" class="rf-opt" role="menuitem" onClick="{{ o.onClick }}"><i class="{{ o.icon }} ri"></i><span>{{ o.label }}</span></button>
+              </sc-for>
+              <div class="rf-demo-lb">Состояние раздела</div>
+              <sc-for list="{{ demoStates }}" as="o" hint-placeholder-count="5">
+                <button type="button" class="rf-opt" role="menuitemradio" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.label }}</span><i class="ri-check-line"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <dc-import name="OrgReportsTop" active="journal" hint-size="100%,150px"></dc-import>
+
+      <section class="rf-reg" aria-label="Журнал отчётных форм">
+        <form class="rf-filt" onSubmit="{{ onApply }}" aria-label="Фильтры журнала">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="5">
+            <div class="{{ f.wrapCls }}">
+              <label id="{{ f.lid }}">{{ f.label }}</label>
+              <button type="button" class="{{ f.cls }}" onClick="{{ f.onToggle }}" disabled="{{ f.off }}" aria-expanded="{{ f.open }}" aria-haspopup="listbox" aria-labelledby="{{ f.lid }}" data-tip="{{ f.tip }}"><span>{{ f.value }}</span><i class="ri-arrow-down-s-line"></i></button>
+              <sc-if value="{{ f.show }}" hint-placeholder-val="{{ false }}">
+                <div class="rf-veil" onClick="{{ closeMenu }}"></div>
+                <div class="{{ f.menuCls }}" role="listbox" aria-labelledby="{{ f.lid }}">
+                  <sc-if value="{{ f.search }}" hint-placeholder-val="{{ false }}">
+                    <div class="rf-ms"><i class="ri-search-line"></i><input type="text" value="{{ ddQ }}" onChange="{{ onDdQ }}" placeholder="Поиск" aria-label="Поиск по списку" autocomplete="off" spellcheck="false"></div>
+                  </sc-if>
+                  <sc-for list="{{ f.options }}" as="o" hint-placeholder-count="4">
+                    <button type="button" class="rf-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}">
+                      <sc-if value="{{ o.hasCode }}" hint-placeholder-val="{{ false }}"><code>{{ o.code }}</code></sc-if>
+                      <sc-if value="{{ o.st }}" hint-placeholder-val="{{ false }}"><span class="{{ o.stCls }}"><i class="{{ o.stIcon }}"></i>{{ o.label }}</span></sc-if>
+                      <sc-if value="{{ o.plain }}" hint-placeholder-val="{{ true }}"><span>{{ o.label }}</span></sc-if>
+                      <i class="ri-check-line"></i>
+                    </button>
+                  </sc-for>
+                  <sc-if value="{{ f.none }}" hint-placeholder-val="{{ false }}"><div class="rf-none">Ничего не найдено</div></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div class="rf-fbtns">
+            <button type="submit" class="rf-btn pri" disabled="{{ applyOff }}">Применить</button>
+            <button type="button" class="rf-btn sec" onClick="{{ reset }}" disabled="{{ resetOff }}">Сбросить</button>
+          </div>
+        </form>
+
+        <sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+          <div class="rf-state err" role="alert">
+            <span class="ic"><i class="ri-cloud-off-line"></i></span>
+            <h3>Не удалось загрузить отчёты. Повторите попытку</h3>
+            <button type="button" class="rf-btn pri" onClick="{{ retry }}"><i class="ri-refresh-line"></i>Повторить</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+          <div class="rf-state" role="status">
+            <span class="ic"><i class="ri-file-list-3-line"></i></span>
+            <h3>В организации пока нет созданных отчётов</h3>
+            <sc-if value="{{ notConfigured }}" hint-placeholder-val="{{ false }}"><a class="rf-btn pri" href="Администрирование отчётности.dc.html" style="margin-top:18px;text-decoration:none;"><i class="ri-settings-4-line"></i>Настроить отчётность</a></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showNoRes }}" hint-placeholder-val="{{ false }}">
+          <div class="rf-state" role="status">
+            <span class="ic"><i class="ri-file-search-line"></i></span>
+            <h3>По заданным параметрам отчёты не найдены</h3>
+            <button type="button" class="rf-btn sec" onClick="{{ reset }}"><i class="ri-refresh-line"></i>Сбросить фильтры</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
+          <table class="rf-tbl" aria-busy="{{ loading }}" aria-label="Отчёты организации">
+            <thead><tr>
+              <th class="c-app" scope="col">№ приложения</th>
+              <th class="c-idx" scope="col">Индекс формы</th>
+              <th scope="col">Наименование формы</th>
+              <th class="c-tbl" scope="col">Таблица</th>
+              <th class="c-per" scope="col">Отчётный период</th>
+              <th class="c-st" scope="col">Статус</th>
+              <th class="c-act" scope="col">Действие</th>
+            </tr></thead>
+            <tbody>
+              <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                <sc-for list="{{ skel }}" as="k" hint-placeholder-count="8">
+                  <tr>
+                    <td class="c-app"><span class="rf-ln" style="width:32px;"></span></td>
+                    <td class="c-idx"><span class="rf-ln" style="width:68px;"></span></td>
+                    <td><span class="rf-ln" style="{{ k.w1 }}"></span><span class="rf-ln" style="width:42%;margin-top:8px;"></span></td>
+                    <td class="c-tbl"><span class="rf-ln" style="width:80%;"></span></td>
+                    <td class="c-per"><span class="rf-ln" style="width:96px;"></span></td>
+                    <td class="c-st"><span class="rf-ln" style="width:118px;height:26px;border-radius:999px;"></span></td>
+                    <td class="c-act"><span class="rf-ln" style="width:92px;height:36px;border-radius:10px;margin-left:auto;"></span></td>
+                  </tr>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+                  <tr class="rf-row" onClick="{{ r.onOpen }}">
+                    <td class="c-app">{{ r.app }}</td>
+                    <td class="c-idx">{{ r.idx }}</td>
+                    <td>
+                      <span class="rf-mini tag">Прил. {{ r.app }} · {{ r.idx }}</span>
+                      <span class="rf-nm" data-full="{{ r.name }}">{{ r.name }}</span>
+                    </td>
+                    <td class="c-tbl"><span class="rf-cl" data-full="{{ r.tableFull }}"><b>{{ r.tableCode }}</b> · {{ r.tableName }}</span></td>
+                    <td class="c-per">{{ r.period }}</td>
+                    <td class="c-st"><span class="{{ r.stCls }}" data-tip="{{ r.stTip }}"><i class="{{ r.stIcon }}"></i>{{ r.status }}</span><span class="rf-mini per">{{ r.period }}</span></td>
+                    <td class="c-act"><button type="button" class="rf-open" onClick="{{ r.onOpen }}" aria-label="{{ r.openAria }}">Открыть<i class="ri-arrow-right-s-line"></i></button></td>
+                  </tr>
+                </sc-for>
+              </sc-if>
+            </tbody>
+          </table>
+        </sc-if>
+
+        <sc-if value="{{ showPager }}" hint-placeholder-val="{{ true }}">
+          <nav class="rf-pager" aria-label="Страницы журнала">
+            <span class="rf-shown" aria-live="polite">Найдено: <b>{{ found }}</b><s>·</s>Показано: <b>{{ shownFrom }}–{{ shownTo }}</b></span>
+            <sc-if value="{{ manyPages }}" hint-placeholder-val="{{ true }}">
+              <div class="rf-pages">
+                <button type="button" class="rf-pg" onClick="{{ prevPage }}" disabled="{{ prevOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button>
+                <sc-for list="{{ pages }}" as="g" hint-placeholder-count="5">
+                  <sc-if value="{{ g.gap }}" hint-placeholder-val="{{ false }}"><span class="rf-gap" aria-hidden="true">…</span></sc-if>
+                  <sc-if value="{{ g.num }}" hint-placeholder-val="{{ true }}"><button type="button" class="rf-pg" onClick="{{ g.onClick }}" aria-current="{{ g.cur }}" aria-label="{{ g.aria }}">{{ g.n }}</button></sc-if>
+                </sc-for>
+                <button type="button" class="rf-pg" onClick="{{ nextPage }}" disabled="{{ nextOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button>
+              </div>
+            </sc-if>
+          </nav>
+        </sc-if>
+      </section>
+    </div>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+
+  <!-- ПРОСМОТР ЭКЗЕМПЛЯРА -->
+  <sc-if value="{{ hasDoc }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-ov" onClick="{{ closeDoc }}"></div>
+    <aside class="rf-dr" role="dialog" aria-modal="true" aria-labelledby="rf-dr-t">
+      <div class="rf-dr-hd">
+        <div>
+          <div class="rf-dr-k"><code>{{ doc.idx }}</code><s>·</s>Приложение {{ doc.app }}</div>
+          <h2 id="rf-dr-t">{{ doc.name }}</h2>
+        </div>
+        <button type="button" class="rf-close" onClick="{{ closeDoc }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="rf-dr-bd">
+        <dl class="rf-facts">
+          <div class="w2"><dt>Таблица</dt><dd>{{ doc.tableFull }}</dd></div>
+          <div><dt>Отчётный период</dt><dd>{{ doc.period }}</dd></div>
+          <div><dt>Статус</dt><dd><span class="{{ doc.stCls }}" data-tip="{{ doc.stTip }}"><i class="{{ doc.stIcon }}"></i>{{ doc.status }}</span></dd></div>
+          <div class="w2"><dt>Исполнитель</dt><dd>{{ doc.emp }}</dd></div>
+          <div class="w2"><dt>Дата изменения</dt><dd>{{ doc.date }}</dd></div>
+        </dl>
+
+        <sc-if value="{{ doc.hasReason }}" hint-placeholder-val="{{ false }}">
+          <div class="rf-reason" role="note"><i class="ri-arrow-go-back-line"></i><div><b>Причина возврата</b><p>{{ doc.reason }}</p></div></div>
+        </sc-if>
+
+        <section aria-labelledby="rf-ind-t">
+          <h3 class="rf-h3" id="rf-ind-t">Показатели<i class="ri-lock-2-line lock" tabindex="0" role="img" aria-label="Только просмотр" data-tip="Только просмотр: показатели заполняет исполнитель"></i></h3>
+          <div class="rf-ind">
+            <table>
+              <thead><tr><th class="n" scope="col">№ строки</th><th scope="col">Наименование показателя</th><th class="v" scope="col">{{ doc.period }}</th><th class="v" scope="col">{{ doc.prevPeriod }}</th></tr></thead>
+              <tbody>
+                <sc-for list="{{ doc.ind }}" as="x" hint-placeholder-count="7">
+                  <tr class="{{ x.cls }}"><td class="n">{{ x.n }}</td><td class="{{ x.nameCls }}">{{ x.name }}</td><td class="v">{{ x.cur }}</td><td class="v">{{ x.prev }}</td></tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section aria-labelledby="rf-log-t">
+          <h3 class="rf-h3" id="rf-log-t">История</h3>
+          <ol class="rf-log">
+            <sc-for list="{{ doc.log }}" as="l" hint-placeholder-count="3">
+              <li class="{{ l.cls }}"><time>{{ l.at }}</time><div><b>{{ l.act }}</b><span>{{ l.who }}</span><sc-if value="{{ l.hasReason }}" hint-placeholder-val="{{ false }}"><q>{{ l.reason }}</q></sc-if></div></li>
+            </sc-for>
+          </ol>
+        </section>
+      </div>
+      <sc-if value="{{ doc.canDecide }}" hint-placeholder-val="{{ false }}">
+        <div class="rf-dr-ft">
+          <button type="button" class="rf-btn warn lg" onClick="{{ openReturn }}" aria-haspopup="dialog"><i class="ri-arrow-go-back-line"></i>Отправить на доработку</button>
+          <button type="button" class="rf-btn pri lg" onClick="{{ openApprove }}" aria-haspopup="dialog"><i class="ri-check-double-line"></i>Согласовать</button>
+        </div>
+      </sc-if>
+    </aside>
+  </sc-if>
+
+  <!-- СОГЛАСОВАНИЕ -->
+  <sc-if value="{{ approveOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-ov" style="z-index:92;" onClick="{{ closeDecision }}"></div>
+    <div class="rf-mw">
+      <div class="rf-modal" role="alertdialog" aria-modal="true" aria-labelledby="rf-ap-t">
+        <div class="rf-m-hd" style="padding-bottom:22px;">
+          <span class="rf-m-ic" aria-hidden="true"><i class="ri-check-double-line"></i></span>
+          <div><h2 id="rf-ap-t">Согласовать отчёт?</h2><p>{{ doc.ident }}</p></div>
+        </div>
+        <div class="rf-m-ft">
+          <sc-if value="{{ decErr }}" hint-placeholder-val="{{ false }}"><span class="rf-hint err" role="alert"><i class="ri-error-warning-line"></i>Не удалось сохранить. Повторите попытку</span></sc-if>
+          <button type="button" class="rf-btn sec" onClick="{{ closeDecision }}" disabled="{{ deciding }}">Отмена</button>
+          <button type="button" class="rf-btn pri" onClick="{{ approve }}" disabled="{{ deciding }}"><sc-if value="{{ deciding }}" hint-placeholder-val="{{ false }}"><span class="rf-spin"></span></sc-if>Согласовать</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ВОЗВРАТ НА ДОРАБОТКУ -->
+  <sc-if value="{{ returnOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="rf-ov" style="z-index:92;" onClick="{{ closeDecision }}"></div>
+    <div class="rf-mw">
+      <div class="rf-modal" role="dialog" aria-modal="true" aria-labelledby="rf-rt-t">
+        <div class="rf-m-hd">
+          <span class="rf-m-ic red" aria-hidden="true"><i class="ri-arrow-go-back-line"></i></span>
+          <div><h2 id="rf-rt-t">Отправить на доработку</h2><p>{{ doc.ident }}</p></div>
+          <button type="button" class="rf-close" onClick="{{ closeDecision }}" aria-label="Закрыть" data-tip="Закрыть · Esc" disabled="{{ deciding }}"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="rf-m-bd">
+          <label for="rf-reason">Причина возврата<span aria-hidden="true">*</span></label>
+          <textarea id="rf-reason" class="rf-ta" value="{{ reason }}" onChange="{{ onReason }}" maxLength="1000" placeholder="Что нужно исправить" aria-required="true" aria-describedby="rf-reason-cnt"></textarea>
+          <div class="rf-ta-ft">
+            <sc-if value="{{ reasonHint }}" hint-placeholder-val="{{ true }}"><span class="rf-hint"><i class="ri-information-line"></i>Укажите причину возврата</span></sc-if>
+            <span class="rf-cnt" id="rf-reason-cnt">{{ reasonLen }} / 1000</span>
+          </div>
+        </div>
+        <div class="rf-m-ft">
+          <sc-if value="{{ decErr }}" hint-placeholder-val="{{ false }}"><span class="rf-hint err" role="alert"><i class="ri-error-warning-line"></i>Не удалось сохранить. Повторите попытку</span></sc-if>
+          <button type="button" class="rf-btn sec" onClick="{{ closeDecision }}" disabled="{{ deciding }}">Отмена</button>
+          <button type="button" class="rf-btn pri" onClick="{{ sendBack }}" disabled="{{ backOff }}"><sc-if value="{{ deciding }}" hint-placeholder-val="{{ false }}"><span class="rf-spin"></span></sc-if>Отправить на доработку</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="{{ toastCls }}" role="status"><i class="{{ toastIcon }}"></i><span>{{ toast }}</span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const EMPTY = { form:'', period:'', status:'' };
+const DEMO_STATES = [
+  { id:'ok', label:'Обычная работа' },
+  { id:'loading', label:'Загрузка данных' },
+  { id:'empty', label:'Отчётов нет' },
+  { id:'error', label:'Техническая ошибка' },
+  { id:'saveErr', label:'Ошибка сохранения решения' },
+];
+const LOG_CLS = { 'Отправлен на согласование':'up', 'Согласован':'ok', 'Отправлен в УО':'ok', 'Возвращён на доработку':'back' };
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const profile = lsGet('mp-profile');
+    this.denied = !profile;
+    if(this.denied){ try { location.replace('Вход.dc.html?return=' + encodeURIComponent('Журнал отчётных форм.dc.html')); } catch(e){} }
+    else if(!lsGet('mp-org-head')){ this.denied = true; try { location.replace('Отчётные формы.dc.html'); } catch(e){} }
+    this.state = { ready:false, loading:true, draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1, pageSize:this.calcSize(),
+      open:null, ddQ:'', doc:null, decision:null, reason:'', deciding:false, decErr:false, toast:'', toastErr:false, demoOpen:false, tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.load();
+    window.addEventListener('mp-orgrep-ready', this._ready);
+    this._chg = () => { this._cache = null; this.setState(s => ({ tick:s.tick + 1 })); };
+    window.addEventListener('mp-orgrep-change', this._chg);
+    this._key = (e) => this.onKey(e);
+    window.addEventListener('keydown', this._key);
+    this._rs = () => { clearTimeout(this._rt); this._rt = setTimeout(() => { this.fitSize(); this.markClamped(); }, 120); };
+    window.addEventListener('resize', this._rs);
+    if(window.mpOrgRep) this.load();
+  }
+  componentWillUnmount(){
+    clearTimeout(this._lt); clearTimeout(this._tt); clearTimeout(this._rt); clearTimeout(this._dt);
+    window.removeEventListener('mp-orgrep-ready', this._ready); window.removeEventListener('mp-orgrep-change', this._chg);
+    window.removeEventListener('keydown', this._key); window.removeEventListener('resize', this._rs);
+  }
+  componentDidUpdate(){
+    const s = this.state, p = this._prev || {};
+    this._prev = { open:s.open, doc:s.doc, decision:s.decision };
+    if(s.open && p.open !== s.open){
+      setTimeout(() => { const m = document.querySelector('.rf-f .rf-menu'); if(!m) return; const el = m.querySelector('input') || m.querySelector('[aria-selected="true"]') || m.querySelector('.rf-opt'); if(el) el.focus(); }, 20);
+    }
+    if(p.open && !s.open && this._trigger){ try { this._trigger.focus(); } catch(e){} this._trigger = null; }
+    if(s.doc && !p.doc) setTimeout(() => { const b = document.querySelector('.rf-dr .rf-close'); if(b) b.focus(); }, 30);
+    if(!s.doc && p.doc && this._opener){ try { this._opener.focus(); } catch(e){} this._opener = null; }
+    if(s.decision && !p.decision) setTimeout(() => { const t = document.getElementById('rf-reason') || document.querySelector('.rf-modal .rf-btn.pri'); if(t) t.focus(); }, 40);
+    if(!s.decision && p.decision) setTimeout(() => { const b = document.querySelector('.rf-dr .rf-close'); if(b) b.focus(); }, 20);
+    this.markClamped();
+  }
+  R(){ return window.mpOrgRep; }
+  scn(){ const R = this.R(); return R ? R.scn() : 'ok'; }
+  load(extra){
+    clearTimeout(this._lt);
+    this._cache = null;
+    this.setState({ ...(extra || {}), loading:true, open:null, ddQ:'' });
+    this._lt = setTimeout(() => this.setState({ loading:false, ready:true }), 600);
+  }
+  // длинное название обрезано — полный текст в подсказке
+  markClamped(){
+    document.querySelectorAll('.rf-nm, .rf-cl').forEach(el => {
+      if(el.scrollHeight > el.clientHeight + 1) el.setAttribute('data-tip', el.getAttribute('data-full') || el.textContent);
+      else el.removeAttribute('data-tip');
+    });
+  }
+  calcSize(){ const h = (typeof window !== 'undefined' && window.innerHeight) || 900; return Math.max(8, Math.min(30, Math.floor((h - 420) / 62))); }
+  fitSize(){
+    const size = this.calcSize(), s = this.state;
+    if(size === s.pageSize) return;
+    const first = (s.page - 1) * s.pageSize;
+    this.setState({ pageSize:size, page:Math.floor(first / size) + 1 });
+  }
+  say(text, err){ this.setState({ toast:text, toastErr:!!err }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast:'' }), 3800); }
+  onKey(e){
+    const s = this.state;
+    if(e.key === 'Escape'){
+      if(s.open) this.setState({ open:null, ddQ:'' });
+      else if(s.demoOpen) this.setState({ demoOpen:false });
+      else if(s.decision){ if(!s.deciding) this.setState({ decision:null, decErr:false }); }
+      else if(s.doc) this.setState({ doc:null });
+      return;
+    }
+    if(s.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')){
+      const m = document.querySelector('.rf-f .rf-menu'); if(!m) return;
+      const opts = Array.from(m.querySelectorAll('.rf-opt')), a = document.activeElement;
+      if(e.key === 'Enter'){ if(a && a.tagName === 'INPUT'){ e.preventDefault(); if(opts[0]) opts[0].click(); } return; }
+      e.preventDefault();
+      const i = opts.indexOf(a), d = e.key === 'ArrowDown' ? 1 : -1;
+      const n = opts[i < 0 ? (d > 0 ? 0 : opts.length - 1) : (i + d + opts.length) % opts.length];
+      if(n) n.focus();
+    }
+    if(e.key === 'Tab' && (s.doc || s.decision)){
+      const box = document.querySelector(s.decision ? '.rf-modal' : '.rf-dr'); if(!box) return;
+      const items = Array.from(box.querySelectorAll('button:not(:disabled), textarea, [tabindex="0"]')).filter(x => x.offsetParent !== null);
+      if(!items.length) return;
+      const first = items[0], last = items[items.length - 1], a = document.activeElement;
+      if(e.shiftKey && (a === first || !box.contains(a))){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && (a === last || !box.contains(a))){ e.preventDefault(); first.focus(); }
+    }
+  }
+  all(){
+    const R = this.R(); if(!R) return [];
+    if(!this._cache) this._cache = R.reports();
+    return this._cache;
+  }
+  filtered(){
+    const f = this.state.applied;
+    return this.all().filter(r => (!f.form || r.form.id === f.form) && (!f.period || r.period === f.period) && (!f.status || r.status === f.status));
+  }
+  setDraft(patch){
+    this.setState(st => {
+      const d = { ...st.draft, ...patch };
+      // смена формы: период оставляем, только если он есть у новой формы
+      if('form' in patch && d.period && !this.periods(d.form).includes(d.period)) d.period = '';
+      return { draft:d, open:null, ddQ:'' };
+    });
+  }
+  periods(formId){
+    const seen = new Map();
+    this.all().filter(r => !formId || r.form.id === formId).forEach(r => { if(!seen.has(r.period)) seen.set(r.period, r.end); });
+    return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(x => x[0]);
+  }
+  toggleDd(key){ this._trigger = document.activeElement; this.setState(st => ({ open:st.open === key ? null : key, ddQ:'', demoOpen:false })); }
+  dd(key, label, cfg){
+    const s = this.state, open = s.open === key, q = s.ddQ.trim().toLowerCase();
+    const opts = (cfg.options || []).filter(o => !cfg.search || !q || (o.label + ' ' + (o.code || '') + ' ' + (o.q || '')).toLowerCase().includes(q));
+    return { key, label, lid:'rf-dd-' + key, value:cfg.value, open: open ? 'true' : 'false', show: open && !cfg.off, off:!!cfg.off, tip: cfg.off ? cfg.tip : cfg.long ? cfg.value : '',
+      wrapCls:'rf-f' + (cfg.wrap ? ' ' + cfg.wrap : ''), cls:'rf-sel' + (cfg.set ? ' set' : ''), menuCls:'rf-menu' + (cfg.menu ? ' ' + cfg.menu : ''), search:!!cfg.search, none:!opts.length,
+      onToggle:() => this.toggleDd(key),
+      options: opts.map(o => ({ ...o, on: o.on ? 'true' : 'false', hasCode:!!o.code, st:!!o.st, plain:!o.st })) };
+  }
+  filterFields(){
+    const R = this.R(), d = this.state.draft;
+    const ids = new Set(this.all().map(r => r.form.id));
+    const forms = R.FORMS.filter(f => ids.has(f.id)), sel = R.FORM[d.form];
+    const any = (on, fn) => ({ label:'Все', on, onClick:fn });
+    const pick = (id) => () => this.setDraft({ form:id });
+    return [
+      this.dd('form', 'Наименование формы', { value: sel ? sel.name : 'Все', long:!!sel, set:!!sel, search:true, wrap:'nm', menu:'wide',
+        options:[any(!d.form, pick(''))].concat(forms.map(f => ({ label:f.name, code:f.idx, q:f.app, on:f.id === d.form, onClick:pick(f.id) }))) }),
+      this.dd('idx', 'Индекс формы', { value: sel ? sel.idx : 'Все', set:!!sel, search:true, menu:'mid',
+        options:[any(!d.form, pick(''))].concat(forms.map(f => ({ label:f.idx, on:f.id === d.form, onClick:pick(f.id) }))) }),
+      this.dd('app', '№ приложения', { value: sel ? sel.app : 'Все', set:!!sel, search:forms.length > 10,
+        options:[any(!d.form, pick(''))].concat(forms.map(f => ({ label:f.app, on:f.id === d.form, onClick:pick(f.id) }))) }),
+      this.dd('period', 'Отчётный период', { value: d.period || 'Все', set:!!d.period, menu:'mid', search:true,
+        options:[any(!d.period, () => this.setDraft({ period:'' }))].concat(this.periods(d.form).map(p => ({ label:p, on:p === d.period, onClick:() => this.setDraft({ period:p }) }))) }),
+      this.dd('status', 'Статус', { value: d.status || 'Все', set:!!d.status, menu:'mid',
+        options:[any(!d.status, () => this.setDraft({ status:'' }))].concat(R.STATUS.map(x => ({ label:x.name, on:x.name === d.status, st:true, stCls:'rf-st ' + x.cls, stIcon:x.icon, onClick:() => this.setDraft({ status:x.name }) }))) }),
+    ];
+  }
+  apply(e){ if(e && e.preventDefault) e.preventDefault(); this.load({ applied:{ ...this.state.draft }, page:1 }); }
+  reset(){ this.load({ draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1 }); }
+  openDoc(r, e){ if(e && e.stopPropagation) e.stopPropagation(); this._opener = document.activeElement; this.setState({ doc:r.id, open:null }); }
+  decide(ok){
+    const R = this.R(), s = this.state;
+    if(s.deciding || (!ok && !s.reason.trim())) return;
+    this.setState({ deciding:true, decErr:false });
+    clearTimeout(this._dt);
+    this._dt = setTimeout(() => {
+      if(this.scn() === 'saveErr'){ this.setState({ deciding:false, decErr:true }); return; }
+      R.decide(s.doc, ok, s.reason.trim());
+      this._cache = null;
+      this.setState({ deciding:false, decision:null, reason:'' });
+      this.say(ok ? 'Отчёт согласован и отправлен в УО' : 'Отчёт отправлен на доработку');
+    }, 700);
+  }
+  setDemoState(id){
+    const R = this.R(); R.setScn(id);
+    this.setState({ demoOpen:false, decErr:false });
+    if(id === 'loading'){ clearTimeout(this._lt); this.setState({ loading:true }); }
+    else this.load({ page:1 });
+  }
+  demoData(kind){
+    const R = this.R();
+    if(kind === 'clear') R.clear(); else R.demo();
+    R.setScn('ok');
+    this.load({ demoOpen:false, draft:{ ...EMPTY }, applied:{ ...EMPTY }, page:1, doc:null });
+    this.say(kind === 'clear' ? 'Настройка организации сброшена' : 'Загружен пример настроенной организации');
+  }
+  docView(r){
+    const R = this.R(), st = R.ST[r.status];
+    const ret = [...r.log].reverse().find(x => x.act === 'Возвращён на доработку');
+    const prevP = r.pName === 'Год' ? (r.year - 1) + ' год' : r.pName + ' ' + (r.year - 1);
+    return { app:r.form.app, idx:r.form.idx, name:r.form.name, tableFull:`${r.tableCode} · ${r.tableName}`, period:r.period, prevPeriod:prevP,
+      status:r.status, stCls:'rf-st ' + st.cls, stIcon:st.icon, stTip:st.tip, emp:r.emp.fio, date:R.fmtTime(r.at),
+      hasReason: r.status === 'На доработке' && !!ret, reason: ret ? ret.reason : '',
+      ind: R.indicators(r).map((x, i) => ({ ...x, cur:x.cur.toLocaleString('ru-RU'), prev:x.prev.toLocaleString('ru-RU'), cls: i === 0 ? 'tot' : '', nameCls: x.sub ? 'sub' : '' })),
+      // причина текущего возврата — в плашке над показателями, в истории — только причины прошлых возвратов
+      log: [...r.log].sort((a, b) => b.at - a.at).map(x => ({ at:R.fmtTime(x.at), act:x.act, who:x.who, cls:LOG_CLS[x.act] || '',
+        hasReason:!!x.reason && !(r.status === 'На доработке' && x === ret), reason:x.reason || '' })),
+      canDecide: r.status === 'На согласовании',
+      ident: `${r.form.idx} · таблица ${r.tableCode} · ${r.period}` };
+  }
+  renderVals(){
+    const R = this.R(), s = this.state, scn = this.scn();
+    const base = { homeHref: lsGet('mp-home-page') || 'Главная H - Витрина.dc.html',
+      demoOpen: s.demoOpen, toggleDemo:() => this.setState(st => ({ demoOpen:!st.demoOpen, open:null })), closeDemo:() => this.setState({ demoOpen:false }),
+      demoData:[{ label:'Пример настроенной организации', icon:'ri-database-2-line', onClick:() => this.demoData('demo') }, { label:'Начать настройку заново', icon:'ri-restart-line', onClick:() => this.demoData('clear') }],
+      demoStates: DEMO_STATES.map(x => ({ label:x.label, on: x.id === scn || (x.id === 'ok' && !DEMO_STATES.some(y => y.id === scn)) ? 'true' : 'false', onClick:() => this.setDemoState(x.id) })),
+      hasToast:!!s.toast, toast:s.toast, toastCls:'rf-toast' + (s.toastErr ? ' err' : ''), toastIcon: s.toastErr ? 'ri-error-warning-line' : 'ri-checkbox-circle-line' };
+    if(!R || this.denied) return { ...base, filters:[], showTable:false, showPager:false, showError:false, showEmpty:false, showNoRes:false, hasDoc:false, approveOpen:false, returnOpen:false };
+
+    const isLoading = s.loading || scn === 'loading' || !s.ready;
+    const isError = !isLoading && scn === 'error';
+    const all = scn === 'empty' ? [] : this.all();
+    const list = scn === 'empty' ? [] : this.filtered();
+    const applied = Object.values(s.applied).some(Boolean), drafted = Object.values(s.draft).some(Boolean);
+    const dirty = JSON.stringify(s.draft) !== JSON.stringify(s.applied);
+    const isEmpty = !isLoading && !isError && !all.length;
+    const noRes = !isLoading && !isError && all.length > 0 && !list.length;
+    const total = list.length, pages = Math.max(1, Math.ceil(total / s.pageSize)), page = Math.min(s.page, pages);
+    const from = (page - 1) * s.pageSize, cur = list.slice(from, from + s.pageSize);
+    const go = (n) => { this.setState({ page:n }); try { const t = document.querySelector('.rf-tbl'); if(t && t.getBoundingClientRect().top < 72) window.scrollTo({ top:window.scrollY + t.getBoundingClientRect().top - 90, behavior:'smooth' }); } catch(e){} };
+    const nums = pages <= 7 ? Array.from({ length:pages }, (_, i) => i + 1) : [...new Set([1, page - 1, page, page + 1, pages].filter(n => n >= 1 && n <= pages))].sort((a, b) => a - b);
+    const pageItems = [];
+    nums.forEach((n, i) => { if(i && n - nums[i - 1] > 1) pageItems.push({ gap:true, num:false }); pageItems.push({ gap:false, num:true, n, cur: n === page ? 'page' : 'false', aria:'Страница ' + n, onClick:() => go(n) }); });
+
+    const docR = s.doc ? this.all().find(r => r.id === s.doc) : null;
+    const doc = docR ? this.docView(docR) : {};
+    return {
+      ...base,
+      filters: this.filterFields(), ddQ:s.ddQ, onDdQ:(e) => this.setState({ ddQ:e.target.value }), closeMenu:() => this.setState({ open:null, ddQ:'' }),
+      onApply:(e) => this.apply(e), applyOff: !dirty || isLoading, reset:() => this.reset(), resetOff: (!drafted && !applied) || isLoading,
+      showError:isError, retry:() => { R.setScn('ok'); this.load(); },
+      showEmpty:isEmpty, notConfigured: isEmpty && !R.configured(),
+      showNoRes:noRes,
+      showTable: isLoading || (!isError && !isEmpty && !noRes), loading:isLoading, ready:!isLoading,
+      skel: Array.from({ length:Math.min(s.pageSize, 8) }, (_, i) => ({ w1:`width:${[88,64,76,92,58,72,84,68][i]}%;` })),
+      rows: cur.map(r => { const st = R.ST[r.status]; return { app:r.form.app, idx:r.form.idx, name:r.form.name, tableCode:r.tableCode, tableName:r.tableName,
+        tableFull:`${r.tableCode} · ${r.tableName}`, period:r.period, status:r.status, stCls:'rf-st ' + st.cls, stIcon:st.icon, stTip:st.tip,
+        openAria:`Открыть: ${r.form.idx}, таблица ${r.tableCode}, ${r.period}`, onOpen:(e) => this.openDoc(r, e) }; }),
+      showPager: !isLoading && !isError && !isEmpty && !noRes, manyPages: pages > 1,
+      found: total, shownFrom: total ? from + 1 : 0, shownTo: from + cur.length, pages: pageItems,
+      prevOff: page <= 1, nextOff: page >= pages, prevPage:() => go(page - 1), nextPage:() => go(page + 1),
+
+      hasDoc:!!docR, doc, closeDoc:() => this.setState({ doc:null, decision:null }),
+      openApprove:() => this.setState({ decision:'approve', decErr:false }), openReturn:() => this.setState({ decision:'return', decErr:false, reason:'' }),
+      approveOpen: !!docR && s.decision === 'approve', returnOpen: !!docR && s.decision === 'return',
+      closeDecision:() => { if(!s.deciding) this.setState({ decision:null, decErr:false }); },
+      deciding:s.deciding, decErr:s.decErr,
+      reason:s.reason, onReason:(e) => this.setState({ reason:e.target.value.slice(0, 1000), decErr:false }), reasonLen:s.reason.length,
+      reasonHint: !s.reason.trim() && !s.decErr, backOff: !s.reason.trim() || s.deciding,
+      approve:() => this.decide(true), sendBack:() => this.decide(false),
+    };
+  }
+}
+</script>
+</body>
+</html>

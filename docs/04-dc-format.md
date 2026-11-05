@@ -110,6 +110,9 @@ const tabs = data.map(t => ({
 | `mp-doc-notif-read` | JSON-массив id прочитанных уведомлений врача | `Header` (`cabinet="medical"`) |
 | `mp-family` | `[{ iin, at }]` — дети, добавленные в «Мою семью» (родные из ГБД ФЛ и подопечные из РБДС) | `FamilyData` (window.mpFamily) ↔ `Моя семья`, `ЭПЗ ребёнка` (событие `mp-family-change`) |
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
+| `mp-org-head` | `{ iin, fio, post, bin, org }` — вошёл первый руководитель медорганизации (профиль с `firstHead`) | `Вход` → `PortalHeader`, `OrgRepData`, страницы отчётности руководителя |
+| `mp-orgrep-db` | `{ v, forms:[id], assigns:[{ id, emp, role, forms }], ov:{ отчёт:{ status, at, log } } }` — формы организации, назначения, решения руководителя | `OrgRepData` (window.mpOrgRep) ↔ `Администрирование отчётности`, `Журнал отчётных форм`, `OrgReportsTop` (событие `mp-orgrep-change`) |
+| `mp-orgrep-scn` (sessionStorage) | состояние для показа: `ok` / `loading` / `error` / `noEmp` / `saveErr` / `empty` | «Показ прототипа» на страницах отчётности руководителя |
 | `mp-epz-child-scn` (sessionStorage) | сведения ЭПЗ ребёнка в прототипе: `data` / `partial` / `empty` / `slow` / `error` | `ЭПЗ ребёнка` (панель «Прототип») |
 
 Синхронно смена роли рассылается событием:
