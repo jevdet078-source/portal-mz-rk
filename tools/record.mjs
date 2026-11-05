@@ -94,7 +94,9 @@ const voiceOn = flags.has('voice') || scenario.voice === true;
  * Ключ — переменная ELEVENLABS_API_KEY или строка ELEVENLABS_API_KEY=… в файле --eleven-env=<путь к .env.local>.
  * Ключ только читается и уходит в заголовок запроса — не печатается и никуда не записывается.
  */
-const engine = flags.get('tts') === 'eleven' ? 'eleven' : 'windows';
+const engine = ['eleven', 'edge'].includes(flags.get('tts')) ? flags.get('tts') : 'windows';
+// --tts=edge — нейроголос Microsoft через edge-tts (uvx), по умолчанию мужской Remy Multilingual — как «Мягкий» в KEGOC
+const EDGE_VOICE = flags.get('edge-voice') ?? 'fr-FR-RemyMultilingualNeural';
 const ELEVEN_VOICE = flags.get('eleven-voice') ?? 'nPczCjzI2devNBz1zQrb';
 const ELEVEN_RATE = 24000;
 let elevenModel = null;
@@ -154,13 +156,22 @@ if (voiceOn) {
   const hashOf = (s) => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); };
   const todo = [];
   for (const text of phrases) {
-    const file = (engine === 'eleven' ? 'el-' + ELEVEN_VOICE + '-' : 'v' + rate + '-') + hashOf(text) + '.wav';
+    const file = (engine === 'eleven' ? 'el-' + ELEVEN_VOICE + '-' : engine === 'edge' ? 'ed-' + EDGE_VOICE + '-' : 'v' + rate + '-') + hashOf(text) + '.wav';
     voices.set(text, { file });
     if (!existsSync(join(voiceDir, file))) todo.push({ file, text });
   }
   if (todo.length && engine === 'eleven') {
     console.log(`Озвучка ElevenLabs (${ELEVEN_VOICE}): синтезирую ${todo.length} фраз…`);
     for (const p of todo) writeFileSync(join(voiceDir, p.file), await elevenWav(p.text));
+  } else if (todo.length && engine === 'edge') {
+    console.log(`Озвучка edge-tts (${EDGE_VOICE}): синтезирую ${todo.length} фраз…`);
+    for (const p of todo) {
+      const mp3 = p.file.replace(/.wav$/, '.mp3');
+      execFileSync('uvx', ['edge-tts', '--voice', EDGE_VOICE, '--text', p.text, '--write-media', mp3], { cwd: voiceDir, stdio: ['ignore', 'ignore', 'inherit'] });
+      // в WAV 24 кГц моно — как у остальных движков; пути относительные (ffmpeg и кириллица)
+      execFileSync(ffmpeg.path, ['-y', '-loglevel', 'error', '-i', mp3, '-ar', '24000', '-ac', '1', '-c:a', 'pcm_s16le', p.file], { cwd: voiceDir });
+      rmSync(join(voiceDir, mp3), { force: true });
+    }
   } else if (todo.length) {
     console.log(`Озвучка: синтезирую ${todo.length} фраз…`);
     writeFileSync(join(voiceDir, 'todo.json'), JSON.stringify(todo), 'utf8');
