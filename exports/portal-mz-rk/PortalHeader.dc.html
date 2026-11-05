@@ -223,6 +223,7 @@ const ROLES = [
 const LANGS = [ { code:'ҚАЗ', name:'Қазақша' }, { code:'РУС', name:'Русский' }, { code:'ENG', name:'English' } ];
 const CABINET = { citizen:{ label:'Личный кабинет', icon:'ri-user-3-line', href:'Личный кабинет.dc.html' }, business:{ label:'Кабинет бизнеса', icon:'ri-briefcase-4-line', href:'Кабинет бизнеса.dc.html' },
   medical:{ label:'Кабинет врача', icon:'ri-stethoscope-line', href:'Профиль врача.dc.html' }, gov:{ label:'Кабинет сотрудника', icon:'ri-government-line', href:'АРМ ННЦРЗ.dc.html' } };
+const HEAD_CAB = { label:'Кабинет руководителя', icon:'ri-user-star-line', href:'Журнал отчётных форм.dc.html' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
 class Component extends DCLogic {
   constructor(props){
@@ -270,7 +271,9 @@ class Component extends DCLogic {
     const glass = look === 'glass', sec = this.props.section || '';
     const compact = this.props.reports === '1' || sec === 'reports';
     // в компактной шапке вход показывает кабинет любого профиля; остальные главные — как раньше, только бизнес
-    const cab = compact ? CABINET[s.profile] : s.biz ? CABINET.business : null;
+    // первый руководитель медорганизации работает в разделе отчётности: кабинет и пункт ведут в журнал
+    const head = !!lsGet('mp-org-head') && s.profile === 'medical';
+    const cab = compact ? (head ? HEAD_CAB : CABINET[s.profile]) : s.biz ? CABINET.business : null;
     const sizes = [ { id:'md', label:'A', title:'Обычный', fs:15 }, { id:'lg', label:'A+', title:'Крупный', fs:18 }, { id:'xl', label:'A++', title:'Очень крупный', fs:21 } ]
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
@@ -283,7 +286,7 @@ class Component extends DCLogic {
       protoCur: sec === 'protocols' ? 'page' : 'false',
       showReports: compact, reportsCur: sec === 'reports' ? 'page' : 'false',
       // раздел не публичный: без входа пункт ведёт на авторизацию и возвращает в раздел
-      reportsHref: s.profile ? 'Отчётные формы.dc.html' : 'Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html'),
+      reportsHref: head ? 'Журнал отчётных форм.dc.html' : s.profile ? 'Отчётные формы.dc.html' :'Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html'),
       a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
       toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),
       toggleContrast: () => this.setA11y({ contrast:!s.a11y.contrast }),

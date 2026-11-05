@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Верх раздела отчётности первого руководителя медорганизации: заголовок, организация и ФИО руководителя
+  (по данным авторизации) и разделы «Журнал отчётных форм» / «Администрирование».
+    <dc-import name="OrgReportsTop" active="journal | admin" hint-size="100%,150px"></dc-import>
+  Счётчик у журнала — отчёты на согласовании (ждут решения руководителя). Данные — OrgRepData (window.mpOrgRep).
+-->
+<x-dc>
+<helmet>
+<style>
+  .ot{ font-family:'Inter',system-ui,sans-serif; color:var(--n900); }
+  .ot *, .ot *::before, .ot *::after{ box-sizing:border-box; }
+  .ot-hero{ display:flex; align-items:center; flex-wrap:wrap; gap:12px 24px; padding:clamp(8px,.7vw,14px) 0 clamp(14px,1.1vw,20px); }
+  .ot-h1{ margin:0; font-size:clamp(26px,1vw + 15px,38px); line-height:1.15; font-weight:600; letter-spacing:-.028em; white-space:nowrap; }
+  .ot-ctx{ margin-left:auto; display:flex; min-width:0; max-width:100%; border-radius:16px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200), var(--hm-sh1); }
+  .ot-c{ display:flex; align-items:center; gap:11px; min-width:0; padding:10px clamp(14px,1.2vw,20px); }
+  .ot-c + .ot-c{ border-left:1px solid var(--n100); }
+  .ot-ic, .ot-av{ flex:0 0 auto; width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; }
+  .ot-ic{ background:var(--b50); color:var(--b600); font-size:19px; }
+  .ot-av{ border-radius:50%; background:var(--b600); color:#fff; font-size:13px; font-weight:600; letter-spacing:.02em; }
+  .ot-tx{ min-width:0; }
+  .ot-lb{ display:flex; align-items:center; gap:4px; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); white-space:nowrap; }
+  .ot-lb i{ font-size:15px; color:var(--n400); cursor:help; border-radius:50%; }
+  .ot-lb i:hover{ color:var(--b600); }
+  .ot-v{ display:block; margin-top:1px; font-size:14.5px; line-height:20px; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+
+  .ot-tabs{ display:flex; gap:4px; border-bottom:1px solid var(--n200); overflow-x:auto; scrollbar-width:none; }
+  .ot-tabs::-webkit-scrollbar{ display:none; }
+  .ot-tab{ position:relative; flex:0 0 auto; display:inline-flex; align-items:center; gap:8px; height:48px; padding:0 14px; text-decoration:none; color:var(--n500); font-size:15px; font-weight:500; white-space:nowrap; border-radius:10px 10px 0 0; transition:color .15s, background .15s; }
+  .ot-tab:first-child{ margin-left:-14px; }
+  .ot-tab i{ font-size:19px; }
+  .ot-tab:hover{ color:var(--n900); background:var(--n100); }
+  .ot-tab::after{ content:''; position:absolute; left:12px; right:12px; bottom:-1px; height:2.5px; border-radius:2px; background:transparent; transition:background .15s; }
+  .ot-tab[aria-current="page"]{ color:var(--b700); font-weight:600; }
+  .ot-tab[aria-current="page"]:hover{ background:none; }
+  .ot-tab[aria-current="page"]::after{ background:var(--b600); }
+  .ot-tab:focus-visible{ outline:2px solid var(--b500); outline-offset:-3px; }
+  .ot-cnt{ min-width:22px; height:22px; padding:0 7px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:var(--orange-l); color:#9A4A12; font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums; }
+
+  @media (max-width:1100px){
+    .ot-ctx{ margin-left:0; flex:1 1 100%; }
+    .ot-c{ flex:1 1 50%; }
+  }
+  @media (max-width:640px){
+    .ot-ctx{ flex-direction:column; }
+    .ot-c + .ot-c{ border-left:none; border-top:1px solid var(--n100); }
+    .ot-h1{ white-space:normal; }
+    .ot-tab{ padding:0 12px; font-size:14.5px; }
+    .ot-tab:first-child{ margin-left:-12px; }
+  }
+</style>
+</helmet>
+<div class="ot">
+  <div class="ot-hero">
+    <h1 class="ot-h1">Отчётные формы</h1>
+    <section class="ot-ctx" aria-label="Организация и руководитель">
+      <div class="ot-c">
+        <span class="ot-ic" aria-hidden="true"><i class="ri-hospital-line"></i></span>
+        <div class="ot-tx">
+          <span class="ot-lb">Организация</span>
+          <span class="ot-v">{{ org }}</span>
+        </div>
+      </div>
+      <div class="ot-c">
+        <span class="ot-av" aria-hidden="true">{{ initials }}</span>
+        <div class="ot-tx">
+          <span class="ot-lb">Первый руководитель<i class="ri-information-line" tabindex="0" role="img" aria-label="{{ headTip }}" data-tip="{{ headTip }}"></i></span>
+          <span class="ot-v">{{ fio }}</span>
+        </div>
+      </div>
+    </section>
+  </div>
+  <nav class="ot-tabs" aria-label="Разделы отчётности">
+    <a class="ot-tab" href="Журнал отчётных форм.dc.html" aria-current="{{ jCur }}"><i class="ri-file-list-3-line" aria-hidden="true"></i>Журнал отчётных форм<sc-if value="{{ hasPending }}" hint-placeholder-val="{{ true }}"><span class="ot-cnt" data-tip="{{ pendingTip }}" aria-label="{{ pendingTip }}">{{ pending }}</span></sc-if></a>
+    <a class="ot-tab" href="Администрирование отчётности.dc.html" aria-current="{{ aCur }}"><i class="ri-settings-4-line" aria-hidden="true"></i>Администрирование</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:150}}">
+class Component extends DCLogic {
+  state = { tick:0 };
+  componentDidMount(){
+    this._on = () => this.setState(s => ({ tick:s.tick + 1 }));
+    window.addEventListener('mp-orgrep-ready', this._on);
+    window.addEventListener('mp-orgrep-change', this._on);
+    window.addEventListener('storage', this._on);
+    if(window.mpOrgRep) this._on();
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-orgrep-ready', this._on);
+    window.removeEventListener('mp-orgrep-change', this._on);
+    window.removeEventListener('storage', this._on);
+  }
+  renderVals(){
+    const R = window.mpOrgRep, a = this.props.active || 'journal';
+    let head = { fio:'', org:'' };
+    try { head = JSON.parse(localStorage.getItem('mp-org-head') || 'null') || head; } catch(e){}
+    if(R){ const h = R.head(); head = { fio:h.fio, org:h.org }; }
+    const pending = R && R.scn() !== 'empty' ? R.pending() : 0;
+    const word = R ? R.plural(pending, ['отчёт', 'отчёта', 'отчётов']) : '';
+    return {
+      org: head.org, fio: head.fio,
+      initials: head.fio ? head.fio.split(' ').slice(0, 2).map(x => x[0]).join('') : '',
+      headTip: R ? R.HEAD_ROLE.tip : '',
+      jCur: a === 'journal' ? 'page' : 'false', aCur: a === 'admin' ? 'page' : 'false',
+      hasPending: pending > 0, pending, pendingTip: `На согласовании: ${pending} ${word}`,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  «Администрирование» — самостоятельная настройка отчётности медорганизации первым руководителем
+  (ПЗ «Администрирование и журнал отчётных форм», разделы 1–2, 5–7).
+  Доступ — после авторизации: первого руководителя определяет «Вход» по данным авторизации (localStorage mp-org-head);
+  без входа — авторизация с возвратом, другим пользователям — общий раздел «Отчётные формы».
+  Шаг 1 — выбор форм (поиск по наименованию, индексу и № приложения; поиск не сбрасывает выбор; без выбора «Далее» и шаг 2 недоступны).
+  Шаг 2 — управление ролями: право согласования руководителя — отдельно, как предоставленное автоматически;
+  список назначений; «Добавить назначение» — боковая панель: сотрудник (только авторизовавшиеся сотрудники организации),
+  роль, формы шага 1; ранее назначенные этому сотруднику в этой роли формы — недоступны с подписью.
+  Состояния загрузки, пустого списка, ошибки и сохранения — «Показ прототипа» в строке крошек.
+  Данные — OrgRepData (window.mpOrgRep), верх раздела — OrgReportsTop.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .ad{ --wrap:100%; display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .ad, .ad *, .ad *::before, .ad *::after{ box-sizing:border-box; }
+  .ad button, .ad input, .ad textarea{ font-family:inherit; }
+  .ad :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .ad-top{ position:sticky; top:0; z-index:40; }
+  .ad-main{ flex:1 0 auto; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0, #fff 340px); padding-bottom:clamp(32px,3.4vw,64px); }
+  html[data-fill="flat"] .ad-main{ background:#fff; }
+
+  /* ——— крошки ——— */
+  .ad-crow{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:36px; padding-top:clamp(12px,1vw,18px); }
+  .ad-crumbs{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); }
+  .ad-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .ad-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .ad-crumbs a:hover{ color:var(--b700); }
+  .ad-crumbs a i{ font-size:16px; }
+  .ad-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .ad-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+
+  /* показ прототипа */
+  .ad-demo{ position:relative; flex:0 0 auto; }
+  .ad-demo-btn{ height:32px; padding:0 8px 0 10px; display:inline-flex; align-items:center; gap:6px; border:1px dashed var(--n300); border-radius:9px; background:rgba(255,255,255,.7); color:var(--n500); font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; transition:border-color .15s, color .15s, background .15s; }
+  .ad-demo-btn i{ font-size:16px; }
+  .ad-demo-btn:hover, .ad-demo-btn[aria-expanded="true"]{ border-color:var(--b400); color:var(--b700); background:#fff; }
+  .ad-demo .ad-menu{ left:auto; right:0; width:340px; max-height:min(560px,76vh); }
+  .ad-demo-lb{ padding:10px 10px 6px; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+
+  /* ——— карточка мастера ——— */
+  .ad-card{ margin-top:clamp(14px,1.2vw,20px); border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .ad-steps{ display:flex; align-items:center; gap:12px; margin:0; padding:14px clamp(16px,1.4vw,24px); list-style:none; border-bottom:1px solid var(--n200); }
+  .ad-steps li{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .ad-steps li + li::before{ content:''; width:clamp(24px,4vw,72px); height:2px; border-radius:2px; background:var(--n200); }
+  .ad-steps li.done + li::before{ background:var(--b500); }
+  .ad-step{ display:inline-flex; align-items:center; gap:10px; min-width:0; height:40px; padding:0 12px 0 6px; border:none; border-radius:12px; background:none; color:var(--n500); font-size:15px; font-weight:500; cursor:pointer; transition:background .15s, color .15s; }
+  .ad-step:hover:not([aria-disabled="true"]):not([aria-current="step"]){ background:var(--n100); color:var(--n900); }
+  .ad-step[aria-current="step"]{ color:var(--n900); font-weight:600; cursor:default; }
+  .ad-step[aria-disabled="true"]{ color:var(--n400); cursor:not-allowed; }
+  .ad-step > span:last-child{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ad-num{ flex:0 0 auto; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13.5px; font-weight:600; background:var(--n100); color:var(--n500); box-shadow:inset 0 0 0 1px var(--n200); font-variant-numeric:tabular-nums; }
+  .ad-num i{ font-size:17px; }
+  .ad-step[aria-current="step"] .ad-num{ background:var(--b600); color:#fff; box-shadow:0 0 0 4px var(--b100); }
+  .done .ad-num{ background:var(--b50); color:var(--b700); box-shadow:inset 0 0 0 1px var(--b200); }
+
+  .ad-bar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 16px; padding:16px clamp(16px,1.4vw,24px); }
+  .ad-tt{ display:flex; align-items:center; gap:6px; min-width:0; }
+  .ad-h2{ margin:0; font-size:clamp(18px,.4vw + 14px,22px); line-height:1.25; font-weight:600; letter-spacing:-.018em; }
+  .ad-info{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; color:var(--n400); font-size:18px; cursor:help; transition:color .15s; }
+  .ad-info:hover{ color:var(--b600); }
+  .ad-tools{ display:flex; align-items:center; gap:10px; flex:1 1 auto; justify-content:flex-end; min-width:0; }
+
+  .ad-seg{ display:inline-flex; flex:0 0 auto; gap:2px; padding:3px; border-radius:12px; background:var(--n100); box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-seg button{ height:36px; padding:0 12px; display:inline-flex; align-items:center; gap:7px; border:none; border-radius:9px; background:none; color:var(--n500); font-size:14px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background .12s, color .12s, box-shadow .12s; }
+  .ad-seg button:hover{ color:var(--n900); }
+  .ad-seg button[aria-selected="true"]{ background:#fff; color:var(--n900); font-weight:600; box-shadow:0 1px 2px rgba(10,13,20,.08), 0 0 0 1px var(--n200); }
+  .ad-seg b{ min-width:24px; height:22px; padding:0 7px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:var(--n200); color:var(--n700); font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums; transition:background .12s, color .12s; }
+  .ad-seg button[aria-selected="true"] b{ background:var(--b600); color:#fff; }
+
+  .ad-search{ position:relative; flex:0 1 400px; min-width:200px; }
+  .ad-search > i{ position:absolute; left:13px; top:50%; transform:translateY(-50%); font-size:18px; color:var(--n400); pointer-events:none; }
+  .ad-search input{ width:100%; height:42px; padding:0 12px 0 40px; border:none; border-radius:11px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); font-size:14px; font-weight:500; color:var(--n900); transition:box-shadow .15s; }
+  .ad-search.has input{ padding-right:42px; }
+  .ad-search input::placeholder{ color:var(--n400); font-weight:400; }
+  .ad-search input:hover{ box-shadow:inset 0 0 0 1px var(--n300); }
+  .ad-search input:focus{ outline:none; box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); }
+  .ad-x{ position:absolute; right:5px; top:50%; transform:translateY(-50%); width:32px; height:32px; border:none; border-radius:8px; background:none; color:var(--n400); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .ad-x:hover{ background:var(--n100); color:var(--n900); }
+
+  /* ——— таблица форм ——— */
+  .ad-tbl{ width:100%; border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:clamp(14px,.12vw + 12.4px,15px); }
+  .ad-tbl th{ position:sticky; top:72px; z-index:2; height:46px; padding:6px 12px; text-align:left; font-size:12.5px; line-height:16px; font-weight:600; color:var(--n500); background:var(--n50); border-top:1px solid var(--n200); border-bottom:1px solid var(--n200); vertical-align:middle; }
+  .ad-tbl td{ padding:12px; border-bottom:1px solid var(--n100); vertical-align:middle; color:var(--n700); line-height:1.4; }
+  .ad-tbl th:first-child, .ad-tbl td:first-child{ padding-left:clamp(16px,1.4vw,24px); }
+  .ad-tbl th:last-child, .ad-tbl td:last-child{ padding-right:clamp(16px,1.4vw,24px); }
+  .ad-tbl .c-ch{ width:calc(clamp(16px,1.4vw,24px) + 44px); }
+  .ad-tbl .c-app{ width:clamp(118px,8vw,150px); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ad-tbl .c-idx{ width:clamp(130px,8.6vw,170px); white-space:nowrap; }
+  .ad-tbl td.c-idx{ font-weight:600; color:var(--n900); }
+  .ad-tbl .c-nm{ color:var(--n900); overflow-wrap:anywhere; }
+  .ad-row{ cursor:pointer; transition:background .12s; }
+  .ad-row:hover{ background:var(--n50); }
+  .ad-row.on{ background:color-mix(in srgb, var(--b50) 60%, #fff); }
+  .ad-row.on:hover{ background:var(--b50); }
+  .ad-row:last-child td{ border-bottom:none; }
+  .ad-mini{ display:none; }
+  .hl{ background:color-mix(in srgb, var(--bacc) 32%, #fff); color:inherit; border-radius:3px; box-shadow:0 0 0 1px color-mix(in srgb, var(--bacc) 32%, #fff); }
+
+  /* чекбокс */
+  .ad-cb{ flex:0 0 auto; width:20px; height:20px; padding:0; border:none; border-radius:6px; background:#fff; box-shadow:inset 0 0 0 1.5px var(--n300); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; vertical-align:middle; transition:background .12s, box-shadow .12s; }
+  .ad-cb i{ font-size:15px; line-height:1; display:none; }
+  .ad-cb:hover{ box-shadow:inset 0 0 0 1.5px var(--b500); }
+  .ad-cb[aria-checked="true"], .ad-cb[aria-checked="mixed"]{ background:var(--b600); box-shadow:none; }
+  .ad-cb[aria-checked="true"] .ck, .ad-cb[aria-checked="mixed"] .mx{ display:block; }
+  .ad-cb[aria-disabled="true"]{ background:var(--n100); box-shadow:inset 0 0 0 1.5px var(--n200); cursor:not-allowed; }
+  .ad-cb[aria-disabled="true"][aria-checked="true"]{ background:var(--n300); }
+  .ad-cb:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+
+  /* нижняя панель шага — прилипает к низу окна, пока список длиннее экрана */
+  .ad-foot{ position:sticky; bottom:0; z-index:3; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px clamp(16px,1.4vw,24px); border-top:1px solid var(--n200); border-radius:0 0 19px 19px; background:rgba(255,255,255,.94); -webkit-backdrop-filter:saturate(1.4) blur(10px); backdrop-filter:saturate(1.4) blur(10px); }
+  .ad-foot-r{ margin-left:auto; display:flex; align-items:center; gap:14px; min-width:0; }
+  .ad-hint{ display:inline-flex; align-items:center; gap:7px; min-width:0; font-size:13.5px; line-height:1.35; font-weight:500; color:var(--n500); }
+  .ad-hint i{ flex:0 0 auto; font-size:17px; color:var(--n400); }
+  .ad-hint.err{ color:var(--red-d); } .ad-hint.err i{ color:var(--red); }
+
+  .ad-btn{ flex:0 0 auto; height:44px; padding:0 18px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:none; border-radius:12px; font-size:14.5px; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s, transform .1s; }
+  .ad-btn i{ font-size:19px; }
+  .ad-btn:active:not(:disabled){ transform:scale(.98); }
+  .ad-btn.pri{ background:var(--b600); color:#fff; box-shadow:0 10px 20px -14px var(--b700); }
+  .ad-btn.pri:hover:not(:disabled){ background:var(--b700); }
+  .ad-btn.sec{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-btn.sec:hover:not(:disabled){ background:var(--n100); color:var(--n900); }
+  .ad-btn.dng{ background:var(--red); color:#fff; }
+  .ad-btn.dng:hover:not(:disabled){ background:#C3173A; }
+  .ad-btn:disabled{ background:var(--n100); color:var(--n400); box-shadow:none; cursor:not-allowed; }
+  .ad-btn.sm{ height:42px; padding:0 16px; font-size:14px; border-radius:11px; }
+  .ad-spin{ width:17px; height:17px; border-radius:50%; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; animation:ad-rot .7s linear infinite; }
+  @keyframes ad-rot{ to{ transform:rotate(360deg); } }
+
+  /* ——— шаг 2 ——— */
+  .ad-auto{ display:flex; align-items:center; gap:14px; margin:0 clamp(16px,1.4vw,24px) 16px; padding:12px 16px; border-radius:14px; background:color-mix(in srgb, var(--b50) 70%, #fff); box-shadow:inset 0 0 0 1px var(--b100); }
+  .ad-auto-ic{ flex:0 0 auto; width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:#fff; color:var(--b600); font-size:21px; box-shadow:inset 0 0 0 1px var(--b100); }
+  .ad-auto-tx{ flex:1 1 auto; min-width:0; }
+  .ad-auto-tx b{ display:block; font-size:15px; line-height:21px; font-weight:600; color:var(--n900); }
+  .ad-auto-tx span{ display:block; font-size:13.5px; line-height:19px; color:var(--n500); }
+  .ad-tag{ flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px 0 9px; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); font-size:13px; font-weight:600; white-space:nowrap; cursor:help; }
+  .ad-tag i{ font-size:16px; color:var(--b600); }
+
+  .ad-grid{ display:grid; grid-template-columns:minmax(220px,1.05fr) minmax(170px,.75fr) minmax(0,2.2fr) 104px; align-items:start; }
+  .ad-gh{ border-top:1px solid var(--n200); border-bottom:1px solid var(--n200); background:var(--n50); }
+  .ad-gh > div{ display:flex; align-items:center; height:46px; padding:0 12px; font-size:12.5px; font-weight:600; color:var(--n500); }
+  .ad-gh > div:first-child, .ad-ar > div:first-child{ padding-left:clamp(16px,1.4vw,24px); }
+  .ad-gh > div:last-child, .ad-ar > div:last-child{ padding-right:clamp(16px,1.4vw,24px); justify-content:flex-end; }
+  .ad-ar{ border-bottom:1px solid var(--n100); transition:background .12s, box-shadow .4s; }
+  .ad-ar:last-child{ border-bottom:none; }
+  .ad-ar:hover{ background:var(--n50); }
+  .ad-ar.flash{ animation:ad-flash 2.4s ease; }
+  @keyframes ad-flash{ 0%,30%{ background:var(--b50); } 100%{ background:transparent; } }
+  .ad-ar > div{ min-width:0; padding:14px 12px; }
+  .ad-emp{ display:flex; align-items:center; gap:11px; }
+  .ad-av{ flex:0 0 auto; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--n100); color:var(--n600); font-size:12.5px; font-weight:600; box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-emp b{ font-size:14.5px; line-height:20px; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .ad-role{ display:inline-flex; align-items:center; gap:6px; max-width:100%; min-height:28px; padding:4px 11px 4px 9px; border-radius:14px; background:var(--n100); color:var(--n700); font-size:13px; line-height:18px; font-weight:600; cursor:help; }
+  .ad-role i{ flex:0 0 auto; font-size:15px; color:var(--n500); }
+  .ad-role.exec{ background:var(--b50); color:var(--b800); } .ad-role.exec i{ color:var(--b600); }
+  .ad-role.swod{ background:color-mix(in srgb, var(--bacc) 14%, #fff); color:#6B4A07; } .ad-role.swod i{ color:color-mix(in srgb, var(--bacc) 75%, #000); }
+  .ad-fl{ display:flex; flex-direction:column; gap:6px; margin:0; padding:0; list-style:none; }
+  .ad-fl li{ display:flex; align-items:baseline; gap:10px; min-width:0; font-size:14px; line-height:20px; }
+  .ad-fl code{ flex:0 0 auto; min-width:86px; font:600 13px/20px 'Inter',sans-serif; color:var(--n900); }
+  .ad-fl span{ min-width:0; color:var(--n600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ad-more{ align-self:flex-start; height:28px; margin:2px 0 0 -8px; padding:0 8px; display:inline-flex; align-items:center; gap:3px; border:none; border-radius:8px; background:none; color:var(--b700); font-size:13.5px; font-weight:600; cursor:pointer; }
+  .ad-more:hover{ background:var(--b50); }
+  .ad-more i{ font-size:18px; }
+  .ad-acts{ display:flex; gap:4px; }
+  .ad-ib{ width:38px; height:38px; border:none; border-radius:10px; background:none; color:var(--n500); font-size:19px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .ad-ib:hover{ background:var(--n100); color:var(--n900); }
+  .ad-ib.del:hover{ background:var(--red-l); color:var(--red); }
+
+  /* ——— скелетон и состояния ——— */
+  .ad-ln{ display:block; height:12px; border-radius:6px; background:linear-gradient(90deg, var(--n100) 0%, var(--n200) 50%, var(--n100) 100%); background-size:200% 100%; animation:ad-shim 1.2s linear infinite; }
+  @keyframes ad-shim{ from{ background-position:100% 0; } to{ background-position:-100% 0; } }
+  .ad-state{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:clamp(40px,5vw,72px) 24px; }
+  .ad-state .ic{ width:60px; height:60px; border-radius:18px; display:flex; align-items:center; justify-content:center; background:var(--n100); color:var(--n500); font-size:28px; }
+  .ad-state.err .ic{ background:var(--red-l); color:var(--red); }
+  .ad-state h3{ margin:16px 0 0; max-width:56ch; font-size:17px; line-height:1.4; font-weight:600; letter-spacing:-.012em; text-wrap:balance; }
+  .ad-state .ad-btn{ margin-top:18px; }
+
+  /* ——— выпадающий список ——— */
+  .ad-f{ position:relative; min-width:0; }
+  .ad-f > label, .ad-lbl{ display:flex; align-items:center; gap:4px; margin:0 0 6px 1px; font-size:13.5px; line-height:20px; font-weight:600; color:var(--n700); }
+  .ad-req{ color:var(--red); font-weight:600; }
+  .ad-sel{ width:100%; min-height:46px; padding:6px 10px 6px 14px; display:flex; align-items:center; gap:8px; border:none; border-radius:12px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font-size:14.5px; font-weight:500; text-align:left; cursor:pointer; transition:box-shadow .15s, background .15s; }
+  .ad-sel > span{ flex:1; min-width:0; }
+  .ad-sel > span small{ display:block; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); }
+  .ad-sel .ph{ color:var(--n400); font-weight:400; }
+  .ad-sel > i{ flex:0 0 auto; font-size:19px; color:var(--n400); transition:transform .2s; }
+  .ad-sel:hover{ box-shadow:inset 0 0 0 1px var(--n300); background:var(--n50); }
+  .ad-sel[aria-expanded="true"]{ box-shadow:inset 0 0 0 1.5px var(--b500), 0 0 0 4px color-mix(in srgb, var(--b400) 18%, transparent); background:#fff; }
+  .ad-sel[aria-expanded="true"] > i{ transform:rotate(180deg); color:var(--b600); }
+  .ad-veil{ position:fixed; inset:0; z-index:59; }
+  .ad-menu{ position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:60; max-height:min(340px,52vh); overflow-y:auto; padding:6px; border-radius:14px; background:#fff; box-shadow:0 0 0 1px rgba(10,13,20,.06), 0 20px 40px -16px rgba(10,13,20,.28); animation:ad-drop .16s ease; scrollbar-width:thin; }
+  @keyframes ad-drop{ from{ opacity:0; transform:translateY(-4px); } to{ opacity:1; transform:none; } }
+  .ad-ms{ position:sticky; top:-6px; z-index:1; margin:-6px -6px 6px; padding:6px; background:#fff; border-bottom:1px solid var(--n100); }
+  .ad-ms i{ position:absolute; left:17px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--n400); pointer-events:none; }
+  .ad-ms input{ width:100%; height:38px; padding:0 12px 0 34px; border:none; border-radius:9px; background:var(--n100); font-size:14px; font-weight:500; color:var(--n900); }
+  .ad-ms input::placeholder{ color:var(--n400); font-weight:400; }
+  .ad-ms input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
+  .ad-opt{ width:100%; display:flex; align-items:center; gap:10px; min-height:40px; padding:8px 10px; border:none; border-radius:9px; background:none; text-align:left; font-size:14px; line-height:1.35; font-weight:500; color:var(--n700); cursor:pointer; }
+  .ad-opt > span{ flex:1; min-width:0; }
+  .ad-opt small{ display:block; margin-top:1px; font-size:12.5px; font-weight:500; color:var(--n500); }
+  .ad-opt > i{ flex:0 0 auto; font-size:18px; }
+  .ad-opt > i.ck{ color:var(--b600); visibility:hidden; }
+  .ad-opt > i.ri{ color:var(--n400); }
+  .ad-opt:hover, .ad-opt:focus-visible{ background:var(--n100); color:var(--n900); }
+  .ad .ad-opt:focus-visible{ outline:none; box-shadow:inset 0 0 0 1.5px var(--b400); }
+  .ad-opt[aria-selected="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .ad-opt[aria-selected="true"] > i.ck{ visibility:visible; }
+  .ad-opt[aria-selected="true"] > i.ri{ color:var(--b600); }
+  .ad-none{ display:flex; gap:10px; padding:12px 10px; font-size:13.5px; line-height:1.45; color:var(--n500); }
+  .ad-none i{ flex:0 0 auto; font-size:18px; color:var(--n400); }
+
+  /* ——— боковая панель назначения ——— */
+  .ad-ov{ position:fixed; inset:0; z-index:90; background:rgba(10,13,20,.36); animation:ad-fade .2s ease; }
+  @keyframes ad-fade{ from{ opacity:0; } to{ opacity:1; } }
+  .ad-dr{ position:fixed; top:0; right:0; bottom:0; z-index:91; width:min(640px,100vw); display:flex; flex-direction:column; background:#fff; box-shadow:-24px 0 60px -24px rgba(10,13,20,.35); animation:ad-slide .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes ad-slide{ from{ transform:translateX(40px); opacity:0; } to{ transform:none; opacity:1; } }
+  .ad-dr-hd{ display:flex; align-items:center; gap:14px; padding:18px 18px 16px 26px; border-bottom:1px solid var(--n200); }
+  .ad-dr-hd h2{ flex:1; margin:0; font-size:19px; line-height:1.3; font-weight:600; letter-spacing:-.018em; }
+  .ad-close{ flex:0 0 auto; width:40px; height:40px; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .12s, color .12s; }
+  .ad-close:hover{ background:var(--n100); color:var(--n900); }
+  .ad-dr-bd{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:22px 26px 28px; display:flex; flex-direction:column; gap:20px; }
+  .ad-dr-ft{ display:flex; align-items:center; gap:10px; padding:14px 26px; border-top:1px solid var(--n200); background:var(--n50); }
+  .ad-dr-ft .ad-hint{ flex:1 1 auto; }
+  .ad-alert{ display:flex; gap:10px; padding:12px 14px; border-radius:12px; background:var(--red-l); color:var(--red-d); font-size:14px; line-height:1.45; font-weight:500; }
+  .ad-alert i{ flex:0 0 auto; font-size:19px; color:var(--red); }
+
+  .ad-fs{ border-radius:14px; box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-fs.off{ opacity:.55; pointer-events:none; }
+  .ad-fs-hd{ display:flex; align-items:center; gap:12px; padding:8px 8px 8px 14px; border-bottom:1px solid var(--n200); background:var(--n50); border-radius:14px 14px 0 0; }
+  .ad-all{ display:inline-flex; align-items:center; gap:10px; height:36px; padding:0 8px 0 0; border:none; background:none; color:var(--n700); font-size:13.5px; font-weight:600; cursor:pointer; border-radius:8px; }
+  .ad-all:disabled{ color:var(--n400); cursor:not-allowed; }
+  .ad-cnt{ margin-left:auto; padding-right:6px; font-size:13px; font-weight:500; color:var(--n500); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ad-cnt b{ color:var(--n900); font-weight:600; }
+  .ad-fs-s{ position:relative; padding:8px; border-bottom:1px solid var(--n100); }
+  .ad-fs-s i{ position:absolute; left:19px; top:50%; transform:translateY(-50%); font-size:17px; color:var(--n400); pointer-events:none; }
+  .ad-fs-s input{ width:100%; height:38px; padding:0 12px 0 34px; border:none; border-radius:9px; background:var(--n100); font-size:14px; font-weight:500; color:var(--n900); }
+  .ad-fs-s input::placeholder{ color:var(--n400); font-weight:400; }
+  .ad-fs-s input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
+  .ad-fo{ display:flex; align-items:flex-start; gap:12px; width:100%; padding:11px 14px; border:none; border-bottom:1px solid var(--n100); background:none; text-align:left; cursor:pointer; transition:background .12s; }
+  .ad-fo:last-child{ border-bottom:none; border-radius:0 0 14px 14px; }
+  .ad-fo:hover{ background:var(--n50); }
+  .ad-fo .ad-cb{ margin-top:1px; }
+  .ad-fo code{ flex:0 0 auto; width:88px; font:600 13.5px/22px 'Inter',sans-serif; color:var(--n900); }
+  .ad-fo > span:last-child{ flex:1; min-width:0; font-size:14px; line-height:22px; color:var(--n700); overflow-wrap:anywhere; }
+  .ad-fo small{ display:flex; align-items:center; gap:5px; margin-top:2px; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); }
+  .ad-fo small i{ font-size:14px; color:var(--n400); }
+  .ad-fo[aria-disabled="true"]{ cursor:not-allowed; background:var(--n50); }
+  .ad-fo[aria-disabled="true"] code, .ad-fo[aria-disabled="true"] > span:last-child{ color:var(--n400); }
+  .ad-fs-none{ padding:18px 14px; font-size:13.5px; color:var(--n500); text-align:center; }
+
+  /* ——— окна подтверждения ——— */
+  .ad-mw{ position:fixed; inset:0; z-index:92; display:flex; align-items:center; justify-content:center; padding:24px 16px; pointer-events:none; }
+  .ad-modal{ pointer-events:auto; width:min(520px,100%); max-height:100%; display:flex; flex-direction:column; border-radius:20px; background:#fff; box-shadow:0 32px 64px -24px rgba(10,13,20,.45); animation:ad-pop .2s ease; }
+  @keyframes ad-pop{ from{ opacity:0; transform:translateY(8px) scale(.985); } to{ opacity:1; transform:none; } }
+  .ad-m-bd{ display:flex; gap:16px; padding:24px 24px 20px; overflow-y:auto; }
+  .ad-m-ic{ flex:0 0 auto; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; background:var(--orange-l); color:var(--orange); font-size:22px; }
+  .ad-m-ic.red{ background:var(--red-l); color:var(--red); }
+  .ad-m-bd h2{ margin:8px 0 0; font-size:18px; line-height:1.35; font-weight:600; letter-spacing:-.016em; }
+  .ad-m-list{ margin:12px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .ad-m-list li{ font-size:14px; line-height:1.45; color:var(--n600); }
+  .ad-m-list b{ color:var(--n900); font-weight:600; }
+  .ad-m-ft{ display:flex; justify-content:flex-end; gap:8px; padding:14px 24px; border-top:1px solid var(--n200); background:var(--n50); border-radius:0 0 20px 20px; }
+
+  .ad-toast{ position:fixed; left:50%; bottom:28px; z-index:95; transform:translateX(-50%); display:flex; align-items:center; gap:10px; max-width:calc(100vw - 32px); padding:12px 18px 12px 14px; border-radius:14px; background:var(--n900); color:#fff; font-size:14px; font-weight:500; line-height:1.4; box-shadow:0 18px 40px -16px rgba(10,13,20,.5); animation:ad-toast .25s ease; }
+  .ad-toast i{ flex:0 0 auto; font-size:20px; color:var(--green); }
+  .ad-toast.err i{ color:#FF8EA3; }
+  @keyframes ad-toast{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
+  @media (prefers-reduced-motion:reduce){ .ad *{ animation:none !important; transition:none !important; } }
+
+  /* ——— адаптив ——— */
+  @media (max-width:1100px){
+    .ad-tools{ flex:1 1 100%; justify-content:space-between; }
+    .ad-search{ flex:1 1 auto; }
+    .ad-grid{ grid-template-columns:minmax(190px,1fr) minmax(150px,.8fr) minmax(0,1.6fr) 96px; }
+  }
+  @media (max-width:1024px){ .ad-tbl th{ position:static; } }
+  @media (max-width:820px){
+    /* назначения — карточками */
+    .ad-gh{ display:none; }
+    .ad-grid.ad-ar{ grid-template-columns:minmax(0,1fr) auto; grid-template-areas:'emp act' 'role role' 'forms forms'; padding:14px 16px; row-gap:10px; }
+    .ad-ar > div, .ad-ar > div:first-child, .ad-ar > div:last-child{ padding:0; }
+    .ad-ar > .g-emp{ grid-area:emp; } .ad-ar > .g-role{ grid-area:role; } .ad-ar > .g-forms{ grid-area:forms; } .ad-ar > .g-act{ grid-area:act; }
+    .ad-auto{ flex-wrap:wrap; }
+    .ad-auto-tx{ flex:1 1 calc(100% - 60px); }
+  }
+  @media (max-width:720px){
+    .ad-tools{ flex-wrap:wrap; }
+    .ad-seg{ width:100%; } .ad-seg button{ flex:1; justify-content:center; }
+    .ad-search{ flex:1 1 100%; min-width:0; }
+    .ad-tbl .c-app, .ad-tbl .c-idx{ display:none; }
+    .ad-mini{ display:block; margin-bottom:2px; font-size:12.5px; line-height:17px; font-weight:600; color:var(--n500); }
+    .ad-tbl .c-ch{ width:60px; }
+    .ad-steps{ gap:8px; }
+    .ad-steps li{ gap:8px; flex:1 1 0; }
+    .ad-steps li + li::before{ width:16px; flex:0 0 auto; }
+    .ad-step{ font-size:14px; gap:8px; padding:0 8px 0 4px; }
+    .ad-demo-btn span{ display:none; }
+    .ad-foot{ flex-wrap:wrap; }
+    .ad-foot-r{ width:100%; flex-wrap:wrap; justify-content:flex-end; }
+    .ad-bar > .ad-btn{ width:100%; }
+    .ad-dr-ft{ flex-wrap:wrap; }
+    .ad-dr-ft .ad-hint{ flex:1 1 100%; }
+    .ad-dr-ft .ad-btn{ flex:1 1 0; }
+    .ad-dr-bd{ padding:18px 16px 24px; } .ad-dr-hd{ padding:14px 12px 12px 16px; } .ad-dr-ft{ padding:12px 16px; }
+    .ad-fo code{ width:auto; min-width:76px; }
+  }
+  @media (max-width:480px){
+    .ad-steps{ padding:10px 12px; gap:6px; }
+    .ad-steps li{ gap:6px; }
+    .ad-steps li + li::before{ width:10px; }
+    .ad-step{ height:auto; min-height:44px; padding:4px 6px 4px 2px; gap:8px; }
+    .ad-step > span:last-child{ white-space:normal; font-size:13.5px; line-height:1.25; text-align:left; }
+    .ad-search input{ font-size:14px; }
+    .ad-fo{ flex-wrap:wrap; } .ad-fo > span:last-child{ flex:1 1 100%; padding-left:32px; }
+  }
+</style>
+</helmet>
+
+<div class="ad">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="OrgRepData" hint-size="0px,0px"></dc-import>
+  <div class="ad-top"><dc-import name="PortalHeader" look="light" section="reports" hint-size="100%,72px"></dc-import></div>
+
+  <main class="ad-main">
+    <div class="hm-wrap">
+      <div class="ad-crow">
+        <nav aria-label="Хлебные крошки">
+          <ol class="ad-crumbs">
+            <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><a href="Журнал отчётных форм.dc.html">Отчётные формы</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><span aria-current="page">Администрирование</span></li>
+          </ol>
+        </nav>
+        <div class="ad-demo">
+          <button type="button" class="ad-demo-btn" onClick="{{ toggleDemo }}" aria-expanded="{{ demoOpen }}" aria-haspopup="menu" aria-label="Показ прототипа: данные и состояния" data-tip="Только для показа прототипа: данные организации и состояния раздела"><i class="ri-slideshow-3-line"></i><span>Показ прототипа</span><i class="ri-arrow-down-s-line"></i></button>
+          <sc-if value="{{ demoOpen }}" hint-placeholder-val="{{ false }}">
+            <div class="ad-veil" onClick="{{ closeDemo }}"></div>
+            <div class="ad-menu" role="menu">
+              <div class="ad-demo-lb">Данные организации</div>
+              <sc-for list="{{ demoData }}" as="o" hint-placeholder-count="2">
+                <button type="button" class="ad-opt" role="menuitem" onClick="{{ o.onClick }}"><i class="{{ o.icon }} ri"></i><span>{{ o.label }}</span></button>
+              </sc-for>
+              <div class="ad-demo-lb">Состояние раздела</div>
+              <sc-for list="{{ demoStates }}" as="o" hint-placeholder-count="5">
+                <button type="button" class="ad-opt" role="menuitemradio" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.label }}</span><i class="ri-check-line ck"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+
+      <dc-import name="OrgReportsTop" active="admin" hint-size="100%,150px"></dc-import>
+
+      <section class="ad-card" aria-label="Настройка отчётности">
+        <ol class="ad-steps" aria-label="Шаги настройки">
+          <sc-for list="{{ steps }}" as="t" hint-placeholder-count="2">
+            <li class="{{ t.cls }}">
+              <button type="button" class="ad-step" onClick="{{ t.onClick }}" aria-current="{{ t.cur }}" aria-disabled="{{ t.off }}" data-tip="{{ t.tip }}">
+                <span class="ad-num"><sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if><sc-if value="{{ t.todo }}" hint-placeholder-val="{{ true }}">{{ t.n }}</sc-if></span>
+                <span>{{ t.label }}</span>
+              </button>
+            </li>
+          </sc-for>
+        </ol>
+
+        <!-- техническая ошибка загрузки -->
+        <sc-if value="{{ showError }}" hint-placeholder-val="{{ false }}">
+          <div class="ad-state err" role="alert">
+            <span class="ic"><i class="ri-cloud-off-line"></i></span>
+            <h3>Не удалось загрузить данные. Повторите попытку</h3>
+            <button type="button" class="ad-btn pri" onClick="{{ retry }}"><i class="ri-refresh-line"></i>Повторить</button>
+          </div>
+        </sc-if>
+
+        <!-- ШАГ 1. ВЫБОР ОТЧЁТНЫХ ФОРМ -->
+        <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+          <div class="ad-bar">
+            <div class="ad-tt">
+              <h2 class="ad-h2">Выбор отчётных форм</h2>
+              <i class="ri-information-line ad-info" tabindex="0" role="img" aria-label="Выберите отчётные формы, которые заполняет ваша организация" data-tip="Выберите отчётные формы, которые заполняет ваша организация"></i>
+            </div>
+            <div class="ad-tools">
+              <div class="ad-seg" role="tablist" aria-label="Показать формы">
+                <button type="button" role="tab" aria-selected="{{ viewAll }}" onClick="{{ showAll }}">Все формы<b>{{ totalForms }}</b></button>
+                <button type="button" role="tab" aria-selected="{{ viewSel }}" onClick="{{ showSel }}" aria-label="{{ selAria }}">Выбранные<b>{{ selCount }}</b></button>
+              </div>
+              <div class="{{ searchCls }}" role="search">
+                <i class="ri-search-line" aria-hidden="true"></i>
+                <input type="text" value="{{ q }}" onChange="{{ onQ }}" placeholder="Наименование, индекс, № приложения" aria-label="Поиск по наименованию, индексу и номеру приложения" autocomplete="off" spellcheck="false">
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="ad-x" onClick="{{ clearQ }}" aria-label="Очистить поиск" data-tip="Очистить"><i class="ri-close-line"></i></button></sc-if>
+              </div>
+            </div>
+          </div>
+
+          <table class="ad-tbl" aria-busy="{{ loading }}" aria-label="Отчётные формы">
+            <thead><tr>
+              <th class="c-ch" scope="col"><button type="button" class="ad-cb" role="checkbox" aria-checked="{{ allState }}" onClick="{{ toggleAll }}" aria-label="{{ allAria }}" data-tip="{{ allAria }}" disabled="{{ allOff }}"><i class="ri-check-line ck"></i><i class="ri-subtract-line mx"></i></button></th>
+              <th class="c-app" scope="col">№ приложения</th>
+              <th class="c-idx" scope="col">Индекс формы</th>
+              <th scope="col">Наименование формы</th>
+            </tr></thead>
+            <tbody>
+              <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                <sc-for list="{{ skel }}" as="k" hint-placeholder-count="8">
+                  <tr><td class="c-ch"><span class="ad-ln" style="width:20px;height:20px;"></span></td><td class="c-app"><span class="ad-ln" style="width:28px;"></span></td><td class="c-idx"><span class="ad-ln" style="width:72px;"></span></td><td><span class="ad-ln" style="{{ k.w }}"></span></td></tr>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+                  <tr class="{{ r.cls }}" onClick="{{ r.onToggle }}">
+                    <td class="c-ch"><button type="button" class="ad-cb" role="checkbox" aria-checked="{{ r.on }}" onClick="{{ r.onToggle }}" aria-label="{{ r.aria }}"><i class="ri-check-line ck"></i></button></td>
+                    <td class="c-app"><sc-for list="{{ r.appP }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></td>
+                    <td class="c-idx"><sc-for list="{{ r.idxP }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></td>
+                    <td class="c-nm"><span class="ad-mini">Прил. {{ r.app }} · {{ r.idx }}</span><sc-for list="{{ r.nameP }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></td>
+                  </tr>
+                </sc-for>
+              </sc-if>
+            </tbody>
+          </table>
+
+          <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+            <div class="ad-state" role="status">
+              <span class="ic"><i class="{{ noRowsIcon }}"></i></span>
+              <h3>{{ noRowsText }}</h3>
+              <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="ad-btn sec sm" onClick="{{ clearQ }}"><i class="ri-refresh-line"></i>Сбросить поиск</button></sc-if>
+            </div>
+          </sc-if>
+
+          <div class="ad-foot">
+            <div class="ad-foot-r">
+              <sc-if value="{{ nextHint }}" hint-placeholder-val="{{ false }}"><span class="ad-hint" id="ad-next-hint"><i class="ri-information-line"></i>Выберите хотя бы одну отчётную форму</span></sc-if>
+              <sc-if value="{{ step1Err }}" hint-placeholder-val="{{ false }}"><span class="ad-hint err" role="alert"><i class="ri-error-warning-line"></i>Не удалось сохранить. Повторите попытку</span></sc-if>
+              <button type="button" class="ad-btn pri" onClick="{{ next }}" disabled="{{ nextOff }}" aria-describedby="ad-next-hint">
+                <sc-if value="{{ saving1 }}" hint-placeholder-val="{{ false }}"><span class="ad-spin"></span></sc-if>
+                Далее<sc-if value="{{ notSaving1 }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-right-line"></i></sc-if>
+              </button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- ШАГ 2. УПРАВЛЕНИЕ РОЛЯМИ -->
+        <sc-if value="{{ isStep2 }}" hint-placeholder-val="{{ false }}">
+          <div class="ad-bar">
+            <div class="ad-tt"><h2 class="ad-h2">Управление ролями</h2></div>
+            <button type="button" class="ad-btn pri" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-user-add-line"></i>Добавить назначение</button>
+          </div>
+
+          <div class="ad-auto">
+            <span class="ad-auto-ic" aria-hidden="true"><i class="ri-shield-check-line"></i></span>
+            <div class="ad-auto-tx">
+              <b>{{ headFio }}</b>
+              <span>Первый руководитель · согласование отчётов организации</span>
+            </div>
+            <span class="ad-tag" tabindex="0" data-tip="Предоставлено автоматически на основании данных авторизации"><i class="ri-checkbox-circle-line"></i>Предоставлено автоматически</span>
+          </div>
+
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <div role="table" aria-label="Назначения" aria-busy="true">
+              <div class="ad-grid ad-gh" role="row"><div role="columnheader">Сотрудник</div><div role="columnheader">Роль</div><div role="columnheader">Отчётные формы</div><div role="columnheader"></div></div>
+              <sc-for list="{{ skel4 }}" as="k" hint-placeholder-count="4">
+                <div class="ad-grid ad-ar" role="row"><div class="g-emp"><span class="ad-ln" style="width:70%;"></span></div><div class="g-role"><span class="ad-ln" style="width:110px;height:26px;border-radius:13px;"></span></div><div class="g-forms"><span class="ad-ln" style="{{ k.w }}"></span><span class="ad-ln" style="width:44%;margin-top:10px;"></span></div><div class="g-act"></div></div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showAssigns }}" hint-placeholder-val="{{ true }}">
+            <div role="table" aria-label="Назначения">
+              <div class="ad-grid ad-gh" role="row"><div role="columnheader">Сотрудник</div><div role="columnheader">Роль</div><div role="columnheader">Отчётные формы</div><div role="columnheader"><span class="hm-sr">Действия</span></div></div>
+              <sc-for list="{{ assigns }}" as="a" hint-placeholder-count="3">
+                <div class="{{ a.cls }}" role="row" id="{{ a.domId }}">
+                  <div class="g-emp" role="cell"><div class="ad-emp"><span class="ad-av" aria-hidden="true">{{ a.ini }}</span><b>{{ a.fio }}</b></div></div>
+                  <div class="g-role" role="cell"><span class="{{ a.roleCls }}" tabindex="0" data-tip="{{ a.roleTip }}"><i class="{{ a.roleIcon }}"></i>{{ a.role }}</span></div>
+                  <div class="g-forms" role="cell">
+                    <ul class="ad-fl">
+                      <sc-for list="{{ a.forms }}" as="f" hint-placeholder-count="2">
+                        <li><code>{{ f.idx }}</code><span data-tip="{{ f.name }}">{{ f.name }}</span></li>
+                      </sc-for>
+                    </ul>
+                    <sc-if value="{{ a.hasMore }}" hint-placeholder-val="{{ false }}"><button type="button" class="ad-more" onClick="{{ a.onMore }}" aria-expanded="{{ a.open }}">{{ a.moreLabel }}<i class="{{ a.moreIcon }}"></i></button></sc-if>
+                  </div>
+                  <div class="g-act" role="cell">
+                    <div class="ad-acts">
+                      <button type="button" class="ad-ib" onClick="{{ a.onAdd }}" aria-label="{{ a.addAria }}" data-tip="Добавить формы"><i class="ri-add-line"></i></button>
+                      <button type="button" class="ad-ib del" onClick="{{ a.onDel }}" aria-label="{{ a.delAria }}" data-tip="Удалить назначение"><i class="ri-delete-bin-6-line"></i></button>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ noAssigns }}" hint-placeholder-val="{{ false }}">
+            <div class="ad-state" role="status" style="border-top:1px solid var(--n200);">
+              <span class="ic"><i class="ri-user-settings-line"></i></span>
+              <h3>Назначений пока нет</h3>
+            </div>
+          </sc-if>
+
+          <div class="ad-foot">
+            <button type="button" class="ad-btn sec" onClick="{{ back }}"><i class="ri-arrow-left-line"></i>Назад</button>
+          </div>
+        </sc-if>
+      </section>
+    </div>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+
+  <!-- НАЗНАЧЕНИЕ СОТРУДНИКА -->
+  <sc-if value="{{ drOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="ad-ov" onClick="{{ closeDr }}"></div>
+    <aside class="ad-dr" role="dialog" aria-modal="true" aria-labelledby="ad-dr-t">
+      <div class="ad-dr-hd">
+        <h2 id="ad-dr-t">Новое назначение</h2>
+        <button type="button" class="ad-close" onClick="{{ closeDr }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="ad-dr-bd">
+        <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}">
+          <div class="ad-alert" role="alert"><i class="ri-error-warning-line"></i><span>Не удалось сохранить назначение. Повторите попытку</span></div>
+        </sc-if>
+
+        <!-- сотрудник -->
+        <div class="ad-f">
+          <label id="ad-l-emp">Сотрудник<span class="ad-req" aria-hidden="true">*</span></label>
+          <button type="button" class="ad-sel" id="ad-emp" onClick="{{ toggleEmp }}" aria-expanded="{{ empOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-emp ad-emp">
+            <sc-if value="{{ hasEmp }}" hint-placeholder-val="{{ false }}"><span>{{ empFio }}<small>{{ empPost }}</small></span></sc-if>
+            <sc-if value="{{ noEmpSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите сотрудника</span></sc-if>
+            <i class="ri-arrow-down-s-line"></i>
+          </button>
+          <sc-if value="{{ empShow }}" hint-placeholder-val="{{ false }}">
+            <div class="ad-veil" onClick="{{ closeMenu }}"></div>
+            <div class="ad-menu" role="listbox" aria-labelledby="ad-l-emp">
+              <sc-if value="{{ hasStaff }}" hint-placeholder-val="{{ true }}">
+                <div class="ad-ms"><i class="ri-search-line"></i><input type="text" value="{{ empQ }}" onChange="{{ onEmpQ }}" placeholder="Поиск по ФИО" aria-label="Поиск сотрудника по ФИО" autocomplete="off" spellcheck="false"></div>
+              </sc-if>
+              <sc-for list="{{ empOpts }}" as="o" hint-placeholder-count="4">
+                <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.fio }}<small>{{ o.post }}</small></span><i class="ri-check-line ck"></i></button>
+              </sc-for>
+              <sc-if value="{{ empNone }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-search-line"></i><span>Сотрудники не найдены</span></div></sc-if>
+              <sc-if value="{{ noStaff }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-unfollow-line"></i><span>Нет сотрудников для назначения ролей. В списке появятся сотрудники вашей организации после авторизации на портале</span></div></sc-if>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- роль -->
+        <div class="ad-f">
+          <label id="ad-l-role">Роль<span class="ad-req" aria-hidden="true">*</span></label>
+          <button type="button" class="ad-sel" id="ad-role" onClick="{{ toggleRole }}" aria-expanded="{{ roleOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-role ad-role">
+            <sc-if value="{{ hasRole }}" hint-placeholder-val="{{ false }}"><span>{{ roleName }}</span></sc-if>
+            <sc-if value="{{ noRoleSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите роль</span></sc-if>
+            <i class="ri-arrow-down-s-line"></i>
+          </button>
+          <sc-if value="{{ roleShow }}" hint-placeholder-val="{{ false }}">
+            <div class="ad-veil" onClick="{{ closeMenu }}"></div>
+            <div class="ad-menu" role="listbox" aria-labelledby="ad-l-role">
+              <sc-for list="{{ roleOpts }}" as="o" hint-placeholder-count="2">
+                <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}" data-tip="{{ o.tip }}"><i class="{{ o.icon }} ri"></i><span>{{ o.name }}</span><i class="ri-check-line ck"></i></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- формы -->
+        <div>
+          <div class="ad-lbl" id="ad-l-forms">Отчётные формы<span class="ad-req" aria-hidden="true">*</span></div>
+          <div class="ad-fs" role="group" aria-labelledby="ad-l-forms">
+            <div class="ad-fs-hd">
+              <button type="button" class="ad-all" role="checkbox" aria-checked="{{ fAllState }}" onClick="{{ fAll }}" disabled="{{ fAllOff }}"><span class="ad-cb" aria-hidden="true" aria-checked="{{ fAllState }}" aria-disabled="{{ fAllOff }}"><i class="ri-check-line ck"></i><i class="ri-subtract-line mx"></i></span>Выбрать все</button>
+              <span class="ad-cnt" aria-live="polite">Выбрано: <b>{{ fCount }}</b></span>
+            </div>
+            <sc-if value="{{ fSearch }}" hint-placeholder-val="{{ false }}">
+              <div class="ad-fs-s"><i class="ri-search-line"></i><input type="text" value="{{ fQ }}" onChange="{{ onFQ }}" placeholder="Наименование или индекс" aria-label="Поиск формы" autocomplete="off" spellcheck="false"></div>
+            </sc-if>
+            <sc-for list="{{ fOpts }}" as="o" hint-placeholder-count="4">
+              <button type="button" class="ad-fo" role="checkbox" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}" onClick="{{ o.onClick }}">
+                <span class="ad-cb" aria-hidden="true" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}"><i class="ri-check-line ck"></i></span>
+                <code>{{ o.idx }}</code>
+                <span>{{ o.name }}<sc-if value="{{ o.isOff }}" hint-placeholder-val="{{ false }}"><small><i class="ri-check-double-line"></i>Уже назначена этому сотруднику</small></sc-if></span>
+              </button>
+            </sc-for>
+            <sc-if value="{{ fNone }}" hint-placeholder-val="{{ false }}"><div class="ad-fs-none">Формы не найдены</div></sc-if>
+          </div>
+        </div>
+      </div>
+      <div class="ad-dr-ft">
+        <span class="ad-hint"><sc-if value="{{ saveHint }}" hint-placeholder-val="{{ true }}"><i class="ri-information-line"></i>{{ saveHintText }}</sc-if></span>
+        <button type="button" class="ad-btn sec" onClick="{{ closeDr }}">Отмена</button>
+        <button type="button" class="ad-btn pri" onClick="{{ saveAssign }}" disabled="{{ saveOff }}">
+          <sc-if value="{{ saving2 }}" hint-placeholder-val="{{ false }}"><span class="ad-spin"></span></sc-if>Сохранить назначение
+        </button>
+      </div>
+    </aside>
+  </sc-if>
+
+  <!-- СНЯТИЕ ФОРМ С НАЗНАЧЕНИЯМИ -->
+  <sc-if value="{{ lostOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="ad-ov" onClick="{{ closeLost }}"></div>
+    <div class="ad-mw">
+      <div class="ad-modal" role="alertdialog" aria-modal="true" aria-labelledby="ad-lost-t">
+        <div class="ad-m-bd">
+          <span class="ad-m-ic" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
+          <div>
+            <h2 id="ad-lost-t">Снять формы, назначенные сотрудникам?</h2>
+            <ul class="ad-m-list">
+              <sc-for list="{{ lostList }}" as="l" hint-placeholder-count="2"><li><b>{{ l.who }}</b> · {{ l.role }} — {{ l.forms }}</li></sc-for>
+            </ul>
+          </div>
+        </div>
+        <div class="ad-m-ft">
+          <button type="button" class="ad-btn sec sm" onClick="{{ closeLost }}">Отмена</button>
+          <button type="button" class="ad-btn pri sm" onClick="{{ confirmLost }}">Снять и продолжить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- УДАЛЕНИЕ НАЗНАЧЕНИЯ -->
+  <sc-if value="{{ delOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="ad-ov" onClick="{{ closeDel }}"></div>
+    <div class="ad-mw">
+      <div class="ad-modal" role="alertdialog" aria-modal="true" aria-labelledby="ad-del-t">
+        <div class="ad-m-bd">
+          <span class="ad-m-ic red" aria-hidden="true"><i class="ri-delete-bin-6-line"></i></span>
+          <div>
+            <h2 id="ad-del-t">Удалить назначение?</h2>
+            <ul class="ad-m-list"><li><b>{{ delWho }}</b> · {{ delRole }} — {{ delForms }}</li></ul>
+          </div>
+        </div>
+        <div class="ad-m-ft">
+          <button type="button" class="ad-btn sec sm" onClick="{{ closeDel }}">Отмена</button>
+          <button type="button" class="ad-btn dng sm" onClick="{{ confirmDel }}">Удалить</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="{{ toastCls }}" role="status"><i class="{{ toastIcon }}"></i><span>{{ toast }}</span></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const DEMO_STATES = [
+  { id:'ok', label:'Обычная работа' },
+  { id:'loading', label:'Загрузка данных' },
+  { id:'error', label:'Техническая ошибка' },
+  { id:'noEmp', label:'Сотрудники ещё не авторизовались' },
+  { id:'saveErr', label:'Ошибка сохранения' },
+];
+// подсветка совпадения с поиском: [{ t, c }]
+function parts(text, q){
+  const s = String(text);
+  if(!q) return [{ t:s, c:'' }];
+  const low = s.toLowerCase(), out = []; let i = 0;
+  while(i < s.length){
+    const j = low.indexOf(q, i);
+    if(j < 0){ out.push({ t:s.slice(i), c:'' }); break; }
+    if(j > i) out.push({ t:s.slice(i, j), c:'' });
+    out.push({ t:s.slice(j, j + q.length), c:'hl' });
+    i = j + q.length;
+  }
+  return out;
+}
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    const profile = lsGet('mp-profile');
+    this.denied = !profile;
+    // раздел первого руководителя: без входа — авторизация с возвратом, остальным — общий раздел «Отчётные формы»
+    if(this.denied){ try { location.replace('Вход.dc.html?return=' + encodeURIComponent('Администрирование отчётности.dc.html')); } catch(e){} }
+    else if(!lsGet('mp-org-head')){ this.denied = true; try { location.replace('Отчётные формы.dc.html'); } catch(e){} }
+    let step = 1;
+    try { if(location.hash === '#roles') step = 2; } catch(e){}
+    this.state = { ready:false, loading:true, step, sel:[], q:'', view:'all', saving1:false, step1Err:false, lostOpen:false,
+      dr:null, open:null, empQ:'', fQ:'', saving2:false, saveErr:false, expanded:{}, flash:'', del:null, toast:'', toastErr:false, demoOpen:false, tick:0 };
+  }
+  componentDidMount(){
+    this._ready = () => this.init();
+    window.addEventListener('mp-orgrep-ready', this._ready);
+    this._chg = () => this.setState(s => ({ tick:s.tick + 1 }));
+    window.addEventListener('mp-orgrep-change', this._chg);
+    this._key = (e) => this.onKey(e);
+    window.addEventListener('keydown', this._key);
+    if(window.mpOrgRep) this.init();
+  }
+  componentWillUnmount(){
+    clearTimeout(this._lt); clearTimeout(this._tt); clearTimeout(this._ft); clearTimeout(this._st);
+    window.removeEventListener('mp-orgrep-ready', this._ready);
+    window.removeEventListener('mp-orgrep-change', this._chg);
+    window.removeEventListener('keydown', this._key);
+  }
+  componentDidUpdate(){
+    const s = this.state, p = this._prev || {};
+    this._prev = { open:s.open, dr:!!s.dr, step:s.step, lostOpen:s.lostOpen, del:!!s.del };
+    if(s.open && p.open !== s.open){
+      setTimeout(() => { const m = document.querySelector('.ad-dr .ad-menu'); if(!m) return; const el = m.querySelector('input') || m.querySelector('[aria-selected="true"]') || m.querySelector('.ad-opt'); if(el) el.focus(); }, 20);
+    }
+    if(p.open && !s.open && s.dr){ const t = document.getElementById(p.open === 'emp' ? 'ad-emp' : 'ad-role'); if(t) try { t.focus(); } catch(e){} }
+    if(s.dr && !p.dr) setTimeout(() => { const b = document.getElementById('ad-emp'); if(b) b.focus(); }, 30);
+    if(s.lostOpen && !p.lostOpen) setTimeout(() => { const b = document.querySelector('.ad-modal .ad-btn.pri'); if(b) b.focus(); }, 30);
+    if(s.del && !p.del) setTimeout(() => { const b = document.querySelector('.ad-modal .ad-btn.sec'); if(b) b.focus(); }, 30);
+    if(p.step && p.step !== s.step){
+      try { history.replaceState(null, '', s.step === 2 ? '#roles' : location.pathname + location.search); } catch(e){}
+      try { const c = document.querySelector('.ad-card'); if(c && c.getBoundingClientRect().top < 80) window.scrollTo({ top:window.scrollY + c.getBoundingClientRect().top - 96, behavior:'smooth' }); } catch(e){}
+    }
+  }
+  R(){ return window.mpOrgRep; }
+  init(){
+    const R = this.R(); if(!R || this.denied) return;
+    const saved = R.forms();
+    // шаг 2 без выбранных форм недоступен
+    const step = this.state.step === 2 && saved.length ? 2 : 1;
+    this.setState({ sel:saved, step });
+    this.load();
+  }
+  // «Загрузка» с сервера: справочник форм, сохранённый выбор, назначения
+  load(){
+    clearTimeout(this._lt);
+    this.setState({ loading:true });
+    this._lt = setTimeout(() => this.setState({ loading:false, ready:true }), 650);
+  }
+  say(text, err){ this.setState({ toast:text, toastErr:!!err }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast:'' }), 3600); }
+  scn(){ const R = this.R(); return R ? R.scn() : 'ok'; }
+  onKey(e){
+    const s = this.state;
+    if(e.key === 'Escape'){
+      if(s.open) this.setState({ open:null, empQ:'' });
+      else if(s.demoOpen) this.setState({ demoOpen:false });
+      else if(s.del) this.setState({ del:null });
+      else if(s.lostOpen) this.setState({ lostOpen:false });
+      else if(s.dr && !s.saving2) this.closeDr();
+      return;
+    }
+    if(s.open && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')){
+      const m = document.querySelector('.ad-dr .ad-menu'); if(!m) return;
+      const opts = Array.from(m.querySelectorAll('.ad-opt')), a = document.activeElement;
+      if(e.key === 'Enter'){ if(a && a.tagName === 'INPUT'){ e.preventDefault(); if(opts[0]) opts[0].click(); } return; }
+      e.preventDefault();
+      const i = opts.indexOf(a), d = e.key === 'ArrowDown' ? 1 : -1;
+      const n = opts[i < 0 ? (d > 0 ? 0 : opts.length - 1) : (i + d + opts.length) % opts.length];
+      if(n) n.focus();
+    }
+    if(e.key === 'Tab' && (s.dr || s.lostOpen || s.del)){
+      const box = document.querySelector(s.lostOpen || s.del ? '.ad-modal' : '.ad-dr'); if(!box) return;
+      const items = Array.from(box.querySelectorAll('button:not(:disabled), input, [tabindex="0"]')).filter(x => x.offsetParent !== null);
+      if(!items.length) return;
+      const first = items[0], last = items[items.length - 1], a = document.activeElement;
+      if(e.shiftKey && (a === first || !box.contains(a))){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && (a === last || !box.contains(a))){ e.preventDefault(); first.focus(); }
+    }
+  }
+
+  // ——— шаг 1 ———
+  visible(){
+    const R = this.R(), s = this.state, q = s.q.trim().toLowerCase();
+    if(!R) return [];
+    return R.FORMS.filter(f => (s.view === 'all' || s.sel.includes(f.id)) && (!q || (f.name + ' ' + f.idx + ' ' + f.app).toLowerCase().includes(q)));
+  }
+  toggle(id){
+    this.setState(s => ({ sel: s.sel.includes(id) ? s.sel.filter(x => x !== id) : s.sel.concat(id), step1Err:false }));
+  }
+  toggleAll(){
+    const vis = this.visible().map(f => f.id), s = this.state;
+    const all = vis.length && vis.every(id => s.sel.includes(id));
+    this.setState({ sel: all ? s.sel.filter(id => !vis.includes(id)) : [...new Set(s.sel.concat(vis))], step1Err:false });
+  }
+  next(){
+    const R = this.R(), s = this.state;
+    if(!s.sel.length || s.saving1) return;
+    if(R.lost(s.sel).length){ this.setState({ lostOpen:true }); return; }
+    this.saveForms();
+  }
+  saveForms(){
+    const R = this.R(), s = this.state;
+    const changed = JSON.stringify([...s.sel].sort()) !== JSON.stringify([...R.forms()].sort());
+    this.setState({ lostOpen:false, saving1:true, step1Err:false });
+    clearTimeout(this._st);
+    this._st = setTimeout(() => {
+      if(this.scn() === 'saveErr'){ this.setState({ saving1:false, step1Err:true }); return; }
+      R.setForms(this.state.sel);
+      this.setState({ saving1:false, step:2, sel:R.forms(), q:'', view:'all' });
+      if(changed) this.say('Перечень отчётных форм сохранён');
+    }, changed ? 600 : 150);
+  }
+  goStep(n){
+    const s = this.state;
+    if(n === s.step) return;
+    if(n === 2) this.next();
+    else this.setState({ step:1, sel:this.R().forms(), step1Err:false });
+  }
+
+  // ——— шаг 2: назначение ———
+  openAdd(emp, role){
+    this.setState({ dr:{ emp:emp || '', role:role || '', forms:[] }, open:null, empQ:'', fQ:'', saveErr:false, saving2:false });
+  }
+  closeDr(){ if(this.state.saving2) return; this.setState({ dr:null, open:null }); setTimeout(() => { const b = document.querySelector('.ad-bar .ad-btn.pri'); if(b) b.focus(); }, 20); }
+  setDr(patch){
+    const R = this.R();
+    this.setState(st => {
+      const d = { ...st.dr, ...patch };
+      // уже назначенные этому сотруднику в этой роли формы — недоступны: снимаем их из выбора
+      if(d.emp && d.role){ const had = R.assigned(d.emp, d.role); d.forms = d.forms.filter(f => !had.includes(f)); }
+      return { dr:d, open:null, empQ:'', saveErr:false };
+    });
+  }
+  toggleForm(id){
+    const d = this.state.dr;
+    this.setState({ dr:{ ...d, forms: d.forms.includes(id) ? d.forms.filter(x => x !== id) : d.forms.concat(id) }, saveErr:false });
+  }
+  drForms(){
+    const R = this.R(), d = this.state.dr, q = this.state.fQ.trim().toLowerCase();
+    const had = d && d.emp && d.role ? R.assigned(d.emp, d.role) : [];
+    return R.forms().map(id => R.FORM[id]).filter(f => !q || (f.name + ' ' + f.idx + ' ' + f.app).toLowerCase().includes(q)).map(f => ({ f, off:had.includes(f.id) }));
+  }
+  saveAssign(){
+    const R = this.R(), s = this.state, d = s.dr;
+    if(!d || s.saving2 || this.saveReason()) return;
+    this.setState({ saving2:true, saveErr:false });
+    clearTimeout(this._st);
+    this._st = setTimeout(() => {
+      if(this.scn() === 'saveErr'){ this.setState({ saving2:false, saveErr:true }); return; }
+      const id = R.addAssign(d.emp, d.role, d.forms);
+      this.setState({ saving2:false, dr:null, flash:id, expanded:{ ...this.state.expanded, [id]:true } });
+      this.say('Назначение сохранено');
+      setTimeout(() => { const el = document.getElementById('as-' + id); if(el){ const r = el.getBoundingClientRect(); if(r.top < 90 || r.bottom > innerHeight - 80) el.scrollIntoView({ behavior:'smooth', block:'center' }); } }, 60);
+      clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ flash:'' }), 2600);
+    }, 650);
+  }
+  // причина блокировки «Сохранить назначение»
+  saveReason(){
+    const d = this.state.dr; if(!d) return '';
+    if(!d.emp) return 'Выберите сотрудника';
+    if(!d.role) return 'Выберите роль';
+    if(!d.forms.length){
+      const R = this.R(), had = R.assigned(d.emp, d.role);
+      return R.forms().every(id => had.includes(id)) ? 'Все формы уже назначены этому сотруднику' : 'Выберите хотя бы одну новую форму';
+    }
+    return '';
+  }
+  staff(){ return this.scn() === 'noEmp' ? [] : this.R().EMPLOYEES; }
+  setDemoState(id){
+    const R = this.R(); R.setScn(id);
+    this.setState({ demoOpen:false, saveErr:false, step1Err:false });
+    if(id === 'loading'){ clearTimeout(this._lt); this.setState({ loading:true }); }
+    else this.load();
+  }
+  demoData(kind){
+    const R = this.R();
+    if(kind === 'clear'){ R.clear(); this.setState({ sel:[], step:1, demoOpen:false, expanded:{}, dr:null }); this.say('Настройка сброшена — начните с выбора форм'); }
+    else { R.demo(); this.setState({ sel:R.forms(), step:2, demoOpen:false, expanded:{}, dr:null }); this.say('Загружен пример настроенной организации'); }
+    if(R.scn() !== 'ok'){ R.setScn('ok'); }
+    this.load();
+  }
+
+  renderVals(){
+    const R = this.R(), s = this.state, scn = this.scn();
+    const base = { homeHref: lsGet('mp-home-page') || 'Главная H - Витрина.dc.html',
+      demoOpen: s.demoOpen, toggleDemo: () => this.setState(st => ({ demoOpen:!st.demoOpen })), closeDemo: () => this.setState({ demoOpen:false }),
+      demoData: [{ label:'Начать настройку заново', icon:'ri-restart-line', onClick:() => this.demoData('clear') }, { label:'Пример настроенной организации', icon:'ri-database-2-line', onClick:() => this.demoData('demo') }],
+      demoStates: DEMO_STATES.map(x => ({ label:x.label, on:x.id === scn ? 'true' : 'false', onClick:() => this.setDemoState(x.id) })),
+      hasToast: !!s.toast, toast: s.toast, toastCls:'ad-toast' + (s.toastErr ? ' err' : ''), toastIcon: s.toastErr ? 'ri-error-warning-line' : 'ri-checkbox-circle-line' };
+    if(!R || this.denied) return { ...base, steps:[], isStep1:false, isStep2:false, showError:false, drOpen:false, lostOpen:false, delOpen:false };
+
+    const loading = s.loading || scn === 'loading' || !s.ready;
+    const error = !loading && scn === 'error';
+    const saved = R.forms();
+    const q = s.q.trim().toLowerCase();
+
+    // ——— степпер ———
+    const steps = [
+      { n:1, label:'Выбор отчётных форм' },
+      { n:2, label:'Управление ролями' },
+    ].map(t => {
+      const cur = t.n === s.step, done = t.n === 1 && s.step === 2;
+      const off = t.n === 2 && s.step === 1 && (!s.sel.length || loading || error);
+      return { ...t, cur: cur ? 'step' : 'false', done, todo:!done, off: off ? 'true' : 'false', cls: done ? 'done' : '',
+        tip: off && !loading && !error ? 'Выберите хотя бы одну отчётную форму' : '', onClick:() => { if(!off && !loading && !error) this.goStep(t.n); } };
+    });
+
+    // ——— шаг 1 ———
+    const vis = this.visible();
+    const visOn = vis.filter(f => s.sel.includes(f.id)).length;
+    const allState = !vis.length || !visOn ? 'false' : visOn === vis.length ? 'true' : 'mixed';
+    const rows = vis.map(f => {
+      const on = s.sel.includes(f.id);
+      const toggle = (e) => { if(e && e.stopPropagation) e.stopPropagation(); this.toggle(f.id); };
+      return { app:f.app, idx:f.idx, on: on ? 'true' : 'false', cls:'ad-row' + (on ? ' on' : ''), onToggle:toggle,
+        aria:`${f.idx} — ${f.name}`, appP:parts(f.app, q), idxP:parts(f.idx, q), nameP:parts(f.name, q) };
+    });
+    const isStep1 = !error && s.step === 1;
+    const noRows = isStep1 && !loading && !vis.length;
+
+    // ——— шаг 2 ———
+    const isStep2 = !error && s.step === 2;
+    const list = R.assigns().slice().sort((a, b) => R.EMP[a.emp].fio.localeCompare(R.EMP[b.emp].fio, 'ru') || a.role.localeCompare(b.role));
+    const LIMIT = 3;
+    const assigns = list.map(a => {
+      const e = R.EMP[a.emp], r = R.ROLE[a.role], open = !!s.expanded[a.id];
+      const forms = a.forms.map(id => R.FORM[id]).filter(Boolean);
+      const shown = open || forms.length <= LIMIT + 1 ? forms : forms.slice(0, LIMIT);
+      const rest = forms.length - LIMIT;
+      return { id:a.id, domId:'as-' + a.id, cls:'ad-grid ad-ar' + (s.flash === a.id ? ' flash' : ''), fio:e.fio, ini:R.initials(e.fio),
+        role:r.name, roleIcon:r.icon, roleTip:r.tip, roleCls:'ad-role ' + r.id,
+        forms: shown.map(f => ({ idx:f.idx, name:f.name })),
+        hasMore: forms.length > LIMIT + 1, open: open ? 'true' : 'false',
+        moreLabel: open ? 'Свернуть' : `Ещё ${rest} ${R.plural(rest, ['форма', 'формы', 'форм'])}`, moreIcon: open ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+        onMore:() => this.setState(st => ({ expanded:{ ...st.expanded, [a.id]:!st.expanded[a.id] } })),
+        onAdd:() => this.openAdd(a.emp, a.role), addAria:`Добавить формы: ${e.fio}, ${r.name}`,
+        onDel:() => this.setState({ del:a.id }), delAria:`Удалить назначение: ${e.fio}, ${r.name}` };
+    });
+
+    // ——— панель назначения ———
+    const d = s.dr, staff = this.staff();
+    const eq = s.empQ.trim().toLowerCase();
+    const empList = staff.filter(e => !eq || e.fio.toLowerCase().includes(eq));
+    const emp = d && d.emp ? R.EMP[d.emp] : null, role = d && d.role ? R.ROLE[d.role] : null;
+    const fl = d ? this.drForms() : [];
+    const free = fl.filter(x => !x.off);
+    const freeOn = free.filter(x => d.forms.includes(x.f.id)).length;
+    const reason = this.saveReason();
+
+    // ——— окно «снять формы» и удаление ———
+    const lost = s.lostOpen ? R.lost(s.sel) : [];
+    const delA = s.del ? R.assigns().find(a => a.id === s.del) : null;
+
+    return {
+      ...base,
+      steps, showError:error, retry:() => { R.setScn('ok'); this.load(); },
+      loading, ready:!loading,
+      skel: Array.from({ length:10 }, (_, i) => ({ w:`width:${[72,54,66,80,48,62,74,58,70,52][i]}%;` })),
+      skel4: Array.from({ length:4 }, (_, i) => ({ w:`width:${[78,64,86,70][i]}%;` })),
+
+      isStep1, totalForms:R.FORMS.length, selCount:s.sel.length, selAria:`Выбранные формы: ${s.sel.length}`,
+      viewAll: s.view === 'all' ? 'true' : 'false', viewSel: s.view === 'sel' ? 'true' : 'false',
+      showAll:() => this.setState({ view:'all' }), showSel:() => this.setState({ view:'sel' }),
+      q:s.q, hasQ:!!s.q, searchCls:'ad-search' + (s.q ? ' has' : ''), onQ:(e) => this.setState({ q:e.target.value }), clearQ:() => { this.setState({ q:'' }); const i = document.querySelector('.ad-search input'); if(i) i.focus(); },
+      allState, allOff: !vis.length || loading, allAria: allState === 'true' ? 'Снять выбор с найденных форм' : 'Выбрать все найденные формы', toggleAll:() => this.toggleAll(),
+      rows,
+      noRows, noRowsIcon: q ? 'ri-file-search-line' : 'ri-checkbox-multiple-blank-line',
+      noRowsText: q ? 'Формы не найдены' : 'Формы не выбраны',
+      nextOff: !s.sel.length || loading || s.saving1, nextHint: !s.sel.length && !loading, step1Err:s.step1Err,
+      saving1:s.saving1, notSaving1:!s.saving1, next:() => this.next(),
+
+      isStep2, headFio:R.head().fio, openAdd:() => this.openAdd(),
+      showAssigns: isStep2 && !loading && assigns.length > 0, noAssigns: isStep2 && !loading && !assigns.length, assigns,
+      back:() => this.goStep(1),
+
+      drOpen:!!d, closeDr:() => this.closeDr(), saveErr:s.saveErr,
+      empOpen: s.open === 'emp' ? 'true' : 'false', roleOpen: s.open === 'role' ? 'true' : 'false', empShow: s.open === 'emp', roleShow: s.open === 'role',
+      toggleEmp:() => this.setState(st => ({ open:st.open === 'emp' ? null : 'emp', empQ:'' })),
+      toggleRole:() => this.setState(st => ({ open:st.open === 'role' ? null : 'role' })),
+      closeMenu:() => this.setState({ open:null, empQ:'' }),
+      hasEmp:!!emp, noEmpSel:!emp, empFio: emp ? emp.fio : '', empPost: emp ? emp.post : '',
+      hasStaff: staff.length > 0, noStaff: !staff.length, empQ:s.empQ, onEmpQ:(e) => this.setState({ empQ:e.target.value }),
+      empOpts: empList.map(e => ({ fio:e.fio, post:e.post, on: d && d.emp === e.id ? 'true' : 'false', onClick:() => this.setDr({ emp:e.id }) })),
+      empNone: staff.length > 0 && !empList.length,
+      hasRole:!!role, noRoleSel:!role, roleName: role ? role.name : '',
+      roleOpts: R.ROLES.map(r => ({ ...r, on: d && d.role === r.id ? 'true' : 'false', onClick:() => this.setDr({ role:r.id }) })),
+      fSearch: R.forms().length > 8, fQ:s.fQ, onFQ:(e) => this.setState({ fQ:e.target.value }),
+      fOpts: fl.map(x => ({ idx:x.f.idx, name:x.f.name, isOff:x.off, off: x.off ? 'true' : 'false', on: x.off || (d && d.forms.includes(x.f.id)) ? 'true' : 'false',
+        onClick:() => { if(!x.off) this.toggleForm(x.f.id); } })),
+      fNone: !!d && !fl.length,
+      fCount: d ? d.forms.length : 0,
+      fAllState: !free.length || !freeOn ? 'false' : freeOn === free.length ? 'true' : 'mixed', fAllOff: !free.length,
+      fAll:() => { const ids = free.map(x => x.f.id), all = ids.every(id => d.forms.includes(id)); this.setState({ dr:{ ...d, forms: all ? d.forms.filter(id => !ids.includes(id)) : [...new Set(d.forms.concat(ids))] }, saveErr:false }); },
+      saveHint: !!reason && !s.saving2, saveHintText: reason,
+      saveOff: !!reason || s.saving2, saving2:s.saving2, saveAssign:() => this.saveAssign(),
+
+      lostOpen:s.lostOpen, closeLost:() => this.setState({ lostOpen:false }), confirmLost:() => this.saveForms(),
+      lostList: lost.map(x => ({ who:R.short(R.EMP[x.a.emp].fio), role:R.ROLE[x.a.role].name, forms:x.gone.map(id => R.FORM[id].idx).join(', ') })),
+
+      delOpen:!!delA, closeDel:() => this.setState({ del:null }),
+      delWho: delA ? R.EMP[delA.emp].fio : '', delRole: delA ? R.ROLE[delA.role].name : '',
+      delForms: delA ? delA.forms.map(id => R.FORM[id].idx).join(', ') : '',
+      confirmDel:() => { R.removeAssign(s.del); this.setState({ del:null }); this.say('Назначение удалено'); },
+    };
+  }
+}
+</script>
+</body>
+</html>

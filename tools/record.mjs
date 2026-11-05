@@ -20,7 +20,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -80,6 +80,70 @@ if (!chrome) {
 
 const scenario = await import(pathToFileURL(join(root, 'tools', 'record', `${scenarioName}.mjs`)));
 const fileName = scenario.fileName ?? scenarioName;
+
+/* ── Озвучка (--voice или export const voice = true в сценарии) ─────
+ * Те же субтитры читает голос Windows «Irina» (System.Speech, без интернета).
+ * 1) Сухой прогон сценария без браузера собирает все фразы say() и заставок.
+ * 2) Фразы синтезируются в WAV (кэш по тексту — повторная запись не синтезирует заново).
+ * 3) При съёмке пауза после субтитра не короче фразы, момент показа запоминается.
+ * 4) После съёмки дорожка собирается из фраз по этим моментам и вшивается в mp4.
+ * Произношение: say(рубрика, текст, мс, «как читать») — четвёртый аргумент для аббревиатур. */
+const voiceOn = flags.has('voice') || scenario.voice === true;
+const voiceDir = join(outDir, '.voice');
+const voices = new Map(); // текст для чтения → { file, ms }
+const cues = [];
+const titleSpoken = (k, h, s) => [h, s].filter(Boolean).join('. ');
+if (voiceOn) {
+  const phrases = new Set();
+  const noop = async () => {};
+  const stubPage = new Proxy({}, { get: () => async () => undefined });
+  await scenario.default({
+    page: stubPage, sleep: noop, caption: noop, click: noop, point: noop, show: noop, at: noop, type: noop, clearField: noop, waitText: noop, open: noop,
+    locate: async () => true, where: async () => ({}),
+    say: async (s, t, ms, spoken) => { phrases.add(spoken ?? t); },
+    title: async (k, h, s, ms, spoken) => { phrases.add(spoken ?? titleSpoken(k, h, s)); },
+    section: async (n, fn) => { try { await fn(); } catch (e) {} },
+  });
+  mkdirSync(voiceDir, { recursive: true });
+  const rate = Number(flags.get('rate') ?? scenario.voiceRate ?? 1);
+  const hashOf = (s) => { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); };
+  const todo = [];
+  for (const text of phrases) {
+    const file = 'v' + rate + '-' + hashOf(text) + '.wav';
+    voices.set(text, { file });
+    if (!existsSync(join(voiceDir, file))) todo.push({ file, text });
+  }
+  if (todo.length) {
+    console.log(`Озвучка: синтезирую ${todo.length} фраз…`);
+    writeFileSync(join(voiceDir, 'todo.json'), JSON.stringify(todo), 'utf8');
+    const ps = [
+      "$ErrorActionPreference='Stop'",
+      'Add-Type -AssemblyName System.Speech',
+      '$s = New-Object System.Speech.Synthesis.SpeechSynthesizer',
+      "$s.SelectVoice('Microsoft Irina Desktop')",
+      '$s.Rate = ' + rate,
+      "$j = Get-Content -Raw -Encoding UTF8 'todo.json' | ConvertFrom-Json",
+      'foreach($p in $j){ $s.SetOutputToWaveFile((Join-Path (Get-Location) $p.file)); $s.Speak($p.text) }',
+      '$s.SetOutputToNull(); $s.Dispose()',
+    ].join('; ');
+    execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], { cwd: voiceDir, stdio: ['ignore', 'ignore', 'inherit'] });
+  }
+  for (const v of voices.values()) v.ms = wavInfo(readFileSync(join(voiceDir, v.file))).ms;
+  console.log(`Озвучка: ${voices.size} фраз, ${(([...voices.values()].reduce((a, v) => a + v.ms, 0)) / 1000).toFixed(0)} с речи`);
+}
+
+/** Заголовок WAV: формат и PCM-данные */
+function wavInfo(buf) {
+  let p = 12, fmt = null, data = null;
+  while (p + 8 <= buf.length) {
+    const id = buf.toString('ascii', p, p + 4), size = buf.readUInt32LE(p + 4);
+    if (id === 'fmt ') fmt = { ch: buf.readUInt16LE(p + 10), rate: buf.readUInt32LE(p + 12), bits: buf.readUInt16LE(p + 22) };
+    if (id === 'data') { data = buf.subarray(p + 8, p + 8 + size); break; }
+    p += 8 + size + (size % 2);
+  }
+  const bps = fmt.rate * fmt.ch * fmt.bits / 8;
+  return { ...fmt, data, ms: Math.round(data.length / bps * 1000) };
+}
 
 const frames = join(outDir, '.frames-' + scenarioName);
 rmSync(frames, { recursive: true, force: true });
@@ -194,14 +258,18 @@ const caption = (section, text) =>
  * Субтитр + пауза по длине текста: зритель должен успеть прочитать.
  * ~60 мс на символ, но не меньше minMs.
  */
-const say = async (section, text, minMs = 2600) => {
+const say = async (section, text, minMs = 2600, spoken) => {
   await caption(section, text);
-  await sleep(Math.max(minMs, (section.length + text.length) * 58));
+  const v = voiceOn ? voices.get(spoken ?? text) : null;
+  if (v) cues.push({ at: Date.now(), v });
+  await sleep(Math.max(minMs, (section.length + text.length) * 58, v ? v.ms + 450 : 0));
 };
 
 /** Заставка на весь кадр — ею отбивают сценарии. */
-const title = async (kicker, head, sub, ms = 3800) => {
+const title = async (kicker, head, sub, ms = 3800, spoken) => {
   await caption('', ''); // субтитр прошлого шага не должен пережить заставку
+  const v = voiceOn ? voices.get(spoken ?? titleSpoken(kicker, head, sub)) : null;
+  if (v) { ms = Math.max(ms, v.ms + 900); setTimeout(() => cues.push({ at: Date.now(), v }), 400); }
   await page.evaluate(
     ([k, h, s]) => {
       const el = document.getElementById('demo-title');
@@ -437,13 +505,39 @@ for (let i = 0; i < shot; i++) {
 list.push(`file '${String(shot - 1).padStart(5, '0')}.jpg'`); // последний кадр дублируется — требование concat
 writeFileSync(join(frames, 'list.txt'), list.join('\n'));
 
+// дорожка озвучки: фразы кладём на тишину в моменты показа субтитров (отсчёт — от первого кадра)
+const audioArgs = [];
+if (voiceOn && cues.length && shot) {
+  const first = wavInfo(readFileSync(join(voiceDir, cues[0].v.file)));
+  const bytesPerMs = first.rate * first.ch * first.bits / 8 / 1000;
+  const frame = first.ch * first.bits / 8;
+  const total = Math.ceil((endedAt - stamps[0]) * bytesPerMs / frame) * frame;
+  const pcm = Buffer.alloc(total);
+  for (const c of cues) {
+    const w = wavInfo(readFileSync(join(voiceDir, c.v.file)));
+    let off = Math.round((c.at - stamps[0]) * bytesPerMs / frame) * frame;
+    for (let i = 0; i + 1 < w.data.length && off + i + 1 < total; i += 2) {
+      const s = pcm.readInt16LE(off + i) + w.data.readInt16LE(i);
+      pcm.writeInt16LE(Math.max(-32768, Math.min(32767, s)), off + i);
+    }
+  }
+  const head = Buffer.alloc(44);
+  head.write('RIFF', 0, 'ascii'); head.writeUInt32LE(36 + total, 4); head.write('WAVE', 8, 'ascii');
+  head.write('fmt ', 12, 'ascii'); head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(first.ch, 22);
+  head.writeUInt32LE(first.rate, 24); head.writeUInt32LE(first.rate * frame, 28); head.writeUInt16LE(frame, 32); head.writeUInt16LE(first.bits, 34);
+  head.write('data', 36, 'ascii'); head.writeUInt32LE(total, 40);
+  writeFileSync(join(frames, 'voice.wav'), Buffer.concat([head, pcm]));
+  audioArgs.push('-i', 'voice.wav', '-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100');
+  console.log(`Озвучка: ${cues.length} фраз на дорожке`);
+}
+
 console.log('Собираю mp4…');
 // ffmpeg на Windows не открывает абсолютные пути с кириллицей («Личные данные»),
 // поэтому запускаем его из папки кадров и передаём только относительные пути
 execFileSync(
   ffmpeg.path,
   [
-    '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', 'list.txt',
+    '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', 'list.txt', ...audioArgs,
     // выход 30 к/с: плеерам и мессенджерам проще, тайминг кадров сохраняется
     '-vf', 'fps=30', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '23', '-preset', 'slow',
     '-movflags', '+faststart', '../' + fileName + '.mp4',
