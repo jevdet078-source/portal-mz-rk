@@ -114,6 +114,7 @@ const tabs = data.map(t => ({
 | `mp-orgrep-db` | `{ v:2, forms:[id], assigns:[{ id, emp, role, forms, at }] }` — формы организации и назначения | `OrgRepData` (window.mpOrgRep) ↔ `Администрирование отчётности`, `OrgReportsNav` (событие `mp-orgrep-change`) |
 | `mp-orgrep-scn` (sessionStorage) | состояние для показа: `ok` / `loading` / `error` / `noEmp` / `saveErr` / `empty` | «Показ прототипа» на страницах отчётности руководителя |
 | `mp-epz-child-scn` (sessionStorage) | сведения ЭПЗ ребёнка в прототипе: `data` / `partial` / `empty` / `slow` / `error` | `ЭПЗ ребёнка` (панель «Прототип») |
+| `mp-help-g` (sessionStorage) | `{ role, g }` — раздел, выбранный в панели «Инструкции»; при смене роли панель открывается на первом разделе роли | `HelpCenter` (mode="panel") |
 
 Синхронно смена роли рассылается событием:
 `window.dispatchEvent(new CustomEvent('mp-role-change', { detail: id }))`.
