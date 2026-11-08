@@ -239,12 +239,8 @@ const NCELS_BIN = '980240003251';
 const CAB = { citizen:'Личный кабинет.dc.html', business:'Кабинет бизнеса.dc.html', medical:'Профиль врача.dc.html', gov:'АРМ ННЦРЗ.dc.html' };   // госорган — АРМ экспертов (ННЦРЗ; ФК — через переключатель ролей)
 // раздел только для авторизованных: возврат после входа — для любого профиля, без входа туда не вернуться
 const REPORTS_RET = /^(Отчётные формы|Журнал отчётных форм|Администрирование отчётности)/;
-// первый руководитель медорганизации: до настройки — «Администрирование», после — «Журнал отчётных форм»
-const headPage = () => {
-  let ok = false;
-  try { const d = JSON.parse(localStorage.getItem('mp-orgrep-db') || 'null'); ok = !!(d && d.forms && d.forms.length); } catch(e){}
-  return ok ? 'Журнал отчётных форм.dc.html' : 'Администрирование отчётности.dc.html';
-};
+// первый руководитель медорганизации — «Администрирование» (журнал отчётных форм пока в разработке)
+const headPage = () => 'Администрирование отчётности.dc.html';
 const ROLE_TAB = { citizen:'citizens', business:'business', medical:'medical' };
 const KIND = {
   citizen:  { label:'Гражданин',               icon:'ri-user-heart-line',  bg:'#EEF2FF', fg:'#4D42E9' },

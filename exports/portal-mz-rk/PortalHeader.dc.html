@@ -223,7 +223,7 @@ const ROLES = [
 const LANGS = [ { code:'ҚАЗ', name:'Қазақша' }, { code:'РУС', name:'Русский' }, { code:'ENG', name:'English' } ];
 const CABINET = { citizen:{ label:'Личный кабинет', icon:'ri-user-3-line', href:'Личный кабинет.dc.html' }, business:{ label:'Кабинет бизнеса', icon:'ri-briefcase-4-line', href:'Кабинет бизнеса.dc.html' },
   medical:{ label:'Кабинет врача', icon:'ri-stethoscope-line', href:'Профиль врача.dc.html' }, gov:{ label:'Кабинет сотрудника', icon:'ri-government-line', href:'АРМ ННЦРЗ.dc.html' } };
-const HEAD_CAB = { label:'Кабинет руководителя', icon:'ri-user-star-line', href:'Журнал отчётных форм.dc.html' };
+const HEAD_CAB = { label:'Кабинет руководителя', icon:'ri-user-star-line', href:'Администрирование отчётности.dc.html' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
 class Component extends DCLogic {
   constructor(props){
@@ -286,7 +286,7 @@ class Component extends DCLogic {
       protoCur: sec === 'protocols' ? 'page' : 'false',
       showReports: compact, reportsCur: sec === 'reports' ? 'page' : 'false',
       // раздел не публичный: без входа пункт ведёт на авторизацию и возвращает в раздел
-      reportsHref: head ? 'Журнал отчётных форм.dc.html' : s.profile ? 'Отчётные формы.dc.html' :'Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html'),
+      reportsHref: head ? 'Администрирование отчётности.dc.html' : s.profile ? 'Отчётные формы.dc.html' :'Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html'),
       a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
       toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),
       toggleContrast: () => this.setA11y({ contrast:!s.a11y.contrast }),

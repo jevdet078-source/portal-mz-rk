@@ -19,15 +19,19 @@
   Шаг 1 — выбор форм (поиск по наименованию, индексу и № приложения; поиск не сбрасывает выбор; без выбора «Далее» и шаг 2 недоступны).
   Шаг 2 — управление ролями: право согласования руководителя — отдельно, как предоставленное автоматически;
   список назначений; «Добавить назначение» — боковая панель: сотрудник (только авторизовавшиеся сотрудники организации),
-  роль, формы шага 1; ранее назначенные этому сотруднику в этой роли формы — недоступны с подписью.
+  роль, формы шага 1; ранее назначенные этому сотруднику в этой роли формы — недоступны с подписью
+  «Уже назначена этому сотруднику». Одну форму можно назначить нескольким сотрудникам.
+  «Редактировать» — та же панель: сотрудник и роль, назначенные формы (снятие выбора — подтверждение
+  «Удалить назначение сотрудника на форму „…“?» → «Удалить» / «Отмена»), добавление форм организации; «Сохранить» / «Отмена».
+  Удаляется только назначение на снятую форму; остальные назначения и созданные отчёты сохраняются.
   Состояния загрузки, пустого списка, ошибки и сохранения — «Показ прототипа» в строке крошек.
-  Данные — OrgRepData (window.mpOrgRep), верх раздела — OrgReportsTop.
+  Данные — OrgRepData (window.mpOrgRep), левое меню раздела — OrgReportsNav.
 -->
 <x-dc>
 <helmet>
 <style>
   body{ margin:0; background:#fff; }
-  .ad{ --wrap:100%; display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .ad{ display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
   .ad, .ad *, .ad *::before, .ad *::after{ box-sizing:border-box; }
   .ad button, .ad input, .ad textarea{ font-family:inherit; }
   .ad :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
@@ -53,8 +57,14 @@
   .ad-demo .ad-menu{ left:auto; right:0; width:340px; max-height:min(560px,76vh); }
   .ad-demo-lb{ padding:10px 10px 6px; font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
 
+  /* ——— левое меню + рабочая область ——— */
+  .ad-lay{ display:grid; grid-template-columns:clamp(264px,17vw,300px) minmax(0,1fr); gap:clamp(20px,1.6vw,28px); align-items:start; margin-top:clamp(14px,1.2vw,22px); }
+  .ad-side{ position:sticky; top:88px; }
+  .ad-body{ min-width:0; container:adm / inline-size; }
+  .ad-h1{ margin:0 0 clamp(14px,1.1vw,20px); font-size:clamp(24px,.8vw + 14px,32px); line-height:1.2; font-weight:600; letter-spacing:-.026em; }
+
   /* ——— карточка мастера ——— */
-  .ad-card{ margin-top:clamp(14px,1.2vw,20px); border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .ad-card{ border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
   .ad-steps{ display:flex; align-items:center; gap:12px; margin:0; padding:14px clamp(16px,1.4vw,24px); list-style:none; border-bottom:1px solid var(--n200); }
   .ad-steps li{ display:flex; align-items:center; gap:12px; min-width:0; }
   .ad-steps li + li::before{ content:''; width:clamp(24px,4vw,72px); height:2px; border-radius:2px; background:var(--n200); }
@@ -100,8 +110,8 @@
   .ad-tbl th:first-child, .ad-tbl td:first-child{ padding-left:clamp(16px,1.4vw,24px); }
   .ad-tbl th:last-child, .ad-tbl td:last-child{ padding-right:clamp(16px,1.4vw,24px); }
   .ad-tbl .c-ch{ width:calc(clamp(16px,1.4vw,24px) + 44px); }
-  .ad-tbl .c-app{ width:clamp(118px,8vw,150px); white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .ad-tbl .c-idx{ width:clamp(130px,8.6vw,170px); white-space:nowrap; }
+  .ad-tbl .c-app{ width:clamp(124px,8vw,144px); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ad-tbl .c-idx{ width:clamp(184px,11.4vw,212px); white-space:nowrap; }
   .ad-tbl td.c-idx{ font-weight:600; color:var(--n900); }
   .ad-tbl .c-nm{ color:var(--n900); overflow-wrap:anywhere; }
   .ad-row{ cursor:pointer; transition:background .12s; }
@@ -152,7 +162,7 @@
   .ad-tag{ flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px 0 9px; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px var(--b200); color:var(--b800); font-size:13px; font-weight:600; white-space:nowrap; cursor:help; }
   .ad-tag i{ font-size:16px; color:var(--b600); }
 
-  .ad-grid{ display:grid; grid-template-columns:minmax(220px,1.05fr) minmax(170px,.75fr) minmax(0,2.2fr) 104px; align-items:start; }
+  .ad-grid{ display:grid; grid-template-columns:minmax(210px,1fr) minmax(180px,.85fr) minmax(0,2.1fr) 104px; align-items:start; }
   .ad-gh{ border-top:1px solid var(--n200); border-bottom:1px solid var(--n200); background:var(--n50); }
   .ad-gh > div{ display:flex; align-items:center; height:46px; padding:0 12px; font-size:12.5px; font-weight:600; color:var(--n500); }
   .ad-gh > div:first-child, .ad-ar > div:first-child{ padding-left:clamp(16px,1.4vw,24px); }
@@ -170,9 +180,9 @@
   .ad-role i{ flex:0 0 auto; font-size:15px; color:var(--n500); }
   .ad-role.exec{ background:var(--b50); color:var(--b800); } .ad-role.exec i{ color:var(--b600); }
   .ad-role.swod{ background:color-mix(in srgb, var(--bacc) 14%, #fff); color:#6B4A07; } .ad-role.swod i{ color:color-mix(in srgb, var(--bacc) 75%, #000); }
-  .ad-fl{ display:flex; flex-direction:column; gap:6px; margin:0; padding:0; list-style:none; }
-  .ad-fl li{ display:flex; align-items:baseline; gap:10px; min-width:0; font-size:14px; line-height:20px; }
-  .ad-fl code{ flex:0 0 auto; min-width:86px; font:600 13px/20px 'Inter',sans-serif; color:var(--n900); }
+  .ad-fl{ display:grid; grid-template-columns:max-content minmax(0,1fr); gap:6px 14px; align-items:baseline; margin:0; padding:0; list-style:none; }
+  .ad-fl li{ display:contents; font-size:14px; line-height:20px; }
+  .ad-fl code{ font:600 13px/20px 'Inter',sans-serif; color:var(--n900); white-space:nowrap; }
   .ad-fl span{ min-width:0; color:var(--n600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ad-more{ align-self:flex-start; height:28px; margin:2px 0 0 -8px; padding:0 8px; display:inline-flex; align-items:center; gap:3px; border:none; border-radius:8px; background:none; color:var(--b700); font-size:13.5px; font-weight:600; cursor:pointer; }
   .ad-more:hover{ background:var(--b50); }
@@ -240,9 +250,9 @@
   .ad-alert{ display:flex; gap:10px; padding:12px 14px; border-radius:12px; background:var(--red-l); color:var(--red-d); font-size:14px; line-height:1.45; font-weight:500; }
   .ad-alert i{ flex:0 0 auto; font-size:19px; color:var(--red); }
 
-  .ad-fs{ border-radius:14px; box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-fs{ border:1px solid var(--n200); border-radius:14px; overflow:clip; }
   .ad-fs.off{ opacity:.55; pointer-events:none; }
-  .ad-fs-hd{ display:flex; align-items:center; gap:12px; padding:8px 8px 8px 14px; border-bottom:1px solid var(--n200); background:var(--n50); border-radius:14px 14px 0 0; }
+  .ad-fs-hd{ display:flex; align-items:center; gap:12px; padding:8px 8px 8px 14px; border-bottom:1px solid var(--n200); background:var(--n50); }
   .ad-all{ display:inline-flex; align-items:center; gap:10px; height:36px; padding:0 8px 0 0; border:none; background:none; color:var(--n700); font-size:13.5px; font-weight:600; cursor:pointer; border-radius:8px; }
   .ad-all:disabled{ color:var(--n400); cursor:not-allowed; }
   .ad-cnt{ margin-left:auto; padding-right:6px; font-size:13px; font-weight:500; color:var(--n500); white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -253,19 +263,38 @@
   .ad-fs-s input::placeholder{ color:var(--n400); font-weight:400; }
   .ad-fs-s input:focus{ outline:none; background:#fff; box-shadow:inset 0 0 0 1px var(--b400), 0 0 0 3px color-mix(in srgb, var(--b400) 20%, transparent); }
   .ad-fo{ display:flex; align-items:flex-start; gap:12px; width:100%; padding:11px 14px; border:none; border-bottom:1px solid var(--n100); background:none; text-align:left; cursor:pointer; transition:background .12s; }
-  .ad-fo:last-child{ border-bottom:none; border-radius:0 0 14px 14px; }
+  .ad-fo:last-child{ border-bottom:none; }
   .ad-fo:hover{ background:var(--n50); }
   .ad-fo .ad-cb{ margin-top:1px; }
-  .ad-fo code{ flex:0 0 auto; width:88px; font:600 13.5px/22px 'Inter',sans-serif; color:var(--n900); }
-  .ad-fo > span:last-child{ flex:1; min-width:0; font-size:14px; line-height:22px; color:var(--n700); overflow-wrap:anywhere; }
-  .ad-fo small{ display:flex; align-items:center; gap:5px; margin-top:2px; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); }
+  .ad-fo-tx{ flex:1 1 auto; min-width:0; }
+  .ad-fo-tx b{ display:block; font-size:13.5px; line-height:20px; font-weight:600; color:var(--n900); }
+  .ad-fo-tx > span{ display:block; margin-top:1px; font-size:14px; line-height:20px; color:var(--n600); overflow-wrap:anywhere; text-wrap:pretty; }
+  .ad-fo small{ display:flex; align-items:center; gap:5px; margin-top:4px; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); }
   .ad-fo small i{ font-size:14px; color:var(--n400); }
   .ad-fo[aria-disabled="true"]{ cursor:not-allowed; background:var(--n50); }
-  .ad-fo[aria-disabled="true"] code, .ad-fo[aria-disabled="true"] > span:last-child{ color:var(--n400); }
+  .ad-fo[aria-disabled="true"] .ad-fo-tx b, .ad-fo[aria-disabled="true"] .ad-fo-tx > span{ color:var(--n400); }
+  .ad-fo.rm .ad-fo-tx b, .ad-fo.rm .ad-fo-tx > span{ color:var(--n500); text-decoration:line-through; text-decoration-color:var(--n400); text-decoration-thickness:1px; }
+  /* группы в режиме редактирования */
+  .ad-gl{ position:sticky; top:0; z-index:1; display:flex; align-items:center; gap:8px; min-height:38px; padding:6px 10px 6px 14px; border-bottom:1px solid var(--n100); background:var(--n50); font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n500); }
+  .ad-gl b{ min-width:22px; height:20px; padding:0 6px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; background:var(--n200); color:var(--n700); font-size:12px; font-weight:600; letter-spacing:0; font-variant-numeric:tabular-nums; }
+  .ad-gl .ad-lnk{ margin-left:auto; }
+  .ad-lnk{ height:28px; padding:0 8px; display:inline-flex; align-items:center; gap:4px; border:none; border-radius:8px; background:none; color:var(--b700); font-size:13px; font-weight:600; letter-spacing:0; text-transform:none; white-space:nowrap; cursor:pointer; transition:background .12s; }
+  .ad-lnk:hover{ background:var(--b50); }
+  .ad-lnk-in{ height:auto; margin:-3px 0 -3px 2px; padding:3px 6px; font-size:13.5px; line-height:1.35; vertical-align:baseline; }
+  .ad-lnk:disabled{ color:var(--n400); background:none; cursor:not-allowed; }
+  /* сотрудник и роль назначения (редактирование) */
+  .ad-who{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:14px; background:var(--n50); box-shadow:inset 0 0 0 1px var(--n200); }
+  .ad-who .ad-av{ width:40px; height:40px; font-size:13.5px; background:#fff; }
+  .ad-who-tx{ flex:1 1 auto; min-width:0; }
+  .ad-who-tx b{ display:block; font-size:15px; line-height:21px; font-weight:600; color:var(--n900); overflow-wrap:anywhere; }
+  .ad-who-tx span{ display:block; font-size:13px; line-height:18px; color:var(--n500); }
   .ad-fs-none{ padding:18px 14px; font-size:13.5px; color:var(--n500); text-align:center; }
 
   /* ——— окна подтверждения ——— */
+  .ad-ov.up{ z-index:93; }
   .ad-mw{ position:fixed; inset:0; z-index:92; display:flex; align-items:center; justify-content:center; padding:24px 16px; pointer-events:none; }
+  .ad-mw.up{ z-index:94; }
+  .ad-m-bd p{ margin:6px 0 0; font-size:14px; line-height:1.45; color:var(--n600); }
   .ad-modal{ pointer-events:auto; width:min(520px,100%); max-height:100%; display:flex; flex-direction:column; border-radius:20px; background:#fff; box-shadow:0 32px 64px -24px rgba(10,13,20,.45); animation:ad-pop .2s ease; }
   @keyframes ad-pop{ from{ opacity:0; transform:translateY(8px) scale(.985); } to{ opacity:1; transform:none; } }
   .ad-m-bd{ display:flex; gap:16px; padding:24px 24px 20px; overflow-y:auto; }
@@ -283,14 +312,20 @@
   @keyframes ad-toast{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
   @media (prefers-reduced-motion:reduce){ .ad *{ animation:none !important; transition:none !important; } }
 
-  /* ——— адаптив ——— */
-  @media (max-width:1100px){
+  /* ——— адаптив ———
+     Левая колонка меню складывается на ≤1024px. Раскладка рабочей области — от её ширины (container adm),
+     окна и боковая панель — от ширины окна. */
+  @media (max-width:1024px){
+    .ad-lay{ grid-template-columns:minmax(0,1fr); gap:20px; }
+    .ad-side{ position:static; }
+    .ad-tbl th{ position:static; }
+  }
+  @container adm (max-width:1000px){
     .ad-tools{ flex:1 1 100%; justify-content:space-between; }
     .ad-search{ flex:1 1 auto; }
     .ad-grid{ grid-template-columns:minmax(190px,1fr) minmax(150px,.8fr) minmax(0,1.6fr) 96px; }
   }
-  @media (max-width:1024px){ .ad-tbl th{ position:static; } }
-  @media (max-width:820px){
+  @container adm (max-width:780px){
     /* назначения — карточками */
     .ad-gh{ display:none; }
     .ad-grid.ad-ar{ grid-template-columns:minmax(0,1fr) auto; grid-template-areas:'emp act' 'role role' 'forms forms'; padding:14px 16px; row-gap:10px; }
@@ -299,7 +334,7 @@
     .ad-auto{ flex-wrap:wrap; }
     .ad-auto-tx{ flex:1 1 calc(100% - 60px); }
   }
-  @media (max-width:720px){
+  @container adm (max-width:680px){
     .ad-tools{ flex-wrap:wrap; }
     .ad-seg{ width:100%; } .ad-seg button{ flex:1; justify-content:center; }
     .ad-search{ flex:1 1 100%; min-width:0; }
@@ -310,24 +345,33 @@
     .ad-steps li{ gap:8px; flex:1 1 0; }
     .ad-steps li + li::before{ width:16px; flex:0 0 auto; }
     .ad-step{ font-size:14px; gap:8px; padding:0 8px 0 4px; }
-    .ad-demo-btn span{ display:none; }
     .ad-foot{ flex-wrap:wrap; }
     .ad-foot-r{ width:100%; flex-wrap:wrap; justify-content:flex-end; }
     .ad-bar > .ad-btn{ width:100%; }
-    .ad-dr-ft{ flex-wrap:wrap; }
-    .ad-dr-ft .ad-hint{ flex:1 1 100%; }
-    .ad-dr-ft .ad-btn{ flex:1 1 0; }
-    .ad-dr-bd{ padding:18px 16px 24px; } .ad-dr-hd{ padding:14px 12px 12px 16px; } .ad-dr-ft{ padding:12px 16px; }
-    .ad-fo code{ width:auto; min-width:76px; }
+    .ad-fl{ grid-template-columns:minmax(0,1fr); row-gap:0; }
+    .ad-fl span{ white-space:normal; margin-bottom:8px; }
   }
-  @media (max-width:480px){
+  @container adm (max-width:460px){
     .ad-steps{ padding:10px 12px; gap:6px; }
     .ad-steps li{ gap:6px; }
     .ad-steps li + li::before{ width:10px; }
     .ad-step{ height:auto; min-height:44px; padding:4px 6px 4px 2px; gap:8px; }
     .ad-step > span:last-child{ white-space:normal; font-size:13.5px; line-height:1.25; text-align:left; }
-    .ad-search input{ font-size:14px; }
-    .ad-fo{ flex-wrap:wrap; } .ad-fo > span:last-child{ flex:1 1 100%; padding-left:32px; }
+  }
+  @media (max-width:720px){
+    .ad-demo-btn span{ display:none; }
+    .ad-dr-ft{ flex-wrap:wrap; }
+    .ad-dr-ft .ad-hint{ flex:1 1 100%; }
+    .ad-dr-ft .ad-btn{ flex:1 1 0; }
+    .ad-dr-bd{ padding:18px 16px 24px; } .ad-dr-hd{ padding:14px 12px 12px 16px; } .ad-dr-ft{ padding:12px 16px; }
+    .ad-m-ft{ flex-wrap:wrap; } .ad-m-ft .ad-btn{ flex:1 1 0; }
+  }
+  @media (max-width:480px){
+    .ad-who{ flex-wrap:wrap; row-gap:10px; }
+    .ad-who-tx{ flex:1 1 calc(100% - 52px); }
+    .ad-who .ad-role{ margin-left:52px; }
+    .ad-m-bd{ padding:20px 18px 16px; gap:12px; }
+    .ad-m-ft{ padding:12px 18px; }
   }
 </style>
 </helmet>
@@ -343,8 +387,7 @@
         <nav aria-label="Хлебные крошки">
           <ol class="ad-crumbs">
             <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
-            <li><a href="Журнал отчётных форм.dc.html">Отчётные формы</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
-            <li><span aria-current="page">Администрирование</span></li>
+            <li><span aria-current="page">Отчётные формы</span></li>
           </ol>
         </nav>
         <div class="ad-demo">
@@ -365,9 +408,11 @@
         </div>
       </div>
 
-      <dc-import name="OrgReportsTop" active="admin" hint-size="100%,150px"></dc-import>
-
-      <section class="ad-card" aria-label="Настройка отчётности">
+      <div class="ad-lay">
+      <aside class="ad-side"><dc-import name="OrgReportsNav" active="admin" hint-size="300px,280px"></dc-import></aside>
+      <div class="ad-body">
+      <h1 class="ad-h1" id="ad-h1">Администрирование</h1>
+      <section class="ad-card" aria-labelledby="ad-h1">
         <ol class="ad-steps" aria-label="Шаги настройки">
           <sc-for list="{{ steps }}" as="t" hint-placeholder-count="2">
             <li class="{{ t.cls }}">
@@ -496,8 +541,8 @@
                   </div>
                   <div class="g-act" role="cell">
                     <div class="ad-acts">
-                      <button type="button" class="ad-ib" onClick="{{ a.onAdd }}" aria-label="{{ a.addAria }}" data-tip="Добавить формы"><i class="ri-add-line"></i></button>
-                      <button type="button" class="ad-ib del" onClick="{{ a.onDel }}" aria-label="{{ a.delAria }}" data-tip="Удалить назначение"><i class="ri-delete-bin-6-line"></i></button>
+                      <button type="button" class="ad-ib" onClick="{{ a.onEdit }}" aria-label="{{ a.editAria }}" aria-haspopup="dialog" data-tip="Редактировать"><i class="ri-pencil-line"></i></button>
+                      <button type="button" class="ad-ib del" onClick="{{ a.onDel }}" aria-label="{{ a.delAria }}" aria-haspopup="dialog" data-tip="Удалить назначение"><i class="ri-delete-bin-6-line"></i></button>
                     </div>
                   </div>
                 </div>
@@ -517,95 +562,151 @@
           </div>
         </sc-if>
       </section>
+      </div>
+      </div>
     </div>
   </main>
 
   <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
 
-  <!-- НАЗНАЧЕНИЕ СОТРУДНИКА -->
+  <!-- НАЗНАЧЕНИЕ СОТРУДНИКА: новое и редактирование -->
   <sc-if value="{{ drOpen }}" hint-placeholder-val="{{ false }}">
     <div class="ad-ov" onClick="{{ closeDr }}"></div>
     <aside class="ad-dr" role="dialog" aria-modal="true" aria-labelledby="ad-dr-t">
       <div class="ad-dr-hd">
-        <h2 id="ad-dr-t">Новое назначение</h2>
+        <h2 id="ad-dr-t">{{ drTitle }}</h2>
         <button type="button" class="ad-close" onClick="{{ closeDr }}" aria-label="Закрыть" data-tip="Закрыть · Esc"><i class="ri-close-line"></i></button>
       </div>
       <div class="ad-dr-bd">
         <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}">
-          <div class="ad-alert" role="alert"><i class="ri-error-warning-line"></i><span>Не удалось сохранить назначение. Повторите попытку</span></div>
+          <div class="ad-alert" role="alert"><i class="ri-error-warning-line"></i><span>{{ saveErrText }}</span></div>
         </sc-if>
 
-        <!-- сотрудник -->
-        <div class="ad-f">
-          <label id="ad-l-emp">Сотрудник<span class="ad-req" aria-hidden="true">*</span></label>
-          <button type="button" class="ad-sel" id="ad-emp" onClick="{{ toggleEmp }}" aria-expanded="{{ empOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-emp ad-emp">
-            <sc-if value="{{ hasEmp }}" hint-placeholder-val="{{ false }}"><span>{{ empFio }}<small>{{ empPost }}</small></span></sc-if>
-            <sc-if value="{{ noEmpSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите сотрудника</span></sc-if>
-            <i class="ri-arrow-down-s-line"></i>
-          </button>
-          <sc-if value="{{ empShow }}" hint-placeholder-val="{{ false }}">
-            <div class="ad-veil" onClick="{{ closeMenu }}"></div>
-            <div class="ad-menu" role="listbox" aria-labelledby="ad-l-emp">
-              <sc-if value="{{ hasStaff }}" hint-placeholder-val="{{ true }}">
-                <div class="ad-ms"><i class="ri-search-line"></i><input type="text" value="{{ empQ }}" onChange="{{ onEmpQ }}" placeholder="Поиск по ФИО" aria-label="Поиск сотрудника по ФИО" autocomplete="off" spellcheck="false"></div>
-              </sc-if>
-              <sc-for list="{{ empOpts }}" as="o" hint-placeholder-count="4">
-                <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.fio }}<small>{{ o.post }}</small></span><i class="ri-check-line ck"></i></button>
-              </sc-for>
-              <sc-if value="{{ empNone }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-search-line"></i><span>Сотрудники не найдены</span></div></sc-if>
-              <sc-if value="{{ noStaff }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-unfollow-line"></i><span>Нет сотрудников для назначения ролей. В списке появятся сотрудники вашей организации после авторизации на портале</span></div></sc-if>
-            </div>
-          </sc-if>
-        </div>
+        <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ true }}">
+          <!-- сотрудник -->
+          <div class="ad-f">
+            <label id="ad-l-emp">Сотрудник<span class="ad-req" aria-hidden="true">*</span></label>
+            <button type="button" class="ad-sel" id="ad-emp" onClick="{{ toggleEmp }}" aria-expanded="{{ empOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-emp ad-emp">
+              <sc-if value="{{ hasEmp }}" hint-placeholder-val="{{ false }}"><span>{{ empFio }}<small>{{ empPost }}</small></span></sc-if>
+              <sc-if value="{{ noEmpSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите сотрудника</span></sc-if>
+              <i class="ri-arrow-down-s-line"></i>
+            </button>
+            <sc-if value="{{ empShow }}" hint-placeholder-val="{{ false }}">
+              <div class="ad-veil" onClick="{{ closeMenu }}"></div>
+              <div class="ad-menu" role="listbox" aria-labelledby="ad-l-emp">
+                <sc-if value="{{ hasStaff }}" hint-placeholder-val="{{ true }}">
+                  <div class="ad-ms"><i class="ri-search-line"></i><input type="text" value="{{ empQ }}" onChange="{{ onEmpQ }}" placeholder="Поиск по ФИО" aria-label="Поиск сотрудника по ФИО" autocomplete="off" spellcheck="false"></div>
+                </sc-if>
+                <sc-for list="{{ empOpts }}" as="o" hint-placeholder-count="4">
+                  <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}"><span>{{ o.fio }}<small>{{ o.post }}</small></span><i class="ri-check-line ck"></i></button>
+                </sc-for>
+                <sc-if value="{{ empNone }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-search-line"></i><span>Сотрудники не найдены</span></div></sc-if>
+                <sc-if value="{{ noStaff }}" hint-placeholder-val="{{ false }}"><div class="ad-none" role="status"><i class="ri-user-unfollow-line"></i><span>Нет сотрудников для назначения ролей. В списке появятся сотрудники вашей организации после авторизации на портале</span></div></sc-if>
+              </div>
+            </sc-if>
+          </div>
 
-        <!-- роль -->
-        <div class="ad-f">
-          <label id="ad-l-role">Роль<span class="ad-req" aria-hidden="true">*</span></label>
-          <button type="button" class="ad-sel" id="ad-role" onClick="{{ toggleRole }}" aria-expanded="{{ roleOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-role ad-role">
-            <sc-if value="{{ hasRole }}" hint-placeholder-val="{{ false }}"><span>{{ roleName }}</span></sc-if>
-            <sc-if value="{{ noRoleSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите роль</span></sc-if>
-            <i class="ri-arrow-down-s-line"></i>
-          </button>
-          <sc-if value="{{ roleShow }}" hint-placeholder-val="{{ false }}">
-            <div class="ad-veil" onClick="{{ closeMenu }}"></div>
-            <div class="ad-menu" role="listbox" aria-labelledby="ad-l-role">
-              <sc-for list="{{ roleOpts }}" as="o" hint-placeholder-count="2">
-                <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}" data-tip="{{ o.tip }}"><i class="{{ o.icon }} ri"></i><span>{{ o.name }}</span><i class="ri-check-line ck"></i></button>
-              </sc-for>
-            </div>
-          </sc-if>
-        </div>
+          <!-- роль -->
+          <div class="ad-f">
+            <label id="ad-l-role">Роль<span class="ad-req" aria-hidden="true">*</span></label>
+            <button type="button" class="ad-sel" id="ad-role" onClick="{{ toggleRole }}" aria-expanded="{{ roleOpen }}" aria-haspopup="listbox" aria-labelledby="ad-l-role ad-role">
+              <sc-if value="{{ hasRole }}" hint-placeholder-val="{{ false }}"><span>{{ roleName }}</span></sc-if>
+              <sc-if value="{{ noRoleSel }}" hint-placeholder-val="{{ true }}"><span class="ph">Выберите роль</span></sc-if>
+              <i class="ri-arrow-down-s-line"></i>
+            </button>
+            <sc-if value="{{ roleShow }}" hint-placeholder-val="{{ false }}">
+              <div class="ad-veil" onClick="{{ closeMenu }}"></div>
+              <div class="ad-menu" role="listbox" aria-labelledby="ad-l-role">
+                <sc-for list="{{ roleOpts }}" as="o" hint-placeholder-count="2">
+                  <button type="button" class="ad-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.onClick }}" data-tip="{{ o.tip }}"><i class="{{ o.icon }} ri"></i><span>{{ o.name }}</span><i class="ri-check-line ck"></i></button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- сотрудник и роль редактируемого назначения -->
+        <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+          <div class="ad-who" role="group" aria-label="{{ edAria }}">
+            <span class="ad-av" aria-hidden="true">{{ edIni }}</span>
+            <div class="ad-who-tx"><b>{{ edFio }}</b><span>{{ edPost }}</span></div>
+            <span class="{{ edRoleCls }}" tabindex="0" data-tip="{{ edRoleTip }}"><i class="{{ edRoleIcon }}"></i>{{ edRole }}</span>
+          </div>
+        </sc-if>
 
         <!-- формы -->
         <div>
-          <div class="ad-lbl" id="ad-l-forms">Отчётные формы<span class="ad-req" aria-hidden="true">*</span></div>
+          <div class="ad-lbl" id="ad-l-forms">Отчётные формы<sc-if value="{{ isAdd }}" hint-placeholder-val="{{ true }}"><span class="ad-req" aria-hidden="true">*</span></sc-if></div>
           <div class="ad-fs" role="group" aria-labelledby="ad-l-forms">
-            <div class="ad-fs-hd">
-              <button type="button" class="ad-all" role="checkbox" aria-checked="{{ fAllState }}" onClick="{{ fAll }}" disabled="{{ fAllOff }}"><span class="ad-cb" aria-hidden="true" aria-checked="{{ fAllState }}" aria-disabled="{{ fAllOff }}"><i class="ri-check-line ck"></i><i class="ri-subtract-line mx"></i></span>Выбрать все</button>
-              <span class="ad-cnt" aria-live="polite">Выбрано: <b>{{ fCount }}</b></span>
-            </div>
+            <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ true }}">
+              <div class="ad-fs-hd">
+                <button type="button" class="ad-all" role="checkbox" aria-checked="{{ fAllState }}" onClick="{{ fAll }}" disabled="{{ fAllOff }}"><span class="ad-cb" aria-hidden="true" aria-checked="{{ fAllState }}" aria-disabled="{{ fAllOff }}"><i class="ri-check-line ck"></i><i class="ri-subtract-line mx"></i></span>Выбрать все</button>
+                <span class="ad-cnt" aria-live="polite">Выбрано: <b>{{ fCount }}</b></span>
+              </div>
+            </sc-if>
             <sc-if value="{{ fSearch }}" hint-placeholder-val="{{ false }}">
               <div class="ad-fs-s"><i class="ri-search-line"></i><input type="text" value="{{ fQ }}" onChange="{{ onFQ }}" placeholder="Наименование или индекс" aria-label="Поиск формы" autocomplete="off" spellcheck="false"></div>
             </sc-if>
-            <sc-for list="{{ fOpts }}" as="o" hint-placeholder-count="4">
-              <button type="button" class="ad-fo" role="checkbox" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}" onClick="{{ o.onClick }}">
-                <span class="ad-cb" aria-hidden="true" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}"><i class="ri-check-line ck"></i></span>
-                <code>{{ o.idx }}</code>
-                <span>{{ o.name }}<sc-if value="{{ o.isOff }}" hint-placeholder-val="{{ false }}"><small><i class="ri-check-double-line"></i>Уже назначена этому сотруднику</small></sc-if></span>
-              </button>
-            </sc-for>
+            <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ true }}">
+              <sc-for list="{{ fOpts }}" as="o" hint-placeholder-count="4">
+                <button type="button" class="ad-fo" role="checkbox" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}" onClick="{{ o.onClick }}">
+                  <span class="ad-cb" aria-hidden="true" aria-checked="{{ o.on }}" aria-disabled="{{ o.off }}"><i class="ri-check-line ck"></i></span>
+                  <span class="ad-fo-tx"><b>{{ o.idx }}</b><span>{{ o.name }}</span><sc-if value="{{ o.isOff }}" hint-placeholder-val="{{ false }}"><small><i class="ri-check-double-line"></i>Уже назначена этому сотруднику</small></sc-if></span>
+                </button>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+              <sc-if value="{{ hasEOn }}" hint-placeholder-val="{{ true }}">
+                <div class="ad-gl">Назначенные<b>{{ eOnCount }}</b></div>
+                <sc-for list="{{ eOn }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="{{ o.cls }}" id="{{ o.domId }}" role="checkbox" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}">
+                    <span class="ad-cb" aria-hidden="true" aria-checked="{{ o.on }}"><i class="ri-check-line ck"></i></span>
+                    <span class="ad-fo-tx"><b>{{ o.idx }}</b><span>{{ o.name }}</span></span>
+                  </button>
+                </sc-for>
+              </sc-if>
+              <sc-if value="{{ hasEOff }}" hint-placeholder-val="{{ true }}">
+                <div class="ad-gl">Не назначенные<b>{{ eOffCount }}</b><button type="button" class="ad-lnk" onClick="{{ eAll }}">{{ eAllLabel }}</button></div>
+                <sc-for list="{{ eOff }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="{{ o.cls }}" id="{{ o.domId }}" role="checkbox" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}">
+                    <span class="ad-cb" aria-hidden="true" aria-checked="{{ o.on }}"><i class="ri-check-line ck"></i></span>
+                    <span class="ad-fo-tx"><b>{{ o.idx }}</b><span>{{ o.name }}</span></span>
+                  </button>
+                </sc-for>
+              </sc-if>
+            </sc-if>
             <sc-if value="{{ fNone }}" hint-placeholder-val="{{ false }}"><div class="ad-fs-none">Формы не найдены</div></sc-if>
           </div>
         </div>
       </div>
       <div class="ad-dr-ft">
-        <span class="ad-hint"><sc-if value="{{ saveHint }}" hint-placeholder-val="{{ true }}"><i class="ri-information-line"></i>{{ saveHintText }}</sc-if></span>
+        <span class="ad-hint"><sc-if value="{{ saveHint }}" hint-placeholder-val="{{ true }}"><i class="ri-information-line"></i><span>{{ saveHintText }}<sc-if value="{{ canGoEdit }}" hint-placeholder-val="{{ false }}"> <button type="button" class="ad-lnk ad-lnk-in" onClick="{{ goEdit }}">Редактировать назначение</button></sc-if></span></sc-if></span>
         <button type="button" class="ad-btn sec" onClick="{{ closeDr }}">Отмена</button>
-        <button type="button" class="ad-btn pri" onClick="{{ saveAssign }}" disabled="{{ saveOff }}">
-          <sc-if value="{{ saving2 }}" hint-placeholder-val="{{ false }}"><span class="ad-spin"></span></sc-if>Сохранить назначение
+        <button type="button" class="ad-btn pri" onClick="{{ saveDr }}" disabled="{{ saveOff }}">
+          <sc-if value="{{ saving2 }}" hint-placeholder-val="{{ false }}"><span class="ad-spin"></span></sc-if>{{ saveLabel }}
         </button>
       </div>
     </aside>
+  </sc-if>
+
+  <!-- СНЯТИЕ ФОРМЫ С НАЗНАЧЕНИЯ (редактирование) -->
+  <sc-if value="{{ rmOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="ad-ov up" onClick="{{ closeRm }}"></div>
+    <div class="ad-mw up">
+      <div class="ad-modal" role="alertdialog" aria-modal="true" aria-labelledby="ad-rm-t" aria-describedby="ad-rm-d">
+        <div class="ad-m-bd">
+          <span class="ad-m-ic red" aria-hidden="true"><i class="ri-delete-bin-6-line"></i></span>
+          <div>
+            <h2 id="ad-rm-t">Удалить назначение сотрудника на форму «{{ rmName }}»?</h2>
+            <p id="ad-rm-d">{{ rmIdx }} · {{ rmWho }}</p>
+          </div>
+        </div>
+        <div class="ad-m-ft">
+          <button type="button" class="ad-btn sec sm" onClick="{{ closeRm }}">Отмена</button>
+          <button type="button" class="ad-btn dng sm" onClick="{{ confirmRm }}">Удалить</button>
+        </div>
+      </div>
+    </div>
   </sc-if>
 
   <!-- СНЯТИЕ ФОРМ С НАЗНАЧЕНИЯМИ -->
@@ -690,7 +791,7 @@ class Component extends DCLogic {
     let step = 1;
     try { if(location.hash === '#roles') step = 2; } catch(e){}
     this.state = { ready:false, loading:true, step, sel:[], q:'', view:'all', saving1:false, step1Err:false, lostOpen:false,
-      dr:null, open:null, empQ:'', fQ:'', saving2:false, saveErr:false, expanded:{}, flash:'', del:null, toast:'', toastErr:false, demoOpen:false, tick:0 };
+      dr:null, rm:null, open:null, empQ:'', fQ:'', saving2:false, saveErr:false, expanded:{}, flash:'', del:null, toast:'', toastErr:false, demoOpen:false, tick:0 };
   }
   componentDidMount(){
     this._ready = () => this.init();
@@ -709,12 +810,14 @@ class Component extends DCLogic {
   }
   componentDidUpdate(){
     const s = this.state, p = this._prev || {};
-    this._prev = { open:s.open, dr:!!s.dr, step:s.step, lostOpen:s.lostOpen, del:!!s.del };
+    this._prev = { open:s.open, dr:!!s.dr, mode:s.dr && s.dr.mode, step:s.step, lostOpen:s.lostOpen, del:!!s.del, rm:s.rm };
     if(s.open && p.open !== s.open){
       setTimeout(() => { const m = document.querySelector('.ad-dr .ad-menu'); if(!m) return; const el = m.querySelector('input') || m.querySelector('[aria-selected="true"]') || m.querySelector('.ad-opt'); if(el) el.focus(); }, 20);
     }
     if(p.open && !s.open && s.dr){ const t = document.getElementById(p.open === 'emp' ? 'ad-emp' : 'ad-role'); if(t) try { t.focus(); } catch(e){} }
-    if(s.dr && !p.dr) setTimeout(() => { const b = document.getElementById('ad-emp'); if(b) b.focus(); }, 30);
+    if(s.dr && (!p.dr || p.mode !== s.dr.mode)) setTimeout(() => { const b = document.getElementById('ad-emp') || document.querySelector('.ad-dr .ad-fo') || document.querySelector('.ad-dr .ad-close'); if(b) b.focus(); }, 30);
+    if(s.rm && !p.rm) setTimeout(() => { const b = document.querySelector('.ad-mw.up .ad-btn.sec'); if(b) b.focus(); }, 30);
+    if(p.rm && !s.rm) setTimeout(() => { const b = document.getElementById('fo-' + p.rm); if(b) b.focus(); }, 20);
     if(s.lostOpen && !p.lostOpen) setTimeout(() => { const b = document.querySelector('.ad-modal .ad-btn.pri'); if(b) b.focus(); }, 30);
     if(s.del && !p.del) setTimeout(() => { const b = document.querySelector('.ad-modal .ad-btn.sec'); if(b) b.focus(); }, 30);
     if(p.step && p.step !== s.step){
@@ -742,7 +845,8 @@ class Component extends DCLogic {
   onKey(e){
     const s = this.state;
     if(e.key === 'Escape'){
-      if(s.open) this.setState({ open:null, empQ:'' });
+      if(s.rm) this.setState({ rm:null });
+      else if(s.open) this.setState({ open:null, empQ:'' });
       else if(s.demoOpen) this.setState({ demoOpen:false });
       else if(s.del) this.setState({ del:null });
       else if(s.lostOpen) this.setState({ lostOpen:false });
@@ -759,7 +863,7 @@ class Component extends DCLogic {
       if(n) n.focus();
     }
     if(e.key === 'Tab' && (s.dr || s.lostOpen || s.del)){
-      const box = document.querySelector(s.lostOpen || s.del ? '.ad-modal' : '.ad-dr'); if(!box) return;
+      const box = document.querySelector(s.rm || s.lostOpen || s.del ? '.ad-modal' : '.ad-dr'); if(!box) return;
       const items = Array.from(box.querySelectorAll('button:not(:disabled), input, [tabindex="0"]')).filter(x => x.offsetParent !== null);
       if(!items.length) return;
       const first = items[0], last = items[items.length - 1], a = document.activeElement;
@@ -808,10 +912,19 @@ class Component extends DCLogic {
   }
 
   // ——— шаг 2: назначение ———
-  openAdd(emp, role){
-    this.setState({ dr:{ emp:emp || '', role:role || '', forms:[] }, open:null, empQ:'', fQ:'', saveErr:false, saving2:false });
+  // dr: { mode:'add' | 'edit', id, emp, role, forms, orig } — orig: формы назначения на момент открытия (редактирование)
+  remember(){ this._ret = document.activeElement; }
+  restore(fallback){ setTimeout(() => { const r = this._ret; const b = r && r !== document.body && document.body.contains(r) ? r : document.querySelector(fallback); if(b) try { b.focus(); } catch(e){} }, 20); }
+  openAdd(){
+    this.remember();
+    this.setState({ dr:{ mode:'add', emp:'', role:'', forms:[] }, rm:null, open:null, empQ:'', fQ:'', saveErr:false, saving2:false });
   }
-  closeDr(){ if(this.state.saving2) return; this.setState({ dr:null, open:null }); setTimeout(() => { const b = document.querySelector('.ad-bar .ad-btn.pri'); if(b) b.focus(); }, 20); }
+  openEdit(id){
+    const a = this.R().assign(id); if(!a) return;
+    if(!this.state.dr) this.remember();
+    this.setState({ dr:{ mode:'edit', id, emp:a.emp, role:a.role, forms:[...a.forms], orig:[...a.forms] }, rm:null, open:null, empQ:'', fQ:'', saveErr:false, saving2:false });
+  }
+  closeDr(){ if(this.state.saving2) return; this.setState({ dr:null, rm:null, open:null }); this.restore('.ad-bar .ad-btn.pri'); }
   setDr(patch){
     const R = this.R();
     this.setState(st => {
@@ -823,30 +936,45 @@ class Component extends DCLogic {
   }
   toggleForm(id){
     const d = this.state.dr;
+    // редактирование: снятие ранее назначенной формы — только после подтверждения
+    if(d.mode === 'edit' && d.orig.includes(id) && d.forms.includes(id)){ this.setState({ rm:id }); return; }
     this.setState({ dr:{ ...d, forms: d.forms.includes(id) ? d.forms.filter(x => x !== id) : d.forms.concat(id) }, saveErr:false });
+  }
+  confirmRm(){
+    const d = this.state.dr, id = this.state.rm; if(!d || !id) return;
+    this.setState({ dr:{ ...d, forms:d.forms.filter(x => x !== id) }, rm:null, saveErr:false });
   }
   drForms(){
     const R = this.R(), d = this.state.dr, q = this.state.fQ.trim().toLowerCase();
-    const had = d && d.emp && d.role ? R.assigned(d.emp, d.role) : [];
+    const had = d && d.mode === 'add' && d.emp && d.role ? R.assigned(d.emp, d.role) : [];
     return R.forms().map(id => R.FORM[id]).filter(f => !q || (f.name + ' ' + f.idx + ' ' + f.app).toLowerCase().includes(q)).map(f => ({ f, off:had.includes(f.id) }));
   }
-  saveAssign(){
+  changed(){
+    const d = this.state.dr; if(!d || d.mode !== 'edit') return false;
+    return d.forms.length !== d.orig.length || d.forms.some(f => !d.orig.includes(f));
+  }
+  saveDr(){
     const R = this.R(), s = this.state, d = s.dr;
-    if(!d || s.saving2 || this.saveReason()) return;
+    if(!d || s.saving2) return;
+    if(d.mode === 'add' ? this.saveReason() : !this.changed()) return;
     this.setState({ saving2:true, saveErr:false });
     clearTimeout(this._st);
     this._st = setTimeout(() => {
       if(this.scn() === 'saveErr'){ this.setState({ saving2:false, saveErr:true }); return; }
-      const id = R.addAssign(d.emp, d.role, d.forms);
-      this.setState({ saving2:false, dr:null, flash:id, expanded:{ ...this.state.expanded, [id]:true } });
-      this.say('Назначение сохранено');
-      setTimeout(() => { const el = document.getElementById('as-' + id); if(el){ const r = el.getBoundingClientRect(); if(r.top < 90 || r.bottom > innerHeight - 80) el.scrollIntoView({ behavior:'smooth', block:'center' }); } }, 60);
-      clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ flash:'' }), 2600);
+      let id = d.id, kept = true;
+      if(d.mode === 'add') id = R.addAssign(d.emp, d.role, d.forms);
+      else kept = R.setAssignForms(d.id, d.forms);
+      this.setState({ saving2:false, dr:null, rm:null, flash: kept ? id : '', expanded: kept ? { ...this.state.expanded, [id]:true } : this.state.expanded });
+      this.say(d.mode === 'add' ? 'Назначение сохранено' : kept ? 'Изменения сохранены' : 'Назначение удалено');
+      if(kept){
+        setTimeout(() => { const el = document.getElementById('as-' + id); if(!el) return; const r = el.getBoundingClientRect(); if(r.top < 90 || r.bottom > innerHeight - 80) el.scrollIntoView({ behavior:'smooth', block:'center' }); const b = el.querySelector('.ad-ib'); if(b) try { b.focus({ preventScroll:true }); } catch(e){} }, 60);
+        clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ flash:'' }), 2600);
+      } else this.restore('.ad-bar .ad-btn.pri');
     }, 650);
   }
   // причина блокировки «Сохранить назначение»
   saveReason(){
-    const d = this.state.dr; if(!d) return '';
+    const d = this.state.dr; if(!d || d.mode !== 'add') return '';
     if(!d.emp) return 'Выберите сотрудника';
     if(!d.role) return 'Выберите роль';
     if(!d.forms.length){
@@ -923,16 +1051,23 @@ class Component extends DCLogic {
         hasMore: forms.length > LIMIT + 1, open: open ? 'true' : 'false',
         moreLabel: open ? 'Свернуть' : `Ещё ${rest} ${R.plural(rest, ['форма', 'формы', 'форм'])}`, moreIcon: open ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
         onMore:() => this.setState(st => ({ expanded:{ ...st.expanded, [a.id]:!st.expanded[a.id] } })),
-        onAdd:() => this.openAdd(a.emp, a.role), addAria:`Добавить формы: ${e.fio}, ${r.name}`,
+        onEdit:() => this.openEdit(a.id), editAria:`Редактировать назначение: ${e.fio}, ${r.name}`,
         onDel:() => this.setState({ del:a.id }), delAria:`Удалить назначение: ${e.fio}, ${r.name}` };
     });
 
     // ——— панель назначения ———
-    const d = s.dr, staff = this.staff();
+    const d = s.dr, staff = this.staff(), isEdit = !!d && d.mode === 'edit';
     const eq = s.empQ.trim().toLowerCase();
     const empList = staff.filter(e => !eq || e.fio.toLowerCase().includes(eq));
     const emp = d && d.emp ? R.EMP[d.emp] : null, role = d && d.role ? R.ROLE[d.role] : null;
     const fl = d ? this.drForms() : [];
+    // редактирование: назначенные (на момент открытия) и остальные формы организации
+    const eItem = x => { const on = d.forms.includes(x.f.id), was = d.orig.includes(x.f.id);
+      return { idx:x.f.idx, name:x.f.name, on: on ? 'true' : 'false', domId:'fo-' + x.f.id, cls:'ad-fo' + (was && !on ? ' rm' : ''), onClick:() => this.toggleForm(x.f.id) }; };
+    const eOnL = isEdit ? fl.filter(x => d.orig.includes(x.f.id)) : [], eOffL = isEdit ? fl.filter(x => !d.orig.includes(x.f.id)) : [];
+    const eOffIds = eOffL.map(x => x.f.id), eOffAll = eOffIds.length > 0 && eOffIds.every(id => d.forms.includes(id));
+    const dup = d && d.mode === 'add' && d.emp && d.role ? R.find(d.emp, d.role) : null;
+    const rmF = s.rm ? R.FORM[s.rm] : null;
     const free = fl.filter(x => !x.off);
     const freeOn = free.filter(x => d.forms.includes(x.f.id)).length;
     const reason = this.saveReason();
@@ -963,7 +1098,17 @@ class Component extends DCLogic {
       showAssigns: isStep2 && !loading && assigns.length > 0, noAssigns: isStep2 && !loading && !assigns.length, assigns,
       back:() => this.goStep(1),
 
-      drOpen:!!d, closeDr:() => this.closeDr(), saveErr:s.saveErr,
+      drOpen:!!d, closeDr:() => this.closeDr(), saveErr:s.saveErr, isAdd:!!d && !isEdit, isEdit,
+      drTitle: isEdit ? 'Редактирование назначения' : 'Новое назначение',
+      saveErrText: isEdit ? 'Не удалось сохранить изменения. Повторите попытку' : 'Не удалось сохранить назначение. Повторите попытку',
+      edIni: emp ? R.initials(emp.fio) : '', edFio: emp ? emp.fio : '', edPost: emp ? emp.post : '', edAria: emp && role ? `${emp.fio}, ${role.name}` : '',
+      edRole: role ? role.name : '', edRoleIcon: role ? role.icon : '', edRoleTip: role ? role.tip : '', edRoleCls: 'ad-role ' + (role ? role.id : ''),
+      hasEOn: eOnL.length > 0, eOnCount: isEdit ? d.orig.length : 0, eOn: eOnL.map(eItem),
+      hasEOff: eOffL.length > 0, eOffCount: isEdit ? R.forms().filter(id => !d.orig.includes(id)).length : 0, eOff: eOffL.map(eItem),
+      eAllLabel: eOffAll ? 'Снять выбор' : 'Выбрать все',
+      eAll:() => this.setState({ dr:{ ...d, forms: eOffAll ? d.forms.filter(id => !eOffIds.includes(id)) : [...new Set(d.forms.concat(eOffIds))] }, saveErr:false }),
+      rmOpen:!!rmF, closeRm:() => this.setState({ rm:null }), confirmRm:() => this.confirmRm(),
+      rmName: rmF ? rmF.name : '', rmIdx: rmF ? rmF.idx : '', rmWho: emp ? emp.fio : '',
       empOpen: s.open === 'emp' ? 'true' : 'false', roleOpen: s.open === 'role' ? 'true' : 'false', empShow: s.open === 'emp', roleShow: s.open === 'role',
       toggleEmp:() => this.setState(st => ({ open:st.open === 'emp' ? null : 'emp', empQ:'' })),
       toggleRole:() => this.setState(st => ({ open:st.open === 'role' ? null : 'role' })),
@@ -975,14 +1120,16 @@ class Component extends DCLogic {
       hasRole:!!role, noRoleSel:!role, roleName: role ? role.name : '',
       roleOpts: R.ROLES.map(r => ({ ...r, on: d && d.role === r.id ? 'true' : 'false', onClick:() => this.setDr({ role:r.id }) })),
       fSearch: R.forms().length > 8, fQ:s.fQ, onFQ:(e) => this.setState({ fQ:e.target.value }),
-      fOpts: fl.map(x => ({ idx:x.f.idx, name:x.f.name, isOff:x.off, off: x.off ? 'true' : 'false', on: x.off || (d && d.forms.includes(x.f.id)) ? 'true' : 'false',
+      fOpts: isEdit ? [] : fl.map(x => ({ idx:x.f.idx, name:x.f.name, isOff:x.off, off: x.off ? 'true' : 'false', on: x.off || (d && d.forms.includes(x.f.id)) ? 'true' : 'false',
         onClick:() => { if(!x.off) this.toggleForm(x.f.id); } })),
       fNone: !!d && !fl.length,
       fCount: d ? d.forms.length : 0,
       fAllState: !free.length || !freeOn ? 'false' : freeOn === free.length ? 'true' : 'mixed', fAllOff: !free.length,
       fAll:() => { const ids = free.map(x => x.f.id), all = ids.every(id => d.forms.includes(id)); this.setState({ dr:{ ...d, forms: all ? d.forms.filter(id => !ids.includes(id)) : [...new Set(d.forms.concat(ids))] }, saveErr:false }); },
       saveHint: !!reason && !s.saving2, saveHintText: reason,
-      saveOff: !!reason || s.saving2, saving2:s.saving2, saveAssign:() => this.saveAssign(),
+      canGoEdit: !!dup && reason === 'Все формы уже назначены этому сотруднику', goEdit:() => { if(dup) this.openEdit(dup.id); },
+      saveOff: (isEdit ? !this.changed() : !!reason) || s.saving2, saving2:s.saving2, saveDr:() => this.saveDr(),
+      saveLabel: isEdit ? 'Сохранить' : 'Сохранить назначение',
 
       lostOpen:s.lostOpen, closeLost:() => this.setState({ lostOpen:false }), confirmLost:() => this.saveForms(),
       lostList: lost.map(x => ({ who:R.short(R.EMP[x.a.emp].fio), role:R.ROLE[x.a.role].name, forms:x.gone.map(id => R.FORM[id].idx).join(', ') })),
