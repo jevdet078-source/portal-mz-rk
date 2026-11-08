@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  «Инструкции» — все обучающие видео и инструкции портала (ссылка «Все материалы» из панели «Инструкции» шапки).
+  Публичный раздел: разделы портала слева (ленты на планшете и телефоне), поиск, видео и документы; ?g=<раздел> — открыть раздел.
+  Содержимое и окна просмотра — HelpCenter (mode="page" здесь, mode="viewer" — в шапке). На мониторах — на всю ширину экрана.
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hp{ --wrap:100%; --hc-sticky:72px; display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .hp, .hp *, .hp *::before, .hp *::after{ box-sizing:border-box; }
+  .hp-top{ position:sticky; top:0; z-index:40; }
+  .hp-main{ flex:1 0 auto; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0, #fff 340px); padding-bottom:clamp(40px,4vw,80px); }
+  html[data-fill="flat"] .hp-main{ background:#fff; }
+  .hp-crumbs{ display:flex; align-items:center; gap:6px; margin:0; padding:clamp(12px,1vw,18px) 0 0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); min-height:36px; }
+  .hp-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .hp-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .hp-crumbs a:hover{ color:var(--b700); }
+  .hp-crumbs a:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .hp-crumbs a i{ font-size:16px; }
+  .hp-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .hp-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+  @media (max-width:1080px){ .hp{ --hc-sticky:105px; } }
+  @media (max-width:560px){ .hp-crumbs{ font-size:13px; } }
+</style>
+</helmet>
+<div class="hp">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <div class="hp-top"><dc-import name="PortalHeader" look="light" section="help" reports="1" hint-size="100%,72px"></dc-import></div>
+  <main class="hp-main">
+    <div class="hm-wrap">
+      <nav aria-label="Хлебные крошки">
+        <ol class="hp-crumbs">
+          <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+          <li><span aria-current="page">Инструкции</span></li>
+        </ol>
+      </nav>
+      <dc-import name="HelpCenter" mode="page" hint-size="100%,900px"></dc-import>
+    </div>
+  </main>
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+class Component extends DCLogic {
+  renderVals(){
+    return { homeHref: lsGet('mp-home-page') || 'Главная H - Витрина.dc.html' };
+  }
+}
+</script>
+</body>
+</html>

@@ -15,7 +15,8 @@
           | official — белая + верхняя служебная строка (официальный ресурс, телефоны 103 / 112 / 1414)
     roles = "0"      — не показывать вкладки ролей (вариант C выбирает роль в баннере)
     reports = "1"    — пункт «Отчётные формы» и компактная шапка (главные G, H, I и их разделы; на остальных главных пункта нет)
-    section = protocols | reports — открыт самостоятельный раздел: активен его пункт, а не роль;
+              + пункт «Инструкции» с выпадающей панелью (HelpCenter mode="panel") и окнами просмотра видео / документов (HelpCenter mode="viewer")
+    section = protocols | reports | help — открыт самостоятельный раздел: активен его пункт, а не роль;
               роль и герб ведут на главную, с которой пришли (localStorage['mp-home-page'], её запоминает шапка главной)
   Роль — localStorage['mp-role'] + событие 'mp-role-change' (как у общей шапки Header).
   «Доступность» — размер текста и контраст (HomeData.setA11y), для старшей аудитории и слабовидящих.
@@ -103,9 +104,9 @@
   .ph-ts{ display:none; }
 
   /* четыре пункта меню: на ноутбуках «Доступность» — значком (подсказка в title), название министерства — гербом */
-  @media (max-width:1520px){ .ph-ibtn .ph-t{ display:none; } }
-  @media (max-width:1360px){ .ph-name{ display:none; } }
-  @media (max-width:1180px){ .ph-name span{ display:none; } .ph-role{ padding:0 10px; } }
+  @media (max-width:1520px){ .ph:not(.ph-c) .ph-ibtn .ph-t{ display:none; } }
+  @media (max-width:1360px){ .ph:not(.ph-c) .ph-name{ display:none; } }
+  @media (max-width:1180px){ .ph:not(.ph-c) .ph-name span{ display:none; } .ph:not(.ph-c) .ph-role{ padding:0 10px; } }
   @media (max-width:960px){
     .ph-name{ display:block; }
     .ph-bar{ flex-wrap:wrap; height:auto; padding-top:12px; row-gap:6px; }
@@ -117,30 +118,72 @@
     .ph-util-in .ph-tel{ margin-left:0; }
   }
   @media (max-width:560px){ .ph-name{ display:none; } .ph-login .ph-t{ display:none; } .ph-login{ padding:0 12px; } .ph-util-in .opt{ display:none; } }
-  /* Пять пунктов меню (.ph-c): место дают подписи, а не пункты — «Доступность» всегда значком; на ноутбуках пункты без значков,
-     название министерства короче, «Кабинет бизнеса» → «Кабинет» (полное название — в подсказке), язык без глобуса */
+  /* Компактная шапка (.ph-c: главные G, H, I и их разделы) — шесть пунктов меню, последний «Инструкции» с выпадающей панелью.
+     Место отдают подписи, а не пункты: шапка сама подбирает плотность под ширину (fit() ставит data-fit на .ph-bar), по шагам —
+     icons: пункты без значков → cab: «Кабинет» вместо полного названия (оно в подсказке) → name: короткое название министерства →
+     lang: язык без глобуса → pad: пункты плотнее → proto: «Протоколы» (полное — в подсказке) → brand: только герб → login: вход значком.
+     Так меню не переполняется ни у гостя, ни в кабинете руководителя, на любом ноутбуке. До 1080 px — две строки, пункты лентой. */
+  .ph-ps{ display:none; }
   .ph-c .ph-ibtn .ph-t{ display:none; }
-  @media (max-width:1699px){
-    .ph-c .ph-name{ display:none; } .ph-c .ph-sn{ display:block; }
-    .ph-c .ph-brand{ gap:10px; }
-    .ph-c .ph-role{ padding:0 12px; } .ph-c .ph-role i{ display:none; } .ph-c .ph-role::after{ left:8px; right:8px; }
-    .ph-c .ph-bar{ gap:clamp(12px,1.6vw,28px); }
+  .ph-c .ph-bar{ gap:clamp(12px,1.6vw,28px); }
+  .ph-bar[data-fit~="icons"] .ph-role i:not(.ph-chev){ display:none; }
+  .ph-bar[data-fit~="icons"] .ph-role{ padding:0 12px; }
+  .ph-bar[data-fit~="icons"] .ph-role::after{ left:8px; right:8px; }
+  .ph-bar[data-fit~="cab"] .ph-login .ph-t{ display:none; }
+  .ph-bar[data-fit~="cab"] .ph-login .ph-ts{ display:inline; }
+  .ph-bar[data-fit~="cab"] .ph-login{ padding:0 14px; }
+  .ph-bar[data-fit~="name"] .ph-name{ display:none; }
+  .ph-bar[data-fit~="name"] .ph-sn{ display:block; }
+  .ph-bar[data-fit~="name"] .ph-brand{ gap:10px; }
+  .ph-bar[data-fit~="lang"] .ph-lang i{ display:none; }
+  .ph-bar[data-fit~="proto"] .ph-pf{ display:none; }
+  .ph-bar[data-fit~="proto"] .ph-ps{ display:inline; }
+  .ph-bar[data-fit~="pad"]{ gap:clamp(12px,1.2vw,20px); }
+  .ph-bar[data-fit~="pad"] .ph-role{ padding:0 10px; }
+  .ph-bar[data-fit~="pad"] .ph-role::after{ left:6px; right:6px; }
+  .ph-bar[data-fit~="brand"] .ph-sn{ display:none; }
+  .ph-bar[data-fit~="login"] .ph-login .ph-ts{ display:none; }
+  .ph-bar[data-fit~="login"] .ph-login{ width:40px; padding:0; justify-content:center; }
+
+  /* «Инструкции»: пункт меню с шевроном (открывает панель), на планшете и телефоне — кнопка в верхней строке */
+  .ph-help .ph-chev{ font-size:16px; margin-left:-4px; color:var(--n400); transition:transform .2s, color .15s; }
+  .ph-help:hover .ph-chev{ color:var(--n600); }
+  .ph-help[aria-expanded="true"]{ color:var(--b700); }
+  .ph-help[aria-expanded="true"] .ph-chev{ transform:rotate(180deg); color:var(--b600); }
+  .ph-glass:not(.ph-solid) .ph-help .ph-chev{ color:rgba(255,255,255,.6); }
+  .ph-help-m{ display:none; text-decoration:none; }
+  .ph-ibtn[aria-current="page"]{ box-shadow:inset 0 0 0 1px var(--b400); background:var(--b50); color:var(--b700); }
+  .ph-ibtn[aria-expanded="true"] i, .ph-ibtn[aria-current="page"] i{ color:var(--b600); }
+
+  /* панель «Инструкции»: под шапкой, по ширине содержимого страницы; страница под ней затемнена и не прокручивается */
+  .ph-wrap{ position:relative; }
+  @keyframes ph-fade{ from{ opacity:0; } to{ opacity:1; } }
+  .ph-scrim{ position:fixed; left:0; right:0; bottom:0; top:var(--hc-top,72px); z-index:1; background:rgba(10,13,20,.28); animation:ph-fade .2s ease; }
+  .ph-mega{ position:absolute; left:0; right:0; top:calc(100% + 8px); z-index:2; width:min(100% - 2*var(--gut,40px), var(--wrap,1760px)); margin-inline:auto; animation:ph-drop .18s ease; }
+
+  @media (max-width:1080px){
+    .ph-c .ph-name{ display:none; } .ph-c .ph-sn{ display:block; } .ph-c .ph-brand{ gap:10px; }
+    .ph-c .ph-bar{ flex-wrap:wrap; height:auto; padding-top:12px; row-gap:6px; }
+    .ph-c .ph-roles{ order:3; flex:1 0 100%; height:46px; overflow-x:auto; scrollbar-width:none; margin:0 calc(-1 * var(--gut,16px)); padding:0 calc(var(--gut,16px) - 10px); border-top:1px solid var(--n200); }
+    .ph-c.ph-glass:not(.ph-solid) .ph-roles{ border-top-color:rgba(255,255,255,.14); }
+    .ph-c .ph-roles::-webkit-scrollbar{ display:none; }
+    .ph-c .ph-role{ flex:1 0 auto; justify-content:center; padding:0 10px; }
+    .ph-c .ph-role i{ display:none; }
+    .ph-c .ph-lang i{ display:none; }
+    .ph-c .ph-login .ph-t{ display:none; } .ph-c .ph-login .ph-ts{ display:inline; } .ph-c .ph-login{ padding:0 14px; }
+    .ph-c .ph-help{ display:none; }
+    .ph-c .ph-help-m{ display:inline-flex; }
+    .ph-mega{ position:fixed; top:var(--hc-top,110px); bottom:0; width:100%; background:#fff; animation:ph-fade .18s ease; }
+    .ph-mega .hc{ height:100%; }
+    .ph-scrim{ display:none; }
   }
-  @media (max-width:1399px){
-    .ph-c .ph-login .ph-t{ display:none; } .ph-c .ph-login .ph-ts{ display:inline; }
-    .ph-c .ph-lang i{ display:none; } .ph-c .ph-login{ padding:0 14px; }
+  @media (max-width:560px){
+    .ph-c .ph-sn, .ph-c .ph-login .ph-ts, .ph-c .ph-help-m .ph-hl{ display:none; }
+    .ph-c .ph-login, .ph-c .ph-help-m{ width:40px; padding:0; justify-content:center; }
   }
-  @media (max-width:1180px){
-    .ph-c .ph-sn{ display:none; } .ph-c .ph-role{ padding:0 10px; }
-    .ph-c .ph-login .ph-ts{ display:none; } .ph-c .ph-login{ width:40px; padding:0; justify-content:center; }
-  }
-  @media (max-width:960px){
-    .ph-c .ph-sn{ display:block; } .ph-c .ph-login{ width:auto; padding:0 14px; } .ph-c .ph-login .ph-ts{ display:inline; }
-  }
-  @media (max-width:560px){ .ph-c .ph-sn, .ph-c .ph-login .ph-ts{ display:none; } .ph-c .ph-login{ width:40px; padding:0; } }
 </style>
 </helmet>
-<div>
+<div class="ph-wrap" ref="{{ rootRef }}" style="{{ wrapStyle }}">
   <sc-if value="{{ official }}" hint-placeholder-val="{{ false }}">
     <div class="ph-util">
       <div class="ph-util-in">
@@ -154,7 +197,7 @@
     </div>
   </sc-if>
   <header class="{{ cls }}">
-    <div class="ph-bar">
+    <div class="ph-bar" ref="{{ barRef }}">
       <sc-if value="{{ showBrand }}" hint-placeholder-val="{{ true }}">
       <a class="ph-brand" href="{{ homeHref }}" aria-label="Министерство здравоохранения Республики Казахстан — на главную">
         <span class="ph-emb"><img src="uploads/images.jpg" alt="Государственный герб Республики Казахстан"></span>
@@ -168,14 +211,26 @@
           <sc-for list="{{ roles }}" as="r" hint-placeholder-count="3">
             <button class="ph-role" onClick="{{ r.onClick }}" aria-current="{{ r.on }}"><i class="{{ r.icon }}"></i>{{ r.label }}</button>
           </sc-for>
-          <a class="ph-role" href="Клинические протоколы.dc.html" aria-current="{{ protoCur }}"><i class="ri-file-list-3-line"></i>Клинические протоколы</a>
+          <a class="ph-role ph-proto" href="Клинические протоколы.dc.html" aria-current="{{ protoCur }}" aria-label="Клинические протоколы"><i class="ri-file-list-3-line"></i><span class="ph-pf">Клинические протоколы</span><span class="ph-ps">Протоколы</span></a>
           <sc-if value="{{ showReports }}" hint-placeholder-val="{{ false }}">
             <a class="ph-role" href="{{ reportsHref }}" aria-current="{{ reportsCur }}"><i class="ri-file-chart-line"></i>Отчётные формы</a>
+          </sc-if>
+          <sc-if value="{{ helpMenu }}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="ph-role ph-help" ref="{{ helpRef }}" onClick="{{ toggleMega }}" aria-expanded="{{ megaOpenStr }}" aria-controls="ph-mega"><i class="ri-play-circle-line"></i>Инструкции<i class="ri-arrow-down-s-line ph-chev" aria-hidden="true"></i></button>
+          </sc-if>
+          <sc-if value="{{ helpPage }}" hint-placeholder-val="{{ false }}">
+            <a class="ph-role ph-help" href="Инструкции.dc.html" aria-current="page"><i class="ri-play-circle-line"></i>Инструкции</a>
           </sc-if>
         </nav>
       </sc-if>
 
       <div class="ph-acts">
+        <sc-if value="{{ helpMenu }}" hint-placeholder-val="{{ false }}">
+          <button type="button" class="ph-ibtn ph-help-m" ref="{{ helpMRef }}" onClick="{{ toggleMega }}" aria-expanded="{{ megaOpenStr }}" aria-controls="ph-mega" aria-label="Инструкции"><i class="ri-play-circle-line"></i><span class="ph-hl">Инструкции</span></button>
+        </sc-if>
+        <sc-if value="{{ helpPage }}" hint-placeholder-val="{{ false }}">
+          <a class="ph-ibtn ph-help-m" href="Инструкции.dc.html" aria-current="page" aria-label="Инструкции"><i class="ri-play-circle-line"></i><span class="ph-hl">Инструкции</span></a>
+        </sc-if>
         <div style="position:relative;">
           <button class="ph-ibtn" onClick="{{ toggleA11y }}" aria-expanded="{{ a11yOpen }}" aria-haspopup="dialog" aria-label="Доступность" data-tip="Доступность: размер текста и контраст"><i class="ri-eye-line"></i><span class="ph-t">Доступность</span></button>
           <sc-if value="{{ a11yOpen }}" hint-placeholder-val="{{ false }}">
@@ -207,6 +262,11 @@
       </div>
     </div>
   </header>
+  <sc-if value="{{ megaOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="ph-scrim" aria-hidden="true"></div>
+    <div class="ph-mega" id="ph-mega" onBlur="{{ megaBlur }}"><dc-import name="HelpCenter" mode="panel" hint-size="100%,600px"></dc-import></div>
+  </sc-if>
+  <sc-if value="{{ showHelp }}" hint-placeholder-val="{{ false }}"><dc-import name="HelpCenter" mode="viewer" hint-size="0px,0px"></dc-import></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:110}}">
@@ -220,15 +280,27 @@ const CABINET = { citizen:{ label:'Личный кабинет', icon:'ri-user-3
   medical:{ label:'Кабинет врача', icon:'ri-stethoscope-line', href:'Профиль врача.dc.html' }, gov:{ label:'Кабинет сотрудника', icon:'ri-government-line', href:'АРМ ННЦРЗ.dc.html' } };
 const HEAD_CAB = { label:'Кабинет руководителя', icon:'ri-user-star-line', href:'Администрирование отчётности.dc.html' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+// шаги уплотнения компактной шапки (см. комментарий у стилей .ph-c), по порядку
+const FIT = ['icons', 'cab', 'name', 'lang', 'pad', 'proto', 'brand', 'login'];
+const mq = (q) => { try { return window.matchMedia(q).matches; } catch(e){ return false; } };
+// прокрутка страницы под панелью и окнами — общий счётчик с HelpCenter
+const lockScroll = (on) => {
+  const d = document.documentElement, n = Math.max(0, (window.__mpScrollLock || 0) + (on ? 1 : -1));
+  if(on && n === 1){ const sw = window.innerWidth - d.clientWidth; d.style.overflow = 'hidden'; if(sw > 0) d.style.paddingRight = sw + 'px'; }
+  if(!on && n === 0){ d.style.overflow = ''; d.style.paddingRight = ''; }
+  window.__mpScrollLock = n;
+};
 class Component extends DCLogic {
   constructor(props){
     super(props);
+    this.rootRef = React.createRef(); this.barRef = React.createRef(); this.helpRef = React.createRef(); this.helpMRef = React.createRef();
     let a = { size:'md', contrast:false };
     try { a = { ...a, ...JSON.parse(lsGet('mp-a11y') || '{}') }; } catch(e){}
     const r = lsGet('mp-role');
     this.state = { role: ROLES.some(x => x.id === r) ? r : 'citizens', lang: lsGet('mp-lang') || 'РУС', biz: lsGet('mp-profile') === 'business',
-      a11y:a, profile: lsGet('mp-profile'), a11yOpen:false, langOpen:false, solid:false };
+      a11y:a, profile: lsGet('mp-profile'), a11yOpen:false, langOpen:false, solid:false, megaOpen:false, hcTop:72, hcAvail:700 };
   }
+  compact(){ return this.props.reports === '1' || this.props.section === 'reports' || this.props.section === 'help'; }
   componentDidMount(){
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
@@ -237,8 +309,34 @@ class Component extends DCLogic {
     this._onScroll = () => { const s = window.scrollY > 24; if(s !== this.state.solid) this.setState({ solid:s }); };
     window.addEventListener('scroll', this._onScroll, { passive:true });
     this._onScroll();
-    this._esc = (e) => { if(e.key === 'Escape' && (this.state.a11yOpen || this.state.langOpen)) this.setState({ a11yOpen:false, langOpen:false }); };
+    this._esc = (e) => {
+      if(e.key !== 'Escape') return;
+      if(this.state.megaOpen){ this.closeMega(true); return; }
+      if(this.state.a11yOpen || this.state.langOpen) this.setState({ a11yOpen:false, langOpen:false });
+    };
     window.addEventListener('keydown', this._esc);
+    // «Инструкции»: панель закрывается по клику вне неё, по Esc, при открытии материала; после просмотра фокус — на пункт меню
+    this._down = (e) => {
+      if(!this.state.megaOpen) return;
+      const t = e.target; if(t && t.closest && (t.closest('.ph-mega') || t.closest('.ph-help') || t.closest('.ph-help-m'))) return;
+      this.closeMega(false);
+    };
+    document.addEventListener('pointerdown', this._down, true);
+    this._helpPanel = (e) => { const d = (e && e.detail) || {}; if(d.open === false){ if(!d.focus) this._helpBack = true; this.closeMega(!!d.focus); } };
+    window.addEventListener('mp-help-panel', this._helpPanel);
+    this._helpViewer = (e) => {
+      const d = (e && e.detail) || {}; this._viewerOpen = !!d.open;
+      this.lift(!!d.open || this.state.megaOpen);
+      if(!d.open && this._helpBack){ this._helpBack = false; if(!d.focused) this.focusHelp(); }
+    };
+    window.addEventListener('mp-help-viewer', this._helpViewer);
+    this._rs = () => { if(this.compact()) this.fit(); if(this.state.megaOpen) this.measure(); };
+    window.addEventListener('resize', this._rs);
+    // плотность компактной шапки — по фактической ширине подписей (вход, кабинет, язык), до первой отрисовки
+    if(this.compact()){
+      this.fit();
+      try { document.fonts.ready.then(() => this.fit()); } catch(e){}
+    }
     // главная запоминает себя — с внутренней страницы раздела вернёмся на тот же вариант
     if(!this.props.section){
       try { const f = decodeURIComponent(location.pathname.split('/').pop() || ''); if(/^Главная .+\.dc\.html$/.test(f)) localStorage.setItem('mp-home-page', f); } catch(e){}
@@ -247,6 +345,69 @@ class Component extends DCLogic {
   componentWillUnmount(){
     window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-a11y-change', this._onA11y);
     window.removeEventListener('scroll', this._onScroll); window.removeEventListener('keydown', this._esc);
+    document.removeEventListener('pointerdown', this._down, true);
+    window.removeEventListener('mp-help-panel', this._helpPanel); window.removeEventListener('mp-help-viewer', this._helpViewer);
+    window.removeEventListener('resize', this._rs);
+    if(this._ro) this._ro.disconnect();
+    if(this._locked){ lockScroll(false); this._locked = false; }
+    this.lift(false);
+  }
+  componentDidUpdate(){ if(this.compact()) this.fit(); }
+  // подбор плотности: снимаем всё и добавляем шаги FIT, пока меню не поместится с зазором до кнопок
+  fit(){
+    const bar = this.barRef.current; if(!bar) return;
+    // ref появляется после первой отрисовки — наблюдатель ширины подключаем здесь (и переподключаем, если узел сменился)
+    if(window.ResizeObserver && this._roEl !== bar){
+      if(this._ro) this._ro.disconnect();
+      this._ro = new ResizeObserver(() => this.fit()); this._ro.observe(bar); this._roEl = bar;
+    }
+    const set = (v) => { if((bar.getAttribute('data-fit') || '') !== v) bar.setAttribute('data-fit', v); };
+    const proto = bar.querySelector('.ph-proto'), brand = bar.querySelector('.ph-brand');
+    const tips = (steps) => {
+      if(proto){ if(steps.includes('proto')) proto.setAttribute('data-tip', 'Клинические протоколы'); else proto.removeAttribute('data-tip'); }
+      if(brand){ if(steps.includes('brand')) brand.setAttribute('data-tip', 'Министерство здравоохранения Республики Казахстан'); else brand.removeAttribute('data-tip'); }
+    };
+    if(mq('(max-width:1080px)')){ set(''); tips([]); return; }
+    const nav = bar.querySelector('.ph-roles'), acts = bar.querySelector('.ph-acts'); if(!nav || !acts) return;
+    const fits = () => {
+      const gap = parseFloat(getComputedStyle(bar).columnGap) || 0;
+      return (brand ? brand.offsetWidth + gap : 0) + nav.scrollWidth + gap + 16 + acts.offsetWidth <= bar.clientWidth;
+    };
+    let k = 0; set('');
+    while(k < FIT.length && !fits()){ k++; set(FIT.slice(0, k).join(' ')); }
+    tips(FIT.slice(0, k));
+  }
+  // панель и окна просмотра — над плавающими кнопками страницы (помощник, тема), но под подсказками
+  lift(on){
+    const el = this.rootRef.current;
+    if(on){
+      if(this._lifted || !el) return;
+      this._lifted = [];
+      for(let p = el.parentElement; p && p !== document.body; p = p.parentElement){
+        if(getComputedStyle(p).zIndex !== 'auto'){ this._lifted.push([p, p.style.zIndex]); p.style.zIndex = '200'; }
+      }
+    } else if(this._lifted){ this._lifted.forEach(([p, z]) => { p.style.zIndex = z; }); this._lifted = null; }
+  }
+  measure(){
+    const r = this.rootRef.current; const b = r ? Math.round(r.getBoundingClientRect().bottom) : 72;
+    this.setState({ hcTop:b, hcAvail: Math.max(320, window.innerHeight - b - 24) });
+  }
+  openMega(){
+    this.measure();
+    this.setState({ megaOpen:true, a11yOpen:false, langOpen:false });
+    if(!this._locked){ lockScroll(true); this._locked = true; }
+    this.lift(true);
+  }
+  closeMega(focus){
+    if(!this.state.megaOpen) return;
+    this.setState({ megaOpen:false });
+    if(this._locked){ lockScroll(false); this._locked = false; }
+    if(!this._viewerOpen) this.lift(false);
+    if(focus) this.focusHelp();
+  }
+  focusHelp(){
+    const el = [this.helpRef.current, this.helpMRef.current].find(x => x && x.offsetParent !== null);
+    if(el) el.focus({ preventScroll:true });
   }
   setRole(id){
     this.setState({ role:id });
@@ -264,7 +425,7 @@ class Component extends DCLogic {
   renderVals(){
     const s = this.state, look = this.props.look || 'light';
     const glass = look === 'glass', sec = this.props.section || '';
-    const compact = this.props.reports === '1' || sec === 'reports';
+    const compact = this.compact();
     // в компактной шапке вход показывает кабинет любого профиля; остальные главные — как раньше, только бизнес
     // первый руководитель медорганизации работает в разделе отчётности: кабинет и пункт ведут в журнал
     const head = !!lsGet('mp-org-head') && s.profile === 'medical';
@@ -273,7 +434,18 @@ class Component extends DCLogic {
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
       official: look === 'official',
-      cls: 'ph' + (compact ? ' ph-c' : '') + (look === 'bare' ? ' ph-bare' : '') + (glass ? ' ph-glass' : '') + (glass && s.solid ? ' ph-solid' : ''),
+      cls: 'ph' + (compact ? ' ph-c' : '') + (look === 'bare' ? ' ph-bare' : '') + (glass ? ' ph-glass' : '') + (glass && (s.solid || s.megaOpen) ? ' ph-solid' : ''),
+      rootRef:this.rootRef, barRef:this.barRef, helpRef:this.helpRef, helpMRef:this.helpMRef,
+      wrapStyle: `--hc-top:${s.hcTop}px;--hc-avail:${s.hcAvail}px;`,
+      // «Инструкции» — в компактной шапке; на самой странице «Все материалы» пункт — текущий раздел
+      showHelp: compact, helpMenu: compact && sec !== 'help', helpPage: compact && sec === 'help',
+      megaOpen: s.megaOpen, megaOpenStr: s.megaOpen ? 'true' : 'false',
+      toggleMega: () => { if(this.state.megaOpen) this.closeMega(false); else this.openMega(); },
+      megaBlur: (e) => {
+        const r = e.relatedTarget;
+        if(!r || !r.closest || r.closest('.ph-mega') || r.closest('.ph-help') || r.closest('.ph-help-m') || r.closest('.hc-mod')) return;
+        this.closeMega(false);
+      },
       homeHref: sec ? this.home() : '#',
       showRoles: this.props.roles !== '0',
       showBrand: this.props.brand !== '0',
@@ -283,11 +455,11 @@ class Component extends DCLogic {
       // раздел не публичный: без входа пункт ведёт на авторизацию и возвращает в раздел
       reportsHref: head ? 'Администрирование отчётности.dc.html' : s.profile ? 'Отчётные формы.dc.html' :'Вход.dc.html?return=' + encodeURIComponent('Отчётные формы.dc.html'),
       a11yOpen: s.a11yOpen, sizes, contrast: s.a11y.contrast ? 'true' : 'false',
-      toggleA11y: () => this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })),
+      toggleA11y: () => { this.closeMega(false); this.setState(st => ({ a11yOpen:!st.a11yOpen, langOpen:false })); },
       toggleContrast: () => this.setA11y({ contrast:!s.a11y.contrast }),
       langOpen: s.langOpen, lang: s.lang,
       langs: LANGS.map(l => ({ ...l, on: s.lang === l.code, onClick:() => { this.setState({ lang:l.code, langOpen:false }); try { localStorage.setItem('mp-lang', l.code); } catch(e){} } })),
-      toggleLang: () => this.setState(st => ({ langOpen:!st.langOpen, a11yOpen:false })),
+      toggleLang: () => { this.closeMega(false); this.setState(st => ({ langOpen:!st.langOpen, a11yOpen:false })); },
       closeAll: () => this.setState({ langOpen:false, a11yOpen:false }),
       loginHref: cab ? cab.href : 'Вход.dc.html',
       loginLabel: cab ? cab.label : 'Войти',
