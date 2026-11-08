@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Левое меню раздела отчётности первого руководителя медорганизации: карточка «Организация · Первый руководитель»
+  (по данным авторизации) и разделы «Журнал отчётных форм» / «Администрирование».
+  Активный раздел выделен, его содержимое — в основной рабочей области страницы.
+    <aside class="ad-side"><dc-import name="OrgReportsNav" active="journal | admin" hint-size="300px,280px"></dc-import></aside>
+  Обёртка страницы — sticky на десктопе; на ≤1024px колонка складывается: карточка в строку, разделы — лентой.
+  Данные — OrgRepData (window.mpOrgRep).
+-->
+<x-dc>
+<helmet>
+<style>
+  .rn{ display:flex; flex-direction:column; gap:12px; font-family:'Inter',system-ui,sans-serif; color:var(--n900); }
+  .rn *, .rn *::before, .rn *::after{ box-sizing:border-box; }
+
+  .rn-card{ display:flex; flex-direction:column; border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .rn-c{ display:flex; align-items:flex-start; gap:12px; min-width:0; padding:16px 18px; }
+  .rn-c + .rn-c{ border-top:1px solid var(--n100); }
+  .rn-ic, .rn-av{ flex:0 0 auto; width:40px; height:40px; display:flex; align-items:center; justify-content:center; }
+  .rn-ic{ border-radius:12px; background:var(--b50); color:var(--b600); font-size:20px; box-shadow:inset 0 0 0 1px var(--b100); }
+  .rn-av{ border-radius:50%; background:var(--b600); color:#fff; font-size:13.5px; font-weight:600; letter-spacing:.02em; }
+  .rn-tx{ min-width:0; padding-top:1px; }
+  .rn-lb{ display:flex; align-items:center; gap:4px; font-size:12.5px; line-height:17px; font-weight:500; color:var(--n500); white-space:nowrap; }
+  .rn-lb i{ font-size:15px; color:var(--n400); cursor:help; border-radius:50%; transition:color .15s; }
+  .rn-lb i:hover, .rn-lb i:focus-visible{ color:var(--b600); }
+  .rn-lb i:focus-visible{ outline:2px solid var(--b500); outline-offset:1px; }
+  .rn-v{ display:block; margin-top:2px; font-size:14.5px; line-height:20px; font-weight:600; color:var(--n900); overflow-wrap:anywhere; text-wrap:pretty; }
+
+  .rn-nav{ display:flex; flex-direction:column; gap:2px; padding:8px; border:1px solid var(--n200); border-radius:20px; background:#fff; box-shadow:var(--hm-sh1); }
+  .rn-it{ display:flex; align-items:center; gap:12px; min-height:46px; padding:11px 14px; border-radius:12px; text-decoration:none; color:var(--n600); font-size:14.5px; line-height:20px; font-weight:500; transition:background .12s, color .12s; }
+  .rn-it i{ flex:0 0 auto; font-size:20px; color:var(--n400); transition:color .12s; }
+  .rn-it span{ min-width:0; }
+  .rn-it:hover{ background:var(--n100); color:var(--n900); }
+  .rn-it:hover i{ color:var(--n600); }
+  .rn-it[aria-current="page"], .rn-it[aria-current="page"]:hover{ background:var(--b600); color:#fff; font-weight:600; }
+  .rn-it[aria-current="page"] i{ color:#fff; }
+  .rn-it:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--b400); }
+
+  /* ≤1024px: колонка страницы складывается — карточка в строку, разделы лентой */
+  @media (max-width:1024px){
+    .rn{ gap:10px; }
+    .rn-card{ flex-direction:row; border-radius:16px; }
+    .rn-c{ flex:1 1 50%; padding:12px 16px; align-items:center; }
+    .rn-c + .rn-c{ border-top:none; border-left:1px solid var(--n100); }
+    .rn-nav{ flex-direction:row; padding:5px; border-radius:14px; overflow-x:auto; scrollbar-width:none; }
+    .rn-nav::-webkit-scrollbar{ display:none; }
+    .rn-it{ flex:1 0 auto; justify-content:center; min-height:42px; padding:9px 14px; gap:8px; border-radius:10px; font-size:14px; white-space:nowrap; }
+    .rn-it i{ font-size:18px; }
+  }
+  @media (max-width:640px){
+    .rn-card{ flex-direction:column; }
+    .rn-c + .rn-c{ border-left:none; border-top:1px solid var(--n100); }
+    .rn-it{ flex:1 1 0; min-width:0; padding:8px 10px; font-size:13.5px; line-height:18px; white-space:normal; text-align:center; }
+  }
+  @media (max-width:400px){
+    .rn-it i{ display:none; }
+  }
+</style>
+</helmet>
+<div class="rn">
+  <section class="rn-card" aria-label="Организация и руководитель">
+    <div class="rn-c">
+      <span class="rn-ic" aria-hidden="true"><i class="ri-hospital-line"></i></span>
+      <div class="rn-tx">
+        <span class="rn-lb">Организация</span>
+        <span class="rn-v">{{ org }}</span>
+      </div>
+    </div>
+    <div class="rn-c">
+      <span class="rn-av" aria-hidden="true">{{ initials }}</span>
+      <div class="rn-tx">
+        <span class="rn-lb">Первый руководитель<i class="ri-information-line" tabindex="0" role="img" aria-label="{{ headTip }}" data-tip="{{ headTip }}"></i></span>
+        <span class="rn-v">{{ fio }}</span>
+      </div>
+    </div>
+  </section>
+  <nav class="rn-nav" aria-label="Разделы отчётности">
+    <a class="rn-it" href="Журнал отчётных форм.dc.html" aria-current="{{ jCur }}"><i class="ri-file-list-3-line" aria-hidden="true"></i><span>Журнал отчётных форм</span></a>
+    <a class="rn-it" href="Администрирование отчётности.dc.html" aria-current="{{ aCur }}"><i class="ri-settings-4-line" aria-hidden="true"></i><span>Администрирование</span></a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:300}}">
+class Component extends DCLogic {
+  state = { tick:0 };
+  componentDidMount(){
+    this._on = () => this.setState(s => ({ tick:s.tick + 1 }));
+    window.addEventListener('mp-orgrep-ready', this._on);
+    window.addEventListener('storage', this._on);
+    if(window.mpOrgRep) this._on();
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-orgrep-ready', this._on);
+    window.removeEventListener('storage', this._on);
+  }
+  renderVals(){
+    const R = window.mpOrgRep, a = this.props.active || 'admin';
+    let head = { fio:'', org:'' };
+    try { head = JSON.parse(localStorage.getItem('mp-org-head') || 'null') || head; } catch(e){}
+    if(R){ const h = R.head(); head = { fio:h.fio, org:h.org }; }
+    return {
+      org: head.org, fio: head.fio,
+      initials: head.fio ? head.fio.split(' ').slice(0, 2).map(x => x[0]).join('') : '',
+      headTip: R ? R.HEAD_ROLE.tip : '',
+      jCur: a === 'journal' ? 'page' : 'false', aCur: a === 'admin' ? 'page' : 'false',
+    };
+  }
+}
+</script>
+</body>
+</html>

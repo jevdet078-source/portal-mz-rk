@@ -6,65 +6,62 @@
 </head>
 <body>
 <!--
-  Данные отчётности медорганизации — невидимый компонент для страниц первого руководителя:
-    «Администрирование отчётности» и «Журнал отчётных форм» (ПЗ «Администрирование и журнал отчётных форм»).
+  Данные отчётности медорганизации — невидимый компонент для раздела первого руководителя
+  («Администрирование отчётности», «Журнал отчётных форм»).
     <dc-import name="OrgRepData" hint-size="0px,0px"></dc-import>
   Регистрирует window.mpOrgRep, рассылает `mp-orgrep-ready`; изменения — `mp-orgrep-change`.
 
-  Хранилище — localStorage `mp-orgrep-db`: { v, forms:[id], assigns:[{ id, emp, role, forms:[id], at }], ov:{ reportId:{ status, log:[…] } } }
+  Хранилище — localStorage `mp-orgrep-db`: { v, forms:[id], assigns:[{ id, emp, role, forms:[id], at }] }
     forms   — формы, которые заполняет организация (шаг 1);
-    assigns — назначения: одна запись на «сотрудник + роль», формы дописываются (сочетание организация + сотрудник + форма + роль уникально);
-    ov      — решения руководителя по экземплярам (согласовано → «Отправлено в УО», возврат с причиной).
+    assigns — назначения: одна запись на «сотрудник + роль». Одну форму можно назначить нескольким сотрудникам,
+              блокируется только повторное назначение той же формы тому же сотруднику в той же роли.
   Руководитель — localStorage `mp-org-head` (пишет «Вход» по данным авторизации), без него — демо-руководитель ЦРБ.
-  Сценарий прототипа — sessionStorage `mp-orgrep-scn`: ok | loading | error | noEmp | saveErr | empty.
+  Сценарий прототипа — sessionStorage `mp-orgrep-scn`: ok | loading | error | noEmp | saveErr.
 
-  Экземпляры отчётов в прототипе строятся детерминированно: формы организации, по которым назначен исполнитель,
-  каждая таблица формы — отдельный экземпляр, три-четыре последних завершённых периода.
-  Каталог форм — временный: приложение 1 к постановке (полный перечень) у аналитика.
+  Каталог форм — перечень аналитика «Список форм» (№ приложения, индекс, наименование), 28 форм.
+  Журнал отчётных форм на текущем этапе — заглушка: экземпляры отчётов и статусы опишет отдельная ПЗ.
 -->
 <x-dc><div></div></x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:10,&quot;height&quot;:10}}">
-const KEY = 'mp-orgrep-db', SCN = 'mp-orgrep-scn', V = 1;
+const KEY = 'mp-orgrep-db', SCN = 'mp-orgrep-scn', V = 2;
 
 const ORG = { name:'ГКП на ПХВ «Центральная районная больница Аккольского района»', short:'ЦРБ Аккольского района', bin:'000140003818' };
 const HEAD_DEMO = { iin:'720304450218', fio:'Жакупова Гульмира Сапаровна', post:'Главный врач', bin:ORG.bin, org:ORG.name };
 
-// Справочник отчётных форм. per: month | quarter | half | year. tables — [код, наименование]
+// Справочник отчётных форм: [№ приложения, индекс, наименование]
 const FORMS = [
-  { id:'f1',  app:'1',    idx:'1-здрав',    per:'year',    name:'Отчёт о сети и деятельности медицинских организаций', tables:[['1000','Сеть медицинских организаций'],['2000','Мощность амбулаторно-поликлинических организаций']] },
-  { id:'f2',  app:'2',    idx:'2-здрав',    per:'month',   name:'Отчёт о числе инфекционных и паразитарных заболеваний', tables:[['1000','Инфекционные заболевания'],['2000','Паразитарные заболевания']] },
-  { id:'f3',  app:'3',    idx:'3-здрав',    per:'quarter', name:'Отчёт о профилактических прививках', tables:[['1000','Прививки детям'],['2000','Прививки взрослым']] },
-  { id:'f4',  app:'4',    idx:'4-здрав',    per:'month',   name:'Отчёт о заболеваниях, передающихся преимущественно половым путём, грибковых кожных заболеваниях и чесотке', tables:[['1000','Впервые выявленные заболевания']] },
-  { id:'f5',  app:'5',    idx:'5-ТВК',      per:'month',   name:'Дистанционные медицинские услуги', tables:[['1000','Телеконсультации'],['1001','Телемедицинские консилиумы']] },
-  { id:'f6',  app:'6',    idx:'6-здрав',    per:'year',    name:'Отчёт о заболеваниях злокачественными новообразованиями', tables:[['1000','Впервые выявленные случаи'],['2000','Контингент больных']] },
-  { id:'f7',  app:'7',    idx:'7-здрав',    per:'quarter', name:'Отчёт о больных туберкулёзом', tables:[['1000','Впервые выявленные больные'],['2000','Результаты лечения']] },
-  { id:'f8',  app:'8',    idx:'8-здрав',    per:'half',    name:'Отчёт о деятельности дневных стационаров', tables:[['1000','Койки и пролеченные больные']] },
-  { id:'f9',  app:'9',    idx:'9-здрав',    per:'year',    name:'Отчёт о больных психическими и поведенческими расстройствами', tables:[['1000','Контингент больных'],['2000','Госпитализация']] },
-  { id:'f10', app:'10',   idx:'10-здрав',   per:'year',    name:'Отчёт о больных с наркологическими расстройствами', tables:[['1000','Контингент больных']] },
-  { id:'f11', app:'11',   idx:'11-здрав',   per:'half',    name:'Отчёт о медицинской реабилитации', tables:[['1000','Пролеченные больные по профилям']] },
-  { id:'f12', app:'12',   idx:'12-здрав',   per:'quarter', name:'Отчёт о числе заболеваний, зарегистрированных у пациентов, проживающих в районе обслуживания медицинской организации', tables:[['1000','Дети 0–14 лет'],['2000','Подростки 15–17 лет'],['3000','Взрослые 18 лет и старше']] },
-  { id:'f13', app:'13',   idx:'13-здрав',   per:'quarter', name:'Отчёт о прерывании беременности', tables:[['1000','Прерывание беременности по срокам']] },
-  { id:'f14', app:'14',   idx:'14-здрав',   per:'half',    name:'Сведения о деятельности подразделений медицинской организации, оказывающей стационарную помощь', tables:[['3100','Коечный фонд и его использование'],['3200','Хирургическая работа']] },
-  { id:'f15', app:'15',   idx:'15-здрав',   per:'year',    name:'Отчёт о деятельности стоматологической службы', tables:[['1000','Стоматологическая помощь населению']] },
-  { id:'f16', app:'16',   idx:'16-здрав',   per:'quarter', name:'Отчёт о причинах временной нетрудоспособности', tables:[['1000','Случаи и дни нетрудоспособности']] },
-  { id:'f17', app:'17',   idx:'17-здрав',   per:'year',    name:'Отчёт о медицинских кадрах', tables:[['1000','Врачи'],['2000','Средний медицинский персонал']] },
-  { id:'f19', app:'19',   idx:'19-здрав',   per:'year',    name:'Отчёт о детях с инвалидностью в возрасте до 18 лет', tables:[['1000','Дети с инвалидностью по заболеваниям']] },
-  { id:'f20', app:'20',   idx:'20-здрав',   per:'quarter', name:'Отчёт о деятельности организаций, оказывающих первичную медико-санитарную помощь', tables:[['1000','Посещения'],['2000','Прикреплённое население']] },
-  { id:'f21', app:'21',   idx:'21-здрав',   per:'quarter', name:'Отчёт о профилактических медицинских осмотрах (скрининговых исследованиях) целевых групп населения', tables:[['1000','Охват скрининговыми исследованиями']] },
-  { id:'f22', app:'22',   idx:'22-здрав',   per:'half',    name:'Отчёт о деятельности службы крови', tables:[['1000','Заготовка донорской крови']] },
-  { id:'f23', app:'23',   idx:'23-здрав',   per:'half',    name:'Отчёт о паллиативной медицинской помощи', tables:[['1000','Пациенты, получившие паллиативную помощь']] },
-  { id:'f24', app:'24',   idx:'24-здрав',   per:'year',    name:'Отчёт о деятельности лабораторной службы', tables:[['1000','Лабораторные исследования']] },
-  { id:'f25', app:'25',   idx:'25-здрав',   per:'quarter', name:'Отчёт о больных ВИЧ-инфекцией', tables:[['1000','Контингент больных']] },
-  { id:'f26', app:'26',   idx:'26-здрав',   per:'month',   name:'Отчёт о материнской и младенческой смертности', tables:[['1000','Материнская смертность'],['2000','Младенческая смертность']] },
-  { id:'f27', app:'27',   idx:'27-здрав',   per:'quarter', name:'Отчёт о движении лекарственных средств и медицинских изделий в рамках гарантированного объёма бесплатной медицинской помощи и в системе обязательного социального медицинского страхования', tables:[['1000','Лекарственные средства'],['2000','Медицинские изделия']] },
-  { id:'f28', app:'28-1', idx:'28-1-здрав', per:'month',   name:'Отчёт о деятельности службы скорой и неотложной медицинской помощи', tables:[['2100','Вызовы и выезды бригад']] },
-  { id:'f29', app:'29',   idx:'29-здрав',   per:'year',    name:'Отчёт о медицинской помощи детям', tables:[['1000','Диспансерное наблюдение детей']] },
-  { id:'f30', app:'30',   idx:'30-здрав',   per:'year',    name:'Отчёт медицинской организации', tables:[['1001','Штаты медицинской организации'],['1100','Кабинеты и отделения']] },
-  { id:'f31', app:'31',   idx:'31-здрав',   per:'half',    name:'Отчёт о деятельности центров психического здоровья', tables:[['1000','Пролеченные пациенты']] },
-  { id:'f32', app:'32',   idx:'32-здрав',   per:'quarter', name:'Отчёт о медицинской помощи беременным, роженицам и родильницам', tables:[['2120','Диспансерное наблюдение беременных'],['2210','Родовспоможение']] },
-  { id:'f33', app:'33',   idx:'33-здрав',   per:'quarter', name:'Отчёт об оказании высокотехнологичных медицинских услуг', tables:[['1000','Пролеченные пациенты по профилям']] },
-];
+  ['1', '1-ОИПЗ', 'Отчет об отдельных инфекционных и паразитарных заболеваниях'],
+  ['2', '2-ВИЧ', 'Отчет о результатах лабораторного исследования крови методом иммуноферментного анализа на вирус иммунодефицита человека (ВИЧ – инфекцию)'],
+  ['3', '3-Вакцины', 'Отчет о движении вакцин и других иммунобиологических препаратов'],
+  ['4', '4-ОПП', 'Отчет об охвате профилактическими прививками'],
+  ['5', '5-ТВК', 'Отчет о количестве проведенных телемедицинских консультаций и сеансов видеоконференцсвязи'],
+  ['6', '6-КФ', 'Об использовании коечного фонда медицинских организаций, оказывающих стационарную и стационарозамещающую помощь'],
+  ['7', '7-ЧЗЗВЖУД', 'Отчет о числе заболеваний, зарегистрированных впервые в жизни установленным диагнозом'],
+  ['8', '8-МФК', 'Отчет о движении медицинских и фармацевтических кадров'],
+  ['9', '9-ОИПЗ', 'Отчет об отдельных инфекционных и паразитарных заболеваниях'],
+  ['10', '10-Новообразования', 'Отчет о больных и заболеваниях злокачественными новообразованиями'],
+  ['11', '11-ТБ', 'Отчет о больных туберкулезом'],
+  ['12', '12-ИППП', 'Отчет об инфекциях, передающихся преимущественно половым путем и кожных заболеваниях'],
+  ['13', '13-ППР', 'Отчет о заболеваниях и контингентах больных психическими и поведенческими расстройствами'],
+  ['14', '14-Психоактив', 'Отчет о заболеваниях и контингентах больных психическими и поведенческими расстройствами, вызванными употреблением психоактивных веществ'],
+  ['15', '15-Заболевания', 'Отчет о числе заболеваний, зарегистрированных у больных, проживающих в районе обслуживания медицинской организации и контингентах больных, состоящих под диспансерным наблюдением'],
+  ['16', '16-Стационар', 'Отчет о контингентах больных, выбывших из стационара'],
+  ['17', '17-Кадры', 'Отчет о медицинских и фармацевтических кадрах'],
+  ['18', '18-СЭС', 'Отчет о деятельности санитарно-эпидемиологической службы Республики Казахстан'],
+  ['19', '19-ОМО', 'Отчет организации здравоохранения'],
+  ['20', '20-МПД', 'Отчет о медицинской помощи детям'],
+  ['21', '21-БРР', 'Отчет о медицинской помощи беременным, роженицам и родильницам'],
+  ['22', '22-СМП', 'Отчет организации скорой медицинской помощи'],
+  ['23', '23-Фельдшер', 'Отчет фельдшерско-акушерского, медицинского пункта и медицинского работника без содержания отдельного помещения'],
+  ['24', '24-Санатории', 'Отчет специализированного санатория'],
+  ['25', '25-ЗОЖ', 'Отчет о штатных должностях центра формирования здорового образа жизни, дезинфекционной станции, республиканского центра развития здравоохранения и их территориальных филиалов'],
+  ['26', '26-Сеть', 'О сети и деятельности организаций здравоохранения'],
+  ['27', '27-ДИ', 'Отчет по детской инвалидности'],
+  ['28', '28-Травмы', 'Отчет о травмах, отравлениях и некоторых других последствиях воздействия внешних причин'],
+].map(([app, idx, name]) => ({ id:'f' + app, app, idx, name }));
 const FORM = {}; FORMS.forEach(f => { FORM[f.id] = f; });
+const ORDER = FORMS.map(f => f.id);
+const sortForms = ids => [...new Set(ids)].filter(id => FORM[id]).sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y));
 
 // Сотрудники организации, уже авторизовавшиеся на портале (в системе — пользователи с БИН организации)
 const EMPLOYEES = [
@@ -89,48 +86,24 @@ const ROLES = [
 const ROLE = {}; ROLES.forEach(r => { ROLE[r.id] = r; });
 const HEAD_ROLE = { name:'Первый руководитель', tip:'Настройка форм и назначений, просмотр отчётов, согласование либо возврат на доработку с обязательной причиной. Редактирование показателей недоступно' };
 
-const STATUS = [
-  { name:'В работе', cls:'work', icon:'ri-edit-2-line', tip:'Отчёт создан и находится на этапе подготовки' },
-  { name:'На согласовании', cls:'agree', icon:'ri-time-line', tip:'Отчёт направлен руководителю' },
-  { name:'На доработке', cls:'rework', icon:'ri-arrow-go-back-line', tip:'Отчёт возвращён для исправления' },
-  { name:'Отправлено в УО', cls:'sent', icon:'ri-send-plane-line', tip:'Отчёт направлен в уполномоченный орган' },
-];
-const ST = {}; STATUS.forEach(s => { ST[s.name] = s; });
-
-const MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const PERIODS = {
-  month: MONTHS.map((n, i) => ({ n, end:[i + 1, 0] })),
-  quarter: ['I квартал','II квартал','III квартал','IV квартал'].map((n, i) => ({ n, end:[i * 3 + 3, 0] })),
-  half: [{ n:'I полугодие', end:[6, 0] }, { n:'II полугодие', end:[12, 0] }],
-  year: [{ n:'Год', end:[12, 0] }],
-};
-const DEPTH = { month:4, quarter:3, half:2, year:2 };
-
-const pad = n => String(n).padStart(2, '0');
-const fmt = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
-const fmtTime = d => fmt(d) + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-const hash = s => { let h = 7; for(let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; };
-const day = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
-const perLabel = (n, y) => n === 'Год' ? y + ' год' : n + ' ' + y;
 const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
 const lsGet = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const blank = () => ({ v:V, forms:[], assigns:[], seq:0 });
 
-const blank = () => ({ v:V, forms:[], assigns:[], ov:{}, seq:0 });
-
-// Пример настроенной организации — «Показ прототипа» → «Пример настройки»
+// Пример настроенной организации — «Показ прототипа» → «Пример настроенной организации»
 const SAMPLE = {
-  forms:['f2','f3','f5','f12','f14','f17','f20','f21','f28','f30','f32'],
+  forms:['f1','f3','f4','f5','f6','f7','f9','f15','f16','f17','f19','f20','f21','f22'],
   assigns:[
-    { emp:'e1', role:'exec', forms:['f12','f30','f17'] },
-    { emp:'e2', role:'exec', forms:['f12','f14','f20','f21'] },
-    { emp:'e7', role:'exec', forms:['f2','f3'] },
-    { emp:'e6', role:'exec', forms:['f5','f20','f28','f32'] },
-    { emp:'e3', role:'swod', forms:['f12','f14','f20','f28','f30','f32'] },
+    { emp:'e1', role:'exec', forms:['f7','f15','f19'] },
+    { emp:'e2', role:'exec', forms:['f6','f7','f16','f17','f20','f21'] },
+    { emp:'e7', role:'exec', forms:['f1','f3','f4','f9'] },
+    { emp:'e6', role:'exec', forms:['f5','f20','f22'] },
+    { emp:'e3', role:'swod', forms:['f6','f7','f15','f16','f19','f20','f21'] },
   ],
 };
 
 const R = {
-  ORG, FORMS, FORM, EMPLOYEES, EMP, ROLES, ROLE, HEAD_ROLE, STATUS, ST, fmt, fmtTime, plural,
+  ORG, FORMS, FORM, EMPLOYEES, EMP, ROLES, ROLE, HEAD_ROLE, plural,
   head: () => { try { const h = JSON.parse(lsGet('mp-org-head') || 'null'); if(h && h.fio) return { ...HEAD_DEMO, ...h }; } catch(e){} return HEAD_DEMO; },
   isHead: () => !!lsGet('mp-org-head'),
   initials: fio => fio.split(' ').slice(0, 2).map(x => x[0] || '').join(''),
@@ -138,7 +111,7 @@ const R = {
 
   // ——— хранилище ———
   db: () => {
-    try { const d = JSON.parse(lsGet(KEY) || 'null'); if(d && d.v === V && Array.isArray(d.forms) && Array.isArray(d.assigns)) return { ov:{}, seq:0, ...d }; } catch(e){}
+    try { const d = JSON.parse(lsGet(KEY) || 'null'); if(d && d.v === V && Array.isArray(d.forms) && Array.isArray(d.assigns)) return { seq:0, ...d }; } catch(e){}
     return blank();
   },
   save: d => {
@@ -152,88 +125,38 @@ const R = {
   // назначения, которые потеряют формы, если снять их на шаге 1
   lost: ids => {
     const keep = new Set(ids);
-    return R.db().assigns.map(a => ({ a, gone:a.forms.filter(f => !keep.has(f)) })).filter(x => x.gone.length);
+    return R.assigns().map(a => ({ a, gone:a.forms.filter(f => !keep.has(f)) })).filter(x => x.gone.length);
   },
   setForms: ids => {
     const d = R.db(), keep = new Set(ids);
-    d.forms = FORMS.filter(f => keep.has(f.id)).map(f => f.id);
+    d.forms = sortForms(ids);
     d.assigns = d.assigns.map(a => ({ ...a, forms:a.forms.filter(f => keep.has(f)) })).filter(a => a.forms.length);
     R.save(d);
   },
 
   // ——— шаг 2: назначения ———
   assigns: () => R.db().assigns.filter(a => EMP[a.emp] && ROLE[a.role]),
-  assigned: (emp, role) => { const a = R.assigns().find(x => x.emp === emp && x.role === role); return a ? a.forms : []; },
+  assign: id => R.assigns().find(a => a.id === id) || null,
+  find: (emp, role) => R.assigns().find(a => a.emp === emp && a.role === role) || null,
+  assigned: (emp, role) => { const a = R.find(emp, role); return a ? a.forms : []; },
   // новое сочетание «сотрудник + роль» — новая запись; существующее — дописываем только новые формы
   addAssign: (emp, role, forms) => {
     const d = R.db();
     let a = d.assigns.find(x => x.emp === emp && x.role === role);
-    if(a){ forms.forEach(f => { if(!a.forms.includes(f)) a.forms.push(f); }); a.at = Date.now(); }
-    else { d.seq = (d.seq || 0) + 1; a = { id:'a' + Date.now().toString(36) + d.seq, emp, role, forms:[...forms], at:Date.now() }; d.assigns.push(a); }
-    const order = FORMS.map(f => f.id); a.forms.sort((x, y) => order.indexOf(x) - order.indexOf(y));
+    if(a){ a.forms = sortForms(a.forms.concat(forms)); a.at = Date.now(); }
+    else { d.seq = (d.seq || 0) + 1; a = { id:'a' + Date.now().toString(36) + d.seq, emp, role, forms:sortForms(forms), at:Date.now() }; d.assigns.push(a); }
     R.save(d); return a.id;
   },
+  // редактирование: новый перечень форм назначения; снятые формы — только назначение на них, отчёты сохраняются.
+  // Пустой перечень — назначение удаляется. Возвращает true, если назначение осталось
+  setAssignForms: (id, forms) => {
+    const d = R.db(), a = d.assigns.find(x => x.id === id);
+    if(!a) return false;
+    const keep = new Set(d.forms), list = sortForms(forms).filter(f => keep.has(f));
+    if(!list.length){ d.assigns = d.assigns.filter(x => x.id !== id); R.save(d); return false; }
+    a.forms = list; a.at = Date.now(); R.save(d); return true;
+  },
   removeAssign: id => { const d = R.db(); d.assigns = d.assigns.filter(a => a.id !== id); R.save(d); },
-
-  // ——— экземпляры отчётов ———
-  periodsOf: (form, count) => {
-    const list = PERIODS[form.per], out = [], today = day();
-    for(let y = today.getFullYear(); y >= today.getFullYear() - 3 && out.length < count; y--){
-      for(let i = list.length - 1; i >= 0 && out.length < count; i--){
-        const end = new Date(y, list[i].end[0], list[i].end[1]);
-        if(end < today) out.push({ n:list[i].n, y, end, label:perLabel(list[i].n, y) });
-      }
-    }
-    return out;
-  },
-  reports: () => {
-    const d = R.db(), sel = new Set(d.forms), today = day(), out = [];
-    const execs = {};
-    d.assigns.forEach(a => { if(a.role === 'exec') a.forms.forEach(f => { (execs[f] = execs[f] || []).push(a.emp); }); });
-    FORMS.filter(f => sel.has(f.id) && execs[f.id]).forEach(f => {
-      R.periodsOf(f, DEPTH[f.per]).forEach((p, age) => f.tables.forEach(t => {
-        const id = [f.id, t[0], p.y, p.n].join('|'), h = hash(id);
-        const emp = EMP[execs[f.id][h % execs[f.id].length]];
-        let status = age === 0 ? ['В работе','На согласовании','В работе','На согласовании','На доработке'][h % 5]
-          : age === 1 ? ['Отправлено в УО','На согласовании','Отправлено в УО','На доработке'][h % 4] : 'Отправлено в УО';
-        const created = new Date(p.end.getTime() + (1 + h % 4) * 864e5 + (9 + h % 8) * 36e5 + (h % 60) * 6e4);
-        let at = new Date(created.getTime() + (2 + h % 9) * 864e5 + (h % 5) * 36e5);
-        if(at > new Date()) at = new Date(Math.max(created.getTime() + 36e5, Date.now() - (1 + h % 3) * 36e5));
-        // хронология экземпляра
-        const log = [{ at:created, who:emp.fio, act:'Создан' }];
-        if(status !== 'В работе') log.push({ at: status === 'На согласовании' ? at : new Date(created.getTime() + (at - created) * .45), who:emp.fio, act:'Отправлен на согласование' });
-        if(status === 'На доработке') log.push({ at, who:R.head().fio, act:'Возвращён на доработку', reason:REASONS[h % REASONS.length] });
-        if(status === 'Отправлено в УО'){ log.push({ at:new Date(at.getTime() - 15 * 6e4), who:R.head().fio, act:'Согласован' }); log.push({ at, who:'Система', act:'Отправлен в УО' }); }
-        const ov = d.ov[id];
-        if(ov){ status = ov.status; at = new Date(ov.at); (ov.log || []).forEach(x => log.push({ ...x, at:new Date(x.at) })); }
-        out.push({ id, form:f, tableCode:t[0], tableName:t[1], year:p.y, pName:p.n, period:p.label, end:p.end, status, at, emp, log });
-      }));
-    });
-    return out.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id));
-  },
-  // решение руководителя: согласование → автоматически «Отправлено в УО»; возврат — с причиной
-  decide: (id, ok, reason) => {
-    const d = R.db(), now = Date.now(), who = R.head().fio;
-    const log = ok ? [{ at:now, who, act:'Согласован' }, { at:now + 1000, who:'Система', act:'Отправлен в УО' }] : [{ at:now, who, act:'Возвращён на доработку', reason }];
-    const prev = d.ov[id] && d.ov[id].log || [];
-    d.ov[id] = { status: ok ? 'Отправлено в УО' : 'На доработке', at: ok ? now + 1000 : now, log:prev.concat(log) };
-    R.save(d);
-  },
-  pending: () => R.reports().filter(r => r.status === 'На согласовании').length,
-
-  // ——— показатели экземпляра (только просмотр) ———
-  indicators: r => {
-    // согласованные значения: всего = мужчины + женщины = дети + подростки + взрослые
-    const vals = (seed) => {
-      const h = hash(seed + '#' + r.id), x = k => hash(seed + k + r.id);
-      const total = 600 + h % 2400, men = Math.round(total * (.44 + (x('m') % 9) / 100));
-      const kids = Math.round(total * (.18 + (x('c') % 8) / 100)), teens = Math.round(total * (.05 + (x('t') % 4) / 100));
-      return [total, men, total - men, Math.round(total * (.32 + (x('r') % 14) / 100)), kids, teens, total - kids - teens];
-    };
-    const cur = vals('c'), prev = vals('p');
-    const rows = ['Всего','в том числе: мужчины','женщины','из всего: сельские жители','дети 0–14 лет','подростки 15–17 лет','взрослые 18 лет и старше'];
-    return rows.map((name, i) => ({ n:String(i + 1).padStart(2, '0'), name, cur:cur[i], prev:prev[i], sub:i > 0 }));
-  },
 
   // ——— сценарий прототипа ———
   scn: () => { try { return sessionStorage.getItem(SCN) || 'ok'; } catch(e){ return 'ok'; } },
@@ -244,13 +167,7 @@ const R = {
     d.assigns = SAMPLE.assigns.map((a, i) => ({ id:'s' + i, ...a, forms:[...a.forms], at:Date.now() - (5 - i) * 864e5 }));
     R.save(d);
   },
-  delay: (ms) => new Promise(res => setTimeout(res, ms)),
 };
-const REASONS = [
-  'Показатели строки 04 не совпадают с данными за аналогичный период: уточните численность детей 0–14 лет',
-  'Не заполнены сведения по сельским жителям. Дополните таблицу и отправьте повторно',
-  'Итоговая строка не равна сумме строк 02 и 03. Проверьте расчёт',
-];
 
 class Component extends DCLogic {
   constructor(props){ super(props); window.mpOrgRep = R; }
