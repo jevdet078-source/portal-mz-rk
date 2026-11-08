@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  «Инструкции» — обучающие видео и инструкции портала (постановка «Видеоролики и инструкции для пользователей», 08.11.2026).
+  Один компонент, три режима (проп mode):
+    panel  — выпадающая панель из пункта «Инструкции» шапки PortalHeader (главные G, H, I и их разделы):
+             разделы портала слева, видео и документы раздела в центре, «Популярно сейчас» справа; прокручивается содержимое панели;
+    page   — страница «Все материалы» (Инструкции.dc.html): те же разделы, все материалы, ?g=<раздел>;
+    viewer — окна просмотра: видео (плеер с содержанием по шагам) и документ (лист с порядком действий, «Скачать»).
+             Подключён в шапке один раз, поэтому пользователь остаётся на текущей странице.
+  Протокол (события window):
+    mp-help-open     { id, at? }  — открыть материал (видео — с секунды at);
+    mp-help-download { id }       — скачать документ (в прототипе — уведомление «Файл скачан»);
+    mp-help-panel    { open:false } — панель просит шапку закрыться (открыт материал);
+    mp-help-viewer   { open }     — окно просмотра открыто / закрыто (шапка поднимает слой над плавающими кнопками).
+  Раздел по умолчанию — первый раздел роли (localStorage mp-role); выбор в панели помнится на сессию (sessionStorage mp-help-g).
+  В системе материалы отдаёт CMS; здесь — ITEMS ниже. Длительность — в секундах, шаги видео — главы с равным шагом.
+-->
+<x-dc>
+<helmet>
+<style>
+  .hc, .hc *, .hc *::before, .hc *::after{ box-sizing:border-box; }
+  .hc{ font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .hc button{ font-family:inherit; }
+  .hc :focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .hc-lbl{ margin:0 0 10px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .hc-scroll{ overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:var(--n300) transparent; }
+
+  /* ——— превью видео: схематичный экран портала, масштабируется от карточки до плеера (cqw) ——— */
+  .hc-th{ position:relative; display:block; width:100%; aspect-ratio:16/9; border-radius:12px; overflow:hidden; container-type:inline-size; isolation:isolate;
+    background:linear-gradient(150deg, var(--b100) 0%, var(--b50) 58%, #fff 100%); box-shadow:inset 0 0 0 1px rgba(10,13,20,.05); }
+  .hc-th .w{ position:absolute; left:9%; top:13%; right:9%; bottom:0; background:#fff; border-radius:2.4cqw 2.4cqw 0 0; box-shadow:0 2cqw 5cqw -2.6cqw rgba(11,58,80,.38), 0 0 0 1px rgba(10,13,20,.04); }
+  .hc-th .tb{ position:absolute; left:0; right:0; top:0; height:9%; border-bottom:1px solid var(--n100);
+    background:radial-gradient(circle at 3.2% 50%, var(--n200) .9cqw, transparent 1cqw), radial-gradient(circle at 6.4% 50%, var(--n200) .9cqw, transparent 1cqw), radial-gradient(circle at 9.6% 50%, var(--n200) .9cqw, transparent 1cqw); }
+  .hc-th .ic{ position:absolute; left:6%; top:17%; width:10cqw; height:10cqw; border-radius:2.6cqw; background:var(--b600); color:#fff; display:flex; align-items:center; justify-content:center; font-size:5.4cqw; }
+  .hc-th .t1{ position:absolute; left:21%; top:19%; width:38%; height:3.2cqw; border-radius:9px; background:var(--n200); }
+  .hc-th .t2{ position:absolute; left:21%; top:28%; width:24%; height:2.4cqw; border-radius:9px; background:var(--n100); }
+  .hc-th .c1, .hc-th .c2, .hc-th .c3{ position:absolute; border-radius:1.6cqw; background:var(--n100); }
+  /* a1 — карточки */
+  .hc-th.a1 .c1, .hc-th.a1 .c2, .hc-th.a1 .c3{ top:44%; height:40%; width:26%; }
+  .hc-th.a1 .c1{ left:6%; } .hc-th.a1 .c2{ left:37%; } .hc-th.a1 .c3{ left:68%; }
+  .hc-th.a1 .c2{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); }
+  /* a2 — список */
+  .hc-th.a2 .c1, .hc-th.a2 .c2, .hc-th.a2 .c3{ left:6%; right:6%; height:11%; border-radius:1.2cqw; }
+  .hc-th.a2 .c1{ top:42%; } .hc-th.a2 .c2{ top:56%; background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); } .hc-th.a2 .c3{ top:70%; }
+  /* a3 — форма */
+  .hc-th.a3 .c1, .hc-th.a3 .c2{ left:6%; width:56%; height:11%; border-radius:1.2cqw; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .hc-th.a3 .c1{ top:40%; } .hc-th.a3 .c2{ top:56%; }
+  .hc-th.a3 .c3{ left:6%; top:72%; width:22%; height:10%; border-radius:1.2cqw; background:var(--b600); }
+  .hc-th .pl{ position:absolute; left:50%; top:50%; z-index:3; width:clamp(36px,15cqw,64px); height:clamp(36px,15cqw,64px); transform:translate(-50%,-50%); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; background:rgba(10,13,20,.58); color:#fff; font-size:clamp(20px,7.5cqw,32px); transition:background .18s, transform .18s; -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+  .hc-th .pl i{ margin-left:2px; }
+  .hc-th .du{ position:absolute; right:8px; bottom:8px; z-index:3; padding:3px 6px; border-radius:6px; background:rgba(10,13,20,.72); color:#fff; font-size:12px; line-height:16px; font-weight:600; font-variant-numeric:tabular-nums; }
+
+  /* ——— карточка видео ——— */
+  .hc-vgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(196px,1fr)); gap:18px 14px; }
+  .hc-vc{ display:flex; flex-direction:column; gap:10px; min-width:0; padding:0; border:none; background:none; text-align:left; cursor:pointer; color:var(--n900); border-radius:14px; }
+  .hc-vc:focus-visible{ outline-offset:4px; }
+  .hc-vt{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14px; line-height:20px; font-weight:500; letter-spacing:-.006em; transition:color .15s; }
+  .hc-vs{ margin-top:-6px; font-size:12.5px; line-height:18px; color:var(--n400); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hc-vc:hover .hc-vt, .hc-fc:hover b{ color:var(--b700); }
+  .hc-vc:hover .pl, .hc-fc:hover .pl{ background:var(--b600); transform:translate(-50%,-50%) scale(1.06); }
+
+  /* ——— строка документа ——— */
+  .hc-dlist{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:6px 14px; }
+  .hc-dr{ position:relative; display:flex; align-items:center; min-width:0; border-radius:12px; transition:background .15s; }
+  .hc-dr:hover{ background:var(--n100); }
+  .hc-do{ flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:12px; padding:8px 4px 8px 8px; border:none; background:none; text-align:left; cursor:pointer; color:var(--n900); border-radius:12px; }
+  .hc-fi{ flex:0 0 auto; width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--red-l); color:var(--red); font-size:20px; }
+  .hc-dt{ min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .hc-dt b{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14px; line-height:20px; font-weight:500; letter-spacing:-.006em; transition:color .15s; }
+  .hc-dt em{ font-style:normal; font-size:12.5px; line-height:18px; color:var(--n400); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hc-do:hover b{ color:var(--b700); }
+  .hc-dl{ flex:0 0 auto; width:36px; height:36px; margin-right:6px; border:none; border-radius:10px; background:none; color:var(--n400); font-size:19px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s, color .15s; }
+  .hc-dl:hover{ background:#fff; color:var(--b700); box-shadow:inset 0 0 0 1px var(--n200); }
+
+  /* ——— поиск ——— */
+  .hc-search{ position:relative; display:flex; align-items:center; height:40px; min-width:0; border-radius:10px; background:var(--n100); box-shadow:inset 0 0 0 1px transparent; transition:background .15s, box-shadow .15s; }
+  .hc-search:hover{ background:#fff; box-shadow:inset 0 0 0 1px var(--n300); }
+  .hc-search:focus-within{ background:#fff; box-shadow:inset 0 0 0 1px var(--b500), 0 0 0 3px color-mix(in srgb, var(--b500) 16%, transparent); }
+  .hc-search > i{ position:absolute; left:12px; font-size:18px; color:var(--n400); pointer-events:none; }
+  .hc-search input{ width:100%; height:100%; padding:0 36px 0 38px; border:none; background:none; outline:none; font:400 14px/20px 'Inter',sans-serif; color:var(--n900); }
+  .hc-search input::placeholder{ color:var(--n400); }
+  .hc-search input::-webkit-search-cancel-button{ display:none; }
+  .hc :focus-visible.hc-in{ outline:none; }
+  .hc-clr{ position:absolute; right:6px; width:28px; height:28px; border:none; border-radius:8px; background:none; color:var(--n400); font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .hc-clr:hover{ color:var(--n700); background:var(--n100); }
+
+  /* ——— пустой результат ——— */
+  .hc-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; min-height:240px; height:100%; text-align:center; }
+  .hc-empty .ei{ width:52px; height:52px; border-radius:50%; background:var(--n100); color:var(--n400); font-size:24px; display:flex; align-items:center; justify-content:center; }
+  .hc-empty b{ font-size:15px; font-weight:600; }
+  .hc-btn2{ height:36px; padding:0 14px; border:none; border-radius:10px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); color:var(--n700); font-size:14px; font-weight:500; cursor:pointer; transition:background .15s; }
+  .hc-btn2:hover{ background:var(--n100); }
+
+  /* ——— разделы (общие для панели и страницы) ——— */
+  .hc-sec{ padding:12px 10px 4px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .hc-sec.first{ padding-top:4px; }
+  .hc-gi{ width:100%; min-height:34px; display:flex; align-items:center; gap:10px; padding:7px 10px; border:none; border-radius:10px; background:none; text-align:left; cursor:pointer;
+    font-size:14px; line-height:19px; font-weight:500; color:var(--n600); transition:background .15s, color .15s; }
+  .hc-gi i{ flex:0 0 auto; font-size:18px; color:var(--n400); transition:color .15s; }
+  .hc-gi:hover{ background:var(--n100); color:var(--n900); }
+  .hc-gi[aria-current="true"]{ background:var(--b50); color:var(--b800); font-weight:600; }
+  .hc-gi[aria-current="true"] i{ color:var(--b600); }
+
+  /* ——— ПАНЕЛЬ ——— */
+  .hc-panel{ display:flex; flex-direction:column; background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 0 0 1px rgba(10,13,20,.07), 0 32px 64px -28px rgba(10,13,20,.42), 0 12px 24px -16px rgba(10,13,20,.16); }
+  .hc-head{ flex:0 0 auto; display:flex; align-items:center; gap:16px; height:64px; padding:0 20px 0 24px; border-bottom:1px solid var(--n100); }
+  .hc-h{ margin:0; font-size:18px; line-height:24px; font-weight:600; letter-spacing:-.016em; white-space:nowrap; }
+  .hc-head .hc-search{ flex:0 1 340px; margin-left:auto; }
+  .hc-all{ flex:0 0 auto; height:36px; padding:0 10px; display:inline-flex; align-items:center; gap:6px; border-radius:10px; color:var(--b700); font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap; transition:background .15s; }
+  .hc-all:hover{ background:var(--b50); }
+  .hc-all i{ font-size:18px; transition:transform .15s; }
+  .hc-all:hover i{ transform:translateX(2px); }
+  .hc-x{ display:none; flex:0 0 auto; width:40px; height:40px; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; align-items:center; justify-content:center; cursor:pointer; }
+  .hc-x:hover{ background:var(--n100); color:var(--n900); }
+  .hc-body{ display:grid; grid-template-columns:clamp(256px,19vw,300px) minmax(0,1fr) clamp(296px,21vw,380px); height:min(clamp(540px,34vw,720px), calc(var(--hc-avail,700px) - 65px)); min-height:0; }
+  .hc-body.find{ grid-template-columns:clamp(256px,19vw,300px) minmax(0,1fr); }
+  .hc-nav{ position:relative; padding:12px; border-right:1px solid var(--n100); }
+  .hc-main{ padding:20px 24px 28px; }
+  .hc-main .hc-blk + .hc-blk{ margin-top:26px; }
+  .hc-feat{ padding:20px; border-left:1px solid var(--n100); background:var(--n50); }
+  .hc-fc{ width:100%; display:flex; flex-direction:column; gap:12px; padding:0; border:none; background:none; text-align:left; cursor:pointer; color:var(--n900); border-radius:14px; }
+  .hc-fc .hc-th{ border-radius:14px; }
+  .hc-fc b{ font-size:16px; line-height:22px; font-weight:600; letter-spacing:-.012em; text-wrap:balance; transition:color .15s; }
+  .hc-chs{ list-style:none; margin:16px 0 0; padding:12px 0 0; border-top:1px solid var(--n200); display:flex; flex-direction:column; gap:2px; }
+  .hc-ch{ width:100%; display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border:none; border-radius:9px; background:none; text-align:left; cursor:pointer; font-size:13.5px; line-height:19px; color:var(--n600); transition:background .15s, color .15s; }
+  .hc-ch:hover{ background:#fff; color:var(--n900); box-shadow:inset 0 0 0 1px var(--n200); }
+  .hc-ch .tm{ flex:0 0 38px; font-weight:600; color:var(--b700); font-variant-numeric:tabular-nums; }
+  .hc-ch .lb{ flex:1 1 auto; min-width:0; }
+  @media (max-width:1180px){ .hc-body{ grid-template-columns:clamp(232px,22vw,260px) minmax(0,1fr); } .hc-body .hc-feat{ display:none; } }
+  /* планшет и телефон: панель — лист под шапкой, разделы — лентой */
+  @media (max-width:1080px){
+    .hc-panel{ height:100%; border-radius:0; box-shadow:0 1px 0 var(--n200) inset; }
+    .hc-head{ height:auto; min-height:64px; padding:12px 12px 12px var(--gut,16px); flex-wrap:wrap; row-gap:10px; }
+    .hc-x{ display:inline-flex; order:3; }
+    .hc-all{ order:2; margin-left:auto; }
+    .hc-head .hc-search{ order:4; flex:1 0 100%; margin:0 calc(var(--gut,16px) - 12px) 0 0; }
+    .hc-body, .hc-body.find{ display:flex; flex-direction:column; flex:1 1 auto; height:auto; }
+    .hc-nav{ flex:0 0 auto; display:flex; gap:6px; padding:10px var(--gut,16px); border-right:none; border-bottom:1px solid var(--n100); overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+    .hc-nav::-webkit-scrollbar{ display:none; }
+    .hc-nav .hc-sec{ display:none; }
+    .hc-nav .hc-gi{ width:auto; flex:0 0 auto; min-height:36px; padding:0 12px; white-space:nowrap; box-shadow:inset 0 0 0 1px var(--n200); }
+    .hc-nav .hc-gi[aria-current="true"]{ box-shadow:inset 0 0 0 1px var(--b300); }
+    .hc-main{ flex:1 1 auto; min-height:0; padding:18px var(--gut,16px) 28px; }
+  }
+  @media (max-width:560px){ .hc-all span{ display:none; } .hc-all{ width:40px; padding:0; justify-content:center; } .hc-vgrid{ grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:16px 12px; } .hc-dlist{ grid-template-columns:minmax(0,1fr); } }
+
+  /* ——— СТРАНИЦА «Все материалы» ——— */
+  .hc-phero{ display:flex; align-items:center; flex-wrap:wrap; gap:12px 24px; padding:clamp(10px,.9vw,16px) 0 clamp(18px,1.4vw,28px); }
+  .hc-h1{ margin:0; font-size:clamp(26px,1vw + 15px,38px); line-height:1.15; font-weight:600; letter-spacing:-.028em; }
+  .hc-phero .hc-search{ flex:0 1 420px; margin-left:auto; height:44px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .hc-phero .hc-search:hover{ box-shadow:inset 0 0 0 1px var(--n300); }
+  .hc-phero .hc-search:focus-within{ box-shadow:inset 0 0 0 1px var(--b500), 0 0 0 3px color-mix(in srgb, var(--b500) 16%, transparent); }
+  .hc-pg{ display:grid; grid-template-columns:clamp(260px,16vw,320px) minmax(0,1fr); gap:clamp(20px,2vw,44px); align-items:start; }
+  .hc-pnav{ position:sticky; top:calc(var(--hc-sticky,72px) + 16px); max-height:calc(100svh - var(--hc-sticky,72px) - 32px); padding:12px; border-radius:18px; background:#fff; box-shadow:inset 0 0 0 1px var(--n200); }
+  .hc-pmain{ min-width:0; }
+  .hc-pmain .hc-vgrid{ grid-template-columns:repeat(auto-fill, minmax(clamp(220px,15vw,300px),1fr)); gap:24px 18px; }
+  .hc-pmain .hc-dlist{ grid-template-columns:repeat(auto-fill, minmax(clamp(320px,22vw,420px),1fr)); }
+  .hc-psec{ scroll-margin-top:calc(var(--hc-sticky,72px) + 16px); }
+  .hc-psec + .hc-psec{ margin-top:clamp(32px,2.6vw,48px); padding-top:clamp(28px,2.2vw,40px); border-top:1px solid var(--n100); }
+  .hc-psec h2{ display:flex; align-items:center; gap:10px; margin:0 0 18px; font-size:clamp(19px,.4vw + 14px,22px); line-height:1.3; font-weight:600; letter-spacing:-.018em; }
+  .hc-psec h2 i{ width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:var(--b50); color:var(--b600); font-size:20px; }
+  .hc-psec h2 small{ font-size:13px; font-weight:500; letter-spacing:0; color:var(--n400); }
+  .hc-pblk + .hc-pblk{ margin-top:24px; }
+  /* мониторы: документы раздела — колонкой справа от видео, без пустого поля справа */
+  @media (min-width:1600px){
+    .hc-psec.two{ display:grid; grid-template-columns:minmax(0,1fr) clamp(360px,24vw,520px); column-gap:clamp(32px,2.4vw,56px); align-items:start; }
+    .hc-psec.two h2{ grid-column:1 / -1; }
+    .hc-psec.two .hc-pblk + .hc-pblk{ margin-top:0; }
+    .hc-psec.two .hc-dlist{ grid-template-columns:minmax(0,1fr); }
+  }
+  .hc-pg .hc-empty{ min-height:360px; border-radius:18px; box-shadow:inset 0 0 0 1px var(--n200); }
+  @media (max-width:960px){
+    .hc-pg{ grid-template-columns:minmax(0,1fr); }
+    .hc-pnav{ position:sticky; top:var(--hc-sticky,110px); z-index:5; max-height:none; display:flex; gap:6px; margin:0 calc(-1 * var(--gut,16px)); padding:10px var(--gut,16px); border-radius:0; background:rgba(255,255,255,.96); box-shadow:0 1px 0 var(--n200); overflow-x:auto; scrollbar-width:none; }
+    .hc-pnav::-webkit-scrollbar{ display:none; }
+    .hc-pnav .hc-sec{ display:none; }
+    .hc-pnav .hc-gi{ width:auto; flex:0 0 auto; min-height:36px; padding:0 12px; white-space:nowrap; box-shadow:inset 0 0 0 1px var(--n200); }
+    .hc-pnav .hc-gi[aria-current="true"]{ box-shadow:inset 0 0 0 1px var(--b300); }
+    .hc-phero .hc-search{ flex:1 0 100%; }
+  }
+
+  /* ——— ОКНА ПРОСМОТРА ——— */
+  @keyframes hc-fade{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes hc-pop{ from{ opacity:0; transform:translate(-50%,-50%) translateY(10px) scale(.985); } to{ opacity:1; transform:translate(-50%,-50%); } }
+  @keyframes hc-up{ from{ opacity:0; transform:translate(-50%,8px); } to{ opacity:1; transform:translate(-50%,0); } }
+  @keyframes hc-ring{ 0%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--b500) 45%, transparent); } 100%{ box-shadow:0 0 0 3cqw transparent; } }
+  .hc-ov{ position:fixed; inset:0; z-index:1; background:rgba(10,13,20,.72); animation:hc-fade .2s ease; }
+  .hc-mod{ position:fixed; left:50%; top:50%; z-index:2; transform:translate(-50%,-50%); max-height:calc(100svh - 48px); background:#fff; border-radius:20px; overflow:hidden;
+    box-shadow:0 40px 80px -24px rgba(10,13,20,.55); animation:hc-pop .22s cubic-bezier(.2,.7,.2,1); outline:none; }
+  .hc .hc-mod:focus, .hc .hc-mod:focus-visible{ outline:none; }
+  .hc-ib{ flex:0 0 auto; width:36px; height:36px; border:none; border-radius:10px; background:none; color:var(--n500); font-size:22px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s, color .15s; }
+  .hc-ib:hover{ background:var(--n100); color:var(--n900); }
+
+  /* видео */
+  .hc-vm{ width:min(1280px, 100vw - 2*var(--gut,40px)); display:grid; grid-template-columns:minmax(0,1fr) clamp(300px,24vw,360px); }
+  .hc-left{ min-width:0; display:flex; align-items:center; justify-content:center; background:var(--n900); }
+  .hc-stage{ position:relative; width:min(100%, calc((100svh - 48px) * 16 / 9)); aspect-ratio:16/9; background:var(--n900); cursor:pointer; overflow:hidden; }
+  .hc-stage .hc-th{ position:absolute; inset:0; height:100%; border-radius:0; box-shadow:none; }
+  .hc-stage:fullscreen{ width:100%; height:100%; aspect-ratio:auto; display:flex; align-items:center; justify-content:center; }
+  .hc-stage:fullscreen .hc-th{ position:relative; inset:auto; width:min(100vw, 100vh * 16 / 9); height:auto; }
+  .hc-th .hl{ position:absolute; z-index:2; width:7cqw; height:7cqw; margin:-3.5cqw 0 0 -3.5cqw; border-radius:50%; border:.35cqw solid var(--b500); background:color-mix(in srgb, var(--b500) 14%, transparent);
+    transition:left .7s cubic-bezier(.2,.7,.2,1), top .7s cubic-bezier(.2,.7,.2,1); animation:hc-ring 1.6s ease-out infinite; pointer-events:none; }
+  .hc-th .cur{ position:absolute; z-index:4; margin:.6cqw 0 0 .4cqw; font-size:3.6cqw; color:var(--n900); filter:drop-shadow(0 0 1px #fff) drop-shadow(0 1px 2px rgba(10,13,20,.3));
+    transition:left .7s cubic-bezier(.2,.7,.2,1), top .7s cubic-bezier(.2,.7,.2,1); pointer-events:none; }
+  .hc-th .co{ position:absolute; z-index:4; max-width:44%; display:flex; align-items:center; gap:1.2cqw; padding:1.1cqw 1.6cqw 1.1cqw 1.1cqw; border-radius:1.6cqw; background:#fff;
+    box-shadow:0 1.4cqw 4cqw -1.4cqw rgba(10,13,20,.45), 0 0 0 1px rgba(10,13,20,.06); font-size:max(12px, 1.7cqw); line-height:1.3; font-weight:500; color:var(--n900);
+    transition:left .7s cubic-bezier(.2,.7,.2,1), top .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); pointer-events:none; }
+  .hc-th .co b{ flex:0 0 auto; min-width:max(20px,3cqw); height:max(20px,3cqw); padding:0 .6cqw; border-radius:99px; background:var(--b600); color:#fff; font-size:max(11px,1.5cqw); display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
+  .hc-big{ position:absolute; left:50%; top:50%; z-index:5; width:76px; height:76px; transform:translate(-50%,-50%); border:none; border-radius:50%; background:var(--b600); color:#fff; font-size:38px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 12px 32px -8px rgba(10,13,20,.5); transition:background .15s, transform .15s; }
+  .hc-big:hover{ background:var(--b700); transform:translate(-50%,-50%) scale(1.05); }
+  .hc-big i{ margin-left:3px; }
+  .hc-end{ position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; padding:24px; background:rgba(10,13,20,.66); cursor:default; animation:hc-fade .2s ease; }
+  .hc-eb{ height:44px; padding:0 18px; display:inline-flex; align-items:center; gap:8px; border:none; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; transition:background .15s; max-width:100%; }
+  .hc-eb span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hc-eb i{ font-size:20px; flex:0 0 auto; }
+  .hc-eb.p{ background:var(--b600); color:#fff; } .hc-eb.p:hover{ background:var(--b700); }
+  .hc-eb.s{ background:rgba(255,255,255,.14); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.28); } .hc-eb.s:hover{ background:rgba(255,255,255,.22); }
+  .hc-ctrl{ position:absolute; left:0; right:0; bottom:0; z-index:7; padding:28px 14px 10px; display:flex; align-items:center; gap:6px; background:linear-gradient(180deg, transparent, rgba(10,13,20,.78)); cursor:default; transition:opacity .25s; }
+  .hc-stage.playing:not(:hover):not(:focus-within) .hc-ctrl{ opacity:0; }
+  @media (hover:none){ .hc-stage.playing .hc-ctrl{ opacity:1 !important; } }
+  .hc-cb{ flex:0 0 auto; height:36px; min-width:36px; padding:0 8px; border:none; border-radius:9px; background:none; color:#fff; font-size:22px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; }
+  .hc-cb:hover{ background:rgba(255,255,255,.16); }
+  .hc-cb.sp{ font-size:13.5px; font-weight:600; font-variant-numeric:tabular-nums; min-width:48px; }
+  .hc-time{ flex:0 0 auto; padding:0 6px; font-size:13px; font-weight:500; color:#fff; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .hc-seek{ position:relative; flex:1 1 auto; height:24px; display:flex; align-items:center; cursor:pointer; touch-action:none; border-radius:6px; }
+  .hc-seek .tr{ position:relative; width:100%; height:4px; border-radius:4px; background:rgba(255,255,255,.28); transition:height .15s; }
+  .hc-seek:hover .tr, .hc-seek:focus-visible .tr{ height:6px; }
+  .hc-seek .fl{ position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:var(--b400); }
+  .hc-seek .tk{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px; background:rgba(10,13,20,.7); }
+  .hc-seek .kn{ position:absolute; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(10,13,20,.4); transform:scale(0); transition:transform .15s; }
+  .hc-seek:hover .kn, .hc-seek:focus-visible .kn, .hc-seek.drag .kn{ transform:scale(1); }
+  .hc-side{ display:flex; flex-direction:column; min-height:0; max-height:calc(100svh - 48px); border-left:1px solid var(--n100); }
+  .hc-sh{ display:flex; align-items:flex-start; gap:12px; padding:18px 14px 14px 20px; }
+  .hc-sh > div{ flex:1 1 auto; min-width:0; }
+  .hc-sh h2{ margin:0; font-size:17px; line-height:24px; font-weight:600; letter-spacing:-.014em; text-wrap:balance; }
+  .hc-sh p{ margin:4px 0 0; font-size:13px; line-height:18px; color:var(--n500); }
+  .hc-sb{ flex:1 1 auto; min-height:0; padding:4px 12px 20px; }
+  .hc-sb .hc-lbl{ padding:0 8px; margin-top:14px; }
+  .hc-sb .hc-lbl:first-child{ margin-top:6px; }
+  .hc-chl{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+  .hc-chl .hc-ch:hover{ background:var(--n100); box-shadow:none; }
+  .hc-chl .hc-ch[aria-current="true"]{ background:var(--b50); color:var(--b800); font-weight:500; }
+  .hc-sb .hc-dlist{ grid-template-columns:minmax(0,1fr); gap:2px; }
+  @media (max-width:960px){
+    .hc-vm{ grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); width:min(720px, 100vw - 32px); max-height:calc(100svh - 32px); }
+    .hc-stage{ width:100%; }
+    .hc-side{ border-left:none; max-height:none; min-height:0; }
+    .hc-mod{ max-height:calc(100svh - 32px); }
+  }
+  @media (max-width:560px){
+    .hc-mod, .hc-vm{ left:0; top:0; transform:none; width:100%; height:100%; max-height:none; border-radius:0; animation:hc-fade .2s ease; }
+    .hc-time .tt{ display:none; }
+  }
+
+  /* документ */
+  .hc-dm{ width:min(960px, 100vw - 2*var(--gut,40px)); height:calc(100svh - 48px); display:flex; flex-direction:column; }
+  .hc-dh{ flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:14px 14px 14px 20px; border-bottom:1px solid var(--n100); }
+  .hc-dh > div{ flex:1 1 auto; min-width:0; }
+  .hc-dh h2{ margin:0; font-size:16px; line-height:22px; font-weight:600; letter-spacing:-.012em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hc-dh p{ margin:2px 0 0; font-size:13px; line-height:18px; color:var(--n500); }
+  .hc-pb{ flex:0 0 auto; height:40px; padding:0 16px; display:inline-flex; align-items:center; gap:8px; border:none; border-radius:10px; background:var(--b600); color:#fff; font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
+  .hc-pb:hover{ background:var(--b700); }
+  .hc-pb i{ font-size:18px; }
+  .hc-db{ flex:1 1 auto; min-height:0; padding:clamp(16px,2.4vw,32px); background:var(--n100); }
+  .hc-sheet{ width:min(100%, 760px); min-height:100%; margin:0 auto; padding:clamp(24px,4vw,56px) clamp(20px,4.4vw,64px); background:#fff; border-radius:4px; box-shadow:0 1px 2px rgba(10,13,20,.06), 0 8px 24px -12px rgba(10,13,20,.14); }
+  .hc-sheet .org{ display:flex; align-items:center; gap:12px; padding-bottom:18px; margin-bottom:28px; border-bottom:1px solid var(--n200); font-size:12px; line-height:16px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--n500); }
+  .hc-sheet .org img{ width:36px; height:36px; border-radius:50%; object-fit:contain; }
+  .hc-sheet h1{ margin:0 0 8px; font-size:clamp(20px,1.4vw + 10px,26px); line-height:1.25; font-weight:600; letter-spacing:-.02em; text-wrap:balance; }
+  .hc-sheet .ver{ margin:0 0 28px; font-size:13px; color:var(--n400); }
+  .hc-sheet h3{ margin:0 0 14px; font-size:16px; font-weight:600; }
+  .hc-sheet ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px; counter-reset:st; }
+  .hc-sheet li{ position:relative; padding-left:40px; font-size:15px; line-height:1.55; color:var(--n700); counter-increment:st; }
+  .hc-sheet li::before{ content:counter(st); position:absolute; left:0; top:0; width:26px; height:26px; border-radius:50%; background:var(--b50); color:var(--b700); font-size:13px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+  @media (max-width:960px){ .hc-dm{ height:calc(100svh - 32px); width:calc(100vw - 32px); } }
+  @media (max-width:560px){ .hc-dm{ height:100%; width:100%; } .hc-pb span{ display:none; } .hc-pb{ width:40px; padding:0; justify-content:center; } }
+
+  /* уведомление */
+  .hc-toast{ position:fixed; left:50%; bottom:24px; z-index:3; transform:translateX(-50%); display:flex; align-items:center; gap:12px; max-width:min(440px, calc(100vw - 32px)); padding:12px 16px 12px 12px; border-radius:14px;
+    background:var(--n900); color:#fff; box-shadow:0 16px 40px -12px rgba(10,13,20,.5); animation:hc-up .22s cubic-bezier(.2,.7,.2,1); }
+  .hc-toast i{ flex:0 0 auto; width:32px; height:32px; border-radius:50%; background:var(--green); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; }
+  .hc-toast div{ min-width:0; display:flex; flex-direction:column; }
+  .hc-toast b{ font-size:14px; line-height:20px; font-weight:600; }
+  .hc-toast span{ font-size:13px; line-height:18px; color:rgba(255,255,255,.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  @media (prefers-reduced-motion:reduce){ .hc *, .hc-mod, .hc-ov, .hc-toast{ animation:none !important; transition:none !important; } }
+</style>
+</helmet>
+<div class="hc">
+  <!-- ═══════════ ПАНЕЛЬ ═══════════ -->
+  <sc-if value="{{ isPanel }}" hint-placeholder-val="{{ true }}">
+    <div class="hc-panel" role="region" aria-label="Инструкции" onKeyDown="{{ onPanelKey }}">
+      <div class="hc-head">
+        <h2 class="hc-h">Инструкции</h2>
+        <label class="hc-search">
+          <i class="ri-search-line" aria-hidden="true"></i>
+          <input class="hc-in" ref="{{ searchRef }}" type="search" value="{{ q }}" onChange="{{ onQ }}" placeholder="Найти видео или инструкцию" aria-label="Поиск по видео и инструкциям" autocomplete="off">
+          <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="hc-clr" onClick="{{ clearQ }}" aria-label="Очистить поиск"><i class="ri-close-circle-fill"></i></button></sc-if>
+        </label>
+        <a class="hc-all" href="Инструкции.dc.html" aria-label="Все материалы"><span>Все материалы</span><i class="ri-arrow-right-line"></i></a>
+        <button type="button" class="hc-x" onClick="{{ closePanel }}" aria-label="Закрыть"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="{{ bodyCls }}">
+        <nav class="hc-nav hc-scroll" aria-label="Разделы">
+          <sc-for list="{{ navRows }}" as="r" hint-placeholder-count="8">
+            <sc-if value="{{ r.isSec }}" hint-placeholder-val="{{ false }}"><div class="{{ r.cls }}">{{ r.label }}</div></sc-if>
+            <sc-if value="{{ r.isGroup }}" hint-placeholder-val="{{ true }}"><button type="button" class="hc-gi" aria-current="{{ r.on }}" onClick="{{ r.onClick }}"><i class="{{ r.icon }}"></i><span>{{ r.label }}</span></button></sc-if>
+          </sc-for>
+        </nav>
+        <div class="hc-main hc-scroll" ref="{{ mainRef }}">
+          <sc-if value="{{ hasVideos }}" hint-placeholder-val="{{ true }}">
+            <section class="hc-blk" aria-label="Видео">
+              <div class="hc-lbl">Видео</div>
+              <div class="hc-vgrid">
+                <sc-for list="{{ videos }}" as="v" hint-placeholder-count="3">
+                  <button type="button" class="hc-vc" onClick="{{ v.open }}" aria-label="{{ v.aria }}">
+                    <span class="{{ v.thCls }}"><span class="w"><span class="tb"></span><span class="ic"><i class="{{ v.icon }}"></i></span><span class="t1"></span><span class="t2"></span><span class="c1"></span><span class="c2"></span><span class="c3"></span></span><span class="pl"><i class="ri-play-fill"></i></span><span class="du">{{ v.dur }}</span></span>
+                    <span class="hc-vt">{{ v.title }}</span>
+                    <sc-if value="{{ v.sub }}" hint-placeholder-val="{{ false }}"><span class="hc-vs">{{ v.sub }}</span></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </section>
+          </sc-if>
+          <sc-if value="{{ hasDocs }}" hint-placeholder-val="{{ true }}">
+            <section class="hc-blk" aria-label="Документы">
+              <div class="hc-lbl">Документы</div>
+              <div class="hc-dlist">
+                <sc-for list="{{ docs }}" as="d" hint-placeholder-count="2">
+                  <div class="hc-dr">
+                    <button type="button" class="hc-do" onClick="{{ d.open }}" aria-label="{{ d.aria }}"><span class="hc-fi"><i class="ri-file-pdf-2-line"></i></span><span class="hc-dt"><b>{{ d.title }}</b><em>{{ d.meta }}</em></span></button>
+                    <button type="button" class="hc-dl" onClick="{{ d.download }}" aria-label="{{ d.dlAria }}" data-tip="Скачать"><i class="ri-download-2-line"></i></button>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </sc-if>
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div class="hc-empty"><span class="ei"><i class="ri-search-line"></i></span><b>Ничего не нашлось</b><button type="button" class="hc-btn2" onClick="{{ clearQ }}">Сбросить поиск</button></div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ hasFeat }}" hint-placeholder-val="{{ true }}">
+          <aside class="hc-feat hc-scroll" aria-label="Популярно сейчас">
+            <div class="hc-lbl">Популярно сейчас</div>
+            <button type="button" class="hc-fc" onClick="{{ feat.open }}" aria-label="{{ feat.aria }}">
+              <span class="{{ feat.thCls }}"><span class="w"><span class="tb"></span><span class="ic"><i class="{{ feat.icon }}"></i></span><span class="t1"></span><span class="t2"></span><span class="c1"></span><span class="c2"></span><span class="c3"></span></span><span class="pl"><i class="ri-play-fill"></i></span><span class="du">{{ feat.dur }}</span></span>
+              <b>{{ feat.title }}</b>
+            </button>
+            <ol class="hc-chs" aria-label="Содержание">
+              <sc-for list="{{ feat.chs }}" as="c" hint-placeholder-count="4">
+                <li><button type="button" class="hc-ch" onClick="{{ c.onClick }}" aria-label="{{ c.aria }}"><b class="tm">{{ c.time }}</b><span class="lb">{{ c.label }}</span></button></li>
+              </sc-for>
+            </ol>
+          </aside>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═══════════ СТРАНИЦА «Все материалы» ═══════════ -->
+  <sc-if value="{{ isPage }}" hint-placeholder-val="{{ false }}">
+    <div class="hc-phero">
+      <h1 class="hc-h1">Инструкции</h1>
+      <label class="hc-search">
+        <i class="ri-search-line" aria-hidden="true"></i>
+        <input class="hc-in" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onPageKey }}" placeholder="Найти видео или инструкцию" aria-label="Поиск по видео и инструкциям" autocomplete="off">
+        <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="hc-clr" onClick="{{ clearQ }}" aria-label="Очистить поиск"><i class="ri-close-circle-fill"></i></button></sc-if>
+      </label>
+    </div>
+    <div class="hc-pg">
+      <nav class="hc-pnav hc-scroll" aria-label="Разделы">
+        <sc-for list="{{ navRows }}" as="r" hint-placeholder-count="8">
+          <sc-if value="{{ r.isSec }}" hint-placeholder-val="{{ false }}"><div class="{{ r.cls }}">{{ r.label }}</div></sc-if>
+          <sc-if value="{{ r.isGroup }}" hint-placeholder-val="{{ true }}"><button type="button" class="hc-gi" aria-current="{{ r.on }}" onClick="{{ r.onClick }}"><i class="{{ r.icon }}"></i><span>{{ r.label }}</span></button></sc-if>
+        </sc-for>
+      </nav>
+      <div class="hc-pmain">
+        <sc-for list="{{ pageSecs }}" as="s" hint-placeholder-count="2">
+          <section class="{{ s.cls }}" aria-label="{{ s.label }}">
+            <sc-if value="{{ s.showHead }}" hint-placeholder-val="{{ true }}"><h2><i class="{{ s.icon }}"></i>{{ s.label }}</h2></sc-if>
+            <sc-if value="{{ s.hasVideos }}" hint-placeholder-val="{{ true }}">
+              <div class="hc-pblk">
+                <div class="hc-lbl">Видео</div>
+                <div class="hc-vgrid">
+                  <sc-for list="{{ s.videos }}" as="v" hint-placeholder-count="3">
+                    <button type="button" class="hc-vc" onClick="{{ v.open }}" aria-label="{{ v.aria }}">
+                      <span class="{{ v.thCls }}"><span class="w"><span class="tb"></span><span class="ic"><i class="{{ v.icon }}"></i></span><span class="t1"></span><span class="t2"></span><span class="c1"></span><span class="c2"></span><span class="c3"></span></span><span class="pl"><i class="ri-play-fill"></i></span><span class="du">{{ v.dur }}</span></span>
+                      <span class="hc-vt">{{ v.title }}</span>
+                      <sc-if value="{{ v.sub }}" hint-placeholder-val="{{ false }}"><span class="hc-vs">{{ v.sub }}</span></sc-if>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ s.hasDocs }}" hint-placeholder-val="{{ true }}">
+              <div class="hc-pblk">
+                <div class="hc-lbl">Документы</div>
+                <div class="hc-dlist">
+                  <sc-for list="{{ s.docs }}" as="d" hint-placeholder-count="2">
+                    <div class="hc-dr">
+                      <button type="button" class="hc-do" onClick="{{ d.open }}" aria-label="{{ d.aria }}"><span class="hc-fi"><i class="ri-file-pdf-2-line"></i></span><span class="hc-dt"><b>{{ d.title }}</b><em>{{ d.meta }}</em></span></button>
+                      <button type="button" class="hc-dl" onClick="{{ d.download }}" aria-label="{{ d.dlAria }}" data-tip="Скачать"><i class="ri-download-2-line"></i></button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </section>
+        </sc-for>
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div class="hc-empty"><span class="ei"><i class="ri-search-line"></i></span><b>Ничего не нашлось</b><button type="button" class="hc-btn2" onClick="{{ clearQ }}">Сбросить поиск</button></div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═══════════ ОКНО ВИДЕО ═══════════ -->
+  <sc-if value="{{ vOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="hc-ov" onClick="{{ close }}"></div>
+    <div class="hc-mod hc-vm" role="dialog" aria-modal="true" aria-labelledby="hc-vm-t" tabIndex="-1" ref="{{ modalRef }}">
+      <div class="hc-left">
+        <div class="{{ stageCls }}" ref="{{ stageRef }}" onClick="{{ onStage }}">
+          <span class="{{ v.thCls }}" aria-hidden="true">
+            <span class="w"><span class="tb"></span><span class="ic"><i class="{{ v.icon }}"></i></span><span class="t1"></span><span class="t2"></span><span class="c1"></span><span class="c2"></span><span class="c3"></span></span>
+            <sc-if value="{{ v.showCue }}" hint-placeholder-val="{{ true }}">
+              <span class="hl" style="{{ v.spot }}"></span>
+              <i class="ri-cursor-fill cur" style="{{ v.spot }}"></i>
+              <span class="co" style="{{ v.coStyle }}"><b>{{ v.chNum }}</b>{{ v.chLabel }}</span>
+            </sc-if>
+          </span>
+          <sc-if value="{{ v.showBig }}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="hc-big" onClick="{{ play }}" aria-label="Воспроизвести"><i class="ri-play-fill"></i></button>
+          </sc-if>
+          <sc-if value="{{ v.ended }}" hint-placeholder-val="{{ false }}">
+            <div class="hc-end" onClick="{{ stop }}">
+              <button type="button" class="hc-eb s" onClick="{{ replay }}"><i class="ri-replay-line"></i><span>Смотреть снова</span></button>
+              <sc-if value="{{ v.hasNext }}" hint-placeholder-val="{{ true }}">
+                <button type="button" class="hc-eb p" onClick="{{ v.next }}" data-tip="{{ v.nextTitle }}"><i class="ri-skip-forward-line"></i><span>Следующее видео</span></button>
+              </sc-if>
+            </div>
+          </sc-if>
+          <div class="hc-ctrl" onClick="{{ stop }}">
+            <button type="button" class="hc-cb" onClick="{{ toggle }}" aria-label="{{ v.playLabel }}" data-tip="{{ v.playTip }}"><i class="{{ v.playIcon }}"></i></button>
+            <span class="hc-time">{{ v.cur }}<span class="tt"> / {{ v.dur }}</span></span>
+            <div class="{{ v.seekCls }}" ref="{{ seekRef }}" role="slider" tabIndex="0" aria-label="Перемотка" aria-valuemin="0" aria-valuemax="{{ v.max }}" aria-valuenow="{{ v.now }}" aria-valuetext="{{ v.cur }}"
+              onPointerDown="{{ seekDown }}" onPointerMove="{{ seekMove }}" onPointerUp="{{ seekUp }}" onPointerCancel="{{ seekUp }}" onKeyDown="{{ seekKey }}">
+              <div class="tr"><div class="fl" style="{{ v.fill }}"></div><sc-for list="{{ v.ticks }}" as="k" hint-placeholder-count="3"><span class="tk" style="{{ k }}"></span></sc-for><span class="kn" style="{{ v.knob }}"></span></div>
+            </div>
+            <button type="button" class="hc-cb sp" onClick="{{ cycleSpeed }}" aria-label="{{ v.speedAria }}" data-tip="Скорость воспроизведения">{{ v.speed }}</button>
+            <button type="button" class="hc-cb" onClick="{{ toggleFs }}" aria-label="{{ v.fsLabel }}" data-tip="{{ v.fsLabel }}"><i class="{{ v.fsIcon }}"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class="hc-side">
+        <div class="hc-sh">
+          <div><h2 id="hc-vm-t">{{ v.title }}</h2><p>{{ v.where }}</p></div>
+          <button type="button" class="hc-ib" onClick="{{ close }}" aria-label="Закрыть" data-tip="Закрыть"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="hc-sb hc-scroll">
+          <div class="hc-lbl">Содержание</div>
+          <ol class="hc-chl">
+            <sc-for list="{{ v.chs }}" as="c" hint-placeholder-count="4">
+              <li><button type="button" class="hc-ch" aria-current="{{ c.on }}" onClick="{{ c.onClick }}" aria-label="{{ c.aria }}"><b class="tm">{{ c.time }}</b><span class="lb">{{ c.label }}</span></button></li>
+            </sc-for>
+          </ol>
+          <sc-if value="{{ v.hasDocs }}" hint-placeholder-val="{{ true }}">
+            <div class="hc-lbl">Документы</div>
+            <div class="hc-dlist">
+              <sc-for list="{{ v.docs }}" as="d" hint-placeholder-count="1">
+                <div class="hc-dr">
+                  <button type="button" class="hc-do" onClick="{{ d.open }}" aria-label="{{ d.aria }}"><span class="hc-fi"><i class="ri-file-pdf-2-line"></i></span><span class="hc-dt"><b>{{ d.title }}</b><em>{{ d.meta }}</em></span></button>
+                  <button type="button" class="hc-dl" onClick="{{ d.download }}" aria-label="{{ d.dlAria }}" data-tip="Скачать"><i class="ri-download-2-line"></i></button>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═══════════ ОКНО ДОКУМЕНТА ═══════════ -->
+  <sc-if value="{{ dOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="hc-ov" onClick="{{ close }}"></div>
+    <div class="hc-mod hc-dm" role="dialog" aria-modal="true" aria-labelledby="hc-dm-t" tabIndex="-1" ref="{{ modalRef }}">
+      <div class="hc-dh">
+        <span class="hc-fi"><i class="ri-file-pdf-2-line"></i></span>
+        <div><h2 id="hc-dm-t" data-tip="{{ d.tip }}">{{ d.title }}</h2><p>{{ d.meta }}</p></div>
+        <button type="button" class="hc-pb" onClick="{{ d.download }}" aria-label="Скачать"><i class="ri-download-2-line"></i><span>Скачать</span></button>
+        <button type="button" class="hc-ib" onClick="{{ close }}" aria-label="Закрыть" data-tip="Закрыть"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="hc-db hc-scroll">
+        <article class="hc-sheet">
+          <div class="org"><img src="uploads/images.jpg" alt="">Министерство здравоохранения Республики Казахстан</div>
+          <h1>{{ d.title }}</h1>
+          <p class="ver">{{ d.ver }}</p>
+          <h3>Порядок действий</h3>
+          <ol><sc-for list="{{ d.steps }}" as="s" hint-placeholder-count="4"><li>{{ s }}</li></sc-for></ol>
+        </article>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="hc-toast" role="status"><i class="ri-check-line"></i><div><b>Файл скачан</b><span>{{ toast }}</span></div></div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:&quot;panel&quot;,&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:660}}">
+const SECS = [ { id:'citizens', label:'Гражданам' }, { id:'business', label:'Бизнесу' }, { id:'medical', label:'Медперсоналу' } ];
+const GROUPS = [
+  { id:'start',  sec:'citizens', label:'Вход и личный кабинет', icon:'ri-login-circle-line' },
+  { id:'doctor', sec:'citizens', label:'Запись к врачу', icon:'ri-calendar-check-line' },
+  { id:'certs',  sec:'citizens', label:'Справки и больничные', icon:'ri-file-text-line' },
+  { id:'epz',    sec:'citizens', label:'ЭПЗ и медкарта', icon:'ri-heart-pulse-line' },
+  { id:'family', sec:'citizens', label:'Моя семья', icon:'ri-parent-line' },
+  { id:'biz',    sec:'business', label:'Кабинет бизнеса', icon:'ri-briefcase-4-line' },
+  { id:'price',  sec:'business', label:'Регистрация цен', icon:'ri-price-tag-3-line' },
+  { id:'ed',     sec:'business', label:'Услуги ЕД и АЛО', icon:'ri-capsule-line' },
+  { id:'knf',    sec:'business', label:'Включение в КНФ', icon:'ri-book-2-line' },
+  { id:'doc',    sec:'medical',  label:'Кабинет врача', icon:'ri-stethoscope-line' },
+  { id:'proto',  sec:'medical',  label:'Клинические протоколы', icon:'ri-file-list-3-line' },
+  { id:'rep',    sec:'medical',  label:'Отчётные формы', icon:'ri-file-chart-line' },
+];
+// kind: video (dur — секунды, top — «Популярно сейчас» раздела) | doc (size, pages). steps — главы видео / порядок действий документа.
+const ITEMS = [
+  { id:'v-ecp', g:'start', kind:'video', top:true, title:'Как войти на портал по ЭЦП', dur:168, steps:['Откройте страницу входа','Выберите вход по ЭЦП','Укажите файл ключа и пароль','Выберите профиль и войдите'] },
+  { id:'v-qr', g:'start', kind:'video', title:'Вход через eGov Mobile по QR-коду', dur:116, steps:['Нажмите «Войти» в шапке портала','Откройте eGov Mobile на телефоне','Отсканируйте QR-код','Подтвердите вход в приложении'] },
+  { id:'v-lk', g:'start', kind:'video', title:'Обзор личного кабинета', dur:252, steps:['Главная страница кабинета','Уведомления','Личная медицинская карта','Электронный паспорт здоровья','Настройки профиля'] },
+  { id:'d-reg', g:'start', kind:'doc', title:'Регистрация и вход на портал', size:'1,4 МБ', pages:6, steps:['Нажмите «Войти» в шапке портала.','Выберите способ входа: ЭЦП или eGov Mobile.','Для ЭЦП укажите файл ключа AUTH_RSA и введите пароль от ключа.','Если на портале вы впервые, подтвердите данные из ГБД ФЛ и задайте пароль.','Выберите профиль: физическое лицо, организация или медработник.'] },
+
+  { id:'v-appt', g:'doctor', kind:'video', top:true, title:'Как записаться на приём к врачу', dur:205, steps:['Откройте услугу «Запись на приём»','Выберите специалиста','Выберите дату и время','Подтвердите запись','Найдите запись в личном кабинете'] },
+  { id:'v-attach', g:'doctor', kind:'video', title:'Прикрепление к поликлинике онлайн', dur:245, steps:['Откройте услугу прикрепления','Выберите поликлинику','Проверьте адрес и участок','Подпишите заявление','Отслеживайте статус заявления'] },
+  { id:'v-cancel', g:'doctor', kind:'video', title:'Как отменить или перенести запись', dur:102, steps:['Откройте «Мои записи»','Выберите запись','Перенесите или отмените'] },
+  { id:'d-attach', g:'doctor', kind:'doc', title:'Прикрепление к медицинской организации', size:'980 КБ', pages:4, steps:['Войдите на портал и откройте раздел «Гражданам».','Выберите услугу «Прикрепление к поликлинике».','Найдите поликлинику по адресу или названию и выберите её.','Проверьте данные и подпишите заявление ЭЦП или кодом из SMS.','Решение поликлиники придёт в уведомлениях личного кабинета.'] },
+
+  { id:'v-075', g:'certs', kind:'video', top:true, title:'Как получить справку 075/у', dur:177, steps:['Найдите услугу через поиск','Выберите медицинскую организацию','Запишитесь на медосмотр','Скачайте готовую справку'] },
+  { id:'v-sick', g:'certs', kind:'video', title:'Электронный больничный лист', dur:198, steps:['Где найти больничный лист','Как проверить данные','Как передать работодателю'] },
+  { id:'d-certs', g:'certs', kind:'doc', title:'Справки из медицинской организации', size:'1,1 МБ', pages:5, steps:['Откройте раздел «Гражданам» и выберите нужную справку.','Проверьте, что вы прикреплены к поликлинике.','Подайте запрос — при необходимости запишитесь на приём.','Готовая справка появится в личном кабинете в разделе «Документы».'] },
+  { id:'d-list', g:'certs', kind:'doc', title:'Перечень справок, доступных онлайн', size:'420 КБ', pages:2, steps:['Справка о состоянии здоровья (075/у).','Справка о временной нетрудоспособности.','Справка с места прикрепления.','Выписка из медицинской карты.'] },
+
+  { id:'v-epz', g:'epz', kind:'video', top:true, title:'Электронный паспорт здоровья: обзор', dur:310, steps:['Как открыть ЭПЗ','Разделы паспорта','Амбулаторная помощь','Экспорт сведений','Доступы к ЭПЗ'] },
+  { id:'v-access', g:'epz', kind:'video', title:'Как дать врачу доступ к ЭПЗ', dur:154, steps:['Откройте «Управление доступами»','Выберите разделы','Сохраните изменения'] },
+  { id:'d-access', g:'epz', kind:'doc', title:'Управление доступами к ЭПЗ', size:'860 КБ', pages:4, steps:['Откройте «Электронный паспорт здоровья» в личном кабинете.','Перейдите в «Управление доступами к ЭПЗ».','Отметьте разделы, которые увидит врач.','Сохраните — изменения вступают в силу сразу.'] },
+
+  { id:'v-child', g:'family', kind:'video', top:true, title:'Как добавить ребёнка в «Мою семью»', dur:141, steps:['Откройте «Мою семью»','Нажмите «Добавить ребёнка»','Укажите ИИН ребёнка','Проверьте сведения и сохраните'] },
+  { id:'v-childepz', g:'family', kind:'video', title:'ЭПЗ ребёнка: что можно посмотреть', dur:182, steps:['Карточка ребёнка','Прививки','Посещения врачей','Документы'] },
+  { id:'d-family', g:'family', kind:'doc', title:'Раздел «Моя семья»', size:'740 КБ', pages:3, steps:['Родные дети подтягиваются из ГБД ФЛ автоматически.','Подопечного ребёнка добавьте по ИИН — сведения проверит РБДС.','В карточке ребёнка доступен его электронный паспорт здоровья.'] },
+
+  { id:'v-bizecp', g:'biz', kind:'video', top:true, title:'Вход по ЭЦП организации', dur:135, steps:['Выберите профиль «Бизнес»','Укажите ключ ЭЦП организации','Подтвердите доступ','Откройте кабинет бизнеса'] },
+  { id:'v-users', g:'biz', kind:'video', title:'Пользователи и роли в организации', dur:228, steps:['Раздел «Пользователи»','Приглашение сотрудника','Назначение роли','Отключение доступа'] },
+  { id:'d-biz', g:'biz', kind:'doc', title:'Начало работы в кабинете бизнеса', size:'2,1 МБ', pages:9, steps:['Войдите по ЭЦП организации (ключ RSA юридического лица).','Заполните сведения об организации и контакты.','Пригласите сотрудников и назначьте им роли.','Заключите договоры с экспертными организациями — без них услуги недоступны.'] },
+
+  { id:'v-pricels', g:'price', kind:'video', top:true, title:'Заявка на регистрацию цены лекарственного средства', dur:380, steps:['Откройте паспорт услуги','Выберите лекарственное средство','Заполните сведения о цене','Приложите документы','Подпишите и отправьте заявку'] },
+  { id:'v-pricemi', g:'price', kind:'video', title:'Регистрация цены медицинского изделия', dur:335, steps:['Выберите медицинское изделие','Укажите цену и упаковку','Приложите документы','Отправьте заявку'] },
+  { id:'d-price', g:'price', kind:'doc', title:'Регистрация предельных цен: порядок подачи', size:'3,2 МБ', pages:14, steps:['Проверьте, что у организации есть договор и оплачен счёт.','Откройте услугу «Регистрация цены» и выберите ЛС или МИ.','Заполните сведения о цене, производителе и упаковке.','Приложите документы и подпишите заявку ЭЦП.','Статус заявки отслеживайте в разделе «Услуги» кабинета.'] },
+
+  { id:'v-ed', g:'ed', kind:'video', top:true, title:'Подача заявки на включение в перечень ЕД', dur:425, steps:['Выберите услугу ЕД','Заполните сведения о ЛС или МИ','Приложите досье','Подпишите оферту','Отправьте заявку','Отслеживайте ход рассмотрения'] },
+  { id:'v-alo', g:'ed', kind:'video', title:'Заявка на включение в перечень АЛО', dur:400, steps:['Выберите услугу АЛО','Проверьте наличие аналога','Заполните досье','Оплатите 20 % и 80 %','Получите решение'] },
+  { id:'v-remarks', g:'ed', kind:'video', title:'Ответ на замечания эксперта', dur:192, steps:['Найдите замечания в карточке заявки','Исправьте поля','Отправьте на проверку'] },
+  { id:'d-ed', g:'ed', kind:'doc', title:'Услуга ЕД: руководство заявителя', size:'4,6 МБ', pages:22, steps:['Откройте «Прочие услуги» и создайте заявку на включение в перечень ЕД.','Заполните сведения о ЛС или МИ и приложите досье.','Подпишите оферту ЭЦП и отправьте заявку.','Отвечайте на замечания в течение 10 рабочих дней — прямо в карточке заявки.','Решение Формулярной комиссии придёт в уведомлениях.'] },
+  { id:'d-alo', g:'ed', kind:'doc', title:'Услуга АЛО: руководство заявителя', size:'4,1 МБ', pages:19, steps:['Создайте заявку на включение в перечень АЛО.','Заполните досье из 11 разделов.','Оплатите 20 % после проверки наличия аналога и 80 % после первичной экспертизы.','Исправьте замечания в карточке заявки.','Итог Формулярной комиссии придёт в уведомлениях.'] },
+
+  { id:'v-knf', g:'knf', kind:'video', top:true, title:'Заявление на включение в КНФ', dur:348, steps:['Откройте услугу КНФ','Заполните сведения о препарате','Приложите досье','Подпишите и отправьте','Оплатите счёт 20 %'] },
+  { id:'d-knf', g:'knf', kind:'doc', title:'Включение в КНФ: требования к досье', size:'1,8 МБ', pages:8, steps:['Подготовьте регистрационное удостоверение и инструкцию по применению.','Приложите данные клинических исследований.','Укажите сведения о цене и производителе.','Все файлы — в формате PDF, до 50 МБ каждый.'] },
+
+  { id:'v-docprof', g:'doc', kind:'video', top:true, title:'Профиль врача и данные из СУР', dur:216, steps:['Откройте профиль врача','Обновите данные из СУР','Проверьте место работы','Сохраните профиль'] },
+  { id:'v-docepz', g:'doc', kind:'video', title:'Просмотр ЭПЗ пациента', dur:264, steps:['Найдите пациента по ИИН','Запросите согласие','Откройте разделы ЭПЗ','Экспортируйте сведения'] },
+  { id:'d-doc', g:'doc', kind:'doc', title:'Кабинет врача: руководство пользователя', size:'2,7 МБ', pages:12, steps:['Войдите по ЭЦП как медработник.','Проверьте профиль: данные подтягиваются из СУР.','Для просмотра ЭПЗ пациента запросите его согласие кодом из SMS.','Экспорт сведений доступен в каждом разделе ЭПЗ.'] },
+
+  { id:'v-proto', g:'proto', kind:'video', top:true, title:'Поиск клинического протокола', dur:132, steps:['Поиск по названию или коду МКБ','Фильтр по специальности','Открытие и скачивание протокола'] },
+  { id:'d-proto', g:'proto', kind:'doc', title:'Работа с клиническими протоколами', size:'640 КБ', pages:3, steps:['Откройте «Клинические протоколы» в шапке портала.','Найдите протокол по названию, коду МКБ-10 или специальности.','Откройте протокол или скачайте PDF.'] },
+
+  { id:'v-repfill', g:'rep', kind:'video', top:true, title:'Заполнение и отправка отчётной формы', dur:326, steps:['Выберите форму и период','Заполните таблицы','Проверьте контрольные условия','Подпишите и отправьте'] },
+  { id:'v-repadm', g:'rep', kind:'video', title:'Администрирование отчётности: назначение ответственных', dur:258, steps:['Откройте «Администрирование»','Выберите сотрудника','Назначьте формы','Сохраните назначение'] },
+  { id:'d-rep', g:'rep', kind:'doc', title:'Отчётные формы: руководство пользователя', size:'3,4 МБ', pages:16, steps:['Откройте «Отчётные формы» в шапке портала.','Выберите форму, период и объект отчёта.','Заполните таблицы и проверьте контрольные условия.','Подпишите отчёт ЭЦП и отправьте на согласование.'] },
+  { id:'d-journal', g:'rep', kind:'doc', title:'Журнал отчётных форм', size:'1,2 МБ', pages:5, steps:['Журнал показывает все формы организации и их статусы.','Фильтруйте по периоду, форме и ответственному.','Откройте строку, чтобы увидеть историю отчёта.'] },
+];
+const G_BY = {}; GROUPS.forEach(g => { G_BY[g.id] = g; });
+const I_BY = {}; ITEMS.forEach(i => { I_BY[i.id] = i; });
+const SEC_BY = {}; SECS.forEach(s => { SEC_BY[s.id] = s; });
+const VAR = ['a1','a2','a3'];
+// точки «курсора» на схеме экрана для вариантов превью (в % от кадра): заголовок и три элемента
+const SPOTS = { a1:[[41.8,31],[24.6,68.7],[49.4,68.7],[74.8,68.7]], a2:[[41.8,31],[74.6,54.3],[74.6,66.5],[74.6,78.7]], a3:[[41.8,31],[36.9,52.6],[36.9,66.5],[22.9,80]] };
+const SPEEDS = [1, 1.25, 1.5, 2];
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+const ssGet = (k) => { try { return JSON.parse(sessionStorage.getItem(k) || 'null'); } catch(e){ return null; } };
+const ssSet = (k, v) => { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+const fmt = (s) => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const norm = (x) => String(x || '').toLowerCase().replace(/ё/g, 'е');
+const varOf = (it) => VAR[ITEMS.filter(x => x.g === it.g && x.kind === 'video').indexOf(it) % 3] || 'a1';
+const chapters = (it) => it.steps.map((label, i) => ({ label, at: Math.round(i * it.dur / it.steps.length) }));
+const roleOf = () => { const r = lsGet('mp-role'); return SECS.some(s => s.id === r) ? r : 'citizens'; };
+const firstOf = (role) => (GROUPS.find(g => g.sec === role) || GROUPS[0]).id;
+const fire = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){} };
+// прокрутка страницы под окном — одна общая блокировка для панели шапки и окон просмотра
+const lockScroll = (on) => {
+  const d = document.documentElement, n = Math.max(0, (window.__mpScrollLock || 0) + (on ? 1 : -1));
+  if(on && n === 1){ const sw = window.innerWidth - d.clientWidth; d.style.overflow = 'hidden'; if(sw > 0) d.style.paddingRight = sw + 'px'; }
+  if(!on && n === 0){ d.style.overflow = ''; d.style.paddingRight = ''; }
+  window.__mpScrollLock = n;
+};
+const touch = () => { try { return window.matchMedia('(hover:none)').matches; } catch(e){ return false; } };
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.searchRef = React.createRef(); this.mainRef = React.createRef(); this.modalRef = React.createRef();
+    this.stageRef = React.createRef(); this.seekRef = React.createRef();
+    const mode = props.mode || 'panel', role = roleOf();
+    let g = firstOf(role);
+    if(mode === 'page'){
+      let p = ''; try { p = new URLSearchParams(location.search).get('g') || ''; } catch(e){}
+      g = G_BY[p] ? p : 'all';
+    } else {
+      const saved = ssGet('mp-help-g');
+      if(saved && saved.role === role && G_BY[saved.g]) g = saved.g;
+    }
+    this.state = { g, q:'', role, item:null, t:0, playing:false, started:false, speed:1, fs:false, drag:false, toast:'' };
+  }
+  get mode(){ return this.props.mode || 'panel'; }
+  componentDidMount(){
+    if(this.mode === 'panel'){
+      // поле поиска в фокусе — можно сразу печатать; на сенсорных экранах клавиатуру не поднимаем
+      if(!touch()) setTimeout(() => { const el = this.searchRef.current; if(el) el.focus({ preventScroll:true }); }, 30);
+      // выбранный раздел виден в списке и на невысоком экране (разделы медперсонала — внизу)
+      setTimeout(() => {
+        const nav = document.querySelector('.hc-panel .hc-nav'), on = nav && nav.querySelector('[aria-current="true"]');
+        if(!nav || !on) return;
+        if(nav.scrollHeight > nav.clientHeight && on.offsetTop + on.offsetHeight > nav.clientHeight) nav.scrollTop = on.offsetTop - nav.clientHeight / 2;
+        if(nav.scrollWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - 16;
+      }, 0);
+    }
+    if(this.mode === 'page'){
+      // открыт раздел по ссылке ?g= — его вкладка видна в ленте разделов (планшет, телефон)
+      setTimeout(() => {
+        const nav = document.querySelector('.hc-pnav'), on = nav && nav.querySelector('[aria-current="true"]');
+        if(nav && on && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = on.offsetLeft - 16;
+      }, 0);
+    }
+    if(this.mode === 'viewer'){
+      this._open = (e) => { const d = e && e.detail; if(d && I_BY[d.id]) this.openItem(d.id, d.at); };
+      this._dl = (e) => { const d = e && e.detail; if(d && I_BY[d.id]) this.download(d.id); };
+      window.addEventListener('mp-help-open', this._open);
+      window.addEventListener('mp-help-download', this._dl);
+      this._key = (e) => this.onKey(e);
+      window.addEventListener('keydown', this._key);
+      this._fsc = () => this.setState({ fs: !!document.fullscreenElement });
+      document.addEventListener('fullscreenchange', this._fsc);
+    }
+    this._role = (e) => { const r = e && e.detail; if(r && SEC_BY[r] && r !== this.state.role){ this.setState({ role:r, g: this.mode === 'page' ? this.state.g : firstOf(r) }); } };
+    window.addEventListener('mp-role-change', this._role);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-role-change', this._role);
+    if(this.mode === 'viewer'){
+      window.removeEventListener('mp-help-open', this._open); window.removeEventListener('mp-help-download', this._dl);
+      window.removeEventListener('keydown', this._key); document.removeEventListener('fullscreenchange', this._fsc);
+      clearInterval(this._iv); clearTimeout(this._tt);
+      if(this.state.item) lockScroll(false);
+    }
+  }
+
+  // ——— выбор раздела и поиск ———
+  pick(g){
+    this.setState({ g, q:'' });
+    if(this.mode === 'panel'){ ssSet('mp-help-g', { role:this.state.role, g }); const m = this.mainRef.current; if(m) m.scrollTop = 0; }
+    if(this.mode === 'page'){
+      try { const u = new URL(location.href); if(g === 'all') u.searchParams.delete('g'); else u.searchParams.set('g', g); history.replaceState(null, '', u); } catch(e){}
+      try { window.scrollTo({ top:0, behavior:'smooth' }); } catch(e){ window.scrollTo(0, 0); }
+    }
+  }
+  matches(){
+    const q = norm(this.state.q).trim(); if(!q) return null;
+    const words = q.split(/\s+/);
+    return ITEMS.filter(it => { const hay = norm(it.title + ' ' + G_BY[it.g].label + ' ' + SEC_BY[G_BY[it.g].sec].label); return words.every(w => hay.includes(w)); });
+  }
+  // из панели: закрыть панель (шапка вернёт фокус на пункт после просмотра) и открыть окно
+  launch(id, at){ if(this.mode === 'panel') fire('mp-help-panel', { open:false }); fire('mp-help-open', { id, at }); }
+
+  // ——— просмотр ———
+  openItem(id, at){
+    const it = I_BY[id]; if(!it) return;
+    if(!this.state.item){ this._back = document.activeElement; lockScroll(true); fire('mp-help-viewer', { open:true }); }
+    clearInterval(this._iv);
+    const video = it.kind === 'video';
+    this.setState({ item:id, t: video ? Math.min(at || 0, it.dur) : 0, playing:false, started:false, drag:false });
+    if(video) this.play();
+    setTimeout(() => { const m = this.modalRef.current; if(m) m.focus({ preventScroll:true }); }, 20);
+  }
+  close(){
+    if(!this.state.item) return;
+    if(document.fullscreenElement){ try { document.exitFullscreen(); } catch(e){} }
+    clearInterval(this._iv);
+    this.setState({ item:null, playing:false, started:false, t:0 });
+    lockScroll(false);
+    const back = this._back; this._back = null;
+    if(back && document.body.contains(back) && back.focus){ back.focus({ preventScroll:true }); fire('mp-help-viewer', { open:false, focused:true }); }
+    else fire('mp-help-viewer', { open:false });
+  }
+  play(){
+    const it = I_BY[this.state.item]; if(!it || it.kind !== 'video') return;
+    clearInterval(this._iv);
+    const t = this.state.t >= it.dur ? 0 : this.state.t;
+    this.setState({ playing:true, started:true, t });
+    this._iv = setInterval(() => {
+      const s = this.state, cur = I_BY[s.item]; if(!cur || !s.playing || s.drag) return;
+      const nt = s.t + .25 * s.speed;
+      if(nt >= cur.dur){ clearInterval(this._iv); this.setState({ t:cur.dur, playing:false }); }
+      else this.setState({ t:nt });
+    }, 250);
+  }
+  pause(){ clearInterval(this._iv); this.setState({ playing:false }); }
+  toggle(){ if(this.state.playing) this.pause(); else this.play(); }
+  seekTo(t){ const it = I_BY[this.state.item]; if(!it) return; this.setState({ t: Math.max(0, Math.min(it.dur, t)), started:true }); }
+  seekAt(e){ const el = this.seekRef.current, it = I_BY[this.state.item]; if(!el || !it) return; const r = el.getBoundingClientRect(); this.seekTo((e.clientX - r.left) / r.width * it.dur); }
+  toggleFs(){
+    const st = this.stageRef.current; if(!st) return;
+    try { if(document.fullscreenElement) document.exitFullscreen(); else if(st.requestFullscreen) st.requestFullscreen(); } catch(e){}
+  }
+  download(id){
+    const it = I_BY[id]; if(!it) return;
+    clearTimeout(this._tt);
+    this.setState({ toast: it.title + '.pdf' });
+    this._tt = setTimeout(() => this.setState({ toast:'' }), 3200);
+  }
+  onKey(e){
+    const s = this.state; if(!s.item) return;
+    const m = this.modalRef.current;
+    if(e.key === 'Escape'){ if(!document.fullscreenElement){ e.preventDefault(); this.close(); } return; }
+    if(e.key === 'Tab' && m){
+      const f = [...m.querySelectorAll('button, [href], [tabindex="0"]')].filter(x => x.offsetParent !== null);
+      if(!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      if(e.shiftKey && (document.activeElement === first || document.activeElement === m)){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      return;
+    }
+    const it = I_BY[s.item]; if(!it || it.kind !== 'video') return;
+    const tag = (e.target && e.target.tagName) || '', onBtn = tag === 'BUTTON' || tag === 'A' || tag === 'INPUT';
+    if((e.key === ' ' || e.key === 'k' || e.key === 'л') && !onBtn){ e.preventDefault(); this.toggle(); }
+    else if((e.key === 'f' || e.key === 'а') && !onBtn){ e.preventDefault(); this.toggleFs(); }
+    else if((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !onBtn && !(e.target && e.target.getAttribute && e.target.getAttribute('role') === 'slider')){
+      e.preventDefault(); this.seekTo(s.t + (e.key === 'ArrowLeft' ? -5 : 5));
+    }
+  }
+
+  // ——— представление ———
+  videoCard(it, sub){
+    const g = G_BY[it.g];
+    return { title:it.title, dur:fmt(it.dur), icon:g.icon, thCls:'hc-th ' + varOf(it), sub: sub ? g.label : '',
+      aria:`Смотреть видео: ${it.title}, ${fmt(it.dur)}`, open:() => this.launch(it.id) };
+  }
+  docRow(it, sub){
+    const g = G_BY[it.g];
+    return { title:it.title, meta:(sub ? g.label + ' · ' : '') + 'PDF · ' + it.size, aria:`Открыть инструкцию: ${it.title}`, dlAria:`Скачать: ${it.title}, PDF, ${it.size}`,
+      open:() => this.launch(it.id), download:() => fire('mp-help-download', { id:it.id }) };
+  }
+  navRows(withAll){
+    const rows = [];
+    if(withAll) rows.push({ isGroup:true, label:'Все материалы', icon:'ri-apps-2-line', on: this.state.g === 'all' && !this.state.q.trim() ? 'true' : 'false', onClick:() => this.pick('all') });
+    SECS.forEach((s, i) => {
+      rows.push({ isSec:true, label:s.label, cls:'hc-sec' + (i === 0 && !withAll ? ' first' : '') });
+      GROUPS.filter(g => g.sec === s.id).forEach(g => rows.push({ isGroup:true, label:g.label, icon:g.icon, on: this.state.g === g.id && !this.state.q.trim() ? 'true' : 'false', onClick:() => this.pick(g.id) }));
+    });
+    return rows;
+  }
+  panelVals(){
+    const s = this.state, found = this.matches();
+    const wide = (() => { try { return window.matchMedia('(min-width:1181px)').matches; } catch(e){ return true; } })();
+    let videos, docs, feat = null;
+    if(found){
+      videos = found.filter(x => x.kind === 'video').map(x => this.videoCard(x, true));
+      docs = found.filter(x => x.kind === 'doc').map(x => this.docRow(x, true));
+    } else {
+      const inG = ITEMS.filter(x => x.g === s.g), top = inG.find(x => x.top);
+      // «Популярно сейчас» — отдельной колонкой; в списке раздела его не повторяем (на узких экранах колонки нет — он первый в списке)
+      feat = wide ? top : null;
+      videos = inG.filter(x => x.kind === 'video' && x !== feat).map(x => this.videoCard(x, false));
+      docs = inG.filter(x => x.kind === 'doc').map(x => this.docRow(x, false));
+    }
+    const f = feat ? { ...this.videoCard(feat, false), thCls:'hc-th ' + varOf(feat),
+      chs: chapters(feat).map(c => ({ time:fmt(c.at), label:c.label, aria:`${c.label} — с ${fmt(c.at)}`, onClick:() => this.launch(feat.id, c.at) })) } : { chs:[] };
+    return {
+      bodyCls: 'hc-body' + (found ? ' find' : ''),
+      navRows: this.navRows(false), videos, docs, hasVideos: videos.length > 0, hasDocs: docs.length > 0, isEmpty: !!found && !found.length,
+      hasFeat: !!feat, feat: f,
+    };
+  }
+  pageVals(){
+    const s = this.state, found = this.matches();
+    let secs;
+    if(found){
+      secs = found.length ? [{ label:'Результаты поиска', showHead:false, icon:'',
+        videos: found.filter(x => x.kind === 'video').map(x => this.videoCard(x, true)), docs: found.filter(x => x.kind === 'doc').map(x => this.docRow(x, true)) }] : [];
+    } else {
+      const gs = s.g === 'all' ? GROUPS : [G_BY[s.g]];
+      secs = gs.map(g => { const inG = ITEMS.filter(x => x.g === g.id);
+        // «Популярно сейчас» раздела — первым
+        const vids = inG.filter(x => x.kind === 'video').sort((a, b) => (b.top ? 1 : 0) - (a.top ? 1 : 0));
+        return { label:g.label, showHead: s.g === 'all', icon:g.icon,
+          videos: vids.map(x => this.videoCard(x, false)), docs: inG.filter(x => x.kind === 'doc').map(x => this.docRow(x, false)) }; });
+    }
+    secs.forEach(x => { x.hasVideos = x.videos.length > 0; x.hasDocs = x.docs.length > 0; x.cls = 'hc-psec' + (x.hasVideos && x.hasDocs ? ' two' : ''); });
+    return { navRows: this.navRows(true), pageSecs: secs, isEmpty: !!found && !found.length };
+  }
+  viewerVals(){
+    const s = this.state, it = s.item ? I_BY[s.item] : null;
+    const out = { vOpen:false, dOpen:false, v:{ chs:[], ticks:[], docs:[] }, d:{ steps:[] } };
+    if(!it) return out;
+    const g = G_BY[it.g], where = SEC_BY[g.sec].label + ' · ' + g.label;
+    const docsOf = ITEMS.filter(x => x.g === it.g && x.kind === 'doc').map(x => this.docRow(x, false));
+    if(it.kind === 'doc'){
+      out.dOpen = true;
+      out.d = { title:it.title, tip: it.title.length > 60 ? it.title : '', meta:`${where} · PDF · ${it.size} · ${it.pages} стр.`, ver:'Версия от 01.11.2026', steps:it.steps,
+        download:() => this.download(it.id) };
+      return out;
+    }
+    out.vOpen = true;
+    const chs = chapters(it), ended = s.t >= it.dur && !s.playing;
+    let ci = 0; chs.forEach((c, i) => { if(s.t >= c.at) ci = i; });
+    const v = varOf(it), spots = SPOTS[v], sp = spots[ci % spots.length];
+    const right = sp[0] > 55, pct = (s.t / it.dur) * 100;
+    const nextV = (() => { const vids = ITEMS.filter(x => x.g === it.g && x.kind === 'video'); const k = vids.indexOf(it); return vids[k + 1] || vids.find(x => x !== it) || null; })();
+    out.stageCls = 'hc-stage' + (s.playing ? ' playing' : '');
+    out.v = {
+      title:it.title, where, icon:g.icon, thCls:'hc-th ' + v, dur:fmt(it.dur), cur:fmt(s.t), max:String(it.dur), now:String(Math.floor(s.t)),
+      showCue: s.started && !ended, showBig: !s.started, ended,
+      spot:`left:${sp[0]}%;top:${sp[1]}%;`,
+      coStyle:`left:${sp[0]}%;top:${sp[1]}%;transform:translate(${right ? 'calc(-100% - 5cqw)' : '5cqw'}, -50%);`,
+      chNum:String(ci + 1), chLabel:chs[ci].label,
+      playIcon: s.playing ? 'ri-pause-fill' : 'ri-play-fill', playLabel: s.playing ? 'Пауза' : 'Воспроизвести', playTip: s.playing ? 'Пауза (пробел)' : 'Смотреть (пробел)',
+      seekCls:'hc-seek' + (s.drag ? ' drag' : ''), fill:`width:${pct}%;`, knob:`left:${pct}%;`,
+      ticks: chs.slice(1).map(c => `left:${c.at / it.dur * 100}%;`),
+      speed: String(s.speed).replace('.', ',') + '×', speedAria:`Скорость ${String(s.speed).replace('.', ',')}×`,
+      fsIcon: s.fs ? 'ri-fullscreen-exit-line' : 'ri-fullscreen-line', fsLabel: s.fs ? 'Выйти из полноэкранного режима' : 'Во весь экран',
+      chs: chs.map((c, i) => ({ time:fmt(c.at), label:c.label, on: s.started && i === ci ? 'true' : 'false', aria:`${c.label} — с ${fmt(c.at)}`, onClick:() => { this.seekTo(c.at); this.play(); } })),
+      docs: docsOf, hasDocs: docsOf.length > 0,
+      hasNext: !!nextV, nextTitle: nextV ? nextV.title : '', next:(e) => { if(e) e.stopPropagation(); if(nextV) this.openItem(nextV.id); },
+    };
+    // документ из окна видео открывается на его месте
+    out.v.docs.forEach((d, i) => { const id = ITEMS.filter(x => x.g === it.g && x.kind === 'doc')[i].id; d.open = () => this.openItem(id); });
+    return out;
+  }
+  renderVals(){
+    const s = this.state, mode = this.mode;
+    const base = {
+      isPanel: mode === 'panel', isPage: mode === 'page',
+      searchRef:this.searchRef, mainRef:this.mainRef, modalRef:this.modalRef, stageRef:this.stageRef, seekRef:this.seekRef,
+      q:s.q, hasQ: !!s.q, onQ:(e) => { this.setState({ q:e.target.value }); const m = this.mainRef.current; if(m) m.scrollTop = 0; },
+      clearQ:() => { this.setState({ q:'' }); const el = this.searchRef.current; if(el) el.focus(); },
+      closePanel:() => fire('mp-help-panel', { open:false, focus:true }),
+      onPanelKey:(e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); e.stopPropagation(); this.setState({ q:'' }); } },
+      onPageKey:(e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); this.setState({ q:'' }); } },
+      hasToast: !!s.toast, toast:s.toast,
+      vOpen:false, dOpen:false, v:{ chs:[], ticks:[], docs:[] }, d:{ steps:[] }, stageCls:'hc-stage',
+      navRows:[], videos:[], docs:[], pageSecs:[], hasVideos:false, hasDocs:false, isEmpty:false, hasFeat:false, feat:{ chs:[] }, bodyCls:'hc-body',
+      close:() => this.close(), play:(e) => { if(e) e.stopPropagation(); this.play(); }, toggle:() => this.toggle(),
+      replay:(e) => { if(e) e.stopPropagation(); this.setState({ t:0 }); this.play(); },
+      stop:(e) => { if(e) e.stopPropagation(); },
+      onStage:() => { if(!s.started) this.play(); else if(!(s.t >= ((I_BY[s.item] || {}).dur || 0) && !s.playing)) this.toggle(); },
+      cycleSpeed:() => this.setState({ speed: SPEEDS[(SPEEDS.indexOf(s.speed) + 1) % SPEEDS.length] }),
+      toggleFs:() => this.toggleFs(),
+      seekDown:(e) => { e.stopPropagation(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch(x){} this.setState({ drag:true }); this.seekAt(e); },
+      seekMove:(e) => { if(this.state.drag) this.seekAt(e); },
+      seekUp:() => { if(this.state.drag) this.setState({ drag:false }); },
+      seekKey:(e) => {
+        const it = I_BY[s.item]; if(!it) return;
+        const step = { ArrowLeft:-5, ArrowRight:5, ArrowDown:-5, ArrowUp:5, PageDown:-30, PageUp:30 }[e.key];
+        if(step){ e.preventDefault(); this.seekTo(s.t + step); }
+        else if(e.key === 'Home'){ e.preventDefault(); this.seekTo(0); }
+        else if(e.key === 'End'){ e.preventDefault(); this.seekTo(it.dur - 1); }
+      },
+    };
+    if(mode === 'panel') return { ...base, ...this.panelVals() };
+    if(mode === 'page') return { ...base, ...this.pageVals() };
+    return { ...base, ...this.viewerVals() };
+  }
+}
+</script>
+</body>
+</html>
