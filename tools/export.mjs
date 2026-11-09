@@ -193,7 +193,7 @@ const GROUPS = [
     'АРМ ННЦРЗ', 'АРМ НЦЭЛС', 'Карточка заявки ННЦРЗ', 'АРМ ФК', 'Создание комиссии', 'Комиссия ФК' ] },
   { title: 'Кабинеты гражданина и врача', desc: '', icon: 'ri-user-heart-line', pages: [ 'Личный кабинет', 'Личная медицинская карта', 'Просмотр ЭПЗ', 'Управление доступами к ЭПЗ', 'Моя семья', 'ЭПЗ ребёнка', 'Услуги гражданина', 'Паспорт услуги прикрепления', 'Прикрепление к поликлинике', 'Мои заявки гражданина', 'Заявка на прикрепление', 'Профиль врача', 'Кабинет врача' ] },
   { title: 'Компоненты', desc: 'Общие блоки и витрины компонентов дизайн-системы', icon: 'ri-shapes-line', pages: [
-    'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'EdSign', 'EdData', 'EdArm', 'EdDocView', 'ArmHeader', 'ArmNav', 'ArmNotifications', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast', 'EpzView', 'EpzAmbulatory', 'FamilyData',
+    'Header', 'Footer', 'Assistant', 'BusinessNav', 'DoctorNav', 'CitizenNav', 'EdSign', 'EdData', 'EdArm', 'EdDocView', 'ArmHeader', 'ArmNav', 'ArmNotifications', 'Table', 'FileUpload', 'Dropdown', 'DatePicker', 'Toast', 'EpzView', 'EpzAmbulatory', 'FamilyData', 'AttachData',
     'HomeData', 'PortalHeader', 'PortalFooter', 'SearchBox', 'AiPanel', 'HomeFaq', 'HomeNews', 'Splash', 'ThemeKit', 'HomeArt', 'HomeBanners', 'HomeAssist',
     'HealthRoute', 'LifePath', 'LifeStagesData', 'HelpCenter', 'AuthAside', 'EcpPicker', 'ServiceKinds', 'OrgRepData', 'OrgReportsNav' ] },
 ];

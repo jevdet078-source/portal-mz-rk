@@ -40,7 +40,7 @@ async function open(file, { hash = '', w = 1440, h = 900 } = {}) {
 // 1) все страницы и компоненты
 const files = readdirSync(dir).filter((f) => f.endsWith('.dc.html')).sort((a, b) => a.localeCompare(b, 'ru'));
 // невизуальные и всплывающие компоненты: открытые сами по себе пустые, внутри страниц работают
-const NONVISUAL = /^(HomeData|HomeArt|LifeStagesData|OrgRepData|EdData|FamilyData|Splash|ThemeKit|AiPanel|Toast|ServiceKinds|Assistant|EcpPicker|EdArm|EdDocView|EdSign|HomeBanners|SearchBox)\.dc\.html$/;
+const NONVISUAL = /^(HomeData|HomeArt|LifeStagesData|OrgRepData|EdData|FamilyData|AttachData|Splash|ThemeKit|AiPanel|Toast|ServiceKinds|Assistant|EcpPicker|EdArm|EdDocView|EdSign|HomeBanners|SearchBox)\.dc\.html$/;
 let ok = 0;
 for (const f of files) {
   const { page, errors, online } = await open(f);

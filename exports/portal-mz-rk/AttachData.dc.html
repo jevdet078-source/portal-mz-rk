@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Данные услуги «Прикрепление к поликлинике» (постановка «Прикрепление к поликлинике», 09.11.2026) —
+  невидимый компонент, подключается в страницы услуги:
+    <dc-import name="AttachData" hint-size="0px,0px"></dc-import>
+  Регистрирует window.mpAttach и рассылает событие window `mp-attach-ready`, изменения заявок — `mp-attach-change`.
+
+  В прототипе вместо сервисов (ответ — с задержкой, как у живого сервиса):
+    • авторизованный пользователь — ИИН из контекста авторизации (ME);
+    • GBDFL_FamilyInfoToken и MP_GUARDIANSHIP_UNIVERSAL_SERVICE — дети и подопечные; запросы идут параллельно,
+      ответы объединяются в один список (люди — из FamilyData, тот же набор, что в «Моей семье»);
+    • RPN_ATTACHMENTS_EGOV — регионы (город республиканского значения → район города;
+      область → район → сельский округ → населённый пункт), медорганизации территории,
+      медработники и участки организации, справочник причин прикрепления.
+  Заявки — localStorage `mp-attach-db`: { v, seq, list:[…] } (демо-набор + поданные из мастера).
+  Статусы обработки: IN_PROGRESS · APPROVED · REJECTED · ERROR.
+  Сценарий «дети и подопечные» — sessionStorage `mp-attach-kids`: auto | none (панель «Прототип» в мастере).
+-->
+<x-dc><div></div></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:10,&quot;height&quot;:10}}">
+const DB_KEY = 'mp-attach-db', KIDS_SCN = 'mp-attach-kids', V = 1;
+
+// Авторизованный пользователь (контекст авторизации)
+const ME = { iin:'020116501540', last:'Сейтжанова', first:'Аружан', middle:'Маратовна', dob:'2002-01-16' };
+
+// ---------- RPN_ATTACHMENTS_EGOV: административно-территориальные единицы ----------
+// kind: city — город республиканского значения, oblast — область; дальше district → okrug → settlement
+const T = (id, name, kids) => ({ id, name, kids: kids || null });
+const TREE = [
+  T('ast', 'г. Астана', [
+    T('ast-alm', 'район Алматы'), T('ast-esil', 'район Есиль'), T('ast-sary', 'район Сарыарка'),
+    T('ast-baik', 'район Байқоңыр'), T('ast-nura', 'район Нұра'), T('ast-sarai', 'район Сарайшык'),
+  ]),
+  T('alm', 'г. Алматы', [
+    T('alm-alat', 'Алатауский район'), T('alm-almal', 'Алмалинский район'), T('alm-auez', 'Ауэзовский район'),
+    T('alm-bost', 'Бостандыкский район'), T('alm-zhet', 'Жетысуский район'), T('alm-med', 'Медеуский район'),
+    T('alm-naur', 'Наурызбайский район'), T('alm-turk', 'Турксибский район'),
+  ]),
+  T('shym', 'г. Шымкент', [
+    T('shym-abai', 'Абайский район'), T('shym-farab', 'Аль-Фарабийский район'), T('shym-enb', 'Енбекшинский район'),
+    T('shym-kar', 'Каратауский район'), T('shym-tur', 'район Туран'),
+  ]),
+  T('akm', 'Акмолинская область', [
+    T('akm-akkol', 'Аккольский район', [
+      T('akm-akkol-naum', 'Наумовский сельский округ', [ T('akm-akkol-naum-s', 'село Наумовка') ]),
+    ]),
+    T('akm-bur', 'Бурабайский район', [
+      T('akm-bur-kat', 'Катаркольский сельский округ', [ T('akm-bur-kat-s', 'село Катарколь') ]),
+    ]),
+    T('akm-cel', 'Целиноградский район', [
+      T('akm-cel-kab', 'сельский округ Кабанбай батыра', [ T('akm-cel-kab-s', 'село Кабанбай батыра') ]),
+    ]),
+  ]),
+];
+const CITY = { ast:1, alm:1, shym:1 };
+const NODE = {}, PARENT = {};
+(function walk(list, parent){ list.forEach(n => { NODE[n.id] = n; PARENT[n.id] = parent; if(n.kids) walk(n.kids, n.id); }); })(TREE, null);
+
+// Подписи уровней: город республиканского значения — 2 уровня, область — 4
+const LEVELS = {
+  city:   ['Регион', 'Район города'],
+  oblast: ['Регион', 'Район', 'Сельский округ', 'Населённый пункт'],
+};
+
+// ---------- Медицинские организации территории ----------
+const AST = (n) => `ГКП на ПХВ «Городская поликлиника №${n}» акимата города Астаны`;
+const ALM = (n) => `ГКП на ПХВ «Городская поликлиника №${n}» Управления общественного здравоохранения города Алматы`;
+const SHY = (n) => `ГКП на ПХВ «Городская поликлиника №${n}» Управления здравоохранения города Шымкент`;
+const MO = (id, name, short, address) => ({ id, name, short, address });
+const MOS = {
+  'ast-alm':   [ MO('ast-gp4', AST(4), 'Городская поликлиника №4', 'г. Астана, район Алматы, проспект Абылай хана, 9/1'),
+                 MO('ast-gp7', AST(7), 'Городская поликлиника №7', 'г. Астана, район Алматы, улица Ташенова, 17'),
+                 MO('ast-gp5', AST(5), 'Городская поликлиника №5', 'г. Астана, район Алматы, улица Иманова, 41'),
+                 MO('ast-demeu', 'ТОО «Медицинский центр «Демеу»', 'Медицинский центр «Демеу»', 'г. Астана, район Алматы, улица Бейсекбаева, 24') ],
+  'ast-esil':  [ MO('ast-gp11', AST(11), 'Городская поликлиника №11', 'г. Астана, район Есиль, улица Сыганак, 12'),
+                 MO('ast-gp12', AST(12), 'Городская поликлиника №12', 'г. Астана, район Есиль, проспект Мангилик Ел, 35'),
+                 MO('ast-gp16', AST(16), 'Городская поликлиника №16', 'г. Астана, район Есиль, улица Е-11, 8'),
+                 MO('ast-bereke', 'ТОО «Медицинский центр «Береке Мед»', 'Медицинский центр «Береке Мед»', 'г. Астана, район Есиль, проспект Туран, 46'),
+                 MO('ast-dostar', 'ТОО «Достар Мед Астана»', 'Медицинский центр «Достар Мед»', 'г. Астана, район Есиль, улица Керей, Жәнібек хандар, 22') ],
+  'ast-sary':  [ MO('ast-gp2', AST(2), 'Городская поликлиника №2', 'г. Астана, район Сарыарка, улица Бейбітшілік, 31'),
+                 MO('ast-gp3', AST(3), 'Городская поликлиника №3', 'г. Астана, район Сарыарка, улица Кенесары, 72') ],
+  'ast-baik':  [ MO('ast-gp6', AST(6), 'Городская поликлиника №6', 'г. Астана, район Байқоңыр, улица Абая, 16'),
+                 MO('ast-gp9', AST(9), 'Городская поликлиника №9', 'г. Астана, район Байқоңыр, проспект Республики, 36') ],
+  'ast-nura':  [ MO('ast-gp13', AST(13), 'Городская поликлиника №13', 'г. Астана, район Нұра, улица Хусейн бен Талал, 25'),
+                 MO('ast-gp14', AST(14), 'Городская поликлиника №14', 'г. Астана, район Нұра, проспект Кабанбай батыра, 58') ],
+  'ast-sarai': [ MO('ast-gp10', AST(10), 'Городская поликлиника №10', 'г. Астана, район Сарайшык, улица Акмешит, 9'),
+                 MO('ast-gp15', AST(15), 'Городская поликлиника №15', 'г. Астана, район Сарайшык, улица Сарайшык, 34') ],
+  'alm-alat':  [ MO('alm-gp30', ALM(30), 'Городская поликлиника №30', 'г. Алматы, Алатауский район, микрорайон Шугыла, 340') ],
+  'alm-almal': [ MO('alm-gp5', ALM(5), 'Городская поликлиника №5', 'г. Алматы, Алмалинский район, улица Жамбыла, 69'),
+                 MO('alm-gp8', ALM(8), 'Городская поликлиника №8', 'г. Алматы, Алмалинский район, улица Толе би, 123') ],
+  'alm-auez':  [ MO('alm-gp11', ALM(11), 'Городская поликлиника №11', 'г. Алматы, Ауэзовский район, микрорайон Жетысу-2, 63'),
+                 MO('alm-gp24', ALM(24), 'Городская поликлиника №24', 'г. Алматы, Ауэзовский район, микрорайон Аксай-3а, 62') ],
+  'alm-bost':  [ MO('alm-gp1', ALM(1), 'Городская поликлиника №1', 'г. Алматы, Бостандыкский район, улица Розыбакиева, 225'),
+                 MO('alm-gp4', ALM(4), 'Городская поликлиника №4', 'г. Алматы, Бостандыкский район, проспект Абая, 89') ],
+  'alm-zhet':  [ MO('alm-gp7', ALM(7), 'Городская поликлиника №7', 'г. Алматы, Жетысуский район, улица Сейфуллина, 34') ],
+  'alm-med':   [ MO('alm-gp12', ALM(12), 'Городская поликлиника №12', 'г. Алматы, Медеуский район, проспект Достык, 107') ],
+  'alm-naur':  [ MO('alm-gp33', ALM(33), 'Городская поликлиника №33', 'г. Алматы, Наурызбайский район, микрорайон Шугыла, 12') ],
+  'alm-turk':  [ MO('alm-gp14', ALM(14), 'Городская поликлиника №14', 'г. Алматы, Турксибский район, улица Сейфуллина, 51') ],
+  'shym-abai': [ MO('shy-gp1', SHY(1), 'Городская поликлиника №1', 'г. Шымкент, Абайский район, улица Байтурсынова, 14') ],
+  'shym-farab':[ MO('shy-gp3', SHY(3), 'Городская поликлиника №3', 'г. Шымкент, Аль-Фарабийский район, проспект Тауке хана, 40'),
+                 MO('shy-gp6', SHY(6), 'Городская поликлиника №6', 'г. Шымкент, Аль-Фарабийский район, улица Казыбек би, 2') ],
+  'shym-enb':  [ MO('shy-gp4', SHY(4), 'Городская поликлиника №4', 'г. Шымкент, Енбекшинский район, улица Жибек жолы, 27') ],
+  'shym-kar':  [ MO('shy-gp9', SHY(9), 'Городская поликлиника №9', 'г. Шымкент, Каратауский район, микрорайон Нурсат, 125') ],
+  'shym-tur':  [ MO('shy-gp11', SHY(11), 'Городская поликлиника №11', 'г. Шымкент, район Туран, микрорайон Туран, 8') ],
+  'akm-akkol-naum-s': [ MO('akm-akkol-crb', 'ГКП на ПХВ «Аккольская районная больница» при управлении здравоохранения Акмолинской области', 'Аккольская районная больница', 'Акмолинская область, Аккольский район, село Наумовка, улица Школьная, 5') ],
+  'akm-bur-kat-s':    [ MO('akm-bur-crb', 'ГКП на ПХВ «Бурабайская районная больница» при управлении здравоохранения Акмолинской области', 'Бурабайская районная больница', 'Акмолинская область, Бурабайский район, село Катарколь, улица Целинная, 3') ],
+  'akm-cel-kab-s':    [ MO('akm-cel-crb', 'ГКП на ПХВ «Целиноградская районная больница» при управлении здравоохранения Акмолинской области', 'Целиноградская районная больница', 'Акмолинская область, Целиноградский район, село Кабанбай батыра, улица Бейбітшілік, 1') ],
+};
+const MO_BY = {}; Object.values(MOS).forEach(l => l.forEach(m => { MO_BY[m.id] = m; }));
+
+// ---------- Медицинские работники и участки (детерминированно по организации) ----------
+const NAMES = [
+  'Ахметова Гульнара Кайратовна', 'Жумабаева Асель Маратовна', 'Нуржанов Ерлан Болатович', 'Искакова Динара Сериковна',
+  'Ким Елена Викторовна', 'Омарова Айгерим Нурлановна', 'Байжанов Тимур Асланович', 'Сыздыкова Жанар Ермековна',
+  'Петренко Ольга Ивановна', 'Касымова Сауле Бакытовна', 'Абдрахманов Нурлан Кайратович', 'Есенова Мадина Талгатовна',
+  'Мухамеджанова Гаухар Аскаровна', 'Тлеубаев Арман Серикович', 'Смагулова Ботагоз Муратовна', 'Ли Ирина Сергеевна',
+  'Калиева Алия Ерлановна', 'Досанов Бауыржан Канатович', 'Рахимова Лаура Ахметовна', 'Сапарова Гульмира Жанатовна',
+];
+// Закреплённые врачи — те же, что в «Моей семье» у детей
+const FIXED = { 'ast-gp4': [['Ахметова Гульнара Кайратовна', 12]], 'ast-gp7': [['Жумабаева Асель Маратовна', 5]], 'ast-gp2': [['Нуржанов Ерлан Болатович', 21]] };
+const LIMIT = 2200;   // в прототипе: участок с населением от лимита закрыт для прикрепления
+function seed(str){ let h = 2166136261; for(let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; }; }
+function doctorsOf(moId){
+  const rnd = seed(moId), n = 5 + Math.floor(rnd() * 4);
+  const fixed = FIXED[moId] || [];
+  const used = new Set(fixed.map(f => f[0])), areas = new Set(fixed.map(f => f[1]));
+  const out = fixed.map(([fio, area]) => ({ fio, area }));
+  let k = Math.floor(rnd() * NAMES.length);
+  while(out.length < n){
+    const fio = NAMES[k % NAMES.length]; k += 3;
+    if(used.has(fio)) continue;
+    let area = 1 + Math.floor(rnd() * 28); while(areas.has(area)) area = area % 30 + 1;
+    used.add(fio); areas.add(area); out.push({ fio, area });
+  }
+  return out.map((d, i) => {
+    const pop = i === 0 && fixed.length ? 1640 + Math.floor(rnd() * 300) : 1180 + Math.floor(rnd() * 1300);
+    return { id: moId + '-' + d.area, fio: d.fio, area: d.area, pop, avail: pop < LIMIT };
+  }).sort((a, b) => a.area - b.area);
+}
+
+// ---------- Справочник причин прикрепления ----------
+const REASONS = [ { id:'free', label:'Свободное прикрепление' }, { id:'move', label:'Переезд' } ];
+
+// ---------- Статусы обработки ----------
+const STATUS = {
+  IN_PROGRESS: { label:'В обработке', tone:'blue', icon:'ri-time-line',
+    text:'Ваш запрос направлен на обработку. Вы можете вернуться к заявке позднее и проверить её статус.' },
+  APPROVED:    { label:'Прикрепление выполнено', tone:'green', icon:'ri-checkbox-circle-line',
+    text:'Ваш запрос успешно обработан. Вы прикреплены к выбранной медицинской организации.' },
+  REJECTED:    { label:'Отказано', tone:'red', icon:'ri-close-circle-line', text:'' },
+  ERROR:       { label:'Техническая ошибка', tone:'orange', icon:'ri-error-warning-line',
+    text:'При обработке запроса произошла техническая ошибка. Попробуйте проверить статус позднее.' },
+};
+const ORDER = ['IN_PROGRESS', 'APPROVED', 'REJECTED', 'ERROR'];
+
+// ---------- Утилиты ----------
+const pad = n => String(n).padStart(2, '0');
+const parseD = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const dt = (y, mo, d, h, mi) => new Date(y, mo - 1, d, h, mi).getTime();
+const fmtDate = ts => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); };
+const fmtTime = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const fmtDT = ts => fmtDate(ts) + ', ' + fmtTime(ts);
+const fio = p => [p.last, p.first, p.middle].filter(Boolean).join(' ');
+const nf = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const num7 = n => String(n).padStart(7, '0');
+
+// ---------- Демо-набор заявок ----------
+const P = (iin) => (window.mpFamily && window.mpFamily.person(iin)) || null;
+const who = (p) => p ? { iin:p.iin, fio:fio(p), dob:p.dob, self: p.iin === ME.iin } : null;
+function demo(){
+  const me = who(ME);
+  const kid = (iin, f, d) => { const p = P(iin); return p ? who(p) : { iin, fio:f, dob:d, self:false }; };
+  const app = (n, w, regionIds, moId, area, reason, at, status, upd, done) => {
+    const mo = MO_BY[moId], doc = doctorsOf(moId).find(x => x.area === area) || doctorsOf(moId)[0];
+    return { num:num7(n), at, who:w, region: regionIds.map(id => NODE[id].name), mo:{ id:mo.id, name:mo.name, short:mo.short, address:mo.address },
+      doc:{ fio:doc.fio, area:doc.area }, reason, status, upd, done: done || null };
+  };
+  return [
+    app(152, me, ['ast', 'ast-esil'], 'ast-gp11', null, 'Переезд', dt(2026, 11, 6, 10, 24), 'IN_PROGRESS', dt(2026, 11, 9, 9, 15)),
+    app(139, kid('180512501208', 'Сейтжанов Алихан Даниярович', '2018-05-12'), ['ast', 'ast-alm'], 'ast-gp4', 12, 'Свободное прикрепление', dt(2026, 10, 14, 16, 2), 'APPROVED', dt(2026, 10, 15, 11, 40), dt(2026, 10, 15, 11, 40)),
+    app(131, kid('210904602300', 'Сейтжанова Мадина Данияровна', '2021-09-04'), ['ast', 'ast-sary'], 'ast-gp3', null, 'Свободное прикрепление', dt(2026, 9, 2, 12, 47), 'REJECTED', dt(2026, 9, 3, 15, 8), dt(2026, 9, 3, 15, 8)),
+    app(117, kid('190715504109', 'Куанышев Арман Бауржанович', '2019-07-15'), ['ast', 'ast-alm'], 'ast-gp7', 5, 'Переезд', dt(2026, 7, 21, 9, 30), 'ERROR', dt(2026, 7, 21, 9, 52)),
+    app(96, me, ['ast', 'ast-sary'], 'ast-gp2', 21, 'Переезд', dt(2026, 3, 12, 14, 5), 'APPROVED', dt(2026, 3, 13, 10, 12), dt(2026, 3, 13, 10, 12)),
+    app(64, me, ['akm', 'akm-akkol', 'akm-akkol-naum', 'akm-akkol-naum-s'], 'akm-akkol-crb', null, 'Свободное прикрепление', dt(2025, 11, 20, 11, 18), 'APPROVED', dt(2025, 11, 21, 9, 3), dt(2025, 11, 21, 9, 3)),
+  ];
+}
+
+const A = {
+  ME, STATUS, ORDER, LEVELS, REASONS,
+  fio, fmtDate, fmtTime, fmtDT, nf, parseD,
+  me: () => who(ME),
+  isCity: id => !!CITY[id],
+  node: id => NODE[id] || null,
+  levelLabel: (rootId, i) => (rootId && CITY[rootId] ? LEVELS.city : LEVELS.oblast)[i] || '',
+
+  // --- Сервисы (в прототипе — с задержкой ответа) ---
+  // Дети и подопечные: два запроса параллельно, результаты объединяются в один список
+  kidsScn: () => { try { return sessionStorage.getItem(KIDS_SCN) || 'auto'; } catch(e){ return 'auto'; } },
+  setKidsScn: v => { try { sessionStorage.setItem(KIDS_SCN, v); } catch(e){} },
+  kids: () => {
+    const F = window.mpFamily, none = A.kidsScn() === 'none';
+    const gbd = wait(650).then(() => none || !F ? [] : F.PEOPLE.filter(p => p.kind === 'kin'));          // GBDFL_FamilyInfoToken
+    const mp = wait(900).then(() => none || !F ? [] : F.PEOPLE.filter(p => p.kind === 'ward'));          // MP_GUARDIANSHIP_UNIVERSAL_SERVICE
+    return Promise.all([gbd, mp]).then(([a, b]) => {
+      const seen = new Set(), out = [];
+      a.concat(b).forEach(p => { if(!seen.has(p.iin)){ seen.add(p.iin); out.push(p); } });
+      return out.sort((x, y) => y.dob.localeCompare(x.dob)).map(p => ({ iin:p.iin, fio:fio(p), dob:p.dob, last:p.last, first:p.first }));
+    });
+  },
+  // Следующий уровень АТЕ: parentId = null — регионы
+  level: parentId => wait(parentId ? 380 : 450).then(() => (parentId ? (NODE[parentId].kids || []) : TREE).map(n => ({ id:n.id, name:n.name, leaf:!n.kids, city: !parentId && !!CITY[n.id] }))),
+  mos: territoryId => wait(600).then(() => (MOS[territoryId] || []).map(m => ({ ...m }))),
+  doctors: moId => wait(600).then(() => doctorsOf(moId)),
+  reasons: () => wait(300).then(() => REASONS.slice()),
+
+  // --- Заявки ---
+  db: () => {
+    try { const d = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); if(d && d.v === V && Array.isArray(d.list)) return d; } catch(e){}
+    const d = { v:V, seq:152, list:demo() }; A.save(d); return d;
+  },
+  save: d => {
+    try { localStorage.setItem(DB_KEY, JSON.stringify(d)); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-attach-change')); } catch(e){}
+  },
+  list: () => A.db().list.slice().sort((a, b) => b.at - a.at),
+  get: n => A.db().list.find(x => x.num === n) || null,
+  create: (x) => {
+    const d = A.db(); d.seq += 1;
+    const now = Date.now();
+    const app = { num:num7(d.seq), at:now, who:x.who, region:x.region, mo:x.mo, doc:x.doc, reason:x.reason, status:'IN_PROGRESS', upd:now, done:null };
+    d.list.unshift(app); A.save(d); return app;
+  },
+  // Запрос статуса: обновляется время последнего получения статуса
+  check: n => wait(900).then(() => { const d = A.db(), a = d.list.find(x => x.num === n); if(a){ a.upd = Date.now(); A.save(d); } return a; }),
+  // Панель «Прототип»: ответ сервиса со статусом
+  setStatus: (n, status) => {
+    const d = A.db(), a = d.list.find(x => x.num === n); if(!a) return;
+    const now = Date.now();
+    a.status = status; a.upd = now; a.done = (status === 'APPROVED' || status === 'REJECTED') ? now : null;
+    A.save(d);
+  },
+  reset: () => { try { localStorage.removeItem(DB_KEY); } catch(e){} A.db(); A.save(A.db()); },
+};
+
+class Component extends DCLogic {
+  constructor(props){ super(props); window.mpAttach = A; }
+  componentDidMount(){
+    window.mpAttach = A;
+    try { window.dispatchEvent(new CustomEvent('mp-attach-ready')); } catch(e){}
+  }
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>
