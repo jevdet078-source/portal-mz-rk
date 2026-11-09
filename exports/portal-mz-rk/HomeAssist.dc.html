@@ -15,7 +15,12 @@
   AI-помощник на первом экране (варианты главной H и I) — левая половина рядом с баннерами.
   <dc-import name="HomeAssist" look="light | dark | open" max="3" hint-size="100%,560px">
     light — белая карточка; dark — прямо на тёмном баннере, стеклянные строки, белое поле;
-    open — без карточки, прямо на светлом фоне первого экрана (вариант J): метка «Цифровой помощник», белые строки и поле с мягкой тенью.
+    open — без карточки, прямо на светлом фоне первого экрана: метка «Цифровой помощник», белые строки и поле с мягкой тенью.
+    photo — вариант J (10.11.2026): заголовок, фото врачей (проп photo) и поле; без метки и частых вопросов.
+            layout="bottom" (по умолчанию) — поле внизу, наезжает на растворённый низ фото; "top" — поле сразу под заголовком,
+            фото ниже; "card" — всё в карточке высотой со сцену баннера (из высоты вычитается --hero-bar страницы);
+            "bg" / "portal" — фото рисует страница фоном первого экрана, здесь только окно .as-slot под людей
+            (bg — между заголовком и полем, portal — над заголовком, как на стенде); состояние — событием mp-assist-state.
     max — сколько частых вопросов показать (по умолчанию все); qs — свои частые вопросы через «|» (вместо HomeData.AI_SUGGEST).
 
   Одно поле = поиск + помощник:
@@ -215,7 +220,74 @@
   .as-open .as-field:focus-within{ box-shadow:0 0 0 1.5px var(--b400), 0 0 0 5px color-mix(in srgb, var(--b200) 55%, transparent), 0 18px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); }
   html[data-fill="flat"] .as-open .as-h1 span{ background:none; color:var(--b700); }
 
-  @media (prefers-reduced-motion:reduce){ .as-orb::after, .as-caret{ animation:none; } }
+  /* ===== PHOTO: приветствие + фото врачей + поле (вариант J, замечание руководства 10.11.2026) =====
+     Текст никогда не лежит на людях: заголовок — над головами, поле — над светлым, растворённым низом фото.
+     Частых вопросов нет: пока поле пустое, место между заголовком и полем занимает фото;
+     при вводе на его месте — найденные услуги, после Enter — диалог (фото уступает место ответу). */
+  .as-photo{ justify-content:flex-start; }
+  .as-photo .as-head{ display:none; }
+  .as-photo.is-chat .as-head{ display:flex; margin-bottom:6px; }
+  .as-photo .as-name{ height:auto; padding:0; background:none; box-shadow:none; color:var(--n900); font-size:15px; letter-spacing:-.01em; text-transform:none; }
+  .as-ph1{ position:relative; z-index:2; flex:0 0 auto; margin:0; font-size:clamp(30px,7.4cqi,54px); line-height:1.05; font-weight:600; letter-spacing:-.034em; color:var(--n900); text-wrap:balance; }
+  .as-ph1 span{ background:linear-gradient(90deg, var(--b600), var(--b900)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  html[data-fill="flat"] .as-ph1 span{ background:none; color:var(--b700); }
+  .as-ph1.hm-sr{ position:absolute; }
+  .as-photo.is-idle .as-body{ display:none; }
+  .as-photo .as-body{ flex:1 1 auto; justify-content:flex-end; }
+  .as-photo .as-list{ padding-top:16px; }
+  .as-pic{ position:relative; z-index:0; flex:1 1 auto; min-height:0; margin:0; animation:as-pic-in .6s ease both; }
+  /* кадр масштабируется по высоте и не обрезается снизу: люди всегда целиком в зоне между заголовком и полем,
+     поле ложится только на растворённый низ (≤ 25 % кадра). Шире колонки — подрезаются края, уже — края растворяются маской */
+  .as-pic{ overflow:hidden; }
+  .as-pic img{ position:absolute; top:0; left:50%; width:auto; height:100%; max-width:none; transform:translateX(-50%); display:block; user-select:none; -webkit-user-drag:none;
+    /* края кадра растворяются в фоне первого экрана: сверху и снизу — длинный спад, по бокам — короткий */
+    -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 10%, #000 56%, transparent 96%), linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+            mask-image:linear-gradient(180deg, transparent 0, #000 10%, #000 56%, transparent 96%), linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+    -webkit-mask-composite:source-in; mask-composite:intersect; }
+  @keyframes as-pic-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+  .as-photo .as-field{ position:relative; z-index:2; }
+  /* поле внизу (по умолчанию): поле наезжает на растворённый низ фото — без пустой полосы между ними */
+  .as-photo.hv-bottom.is-idle .as-field{ margin-top:calc(-1 * clamp(40px,7cqi,64px)); }
+  .as-photo.hv-bottom .as-pic{ margin-top:clamp(6px,1.4vh,14px); }
+  /* поиск сверху: заголовок → поле → фото (главное действие выше, на любом ноутбуке без прокрутки) */
+  .as-photo.hv-top .as-ph1{ order:1; }
+  .as-photo.hv-top .as-field{ order:2; margin-top:clamp(18px,2.6vh,28px); }
+  .as-photo.hv-top .as-pic{ order:3; margin-top:clamp(6px,1.2vh,12px); }
+  .as-photo.hv-top .as-body{ order:3; justify-content:flex-start; }
+  .as-photo.hv-top.is-chat .as-body{ order:1; justify-content:flex-end; }
+  .as-photo.hv-top.is-chat .as-field{ order:4; }
+  .as-photo.hv-top .as-pic img{
+    -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 14%, #000 66%, transparent 100%), linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%);
+            mask-image:linear-gradient(180deg, transparent 0, #000 14%, #000 66%, transparent 100%), linear-gradient(90deg, transparent 0, #000 9%, #000 91%, transparent 100%); }
+  /* карточка: фото в рамке той же высоты и скругления, что баннер справа — два равных блока */
+  .as-photo.hv-card{ --cpx:clamp(22px,2.2vw,36px); --cpb:clamp(18px,1.8vw,28px); height:calc(100% - var(--hero-bar, 0px)); padding:clamp(26px,2.6vw,40px) var(--cpx) var(--cpb); border-radius:28px; overflow:hidden; isolation:isolate;
+    background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 55%, #fff) 0%, color-mix(in srgb, var(--b100) 70%, var(--b50)) 100%);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.75), 0 30px 60px -46px color-mix(in srgb, var(--b900) 55%, transparent); }
+  .as-photo.hv-card .as-pic{ margin:clamp(4px,1vh,10px) calc(-1 * var(--cpx)) 0; }
+  /* поле наезжает на фото только нижней половиной — ниже скрещённых рук */
+  .as-photo.hv-card.is-idle .as-pic{ margin-bottom:calc(-1 * (36px + var(--cpb))); }
+  .as-photo.hv-card.is-idle .as-field{ margin-top:0; }
+  .as-photo.hv-card .as-pic img{
+    -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 10%), linear-gradient(90deg, transparent 0, #000 12%, #000 88%, transparent 100%);
+            mask-image:linear-gradient(180deg, transparent 0, #000 10%), linear-gradient(90deg, transparent 0, #000 12%, #000 88%, transparent 100%); }
+  html[data-fill="flat"] .as-photo.hv-card{ background:var(--b50); }
+  /* фон на весь первый экран (варианты 4–6): фото рисует страница слоем под сеткой, здесь — только «окно» под людей (.as-slot);
+     страница вписывает врачей в его прямоугольник (событие mp-assist-state — когда поверх фона появляется текст) */
+  .as-slot{ animation:none; }
+  .as-photo.hv-bg .as-field{ margin-top:clamp(8px,1.2vh,14px); }
+  .as-photo.hv-portal .as-head{ order:0; }
+  .as-photo.hv-portal .as-pic{ order:1; }
+  .as-photo.hv-portal .as-ph1{ order:2; margin-top:clamp(10px,1.6vh,18px); }
+  .as-photo.hv-portal .as-body{ order:3; }
+  .as-photo.hv-portal .as-field{ order:4; margin-top:clamp(14px,2.2vh,24px); }
+
+  @media (prefers-reduced-motion:reduce){ .as-orb::after, .as-caret{ animation:none; } .as-pic{ animation:none; } }
+  @media (max-width:960px){
+    /* одна колонка: высота блока по содержимому — фото задаёт себе пропорцию само */
+    .as-photo .as-pic{ flex:0 0 auto; aspect-ratio:820/600; max-height:460px; }
+    .as-photo.hv-card{ height:auto; }
+    .as-photo .as-body{ flex:0 1 auto; }
+  }
   @media (max-width:760px){
     .as-h1{ font-size:34px; margin-top:14px; }
     .as-light{ border-radius:24px; padding:20px 16px 16px; }
@@ -234,8 +306,17 @@
     <button type="button" class="as-ib" aria-label="Открыть в отдельной панели" data-tip="Открыть в отдельной панели" onClick="{{ expand }}"><i class="ri-expand-diagonal-line"></i></button>
   </div>
 
+  <sc-if value="{{ isPhoto }}" hint-placeholder-val="{{ false }}">
+    <h1 class="{{ ph1Cls }}">Здравствуйте!<br><span>Чем помочь?</span></h1>
+  </sc-if>
+  <sc-if value="{{ showPic }}" hint-placeholder-val="{{ false }}">
+    <figure class="{{ picCls }}" aria-hidden="true"><sc-if value="{{ hasImg }}" hint-placeholder-val="{{ true }}"><img src="{{ photo }}" alt="" decoding="async" draggable="false"></sc-if></figure>
+  </sc-if>
+
   <div class="as-body" ref="{{ bodyRef }}">
-    <h1 class="{{ h1Cls }}">Здравствуйте!<br><span>Чем помочь?</span></h1>
+    <sc-if value="{{ notPhoto }}" hint-placeholder-val="{{ true }}">
+      <h1 class="{{ h1Cls }}">Здравствуйте!<br><span>Чем помочь?</span></h1>
+    </sc-if>
 
     <sc-if value="{{ noMsgs }}" hint-placeholder-val="{{ true }}">
       <div class="as-list" aria-live="polite">
@@ -286,6 +367,7 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:600}}">
 const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
 const ext = (href) => /^https?:/.test(href || '');
+const narrow = () => { try { return window.matchMedia('(max-width:480px)').matches; } catch(e){ return false; } };
 const calm = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } };
 const STORE = 'mp-ai-chat';
 const readStore = () => { try { const v = JSON.parse(sessionStorage.getItem(STORE) || 'null'); return Array.isArray(v) ? v : []; } catch(e){ return []; } };
@@ -314,7 +396,14 @@ class Component extends DCLogic {
     if(this._io) this._io.disconnect(); document.documentElement.classList.remove('hm-ai-inview');
     clearTimeout(this._t); clearInterval(this._iv);
   }
-  componentDidUpdate(){ const b = this.bodyRef.current; if(b && this.state.msgs.length) b.scrollTop = b.scrollHeight; }
+  componentDidUpdate(){
+    const b = this.bodyRef.current; if(b && this.state.msgs.length) b.scrollTop = b.scrollHeight;
+    // фото-вид: сообщаем странице, пусто ли поле (фон с людьми) или поверх уже результаты / диалог
+    if(this.props.look === 'photo'){
+      const st = (this.state.msgs.length || this.state.typing) ? 'is-chat' : this.state.input.trim().length >= 2 ? 'is-found' : 'is-idle';
+      if(st !== this._st){ this._st = st; try { window.dispatchEvent(new CustomEvent('mp-assist-state', { detail:st })); } catch(e){} }
+    }
+  }
   focus(){ setTimeout(() => this.inputRef.current && this.inputRef.current.focus({ preventScroll:true }), 60); }
   busy(){ return this.state.typing || this.state.msgs.some(m => m.streaming); }
   // ответ печатается постепенно; кнопки и найденное на портале — когда текст готов (как AiPanel и вариант E)
@@ -341,11 +430,19 @@ class Component extends DCLogic {
   }
   renderVals(){
     const H = window.mpHome, s = this.state, role = s.role;
-    const q = s.input.trim(), look = this.props.look, dark = look === 'dark', open = look === 'open';
+    const q = s.input.trim(), look = this.props.look, dark = look === 'dark', photo = look === 'photo', open = look === 'open' || photo;
     const max = Number(this.props.max) || 0;
     const hasMsgs = s.msgs.length > 0 || s.typing;
+    // фото-вид: idle — фото между заголовком и полем; found — найденное при вводе; chat — диалог
+    const state = hasMsgs ? 'is-chat' : q.length >= 2 ? 'is-found' : 'is-idle';
+    const layout = ['bottom', 'top', 'card', 'bg', 'portal'].includes(this.props.layout) ? this.props.layout : 'bottom';
+    const slot = layout === 'bg' || layout === 'portal';
     const base = {
-      cls: 'as ' + (dark ? 'as-dark' : open ? 'as-open' : 'as-light'), name: open ? 'Цифровой помощник' : 'AI-помощник', rootRef:this.rootRef, bodyRef:this.bodyRef, inputRef:this.inputRef,
+      cls: 'as ' + (dark ? 'as-dark' : open ? 'as-open' : 'as-light') + (photo ? ' as-photo hv-' + layout + ' ' + state : ''),
+      name: open ? 'Цифровой помощник' : 'AI-помощник', rootRef:this.rootRef, bodyRef:this.bodyRef, inputRef:this.inputRef,
+      isPhoto: photo, notPhoto: !photo, showPic: photo && state === 'is-idle' && (slot || !!this.props.photo), photo: this.props.photo || '',
+      hasImg: !slot && !!this.props.photo, picCls: 'as-pic' + (slot ? ' as-slot' : ''),
+      ph1Cls: 'as-ph1' + (hasMsgs ? ' hm-sr' : ''),
       note: 'Отвечает на вопросы о здоровье и услугах портала. Справочная информация — не заменяет консультацию врача',
       input: s.input, inputShort: q.length > 42 ? q.slice(0, 40) + '…' : q, typing: s.typing,
       hasMsgs, noMsgs: !hasMsgs, h1Cls: 'as-h1' + (hasMsgs ? ' hm-sr' : ''),
@@ -356,13 +453,14 @@ class Component extends DCLogic {
       askNow: () => this.send(),
       reset: () => { clearInterval(this._iv); clearTimeout(this._t); this.setState({ msgs:[], typing:false }); this.focus(); },
       expand: () => { try { window.dispatchEvent(new CustomEvent('mp-ai-open', { detail:{ sync:true } })); } catch(e){} },
-      placeholder: open ? 'Например, как записаться к врачу?' : 'Спросите или найдите услугу',
+      // на телефоне длинная подсказка переносилась на вторую строку и обрезалась — там короче
+      placeholder: open ? (narrow() ? 'Например, запись к врачу' : 'Например, как записаться к врачу?') : 'Спросите или найдите услугу',
     };
     if(!H) return { ...base, sugg:[], showSugg:false, showFound:false, found:[], msgs:[] };
     const found = q.length >= 2 ? H.search(q, role).slice(0, 4) : [];
     return {
       ...base,
-      showSugg: q.length < 2, showFound: q.length >= 2,
+      showSugg: q.length < 2 && !photo, showFound: q.length >= 2,
       // значок строки — от самой подходящей услуги или раздела (поиск по порталу), иначе — «вопрос»
       sugg: (this.props.qs && role === 'citizens' ? String(this.props.qs).split('|').map(q => ({ q:q.trim() })) : (H.AI_SUGGEST[role] || [])).slice(0, max || undefined).map(g => { const hit = H.search(g.q, role)[0]; return { ...g, icon: hit && hit.icon ? hit.icon : 'ri-question-answer-line', onClick:() => this.send(g.q) }; }),
       found: found.map(f => ({ ...f, target: ext(f.href) ? '_blank' : '_self', tip: [f.kind, H.whereTip(f.href)].filter(Boolean).join(' · '),

@@ -19,6 +19,12 @@
     • «Жизненный путь здоровья» — календарь прививок и скринингов по этапам (контент стенда, подписи не обрезаются);
     • «Разделы портала» — разделы выбранной роли со ссылками (на стенде дублировали переключатель ролей из шапки);
     • новости и частые вопросы — как на стенде.
+  Замечания руководства 10.11.2026:
+    • первый экран слева — врачи с картинки стенда (без метки «Цифровой помощник» и частых вопросов): заголовок над людьми,
+      поле ввода под ними — текст на людей не ложится. Шесть вариантов в панели «Варианты дизайна» (localStorage 'mp-hero-j'):
+      1 — фото между заголовком и полем; 2 — поле сразу под заголовком; 3 — фото в карточке; 4 — цельный фон слева;
+      5 — фон на всю ширину, баннер-стекло; 6 — как на стенде: врачи вверху, заголовок и поле под ними;
+    • «Здоровье на каждом этапе жизни» — фото направлений вместо объёмных иллюстраций (HomeArt.photo).
   Для ролей «Бизнесу» и «Медперсоналу» вместо блоков о здоровье — услуги роли плитками (как в варианте H).
   Общие блоки: HomeData, HomeArt, PortalHeader, HomeAssist (look="open"), HomeBanners, HealthRoute, LifePath, HomeNews, HomeFaq,
   PortalFooter, AiPanel, ThemeKit, Splash.
@@ -32,7 +38,8 @@
   .vj-top{ position:sticky; top:0; z-index:40; }
 
   /* ——— ПЕРВЫЙ ЭКРАН ——— */
-  .vj-hero{ position:relative; overflow:hidden; isolation:isolate;
+  /* clip, а не hidden: фокус на поле не «прокручивает» первый экран (декоративные круги выходят за его край) */
+  .vj-hero{ position:relative; overflow:hidden; overflow:clip; isolation:isolate;
     background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 92%, #fff) 0%, color-mix(in srgb, var(--b50) 45%, #fff) 62%, #fff 100%); }
   .vj-hero::before, .vj-hero::after{ content:''; position:absolute; z-index:-1; border-radius:50%; pointer-events:none; filter:blur(10px); }
   .vj-hero::before{ width:min(60vw, 900px); aspect-ratio:1; left:-18vw; top:-30%; background:radial-gradient(closest-side, color-mix(in srgb, var(--b200) 55%, transparent), transparent); }
@@ -42,7 +49,40 @@
   .vj-grid{ display:grid; grid-template-columns:minmax(380px,5fr) minmax(0,7fr); gap:clamp(20px,2.4vw,56px);
     height:clamp(520px, calc(100svh - 72px - 140px), 720px); padding-block:clamp(20px,2vw,40px) clamp(28px,2.6vw,48px); }
   .vj-grid > *{ min-width:0; min-height:0; }
-  .vj-ai{ padding-block:clamp(4px,1vh,16px) 0; }
+
+  /* ——— ЦЕЛЬНЫЙ ФОН (варианты 4–6): картинка стенда двумя слоями из одного исходника, без рамки и краёв ———
+     .vj-bd-doc — левая часть (врачи): масштаб и место считает place() — люди точно в окне .as-slot колонки,
+       между заголовком и полем; края слоя растворяются в общем фоне;
+     .vj-bd-city — правая часть (Астана): прижата к правому краю, на всю высоту, под баннером (5, 6).
+     Пока поверх фона результаты поиска или диалог, врачи плавно скрываются (is-busy) — текст не ложится на людей. */
+  .vj-bd{ position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden; }
+  /* низ первого экрана плавно переходит в белый фон страницы — без ровной границы */
+  .vj-bd::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:clamp(64px,11vh,128px); background:linear-gradient(180deg, rgba(255,255,255,0), #fff); }
+  .vj-hero.has-bd{ background:linear-gradient(180deg, color-mix(in srgb, var(--b200) 58%, var(--b50)) 0%, color-mix(in srgb, var(--b100) 72%, #fff) 50%, color-mix(in srgb, var(--b50) 75%, #fff) 84%, #fff 100%); }
+  .vj-hero.has-bd::before, .vj-hero.has-bd::after{ display:none; }
+  .vj-bd img{ position:absolute; display:block; max-width:none; user-select:none; -webkit-user-drag:none; }
+  .vj-bd-doc{ opacity:0; transition:opacity .5s ease;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 7%, #000 89%, transparent 100%), linear-gradient(180deg, transparent 0, #000 9%, #000 74%, transparent 100%);
+            mask-image:linear-gradient(90deg, transparent 0, #000 7%, #000 89%, transparent 100%), linear-gradient(180deg, transparent 0, #000 9%, #000 74%, transparent 100%);
+    -webkit-mask-composite:source-in; mask-composite:intersect; }
+  .vj-bd-doc.is-on{ opacity:1; }
+  .vj-hero.is-busy .vj-bd-doc{ opacity:0; }
+  .vj-bd-city{ top:0; right:0; height:100%; width:auto;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 42%), linear-gradient(180deg, #000 0, #000 66%, transparent 100%);
+            mask-image:linear-gradient(90deg, transparent 0, #000 42%), linear-gradient(180deg, #000 0, #000 66%, transparent 100%);
+    -webkit-mask-composite:source-in; mask-composite:intersect; }
+  /* 5 — баннер-стекло: фон продолжается под карточками; 6 — светлая полупрозрачная плашка, как на стенде */
+  /* анимация появления с fill:both делает колонку «корнем» для backdrop-filter — стекло не видело фон; после появления снимаем её */
+  .vj-hero.has-bd .vj-ban.hm-in{ animation-fill-mode:backwards; }
+  .vj-hero.bd-full .hb-light .hb-slide{ background:linear-gradient(125deg, color-mix(in srgb, var(--bg1) 80%, transparent) 0%, color-mix(in srgb, var(--bg2) 66%, transparent) 100%);
+    -webkit-backdrop-filter:blur(22px) saturate(1.2); backdrop-filter:blur(22px) saturate(1.2); box-shadow:inset 0 0 0 1px rgba(255,255,255,.6), 0 34px 64px -44px rgba(11,58,80,.5); }
+  .vj-hero.bd-portal .hb-light .hb-slide{ background:linear-gradient(125deg, rgba(255,255,255,.84) 0%, color-mix(in srgb, var(--bg1) 70%, transparent) 100%);
+    -webkit-backdrop-filter:blur(24px) saturate(1.15); backdrop-filter:blur(24px) saturate(1.15); box-shadow:inset 0 0 0 1px rgba(255,255,255,.8), 0 30px 60px -42px rgba(11,58,80,.45); }
+  @media (max-width:960px){ .vj-bd .vj-bd-city{ display:none; } }
+
+  /* левая колонка: заголовок, фото врачей, поле (HomeAssist look="photo"); --hero-bar — высота вкладок-таймеров под баннером справа */
+  .vj-grid{ --hero-bar:54px; }
+  .vj-ai{ padding:0; }
 
   /* ——— ЗДОРОВЬЕ: направления + маршрут ——— */
   .vj-health{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.24fr); gap:clamp(14px,1.3vw,28px); height:clamp(520px, 37vw, 600px); }
@@ -59,8 +99,10 @@
     box-shadow:0 0 0 1px rgba(255,255,255,.9), 0 8px 18px -16px rgba(43,22,100,.45); transition:background .18s, box-shadow .18s, transform .18s; }
   .vj-dir:hover{ background:#fff; box-shadow:0 0 0 1px color-mix(in srgb, #CAC2FF 70%, transparent), 0 14px 26px -18px rgba(43,22,100,.5); transform:translateY(-1px); }
   .vj-dir:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
-  .vj-dir .art{ width:clamp(48px,3.6vw,60px); height:clamp(48px,3.6vw,60px); flex:0 0 auto; border-radius:14px; background:linear-gradient(140deg, var(--bg1), var(--bg2)); }
-  .vj-dir .art svg{ transform:scale(1.18); }
+  /* фото направления (вместо объёмной иллюстрации): во всю высоту плитки, фокус на лицах — mpArt.photo(id).pos */
+  .vj-dir .ph{ position:relative; align-self:stretch; width:clamp(72px,6.2vw,112px); flex:0 0 auto; border-radius:12px; overflow:hidden; background:linear-gradient(140deg, var(--bg1), var(--bg2)); }
+  .vj-dir .ph img{ position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover; transition:transform .5s cubic-bezier(.2,.7,.2,1); }
+  .vj-dir:hover .ph img{ transform:scale(1.06); }
   .vj-dir b{ flex:1; min-width:0; font-size:clamp(14px,.15vw + 12px,15.5px); line-height:1.3; font-weight:600; letter-spacing:-.01em; text-wrap:balance; }
   .vj-dir > i{ font-size:18px; color:var(--n300); transition:color .18s, transform .18s; }
   .vj-dir:hover > i{ color:var(--b600); transform:translateX(2px); }
@@ -144,9 +186,15 @@
 
   <main ref="{{ mainRef }}">
     <!-- ПЕРВЫЙ ЭКРАН -->
-    <section class="vj-hero">
+    <section class="{{ heroCls }}" ref="{{ heroRef }}">
+      <sc-if value="{{ hasBd }}" hint-placeholder-val="{{ false }}">
+        <div class="vj-bd" aria-hidden="true">
+          <sc-if value="{{ hasCity }}" hint-placeholder-val="{{ false }}"><img class="vj-bd-city" src="assets/home/hero-bg-city.jpg" alt="" draggable="false"></sc-if>
+          <img class="vj-bd-doc" ref="{{ bdRef }}" src="assets/home/hero-bg-doctors.jpg" alt="" draggable="false">
+        </div>
+      </sc-if>
       <div class="hm-wrap vj-grid">
-        <div class="vj-ai hm-in d1"><dc-import name="HomeAssist" look="open" max="3" qs="Как записаться на приём к врачу?|Как проверить статус ОСМС?|Как найти медицинскую организацию?" hint-size="100%,100%"></dc-import></div>
+        <div class="vj-ai hm-in d1"><dc-import name="HomeAssist" look="photo" layout="{{ heroLayout }}" photo="{{ heroPhoto }}" hint-size="100%,100%"></dc-import></div>
         <div class="vj-ban hm-in d2"><dc-import name="HomeBanners" look="light" hint-size="100%,100%"></dc-import></div>
       </div>
     </section>
@@ -160,7 +208,7 @@
             <p>Понятные инструкции и рекомендации для важных событий жизни</p>
             <ul class="vj-dirs">
               <sc-for list="{{ dirs }}" as="d" hint-placeholder-count="6">
-                <li><a class="vj-dir" href="{{ d.href }}" data-tip="{{ d.tip }}"><span class="art" data-art="{{ d.art }}" style="{{ d.vars }}" aria-hidden="true"></span><b>{{ d.short }}</b><i class="ri-arrow-right-line" aria-hidden="true"></i></a></li>
+                <li><a class="vj-dir" href="{{ d.href }}" data-tip="{{ d.tip }}"><span class="ph" style="{{ d.vars }}" aria-hidden="true"><img src="{{ d.thumb }}" style="{{ d.pos }}" alt="" loading="lazy" decoding="async"></span><b>{{ d.short }}</b><i class="ri-arrow-right-line" aria-hidden="true"></i></a></li>
               </sc-for>
             </ul>
             <div class="vj-st-foot"><a class="vj-btn" href="{{ stagesHref }}">Все направления<i class="ri-arrow-right-line"></i></a></div>
@@ -224,13 +272,20 @@
 
   <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
   <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
-  <dc-import name="ThemeKit" current="j" hint-size="1px,1px"></dc-import>
+  <dc-import name="ThemeKit" current="j" heroes="1" hint-size="1px,1px"></dc-import>
 </div>
 <dc-import name="Splash" hint-size="1px,1px"></dc-import>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
 const lsRole = () => { try { const r = localStorage.getItem('mp-role'); return ['citizens','business','medical'].includes(r) ? r : 'citizens'; } catch(e){ return 'citizens'; } };
 const ext = (href) => /^https?:/.test(href || '');
+// варианты первого экрана (панель «Варианты дизайна»): 1–3 — фото в колонке, 4–6 — цельный фон из картинки стенда
+const HERO_LAYOUT = { bottom:'bottom', top:'top', card:'card', left:'bg', full:'bg', portal:'portal' };
+const BD = ['left', 'full', 'portal'];
+const lsHero = () => { try { const h = localStorage.getItem('mp-hero-j'); return HERO_LAYOUT[h] ? h : 'bottom'; } catch(e){ return 'bottom'; } };
+// рамка людей на картинке стенда: слой врачей — левые 1040 px исходника 1821×864, слева к ним дорисовано небо
+// (полоса 0–250 px зеркально ×3 = 750 px, стыки совпадают) — фон без края и на мониторах 27″. По рамке вписываем врачей в окно колонки
+const PEOPLE = { cx:750 + 545, top:98, w:560, h:430, layerW:1790, layerH:864, padT:20, padB:6 };
 const STAGES = 'Здоровье на каждом этапе жизни.dc.html';
 // 6 направлений раздела: короткое имя для плитки, полное — в подсказке (совпадает с LifeStagesData)
 const DIRS = [
@@ -244,8 +299,8 @@ const DIRS = [
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.mainRef = React.createRef();
-    this.state = { role: lsRole(), tick:0 };
+    this.mainRef = React.createRef(); this.heroRef = React.createRef(); this.bdRef = React.createRef();
+    this.state = { role: lsRole(), tick:0, hero: lsHero(), busy:false };
   }
   componentDidMount(){
     this._ready = () => this.setState({ tick:Date.now(), role: window.mpHome ? window.mpHome.getRole() : this.state.role });
@@ -253,18 +308,45 @@ class Component extends DCLogic {
     window.addEventListener('mp-art-ready', this._ready);
     this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._role);
-    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+    // вариант первого экрана — из панели «Варианты дизайна» (ThemeKit heroes="1")
+    this._hero = (e) => this.setState({ hero: e && e.detail ? e.detail : lsHero() });
+    window.addEventListener('mp-hero-change', this._hero);
+    // результаты поиска / диалог поверх фона — врачи приглушаются; вернулись к пустому полю — снова вписываем
+    this._as = (e) => { const busy = !!(e && e.detail && e.detail !== 'is-idle'); if(busy !== this.state.busy) this.setState({ busy }); };
+    window.addEventListener('mp-assist-state', this._as);
+    this._place = () => { cancelAnimationFrame(this._raf); this._raf = requestAnimationFrame(() => this.place()); };
+    window.addEventListener('resize', this._place);
+    if('ResizeObserver' in window){ this._ro = new ResizeObserver(this._place); if(this.heroRef.current) this._ro.observe(this.heroRef.current); }
+    // компоненты и шрифты догружаются — первые секунды уточняем место слоя
+    this._pt = setInterval(this._place, 500); this._pt2 = setTimeout(() => clearInterval(this._pt), 6000);
+    this._fb =setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
     // ссылка «…#route» ведёт прямо к опроснику (блок появляется после загрузки, поэтому прокручиваем сами)
     if(location.hash === '#route') this._rt = setTimeout(() => { const r = document.getElementById('route'); if(r) r.scrollIntoView({ block:'center' }); }, 1200);
     this.paint();
   }
-  componentDidUpdate(){ this.paint(); }
-  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready); window.removeEventListener('mp-role-change', this._role); clearTimeout(this._fb); }
+  componentDidUpdate(){ this.paint(); if(this._place) this._place(); }
+  componentWillUnmount(){ window.removeEventListener('mp-home-ready', this._ready); window.removeEventListener('mp-art-ready', this._ready); window.removeEventListener('mp-role-change', this._role); window.removeEventListener('mp-hero-change', this._hero);
+    window.removeEventListener('mp-assist-state', this._as); window.removeEventListener('resize', this._place); if(this._ro) this._ro.disconnect();
+    clearInterval(this._pt); clearTimeout(this._pt2); cancelAnimationFrame(this._raf); clearTimeout(this._fb); }
+  // слой врачей: масштаб — чтобы люди целиком вошли в окно .as-slot (не крупнее 1.2 — без «мыла»), по центру окна
+  place(){
+    const hero = this.heroRef.current, img = this.bdRef.current; if(!hero || !img) return;
+    const slot = hero.querySelector('.as-slot'); if(!slot) return;
+    const hr = hero.getBoundingClientRect(), r = slot.getBoundingClientRect(); if(r.width < 40 || r.height < 40) return;
+    const P = PEOPLE, th = r.height - P.padT - P.padB, k = Math.min(r.width / P.w, th / P.h, 1.2);
+    const left = r.left - hr.left + r.width / 2 - P.cx * k, top = r.top - hr.top + P.padT + (th - P.h * k) / 2 - P.top * k;
+    Object.assign(img.style, { left: left + 'px', top: top + 'px', width: P.layerW * k + 'px', height: P.layerH * k + 'px' });
+    img.classList.add('is-on');
+  }
   paint(){ if(window.mpArt) window.mpArt.paint(this.mainRef.current); }
   renderVals(){
     const H = window.mpHome, A = window.mpArt, role = this.state.role, cit = role === 'citizens';
-    const base = { mainRef:this.mainRef, isCitizen:cit, notCitizen:!cit, stagesHref:STAGES,
-      dirs: DIRS.map(d => ({ ...d, href: STAGES + '#' + d.id, tip: d.full + ' · ' + d.aud, vars: A ? A.tone(d.tone) : '' })) };
+    const base = { mainRef:this.mainRef, isCitizen:cit, notCitizen:!cit, stagesHref:STAGES, heroRef:this.heroRef, bdRef:this.bdRef,
+      heroLayout: HERO_LAYOUT[this.state.hero], heroPhoto: BD.includes(this.state.hero) ? '' : 'assets/home/hero-doctors.jpg',
+      hasBd: BD.includes(this.state.hero), hasCity: this.state.hero === 'full' || this.state.hero === 'portal',
+      heroCls: 'vj-hero' + (BD.includes(this.state.hero) ? ' has-bd bd-' + this.state.hero : '') + (this.state.busy ? ' is-busy' : ''),
+      dirs: DIRS.map(d => { const p = A && A.photo(d.id);
+        return { ...d, href: STAGES + '#' + d.id, tip: d.full + ' · ' + d.aud, vars: A ? A.tone(d.tone) : '', thumb: p ? p.thumb : '', pos: p ? p.style : '' }; }) };
     if(!H || !A) return { ...base, secsCls:'vj-secs', svcTitle:'', all:{ href:'#', label:'', count:'' }, hasCount:false, tiles:[], secs:[] };
     const link = (l) => ({ ...l, ext: ext(l.href), target: ext(l.href) ? '_blank' : '_self', tip: H.whereTip(l.href) });
     const secs = [ ...H.SECTIONS[role], { id:'lib', icon:'ri-book-open-line', label:'Справочники', desc:'', href:H.P.drugs, links:H.LIBRARY } ];
