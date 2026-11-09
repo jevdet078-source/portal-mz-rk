@@ -450,7 +450,24 @@ const A = (() => {
     return { label: gov ? h.HERO[role].allLabel : 'Все сервисы', href: gov ? h.govPage(role) : h.P.cat,
       count: gov ? h.plural(h.GOV_COUNT[role], 'услуга', 'услуги', 'услуг') : '' };
   };
-  return { TONES, TONE_NAMES, tone, ART, IDS, svg, paint, banners, tiles, allTile };
+  // Фото направлений «Здоровье на каждом этапе жизни» (вместо объёмных иллюстраций — замечание руководства 10.11.2026).
+  // Unsplash License (бесплатно, в т. ч. для коммерческого использования). pos — точка фокуса для object-fit:cover,
+  // чтобы при любой обрезке (плитка, карточка 16:9, миниатюра) в кадре оставались лица.
+  const PHOTOS = {
+    newborn:      { pos:'30% 30%', by:'Kelly Sikkema',   src:'https://unsplash.com/photos/Z4GKcFAGck4' },
+    growth:       { pos:'62% 36%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/EiL21cqvo58' },
+    reproductive: { pos:'42% 44%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/3rXZyQdMdlI' },
+    pregnancy:    { pos:'36% 50%', by:'freestocks',      src:'https://unsplash.com/photos/ux53SGpRAHU' },
+    chronic:      { pos:'58% 38%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/NDOYHZ_98Rw' },
+    longevity:    { pos:'80% 42%', by:'Esther Ann',      src:'https://unsplash.com/photos/glpYh1cWf0o' },
+  };
+  // photo(id) → { img (1200w), thumb (480w), srcset, pos } или null, если фото для направления нет (тогда — иллюстрация)
+  const photo = (id) => {
+    const p = PHOTOS[id]; if(!p) return null;
+    const img = 'assets/stages/' + id + '.jpg', thumb = 'assets/stages/' + id + '-s.jpg';
+    return { img, thumb, srcset: thumb + ' 480w, ' + img + ' 1200w', pos:p.pos, style:'object-position:' + p.pos + ';', by:p.by };
+  };
+  return { TONES, TONE_NAMES, tone, ART, IDS, svg, paint, banners, tiles, allTile, PHOTOS, photo };
 })();
 window.mpArt = A;
 

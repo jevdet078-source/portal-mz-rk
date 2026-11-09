@@ -11,6 +11,7 @@
   (10 палитр HomeData) и заставку при входе. Кнопка — слева внизу, не пересекается с AI-помощником.
   Проп current — id текущего варианта (a … e). Выбор палитры и заставки сохраняется
   (localStorage['mp-theme'], ['mp-splash']) и действует на всех вариантах.
+  Проп heroes="1" (вариант J) — ещё и вариант первого экрана: localStorage['mp-hero-j'] + событие 'mp-hero-change'.
 -->
 <x-dc>
 <helmet>
@@ -77,6 +78,15 @@
         </sc-for>
       </div>
 
+      <sc-if value="{{ hasHeroes }}" hint-placeholder-val="{{ false }}">
+        <div class="tk-cap">Первый экран</div>
+        <div class="tk-vars" role="group" aria-label="Первый экран" style="grid-template-columns:1fr;">
+          <sc-for list="{{ heroes }}" as="h" hint-placeholder-count="3">
+            <button type="button" class="tk-var" aria-current="{{ h.on }}" onClick="{{ h.onClick }}" style="border:none;background:#fff;font-family:inherit;text-align:left;cursor:pointer;"><em>{{ h.key }}</em><span>{{ h.label }}<small style="display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--n500);">{{ h.hint }}</small></span></button>
+          </sc-for>
+        </div>
+      </sc-if>
+
       <div class="tk-cap">Оформление</div>
       <div class="tk-fill" role="group" aria-label="Оформление">
         <sc-for list="{{ fills }}" as="f" hint-placeholder-count="3">
@@ -125,6 +135,14 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:760}}">
+const HEROES = [
+  { id:'bottom', key:'1', label:'Врачи и поле снизу', hint:'Заголовок над фото, поле поверх светлого низа кадра' },
+  { id:'top', key:'2', label:'Поиск сразу под заголовком', hint:'Главное действие выше, фото врачей — под полем' },
+  { id:'card', key:'3', label:'Фото в карточке', hint:'Две равные карточки: врачи слева, услуги справа' },
+  { id:'left', key:'4', label:'Цельный фон слева', hint:'Картинка стенда фоном левой части, без рамки, уходит под баннер' },
+  { id:'full', key:'5', label:'Фон на всю ширину', hint:'Врачи слева, Астана справа, баннер-стекло — фон продолжается под ним' },
+  { id:'portal', key:'6', label:'Как на портале', hint:'Композиция стенда: врачи вверху, заголовок и поле под ними — без наложений' },
+];
 const SPLASH = [ { id:'emblem', label:'Герб' }, { id:'ornament', label:'Орнамент' }, { id:'pulse', label:'Пульс' }, { id:'curtain', label:'Шторка' }, { id:'off', label:'Без заставки' } ];
 class Component extends DCLogic {
   constructor(props){
@@ -132,7 +150,8 @@ class Component extends DCLogic {
     let sp = 'emblem', open = false;
     try { sp = localStorage.getItem('mp-splash') || 'emblem'; } catch(e){}
     try { open = sessionStorage.getItem('mp-tk-open') === '1'; } catch(e){}
-    this.state = { open, sp, theme:null, ready: !!window.mpHome };
+    let hero = 'bottom'; try { hero = localStorage.getItem('mp-hero-j') || 'bottom'; } catch(e){}
+    this.state = { open, sp, theme:null, ready: !!window.mpHome, hero };
   }
   componentDidMount(){
     this._ready = () => this.setState({ ready:true });
@@ -146,7 +165,7 @@ class Component extends DCLogic {
   setOpen(v){ this.setState({ open:v }); try { sessionStorage.setItem('mp-tk-open', v ? '1' : '0'); } catch(e){} }
   renderVals(){
     const H = window.mpHome, s = this.state;
-    if(!H) return { fills:[], fillHint:'', isPastel:false, pastels:[], pastelCount:'', psName:'', psHint:'', open:false, openStr:'false', toggle:()=>{}, close:()=>{}, btnSub:'', variants:[], pals:[], ramp:[], splashes:[], pName:'', pHint:'', pStar:false, play:()=>{} };
+    if(!H) return { hasHeroes:false, heroes:[], fills:[], fillHint:'', isPastel:false, pastels:[], pastelCount:'', psName:'', psHint:'', open:false, openStr:'false', toggle:()=>{}, close:()=>{}, btnSub:'', variants:[], pals:[], ramp:[], splashes:[], pName:'', pHint:'', pStar:false, play:()=>{} };
     const tid = s.theme || H.themeId();
     const cur = H.palette(tid);
     const keys = ['b50','b100','b200','b300','b400','b500','b600','b700','b800','b900'];
@@ -155,6 +174,8 @@ class Component extends DCLogic {
     const mesh = (st) => `background:radial-gradient(70% 90% at 0% 0%, ${st[0]}, transparent 70%), radial-gradient(70% 90% at 100% 0%, ${st[1]}, transparent 70%), radial-gradient(80% 80% at 60% 100%, ${st[2]}, transparent 72%), ${st[3]};`;
     const ps = H.PASTELS.find(x => x.id === pid);
     return {
+      hasHeroes: this.props.heroes === '1',
+      heroes: HEROES.map(h => ({ ...h, on: h.id === s.hero ? 'page' : 'false', onClick:() => { this.setState({ hero:h.id }); try { localStorage.setItem('mp-hero-j', h.id); } catch(e){} try { window.dispatchEvent(new CustomEvent('mp-hero-change', { detail:h.id })); } catch(e){} } })),
       fills: H.FILLS.map(f => ({ ...f, short:SHORT[f.id], swCls:'fs ' + f.id, on: f.id === fill ? 'true' : 'false', onClick:() => { H.setFill(f.id); this.setState({ fillTick:Date.now() }); } })),
       fillHint: H.FILLS.find(f => f.id === fill).hint,
       isPastel: fill === 'pastel', pastelCount: H.PASTELS.length + ' вариантов',

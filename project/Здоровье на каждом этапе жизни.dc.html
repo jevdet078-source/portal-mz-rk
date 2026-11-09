@@ -8,7 +8,7 @@
 <body>
 <!--
   «Здоровье на каждом этапе жизни» (постановка от 06.11.2026) — три уровня на одной странице, адрес — в хэше:
-    #                      — шесть тематических карточек: иллюстрация, название, для кого, краткое описание, «Подробнее»;
+    #                      — шесть тематических карточек: фото (HomeArt.photo, 10.11.2026; без фото — иллюстрация), название, для кого, краткое описание, «Подробнее»;
     #<направление>         — страница направления: подразделы карточками (иконка, название, переход);
     #<направление>/<тема>  — информационная страница: хлебные крошки, заголовок, оглавление длинного материала,
                              текст с подзаголовками, списками, таблицами и предупреждениями, «Все подразделы», соседние темы.
@@ -46,7 +46,11 @@
   .ls-card:hover{ border-color:color-mix(in srgb, var(--a3) 40%, var(--n200)); box-shadow:0 28px 48px -32px color-mix(in srgb, var(--a5) 55%, transparent); transform:translateY(-2px); }
   .ls-card:focus-visible{ outline:2px solid var(--b500); outline-offset:3px; }
   .ls-pic{ position:relative; aspect-ratio:16/9; background:linear-gradient(140deg, var(--bg1), var(--bg2)); display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .ls-pic::after{ content:''; position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(closest-side, rgba(255,255,255,.75), transparent); }
+  .ls-pic.is-art::after{ content:''; position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(closest-side, rgba(255,255,255,.75), transparent); }
+  /* фото направления (замечание руководства 10.11.2026: вместо объёмных иллюстраций — живые фото); иллюстрация — только если фото нет */
+  .ls-pic > img, .ls-sh-art > img, .ls-other .ph > img{ position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:cover; }
+  .ls-pic > img{ transition:transform .7s cubic-bezier(.2,.7,.2,1); }
+  .ls-card:hover .ls-pic > img{ transform:scale(1.04); }
   .ls-pic .art{ position:relative; z-index:1; width:min(52%, 260px); aspect-ratio:240/200; transition:transform .5s cubic-bezier(.2,.7,.2,1); }
   .ls-card:hover .ls-pic .art{ transform:translateY(-6px) scale(1.04); }
   .ls-bd{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; flex:1; padding:clamp(18px,1.4vw,24px); }
@@ -73,7 +77,8 @@
   /* ——— 2. направление ——— */
   .ls-sh{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:24px; }
   .ls-sh .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
-  .ls-sh-art{ width:clamp(150px,14vw,240px); aspect-ratio:1; border-radius:32px; background:linear-gradient(140deg, var(--bg1), var(--bg2)); display:flex; align-items:center; justify-content:center; }
+  .ls-sh-art{ position:relative; overflow:hidden; width:clamp(150px,14vw,240px); aspect-ratio:1; border-radius:32px; background:linear-gradient(140deg, var(--bg1), var(--bg2)); display:flex; align-items:center; justify-content:center; }
+  .ls-sh-art.is-photo{ width:clamp(260px,24vw,400px); aspect-ratio:3/2; border-radius:28px; box-shadow:0 30px 60px -44px rgba(10,13,20,.55); }
   .ls-sh-art .art{ width:84%; aspect-ratio:240/200; }
   .ls-subs{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(10px,1vw,16px); margin-top:clamp(24px,2.4vw,40px); }
   .ls-sub-card{ display:flex; align-items:center; gap:14px; min-height:84px; padding:14px 18px 14px 14px; border-radius:20px; background:#fff; border:1px solid var(--n200); color:var(--n900); text-decoration:none;
@@ -93,6 +98,11 @@
   .ls-other:hover{ background:linear-gradient(140deg, var(--bg1), var(--bg2)); }
   .ls-other:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
   .ls-other .art{ width:64px; aspect-ratio:240/200; }
+  .ls-other .ph{ position:relative; display:block; aspect-ratio:16/10; border-radius:14px; overflow:hidden; background:linear-gradient(140deg, var(--bg1), var(--bg2)); }
+  .ls-other .ph > img{ transition:transform .6s cubic-bezier(.2,.7,.2,1); }
+  .ls-other:hover .ph > img{ transform:scale(1.05); }
+  .ls-other:has(.ph){ padding:8px 8px 14px; }
+  .ls-other:has(.ph) b{ padding:0 6px; }
   .ls-other b{ font-size:14.5px; line-height:1.35; font-weight:600; text-wrap:balance; }
 
   /* ——— 3. информационная страница ——— */
@@ -212,7 +222,7 @@
               <p class="ls-sub">{{ sec.desc }}</p>
               <div class="chips"><span class="ls-chip"><i class="ri-group-line"></i>{{ sec.aud }}</span></div>
             </div>
-            <div class="ls-sh-art" aria-hidden="true"><span class="art" data-art="{{ sec.art }}"></span></div>
+            <div class="{{ sec.artCls }}" aria-hidden="true"><sc-if value="{{ sec.hasPhoto }}" hint-placeholder-val="{{ true }}"><img src="{{ sec.photo.img }}" style="{{ sec.photo.style }}" alt="" decoding="async"></sc-if><sc-if value="{{ sec.noPhoto }}" hint-placeholder-val="{{ false }}"><span class="art" data-art="{{ sec.art }}"></span></sc-if></div>
           </div>
         </sc-if>
 
@@ -229,7 +239,7 @@
         <div class="ls-grid">
           <sc-for list="{{ cards }}" as="c" hint-placeholder-count="6">
             <a class="ls-card" href="{{ c.href }}" style="{{ c.vars }}">
-              <span class="ls-pic" aria-hidden="true"><span class="art" data-art="{{ c.art }}"></span></span>
+              <span class="{{ c.picCls }}" aria-hidden="true"><sc-if value="{{ c.hasPhoto }}" hint-placeholder-val="{{ true }}"><img src="{{ c.photo.img }}" srcset="{{ c.photo.srcset }}" sizes="(max-width:640px) 100vw, (max-width:1100px) 50vw, 33vw" style="{{ c.photo.style }}" alt="" decoding="async"></sc-if><sc-if value="{{ c.noPhoto }}" hint-placeholder-val="{{ false }}"><span class="art" data-art="{{ c.art }}"></span></sc-if></span>
               <span class="ls-bd">
                 <span class="ls-aud">{{ c.aud }}</span>
                 <h2>{{ c.title }}</h2>
@@ -259,7 +269,7 @@
         <h2 class="ls-h2">Другие направления</h2>
         <div class="ls-others">
           <sc-for list="{{ others }}" as="o" hint-placeholder-count="5">
-            <a class="ls-other" href="{{ o.href }}" style="{{ o.vars }}"><span class="art" data-art="{{ o.art }}" aria-hidden="true"></span><b>{{ o.title }}</b></a>
+            <a class="ls-other" href="{{ o.href }}" style="{{ o.vars }}"><sc-if value="{{ o.hasPhoto }}" hint-placeholder-val="{{ true }}"><span class="ph" aria-hidden="true"><img src="{{ o.photo.thumb }}" style="{{ o.photo.style }}" alt="" loading="lazy" decoding="async"></span></sc-if><sc-if value="{{ o.noPhoto }}" hint-placeholder-val="{{ false }}"><span class="art" data-art="{{ o.art }}" aria-hidden="true"></span></sc-if><b>{{ o.title }}</b></a>
           </sc-for>
         </div>
       </sc-if>
@@ -346,6 +356,9 @@ class Component extends DCLogic {
   renderVals(){
     const S = window.mpStages, A = window.mpArt, st = this.state;
     const tone = (t) => A ? A.tone(t) : '';
+    // фото направления из HomeArt (mpArt.photo); нет фото — остаётся иллюстрация
+    const NOPH = { img:'', thumb:'', srcset:'', style:'' };
+    const ph = (id) => { const p = A && A.photo ? A.photo(id) : null; return { photo: p || NOPH, hasPhoto: !!p, noPhoto: !p }; };
     const sec = S && S.get(st.s), page = sec && st.p ? sec.subs.find(x => x.id === st.p) : null;
     const view = page ? 'page' : sec ? 'section' : 'list';
     const home = { label:'Главная', href:homeHref() }, root = { label:PAGE_TITLE, href:'#' };
@@ -353,15 +366,16 @@ class Component extends DCLogic {
       .map(c => ({ ...c, link:!!c.href, here:!c.href }));
     const base = { mainRef:this.mainRef, artRef:this.artRef, h1Ref:this.h1Ref, crumbs, isList:view === 'list', isSection:view === 'section', isPage:view === 'page',
       openRoute:() => { try { window.dispatchEvent(new CustomEvent('mp-route-open')); } catch(e){} },
-      cards:[], sec:{ vars:'', full:'', desc:'', aud:'', art:'' }, subs:[], others:[],
+      cards:[], sec:{ vars:'', full:'', desc:'', aud:'', art:'', artCls:'ls-sh-art', photo:{ img:'', style:'' }, hasPhoto:false, noPhoto:true }, subs:[], others:[],
       page:{ title:'', meta:'', hasMeta:false, layout:'ls-page', toc:[], hasToc:false, hasHtml:false, soon:false, plan:'', blocks:[], prev:{}, next:{}, hasPrev:false, hasNext:false, allHref:'#' } };
     if(!S) return base;
     const L = S.SECTIONS;
-    if(view === 'list') return { ...base, cards: L.map(s => ({ ...s, href:'#' + s.id, vars:tone(s.tone) })) };
-    const secVals = { vars:tone(sec.tone), full:sec.full || sec.title, desc:sec.desc, aud:sec.aud, art:sec.art };
+    if(view === 'list') return { ...base, cards: L.map(s => { const p = ph(s.id); return { ...s, ...p, href:'#' + s.id, vars:tone(s.tone), picCls:'ls-pic' + (p.hasPhoto ? '' : ' is-art') }; }) };
+    const sp = ph(sec.id);
+    const secVals = { vars:tone(sec.tone), full:sec.full || sec.title, desc:sec.desc, aud:sec.aud, art:sec.art, ...sp, artCls:'ls-sh-art' + (sp.hasPhoto ? ' is-photo' : '') };
     if(view === 'section') return { ...base, sec:secVals,
       subs: sec.subs.map(p => ({ ...p, href:'#' + sec.id + '/' + p.id, hasMeta:!!p.meta, cls:'ls-sub-card' + (/обратиться/i.test(p.title) ? ' warn' : '') })),
-      others: L.filter(o => o.id !== sec.id).map(o => ({ ...o, href:'#' + o.id, vars:tone(o.tone) })) };
+      others: L.filter(o => o.id !== sec.id).map(o => ({ ...o, ...ph(o.id), href:'#' + o.id, vars:tone(o.tone) })) };
     const i = sec.subs.indexOf(page), prev = sec.subs[i - 1], next = sec.subs[i + 1];
     const toc = (page.toc || []).map(t => ({ ...t, href:'#' + sec.id + '/' + page.id, on: st.spy === t.id ? 'true' : 'false', onClick:(e) => { e.preventDefault(); this.go(t.id); } }));
     const hasToc = toc.length >= 2;
