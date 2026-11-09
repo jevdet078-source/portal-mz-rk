@@ -269,6 +269,14 @@
                           <span class="gs-side gs-chip" aria-hidden="true"><i class="ri-briefcase-4-line"></i>Кабинет бизнеса<i class="ri-arrow-right-s-line gs-go"></i></span>
                         </button>
                       </sc-if>
+                      <!-- Услуга кабинета гражданина — паспорт в личном кабинете (без входа — через «Вход») -->
+                      <sc-if value="{{ it.isCab }}" hint-placeholder-val="{{ false }}">
+                        <a class="gs-row" href="{{ it.href }}" aria-label="{{ it.aria }}" title="{{ it.hint }}">
+                          <span class="gs-num" aria-hidden="true">{{ it.num }}</span>
+                          <span class="gs-name"><sc-for list="{{ it.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span>
+                          <span class="gs-side gs-chip" aria-hidden="true"><i class="ri-user-3-line"></i>Личный кабинет<i class="ri-arrow-right-s-line gs-go"></i></span>
+                        </a>
+                      </sc-if>
                       <!-- Внешняя услуга — eGov.kz / «Е-лицензирование» в новой вкладке -->
                       <sc-if value="{{ it.isExt }}" hint-placeholder-val="{{ true }}">
                         <a class="gs-row" href="{{ it.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ it.aria }}" title="{{ it.hint }}">
@@ -323,7 +331,7 @@ const CATS = [
     ['Выдача выписки из медицинской карты стационарного больного', 'P707'],
     ['Регистрация прижизненного волеизъявления на кремацию', 'P718'],
     ['Вызов врача на дом', 'P701'],
-    ['Прикрепление к поликлинике', 'P703'],
+    ['Прикрепление к поликлинике', 'cab'],
     ['Вызов скорой медицинской помощи', 'health_care_pass132-3_mz'],
     ['Возврат излишне (ошибочно) зачисленных сумм отчислений, взносов и (или) пени за несвоевременную и (или) неполную уплату отчислений и (или) взносов обязательного социального медицинского страхования', 'health_care_pass1601009_mz'],
     ['Выдача медицинской справки по форме № 073/у', 'P723'],
@@ -360,6 +368,8 @@ const CATS = [
   ] },
 ].map(c => ({ ...c, items: c.items.map(([name, ref]) => {
   if(ref === 'portal') return { name, portal: true, norm: norm(name) };
+  // Услуга кабинета гражданина — оказывается на портале (постановка «Прикрепление к поликлинике», 09.11.2026)
+  if(ref === 'cab') return { name, cab: true, norm: norm(name) };
   const ext = /^https?:/.test(ref);
   return { name, href: ext ? ref : EGOV + ref, site: ext ? 'Е‑лицензирование' : 'eGov.kz', norm: norm(name) };
 }) }));
@@ -376,6 +386,8 @@ const AUD = {
 const isMedical = (r) => r === 'medical';
 const catById = (id) => id === 'all' ? ALL : CATS.find(c => c.id === id);
 const signedBiz = () => { try { return localStorage.getItem('mp-profile') === 'business'; } catch(e){ return false; } };
+const signedCitizen = () => { try { return localStorage.getItem('mp-profile') === 'citizen'; } catch(e){ return false; } };
+const CAB_PASSPORT = 'Паспорт услуги прикрепления.dc.html';
 
 function norm(s){ return String(s).toLowerCase().replace(/ё/g, 'е'); }
 function tokensOf(q){ return norm(q).trim().split(/\s+/).filter(Boolean); }
@@ -607,10 +619,16 @@ class Component extends DCLogic {
       const parts = highlight(it.name, tokens);
       if(it.portal){
         const where = biz ? 'Откроется в кабинете бизнеса' : 'Откроется в кабинете бизнеса после входа под профилем «Бизнес»';
-        return { num, parts, isPortal:true, isExt:false, href:'', site:'',
+        return { num, parts, isPortal:true, isExt:false, isCab:false, href:'', site:'',
           onOpen: (e) => this.openDlg(e), hint: where, aria: `${it.name}. Выбор вида услуги, ${where.toLowerCase()}` };
       }
-      return { num, parts, isPortal:false, isExt:true, href: it.href, site: it.site,
+      if(it.cab){
+        const cit = signedCitizen(), where = cit ? 'Откроется в личном кабинете' : 'Откроется в личном кабинете после входа';
+        return { num, parts, isPortal:false, isExt:false, isCab:true, site:'', onOpen:null,
+          href: cit ? CAB_PASSPORT : 'Вход.dc.html?return=' + encodeURIComponent(CAB_PASSPORT) + '&back=' + encodeURIComponent(PAGE),
+          hint: where, aria: `${it.name}. ${where}` };
+      }
+      return { num, parts, isPortal:false, isExt:true, isCab:false, href: it.href, site: it.site,
         onOpen: null, hint: `Откроется на ${it.site} в новой вкладке`,
         aria: `${it.name} — откроется на ${it.site} в новой вкладке` };
     });

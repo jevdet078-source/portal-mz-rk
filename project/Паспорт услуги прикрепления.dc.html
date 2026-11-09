@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Услуги → паспорт услуги «Прикрепление к поликлинике».
+  Порядок оказания — «Состав шагов» постановки (09.11.2026): наименование шага и основная операция.
+  Сведения об услуге, необходимые сведения и НПА — из прототипа аналитика («паспорт услуги», 09.11.2026);
+  в Word-постановке их нет — сверить с аналитиком.
+  Оболочка — как у паспортов ЕД / АЛО / ЗОБ: слева порядок и сведения, справа «Информация об услуге»
+  с «Подать заявку» (закреплена при прокрутке); на планшете информация с кнопкой — первой.
+  Незавершённая подача (sessionStorage `mp-attach-wiz`) — кнопка «Продолжить подачу».
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
+    --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+
+  .ps-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .ps-wrap{padding:24px 24px 80px;} }
+  .ps-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .ps-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .ps-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .ps-main{min-width:0;container:psmain / inline-size;animation:mp-fade .2s ease;}
+  .ps-h1{margin:0 0 20px;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+  .ps-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,28cqi,360px);gap:20px;align-items:start;}
+  .ps-col{display:flex;flex-direction:column;gap:16px;min-width:0;container:pscol / inline-size;}
+  @container psmain (max-width:820px){
+    .ps-grid{grid-template-columns:minmax(0,1fr);}
+    .ps-aside{position:static !important;order:-1;}
+  }
+
+  .ps-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
+  .ps-ch{display:flex;align-items:center;gap:10px;padding:20px 24px 0;}
+  .ps-ch-ic{width:32px;height:32px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto;}
+  .ps-h2{margin:0;font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .ps-info{width:24px;height:24px;border:none;border-radius:6px;background:none;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;font-size:17px;cursor:help;padding:0;transition:background .15s,color .15s;}
+  .ps-info:hover{background:var(--n100);color:var(--n600);}
+
+  /* Порядок оказания: шаги сеткой — меньше прокрутки */
+  .ps-steps{list-style:none;margin:0;padding:18px 24px 24px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:st;}
+  @container pscol (max-width:840px){ .ps-steps{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @container pscol (max-width:440px){ .ps-steps{grid-template-columns:minmax(0,1fr);} }
+  .ps-step{display:flex;gap:12px;padding:14px;border-radius:14px;background:var(--n50);border:1px solid var(--n200);min-width:0;}
+  .ps-n{width:28px;height:28px;border-radius:50%;background:var(--n0);border:1.5px solid var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:0 0 auto;font-variant-numeric:tabular-nums;}
+  .ps-st-t{font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
+  .ps-st-x{margin-top:2px;font-size:13px;line-height:18px;color:var(--n500);}
+
+  /* Сведения — получаем автоматически */
+  .ps-docs{list-style:none;margin:0;padding:14px 24px 22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  @container pscol (max-width:700px){ .ps-docs{grid-template-columns:minmax(0,1fr);} }
+  .ps-doc{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--n200);min-width:0;}
+  .ps-doc-ic{width:36px;height:36px;border-radius:10px;background:var(--n100);color:var(--n500);display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;}
+  .ps-doc-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ps-doc-t{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
+  .ps-src{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px 0 5px;border-radius:6px;background:var(--green-l);font-size:12px;line-height:16px;font-weight:600;color:var(--green-d);white-space:nowrap;}
+  .ps-src i{font-size:14px;color:var(--green);}
+
+  /* НПА */
+  .ps-acts{list-style:none;margin:0;padding:12px 12px 14px;display:flex;flex-direction:column;}
+  .ps-act{display:flex;align-items:flex-start;gap:12px;padding:12px;border-radius:12px;text-decoration:none;color:var(--n900);transition:background .12s;}
+  .ps-act:hover{background:var(--n100);}
+  .ps-act-ic{width:20px;font-size:18px;line-height:20px;color:var(--n400);flex:0 0 auto;}
+  .ps-act-b{flex:1;min-width:0;}
+  .ps-act-t{font-size:14px;line-height:20px;font-weight:500;}
+  .ps-act-x{font-size:13px;line-height:18px;color:var(--n500);}
+  .ps-act-go{font-size:18px;line-height:20px;color:var(--n400);flex:0 0 auto;transition:color .12s;}
+  .ps-act:hover .ps-act-go,.ps-act:hover .ps-act-t{color:var(--primary);}
+
+  /* Информация об услуге */
+  .ps-aside{position:sticky;top:90px;}
+  .ps-facts{margin:0;padding:16px 20px 4px;display:flex;flex-direction:column;}
+  .ps-fact{display:flex;flex-direction:column;gap:2px;padding:12px 0;}
+  .ps-fact + .ps-fact{border-top:1px solid var(--n200);}
+  .ps-fact dt{font-size:13px;line-height:18px;color:var(--n500);}
+  .ps-fact dd{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
+  .ps-tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--green-l);color:var(--green-d);font-size:12px;font-weight:600;cursor:help;}
+  .ps-acts-b{display:flex;flex-direction:column;gap:8px;padding:12px 20px 20px;}
+  .ps-btn{height:44px;padding:0 16px;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s;}
+  .ps-btn i{font-size:18px;}
+  .ps-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.18);}
+  .ps-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .ps-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);font-weight:500;box-shadow:var(--sh-xs);}
+  .ps-btn.sec:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+
+  :is(.ps-btn,.ps-act,.ps-info,.ps-tag,.ps-crumbs a):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .hm-tip.on{opacity:1;transform:none;}
+
+  @media (min-width:1800px){
+    .ps-ch{padding:24px 28px 0;}
+    .ps-steps{padding:20px 28px 28px;gap:14px;}
+    .ps-docs{padding:16px 28px 24px;}
+  }
+  @media (max-width:1024px){
+    .ps-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .ps-wrap{padding:16px 16px 80px;}
+    .ps-crumbs{margin-bottom:16px;}
+    .ps-h1{font-size:22px;line-height:30px;margin-bottom:16px;}
+    .ps-card{border-radius:16px;}
+    .ps-ch{padding:16px 16px 0;}
+    .ps-steps,.ps-docs{padding:14px 16px 18px;}
+    .ps-facts{padding:12px 16px 0;}
+    .ps-acts-b{padding:12px 16px 16px;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+
+  <div class="ps-wrap">
+    <nav class="ps-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Услуги гражданина.dc.html">Услуги</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Прикрепление к поликлинике</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="services" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="ps-main">
+        <h1 class="ps-h1">Прикрепление к поликлинике</h1>
+
+        <div class="ps-grid">
+          <div class="ps-col">
+            <section class="ps-card" aria-labelledby="ps-order">
+              <div class="ps-ch">
+                <span class="ps-ch-ic" aria-hidden="true"><i class="ri-route-line"></i></span>
+                <h2 id="ps-order" class="ps-h2">Порядок оказания услуги</h2>
+              </div>
+              <ol class="ps-steps">
+                <sc-for list="{{ steps }}" as="t" hint-placeholder-count="6">
+                  <li class="ps-step">
+                    <span class="ps-n" aria-hidden="true">{{ t.n }}</span>
+                    <span style="min-width:0;">
+                      <span class="ps-st-t" style="display:block;">{{ t.t }}</span>
+                      <span class="ps-st-x" style="display:block;">{{ t.x }}</span>
+                    </span>
+                  </li>
+                </sc-for>
+              </ol>
+            </section>
+
+            <section class="ps-card" aria-labelledby="ps-docs">
+              <div class="ps-ch">
+                <span class="ps-ch-ic" aria-hidden="true"><i class="ri-folder-user-line"></i></span>
+                <h2 id="ps-docs" class="ps-h2">Необходимые сведения</h2>
+                <button type="button" class="ps-info" aria-label="Документы прикладывать не нужно: сведения портал получает автоматически" data-tip="Документы прикладывать не нужно: сведения портал получает автоматически"><i class="ri-information-line" aria-hidden="true"></i></button>
+              </div>
+              <ul class="ps-docs">
+                <sc-for list="{{ docs }}" as="d" hint-placeholder-count="3">
+                  <li class="ps-doc" data-tip="{{ d.tip }}" tabIndex="0">
+                    <span class="ps-doc-ic" aria-hidden="true"><i class="{{ d.icon }}"></i></span>
+                    <span class="ps-doc-b">
+                      <span class="ps-doc-t">{{ d.t }}</span>
+                      <span class="ps-src"><i class="ri-refresh-line" aria-hidden="true"></i>{{ d.src }}</span>
+                    </span>
+                  </li>
+                </sc-for>
+              </ul>
+            </section>
+
+            <section class="ps-card" aria-labelledby="ps-npa">
+              <div class="ps-ch">
+                <span class="ps-ch-ic" aria-hidden="true"><i class="ri-scales-3-line"></i></span>
+                <h2 id="ps-npa" class="ps-h2">Нормативные правовые акты</h2>
+              </div>
+              <ul class="ps-acts">
+                <sc-for list="{{ acts }}" as="a" hint-placeholder-count="2">
+                  <li>
+                    <a class="ps-act" href="{{ a.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ a.aria }}">
+                      <i class="ri-file-text-line ps-act-ic" aria-hidden="true"></i>
+                      <span class="ps-act-b"><span class="ps-act-t" style="display:block;">{{ a.t }}</span><span class="ps-act-x" style="display:block;">{{ a.x }}</span></span>
+                      <i class="ri-arrow-right-up-line ps-act-go" aria-hidden="true"></i>
+                    </a>
+                  </li>
+                </sc-for>
+              </ul>
+            </section>
+          </div>
+
+          <aside class="ps-card ps-aside" aria-labelledby="ps-info">
+            <div class="ps-ch">
+              <span class="ps-ch-ic" aria-hidden="true"><i class="ri-information-line"></i></span>
+              <h2 id="ps-info" class="ps-h2">Информация об услуге</h2>
+            </div>
+            <dl class="ps-facts">
+              <div class="ps-fact"><dt>Услугодатель</dt><dd>Организации первичной медико-санитарной помощи</dd></div>
+              <div class="ps-fact"><dt>Получатели услуги</dt><dd>Физические лица</dd></div>
+              <div class="ps-fact"><dt>Форма и способ подачи</dt><dd>Электронная, портал МЗ РК</dd></div>
+              <div class="ps-fact"><dt>Срок оказания</dt><dd>1 рабочий день</dd></div>
+              <div class="ps-fact"><dt>Результат</dt><dd>Прикрепление к поликлинике либо мотивированный отказ</dd></div>
+              <div class="ps-fact"><dt>Стоимость</dt><dd>Бесплатно<span class="ps-tag" tabIndex="0" data-tip="В рамках гарантированного объёма бесплатной медицинской помощи">ГОБМП</span></dd></div>
+            </dl>
+            <div class="ps-acts-b">
+              <a class="ps-btn pri" href="Прикрепление к поликлинике.dc.html" data-tip="{{ goTip }}"><i class="{{ goIcon }}" aria-hidden="true"></i>{{ goLabel }}</a>
+              <a class="ps-btn sec" href="Услуги гражданина.dc.html"><i class="ri-arrow-left-line" aria-hidden="true"></i>Вернуться к услугам</a>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+// Состав шагов — постановка: наименование шага и основная операция
+const STEPS = [
+  ['Выбор заявителя', 'Определение, для кого подаётся запрос'],
+  ['Выбор региона', 'Выбор административно-территориальной единицы'],
+  ['Выбор медицинской организации', 'Получение списка доступных медицинских организаций'],
+  ['Выбор медицинского работника', 'Выбор участка и медицинского работника'],
+  ['Выбор причины прикрепления', 'Выбор основания из справочника'],
+  ['Подписание запроса', 'Подписание ЭЦП, отправка и отслеживание статуса'],
+].map(([t, x], i) => ({ n: i + 1, t, x }));
+
+// Сведения — прототип аналитика; описания — в подсказке
+const DOCS = [
+  { t:'Удостоверение личности', src:'ГБД ФЛ', icon:'ri-id-card-line', tip:'Данные документа, удостоверяющего личность. Автоматически из ГБД ФЛ' },
+  { t:'Свидетельство о рождении', src:'ИС ЗАГС', icon:'ri-parent-line', tip:'При подаче родителем на ребёнка до 18 лет — для подтверждения родства. Автоматически из ИС ЗАГС' },
+  { t:'Документы опеки', src:'ИС МП РК', icon:'ri-shield-user-line', tip:'Решение уполномоченного органа об установлении опеки или попечительства — при подаче на подопечного. Автоматически из ИС МП РК' },
+];
+const ACTS = [
+  { t:'Приказ МЗ РК от 13 ноября 2020 года № ҚР ДСМ-194/2020', x:'«Об утверждении правил прикрепления физических лиц к организациям первичной медико-санитарной помощи»', href:'https://adilet.zan.kz/rus/docs/V2000021642' },
+  { t:'Закон Республики Казахстан от 15 апреля 2013 года № 88-V', x:'«О государственных услугах»', href:'https://adilet.zan.kz/rus/docs/Z1300000088' },
+].map(a => ({ ...a, aria: a.t + ' ' + a.x + ' — откроется на adilet.zan.kz в новой вкладке' }));
+
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+class Component extends DCLogic {
+  state = { draft:0 };
+  componentDidMount(){
+    installTips();
+    try { const w = JSON.parse(sessionStorage.getItem('mp-attach-wiz') || 'null'); if(w && w.step > 1) this.setState({ draft:w.step }); } catch(e){}
+  }
+  renderVals(){
+    const d = this.state.draft;
+    return {
+      steps:STEPS, docs:DOCS, acts:ACTS,
+      goLabel: d ? 'Продолжить подачу' : 'Подать заявку',
+      goIcon: d ? 'ri-arrow-right-line' : 'ri-add-line',
+      goTip: d ? `Заполнение остановлено на шаге ${d} из 6` : '',
+    };
+  }
+}
+</script>
+</body>
+</html>
