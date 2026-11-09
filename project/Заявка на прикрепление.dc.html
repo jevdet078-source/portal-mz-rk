@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Мои заявки → карточка заявки на прикрепление к поликлинике
+  (постановка 09.11.2026, разделы «Просмотр заявки» и «Отображение результата обработки»). Адрес: ?n=<номер>.
+
+  Поля постановки: номер заявки (заголовок), дата и время подачи, заявитель (Ф.И.О.), медицинская организация,
+  медицинский работник (Ф.И.О. и номер участка), причина прикрепления, статус, дата последнего обновления.
+  Статус — плашка результата сверху, каждое значение показано один раз:
+    APPROVED    — «Прикрепление выполнено» + сообщение; организация, медработник, участок, дата завершения прикрепления
+                  (в этом статусе они в плашке результата, а не в сведениях ниже);
+    IN_PROGRESS — «В обработке» + сообщение, «Проверить статус»;
+    REJECTED    — «Отказано», дата получения отказа;
+    ERROR       — «Техническая ошибка» + сообщение, «Проверить статус».
+  «Обновлено …» — время последнего получения статуса. Данные — AttachData (window.mpAttach).
+  Панель «Прототип»: ответ сервиса со статусом, сброс демо-заявок.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-m:#CBF5E5;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-m:#FFDAC2;--orange-d:#6E330C;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-m:#F8C9D2;--red-d:#710E21;
+    --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes rq-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes rq-spin{to{transform:rotate(360deg)}}
+  @keyframes rq-flash{0%{box-shadow:0 0 0 0 rgba(77,66,233,.25)}100%{box-shadow:0 0 0 12px rgba(77,66,233,0)}}
+
+  .rq-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .rq-wrap{padding:24px 24px 80px;} }
+  .rq-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .rq-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .rq-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .rq-main{min-width:0;display:flex;flex-direction:column;gap:16px;container:rqmain / inline-size;animation:mp-fade .2s ease;}
+
+  .rq-head{display:flex;align-items:center;gap:12px;min-height:40px;}
+  .rq-back{width:40px;height:40px;border-radius:12px;border:1px solid var(--stroke);background:var(--n0);color:var(--n600);display:inline-flex;align-items:center;justify-content:center;font-size:20px;text-decoration:none;flex:0 0 auto;box-shadow:var(--sh-xs);transition:background .15s,border-color .15s,color .15s;}
+  .rq-back:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .rq-h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+  .rq-h1 .num{font-variant-numeric:tabular-nums;}
+  .rq-svc{font-size:14px;line-height:20px;color:var(--n500);}
+
+  /* Результат обработки */
+  .rq-res{border-radius:20px;border:1px solid;overflow:hidden;animation:rq-in .25s ease;}
+  .rq-res[data-tone="blue"]{background:#F7F8FF;border-color:#DDE3FF;}
+  .rq-res[data-tone="green"]{background:var(--green-l);border-color:var(--green-m);}
+  .rq-res[data-tone="red"]{background:var(--red-l);border-color:var(--red-m);}
+  .rq-res[data-tone="orange"]{background:var(--orange-l);border-color:var(--orange-m);}
+  .rq-res-top{display:flex;align-items:flex-start;gap:16px;padding:22px 24px;}
+  .rq-ic{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;flex:0 0 auto;}
+  [data-tone="blue"] .rq-ic{background:var(--primary);}
+  [data-tone="green"] .rq-ic{background:var(--green);}
+  [data-tone="red"] .rq-ic{background:var(--red);}
+  [data-tone="orange"] .rq-ic{background:var(--orange);}
+  .rq-res-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-top:2px;}
+  .rq-res-t{margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;}
+  [data-tone="blue"] .rq-res-t{color:var(--primary-darker);}
+  [data-tone="green"] .rq-res-t{color:var(--green-d);}
+  [data-tone="red"] .rq-res-t{color:var(--red-d);}
+  [data-tone="orange"] .rq-res-t{color:var(--orange-d);}
+  .rq-res-x{margin:0;font-size:14px;line-height:22px;color:var(--n600);max-width:760px;}
+  .rq-res-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1.2fr);gap:1px;margin:0 24px 20px;border-radius:14px;overflow:hidden;background:rgba(10,13,20,.06);}
+  .rq-res-grid > div{background:var(--n0);padding:14px 16px;min-width:0;}
+  @container rqmain (max-width:760px){ .rq-res-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .rq-res-grid .wide,.rq-res-grid .doc{grid-column:1 / -1;} }
+  .rq-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px 12px 24px;border-top:1px solid rgba(10,13,20,.06);background:rgba(255,255,255,.55);}
+  .rq-upd{display:inline-flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--n500);}
+  .rq-upd i{font-size:16px;color:var(--n400);}
+  .rq-upd b{font-weight:500;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .rq-upd.flash{border-radius:8px;animation:rq-flash .8s ease;}
+
+  /* Сведения о заявке */
+  .rq-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
+  .rq-card-h{margin:0;padding:20px 24px 4px;font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .rq-dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px 24px;margin:0;padding:16px 24px 24px;}
+  .rq-dl div{min-width:0;}
+  dt.rq-k,.rq-k{margin:0 0 4px;font-size:13px;line-height:18px;color:var(--n500);}
+  dd.rq-v,.rq-v{margin:0;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;}
+  .rq-v .sub{display:block;margin-top:2px;font-weight:400;color:var(--n500);font-size:13px;line-height:18px;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  .rq-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);transition:background .15s,border-color .15s,color .15s;}
+  .rq-btn i{font-size:18px;}
+  .rq-btn:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .rq-btn.pri{border-color:var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .rq-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);color:#fff;}
+  .rq-btn[aria-busy="true"]{cursor:progress;}
+  .rq-spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:rq-spin .7s linear infinite;flex:0 0 auto;}
+
+  .rq-empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:64px 24px;text-align:center;}
+  .rq-empty-ic{width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:28px;}
+  .rq-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:960px 100%;animation:rq-sh 1.3s linear infinite;}
+  @keyframes rq-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
+
+  :is(.rq-btn,.rq-back,.rq-crumbs a,.pp-head,.pp-btn):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .rq-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .hm-tip.on{opacity:1;transform:none;}
+
+  .rq-pp{position:fixed;left:20px;bottom:20px;z-index:50;width:220px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .rq-pp.open{width:260px;}
+  .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-head:hover{background:var(--n100);}
+  .pp-cap{margin:10px 0 2px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
+  .pp-btn{width:100%;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+
+  @media (min-width:1800px){
+    .rq-res-top{padding:26px 28px;}
+    .rq-res-grid{margin:0 28px 24px;}
+    .rq-foot{padding:14px 20px 14px 28px;}
+    .rq-card-h{padding:24px 28px 4px;}
+    .rq-dl{padding:18px 28px 28px;}
+  }
+  @media (max-width:1024px){
+    .rq-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .rq-wrap{padding:16px 16px 80px;}
+    .rq-crumbs{margin-bottom:16px;}
+    .rq-h1{font-size:22px;line-height:30px;}
+    .rq-res,.rq-card{border-radius:16px;}
+    .rq-res-top{padding:18px 16px;gap:12px;}
+    .rq-ic{width:40px;height:40px;font-size:22px;}
+    .rq-res-t{font-size:18px;line-height:26px;}
+    .rq-res-grid{margin:0 16px 16px;}
+    .rq-foot{padding:12px 16px;}
+    .rq-foot .rq-btn{width:100%;}
+    .rq-card-h{padding:16px 16px 0;}
+    .rq-dl{padding:14px 16px 18px;gap:16px;}
+    .rq-pp{left:16px;bottom:16px;}
+  }
+  @media (prefers-reduced-motion:reduce){ .rq-res,.rq-upd.flash,.rq-sk{animation:none;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+  <dc-import name="FamilyData" hint-size="0px,0px"></dc-import>
+  <dc-import name="AttachData" hint-size="0px,0px"></dc-import>
+
+  <div class="rq-wrap">
+    <nav class="rq-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Мои заявки гражданина.dc.html">Мои заявки</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">{{ crumb }}</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="requests" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="rq-main">
+        <!-- Загрузка -->
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:16px;" aria-busy="true">
+            <span class="rq-sk" style="width:260px;height:28px;"></span>
+            <span class="rq-sk" style="height:150px;border-radius:20px;"></span>
+            <span class="rq-sk" style="height:180px;border-radius:20px;"></span>
+          </div>
+        </sc-if>
+
+        <!-- Заявка не найдена -->
+        <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+          <div class="rq-card rq-empty" role="status">
+            <div class="rq-empty-ic" aria-hidden="true"><i class="ri-file-search-line"></i></div>
+            <div style="font-size:16px;line-height:24px;font-weight:600;">Заявка не найдена</div>
+            <a class="rq-btn pri" href="Мои заявки гражданина.dc.html"><i class="ri-arrow-left-line" aria-hidden="true"></i>Мои заявки</a>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ found }}" hint-placeholder-val="{{ true }}">
+          <div class="rq-head">
+            <a class="rq-back" href="Мои заявки гражданина.dc.html" aria-label="Назад к списку заявок" data-tip="Мои заявки"><i class="ri-arrow-left-line" aria-hidden="true"></i></a>
+            <div style="min-width:0;">
+              <h1 class="rq-h1">Заявка № <span class="num">{{ num }}</span></h1>
+              <div class="rq-svc">Прикрепление к поликлинике</div>
+            </div>
+          </div>
+
+          <!-- Статус и результат обработки -->
+          <section class="rq-res" data-tone="{{ tone }}" aria-labelledby="rq-st" key="{{ status }}">
+            <div class="rq-res-top">
+              <div class="rq-ic" aria-hidden="true"><i class="{{ icon }}"></i></div>
+              <div class="rq-res-b">
+                <h2 id="rq-st" class="rq-res-t">{{ label }}</h2>
+                <sc-if value="{{ hasText }}" hint-placeholder-val="{{ true }}"><p class="rq-res-x">{{ text }}</p></sc-if>
+                <sc-if value="{{ rejected }}" hint-placeholder-val="{{ false }}"><p class="rq-res-x">Дата получения отказа <b class="num" style="font-weight:600;color:var(--n900);">{{ doneDate }}</b></p></sc-if>
+              </div>
+            </div>
+
+            <sc-if value="{{ approved }}" hint-placeholder-val="{{ false }}">
+              <dl class="rq-res-grid" style="margin-top:0;">
+                <div class="wide"><dt class="rq-k">Медицинская организация</dt><dd class="rq-v">{{ moName }}</dd></div>
+                <div class="doc"><dt class="rq-k">Медицинский работник</dt><dd class="rq-v">{{ docFio }}</dd></div>
+                <div><dt class="rq-k">Номер участка</dt><dd class="rq-v num">№{{ docArea }}</dd></div>
+                <div><dt class="rq-k">Дата завершения прикрепления</dt><dd class="rq-v num">{{ doneDate }}</dd></div>
+              </dl>
+            </sc-if>
+
+            <div class="rq-foot">
+              <span class="{{ updCls }}" aria-live="polite"><i class="ri-refresh-line" aria-hidden="true"></i>Обновлено <b>{{ upd }}</b></span>
+              <sc-if value="{{ canCheck }}" hint-placeholder-val="{{ true }}">
+                <button type="button" class="rq-btn" onClick="{{ check }}" aria-busy="{{ checkingA }}" disabled="{{ checking }}">
+                  <sc-if value="{{ checking }}" hint-placeholder-val="{{ false }}"><span class="rq-spin"></span></sc-if>
+                  <sc-if value="{{ notChecking }}" hint-placeholder-val="{{ true }}"><i class="ri-refresh-line" aria-hidden="true"></i></sc-if>
+                  Проверить статус
+                </button>
+              </sc-if>
+            </div>
+          </section>
+
+          <!-- Сведения о заявке -->
+          <section class="rq-card" aria-labelledby="rq-info">
+            <h2 id="rq-info" class="rq-card-h">Сведения о заявке</h2>
+            <dl class="rq-dl">
+              <sc-for list="{{ info }}" as="r" hint-placeholder-count="5">
+                <div>
+                  <dt class="rq-k">{{ r.k }}</dt>
+                  <dd class="rq-v">{{ r.v }}<sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}"><span class="sub">{{ r.sub }}</span></sc-if></dd>
+                </div>
+              </sc-for>
+            </dl>
+          </section>
+        </sc-if>
+        <span class="rq-sr" aria-live="polite">{{ live }}</span>
+      </main>
+    </div>
+  </div>
+
+  <!-- Панель прототипа -->
+  <sc-if value="{{ found }}" hint-placeholder-val="{{ true }}">
+    <div class="{{ ppCls }}" role="region" aria-label="Панель прототипа">
+      <button type="button" class="pp-head" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+        <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+        <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+        <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+      </button>
+      <sc-if value="{{ ppIsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:4px 12px 12px;border-top:1px solid var(--stroke);display:flex;flex-direction:column;gap:6px;">
+          <div class="pp-cap">Ответ сервиса: статус заявки</div>
+          <sc-for list="{{ ppSt }}" as="x" hint-placeholder-count="4">
+            <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+const PP_ICON = { IN_PROGRESS:'ri-time-line', APPROVED:'ri-checkbox-circle-line', REJECTED:'ri-close-circle-line', ERROR:'ri-error-warning-line' };
+const PP_LABEL = { IN_PROGRESS:'В обработке (IN_PROGRESS)', APPROVED:'Выполнено (APPROVED)', REJECTED:'Отказано (REJECTED)', ERROR:'Ошибка (ERROR)' };
+
+class Component extends DCLogic {
+  state = { ready:false, app:null, checking:false, flash:false, live:'', ppOpen:false };
+
+  componentDidMount(){
+    installTips();
+    this._n = (new URL(location.href)).searchParams.get('n') || '';
+    this._go = () => this.load();
+    if(window.mpAttach) this.load();
+    window.addEventListener('mp-attach-ready', this._go);
+    window.addEventListener('mp-attach-change', this._go);
+    window.addEventListener('storage', this._go);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-attach-ready', this._go);
+    window.removeEventListener('mp-attach-change', this._go);
+    window.removeEventListener('storage', this._go);
+    clearTimeout(this._ft);
+  }
+  load(){
+    const A = window.mpAttach; if(!A) return;
+    // Без номера в адресе (открыли страницу из индекса прототипов) — последняя поданная заявка
+    const app = A.get(this._n) || (this._n ? null : A.list()[0] || null);
+    this.setState({ ready:true, app });
+    document.title = app ? 'Заявка № ' + app.num : 'Заявка не найдена';
+  }
+  check(){
+    const A = window.mpAttach, s = this.state; if(!A || !s.app || s.checking) return;
+    this.setState({ checking:true });
+    A.check(s.app.num).then(app => {
+      this.setState({ checking:false, app: app || s.app, flash:true, live:'Статус обновлён: ' + A.STATUS[(app || s.app).status].label });
+      clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ flash:false }), 900);
+    });
+  }
+
+  renderVals(){
+    const s = this.state, A = window.mpAttach, a = s.app;
+    const base = { loading: !s.ready, notFound: s.ready && !a, found: s.ready && !!a, crumb: a ? 'Заявка № ' + a.num : 'Заявка', live:s.live,
+      ppCls:'rq-pp' + (s.ppOpen ? ' open' : ''), ppOpen: s.ppOpen ? 'true' : 'false', ppIsOpen: s.ppOpen,
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line', ppToggle: () => this.setState({ ppOpen:!s.ppOpen }) };
+    if(!a || !A) return { ...base, num:'', tone:'blue', icon:'', label:'', text:'', hasText:false, approved:false, rejected:false, status:'',
+      moName:'', docFio:'', docArea:'', doneDate:'', upd:'', updCls:'rq-upd', canCheck:false, check:() => {}, checking:false, checkingA:'false', notChecking:true, info:[], ppSt:[] };
+
+    const st = A.STATUS[a.status] || A.STATUS.IN_PROGRESS;
+    const approved = a.status === 'APPROVED', rejected = a.status === 'REJECTED';
+    const info = [
+      { k:'Дата и время подачи', v: A.fmtDT(a.at) },
+      { k:'Заявитель', v: a.who.fio },
+      { k:'Причина прикрепления', v: a.reason },
+    ];
+    // В статусе APPROVED организация и медработник — в плашке результата
+    if(!approved){
+      info.push({ k:'Медицинская организация', v: a.mo.name });
+      info.push({ k:'Медицинский работник', v: a.doc.fio, sub: 'Участок №' + a.doc.area });
+    }
+    return {
+      ...base,
+      num:a.num, status:a.status, tone:st.tone, icon:st.icon, label:st.label, text:st.text, hasText: !!st.text,
+      approved, rejected, moName:a.mo.name, docFio:a.doc.fio, docArea:a.doc.area, doneDate: a.done ? A.fmtDate(a.done) : '—',
+      upd: A.fmtDT(a.upd), updCls: 'rq-upd' + (s.flash ? ' flash' : ''),
+      canCheck: a.status === 'IN_PROGRESS' || a.status === 'ERROR',
+      check: () => this.check(), checking: s.checking, checkingA: s.checking ? 'true' : 'false', notChecking: !s.checking,
+      info: info.map(r => ({ ...r, hasSub: !!r.sub, sub: r.sub || '' })),
+      ppSt: A.ORDER.map(id => ({ label: PP_LABEL[id], icon: PP_ICON[id], on: a.status === id ? 'true' : 'false',
+        onClick: () => { A.setStatus(a.num, id); this.load(); } })),
+    };
+  }
+}
+</script>
+</body>
+</html>

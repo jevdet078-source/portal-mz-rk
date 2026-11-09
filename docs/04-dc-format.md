@@ -108,6 +108,10 @@ const tabs = data.map(t => ({
 | `mp-lmk-scn` (sessionStorage) | сценарий ответа `EH_GET_ALL_LMK` в прототипе: `ok` / `one` / `soon` / `no` / `partial` / `empty` / `slow` / `down` | `Личная медицинская карта` (панель «Прототип») |
 | `mp-doc-photo` | фото профиля врача — data:URL JPEG 320×320 | `Профиль врача` → `Header` (событие `mp-doc-photo-change`) |
 | `mp-doc-notif-read` | JSON-массив id прочитанных уведомлений врача | `Header` (`cabinet="medical"`) |
+| `mp-attach-db` | `{ v, seq, list:[{ num, at, who, region, mo, doc, reason, status, upd, done }] }` — заявки на прикрепление к поликлинике (демо-набор + поданные), статусы IN_PROGRESS / APPROVED / REJECTED / ERROR | `AttachData` (window.mpAttach) ↔ `Прикрепление к поликлинике`, `Мои заявки гражданина`, `Заявка на прикрепление` (событие `mp-attach-change`) |
+| `mp-attach-wiz` (sessionStorage) | незавершённая подача на прикрепление: шаг, выборы, загруженные списки | `Прикрепление к поликлинике`, `Паспорт услуги прикрепления` («Продолжить подачу») |
+| `mp-attach-kids` (sessionStorage) | ответ сервисов о детях и подопечных в прототипе: `auto` / `none` | панель «Прототип» мастера → `AttachData` |
+| `mp-attach-reqs-ui` (sessionStorage) | фильтры и сортировка «Моих заявок» гражданина | `Мои заявки гражданина` |
 | `mp-family` | `[{ iin, at }]` — дети, добавленные в «Мою семью» (родные из ГБД ФЛ и подопечные из РБДС) | `FamilyData` (window.mpFamily) ↔ `Моя семья`, `ЭПЗ ребёнка` (событие `mp-family-change`) |
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
 | `mp-org-head` | `{ iin, fio, post, bin, org }` — вошёл первый руководитель медорганизации (профиль с `firstHead`) | `Вход` → `PortalHeader`, `OrgRepData`, страницы отчётности руководителя |

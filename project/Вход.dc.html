@@ -22,7 +22,8 @@
   sessionStorage['mp-ecp-handoff'] = { cert, profile?, at }.
 
   Параметры: ?profile=business — пришли за услугой организации (профиль «Бизнес» первым);
-             ?return=<страница> — куда вернуть после входа в профиль «Бизнес»;
+             ?return=<страница> — куда вернуть после входа в профиль «Бизнес» (услуги кабинета гражданина —
+               после входа под профилем «Гражданин», CITIZEN_RET);
              ?back=<страница> — куда ведёт «Вернуться» без входа (если return сам требует входа).
   После входа: localStorage mp-iin, mp-profile (citizen | business | medical | gov), mp-role;
   первый руководитель медорганизации (профиль firstHead) — mp-org-head и раздел «Администрирование» / «Журнал отчётных форм».
@@ -239,6 +240,8 @@ const NCELS_BIN = '980240003251';
 const CAB = { citizen:'Личный кабинет.dc.html', business:'Кабинет бизнеса.dc.html', medical:'Профиль врача.dc.html', gov:'АРМ ННЦРЗ.dc.html' };   // госорган — АРМ экспертов (ННЦРЗ; ФК — через переключатель ролей)
 // раздел только для авторизованных: возврат после входа — для любого профиля, без входа туда не вернуться
 const REPORTS_RET = /^(Отчётные формы|Журнал отчётных форм|Администрирование отчётности)/;
+// Услуги кабинета гражданина, куда возвращаем после входа под профилем «Гражданин»
+const CITIZEN_RET = /^(Паспорт услуги прикрепления|Прикрепление к поликлинике|Мои заявки гражданина|Заявка на прикрепление)/;
 // первый руководитель медорганизации — «Администрирование» (журнал отчётных форм пока в разработке)
 const headPage = () => 'Администрирование отчётности.dc.html';
 const ROLE_TAB = { citizen:'citizens', business:'business', medical:'medical' };
@@ -381,7 +384,7 @@ class Component extends DCLogic {
       const q = this.query();
       // госорган: сотрудник НЦЭЛС — в АРМ НЦЭЛС, остальные — в АРМ ННЦРЗ
       if(p.firstHead){ location.href = q.ret && /^(Журнал отчётных форм|Администрирование отчётности)/.test(q.ret) ? q.ret : headPage(); return; }
-      location.href = q.ret && (p.kind === 'business' || REPORTS_RET.test(q.ret)) ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
+      location.href = q.ret && (p.kind === 'business' || REPORTS_RET.test(q.ret) || (p.kind === 'citizen' && CITIZEN_RET.test(q.ret))) ? q.ret : p.kind === 'gov' && (p.bin || s.cert.bin) === NCELS_BIN ? 'АРМ НЦЭЛС.dc.html' : CAB[p.kind];
     }, 700);
   }
 

@@ -12,7 +12,8 @@
   «Государственные услуги» (источник — постановка «Анализ ГУ МЗ»); счётчик считается по перечню.
 
   Строка: № · наименование · краткое описание (при наличии) · значок перехода.
-  Услуги — eGov.kz, по правилам навигации портала открываются в новой вкладке.
+  Услуги — eGov.kz, по правилам навигации портала открываются в новой вкладке; «Прикрепление к поликлинике»
+  оказывается на портале (постановка 09.11.2026) — паспорт услуги в кабинете, та же вкладка, значок «›».
   Поиск — только по наименованию: фильтрация на лету, подсветка совпадений, «N из M», очистка (×, Esc),
   «/» — к поиску, ↓/↑ — по строкам. Пустой результат — сообщение из постановки (п. 4.2).
   Загрузка перечня — skeleton-строки (п. 6, макет 5); ?state=loading оставляет их на экране.
@@ -215,13 +216,13 @@
             <ul class="su-list" ref="{{ listRef }}" onKeyDown="{{ onListKey }}">
               <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
                 <li>
-                  <a class="su-row" href="{{ r.href }}" target="_blank" rel="noopener noreferrer" aria-label="{{ r.aria }}" title="Откроется на eGov.kz в новой вкладке">
+                  <a class="su-row" href="{{ r.href }}" target="{{ r.target }}" rel="{{ r.rel }}" aria-label="{{ r.aria }}" title="{{ r.title }}">
                     <span class="su-num" aria-hidden="true">{{ r.num }}</span>
                     <span class="su-txt">
                       <span class="su-name"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span>
                       <sc-if value="{{ r.hasDesc }}" hint-placeholder-val="{{ true }}"><span class="su-desc">{{ r.desc }}</span></sc-if>
                     </span>
-                    <span class="su-go" aria-hidden="true"><i class="ri-external-link-line"></i></span>
+                    <span class="su-go" aria-hidden="true"><i class="{{ r.goIcon }}"></i></span>
                   </a>
                 </li>
               </sc-for>
@@ -278,7 +279,7 @@ const SERVICES = [
   ['Выдача выписки из медицинской карты стационарного больного', 'P707', 'Запрос выписки из стационара'],
   ['Регистрация прижизненного волеизъявления на кремацию', 'P718'],
   ['Вызов врача на дом', 'P701', 'Вызов участкового врача на дом'],
-  ['Прикрепление к поликлинике', 'P703', 'Выбор и прикрепление к медицинской организации'],
+  ['Прикрепление к поликлинике', 'cab:Паспорт услуги прикрепления.dc.html', 'Выбор и прикрепление к медицинской организации'],
   ['Вызов скорой медицинской помощи', 'health_care_pass132-3_mz', 'Вызов бригады скорой помощи'],
   ['Возврат излишне (ошибочно) зачисленных сумм отчислений, взносов и (или) пени за несвоевременную и (или) неполную уплату отчислений и (или) взносов обязательного социального медицинского страхования', 'health_care_pass1601009_mz'],
   ['Выдача медицинской справки по форме № 073/у', 'P723'],
@@ -294,7 +295,11 @@ const SERVICES = [
   ['Выдача справки о временной нетрудоспособности', 'P714'],
   ['Выдача санаторно-курортной карты', 'P716', 'Карта для санаторно-курортного лечения'],
   ['Композитная услуга «Рождение ребенка»', 'Com013', 'Регистрация рождения, назначение пособий и прикрепление к поликлинике'],
-].map(([name, ref, desc], i) => ({ num: i + 1, name, desc: desc || '', href: EGOV + ref, norm: norm(name) }));
+].map(([name, ref, desc], i) => {
+  // cab: — услуга оказывается на портале, в личном кабинете (та же вкладка)
+  const cab = ref.startsWith('cab:');
+  return { num: i + 1, name, desc: desc || '', href: cab ? ref.slice(4) : EGOV + ref, cab, norm: norm(name) };
+});
 
 const LOAD_MS = 700;
 const SKEL = [[78, 46], [52, 38], [66, 30], [58, 42], [72, 34], [44, 28], [62, 40], [56, 36]]
@@ -453,7 +458,10 @@ class Component extends DCLogic {
       rows: found.map((it, i) => ({
         num: i + 1, href: it.href, desc: it.desc, hasDesc: !!it.desc,
         parts: highlight(it.name, tokens),
-        aria: `${it.name} — откроется на eGov.kz в новой вкладке`,
+        aria: it.cab ? it.name : `${it.name} — откроется на eGov.kz в новой вкладке`,
+        target: it.cab ? '_self' : '_blank', rel: it.cab ? '' : 'noopener noreferrer',
+        title: it.cab ? '' : 'Откроется на eGov.kz в новой вкладке',
+        goIcon: it.cab ? 'ri-arrow-right-s-line' : 'ri-external-link-line',
       })),
       empty: searching && found.length === 0,
       live: s.live,

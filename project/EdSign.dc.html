@@ -8,7 +8,8 @@
 <body>
 <!--
   Подписание ЭЦП — окно в стиле DS вместо системного окна NCALayer (UC01.13.1.8).
-  Используется в услуге ЕД: подача заявления, платёжные поручения 20 % и 80 %, акты.
+  Используется в услуге ЕД: подача заявления, платёжные поручения 20 % и 80 %, акты;
+  в услуге «Прикрепление к поликлинике» — запрос гражданина (ключ физлица, detail.certs без org / bin).
 
   Сценарий постановки:
     1. выбор типа и места хранилища, пароль → «Открыть»;
@@ -132,7 +133,7 @@
                   <span style="{{ c.radio }}"><span style="{{ c.radioDot }}"></span></span>
                   <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;text-align:left;">
                     <span style="font-size:14px;line-height:20px;font-weight:600;color:#0A0D14;">{{ c.fio }}</span>
-                    <span style="font-size:12px;line-height:16px;color:#525866;">ИИН {{ c.iin }} · {{ c.org }}, БИН {{ c.bin }}</span>
+                    <span style="font-size:12px;line-height:16px;color:#525866;">{{ c.sub }}</span>
                     <span style="font-size:12px;line-height:16px;color:#868C98;">{{ c.usage }} · действителен с {{ c.from }} по {{ c.to }}</span>
                   </span>
                   <sc-if value="{{ c.expired }}" hint-placeholder-val="{{ false }}"><span style="flex:0 0 auto;align-self:flex-start;padding:2px 8px;border-radius:999px;background:#FDEDF0;color:#710E21;font-size:11px;line-height:16px;font-weight:500;">Истёк</span></sc-if>
@@ -233,6 +234,7 @@ class Component extends DCLogic {
       iconStyle:`font-size:18px;flex:0 0 auto;color:${on ? '#4D42E9' : '#868C98'};`,
       style:`display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid ${on ? '#4D42E9' : '#E2E4E9'};background:${on ? '#EEF2FF' : '#fff'};font-family:inherit;cursor:pointer;` }; });
     const certs = (s.certs || CERTS).map(c => { const on = s.cert === c.id; return { ...c, on,
+      sub: 'ИИН ' + c.iin + (c.org ? ' · ' + c.org + (c.bin ? ', БИН ' + c.bin : '') : ''),   // ключ физлица — без организации
       onClick: () => this.setState({ cert:c.id, certErr:'' }),
       radio:`width:18px;height:18px;margin-top:1px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;box-sizing:border-box;border:${on ? '5px solid #4D42E9' : '1.5px solid #CDD0D5'};background:#fff;`,
       radioDot:'display:none;',
