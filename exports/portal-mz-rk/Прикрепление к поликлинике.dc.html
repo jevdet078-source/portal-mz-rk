@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Услуги → «Прикрепление к поликлинике»: подача запроса (постановка 09.11.2026).
+  Шаги постановки: 1 Выбор заявителя (1.1 — ребёнок из общего списка) · 2 Регион · 3 Медицинская организация ·
+  4 Медицинский работник и участок · 5 Причина прикрепления · 6 Проверка данных, подписание и отправка.
+
+  Раскладка: шаг — карточка с вопросом постановки; справа — ход заполнения: шаги и выбранные значения,
+  к пройденному шагу — одним кликом. Узко (контейнер < 900 px) — компактная полоса прогресса над карточкой.
+  «Далее» не блокирует: если выбора нет — подсвечивает поле, причина — в подсказке на кнопке.
+  Правка со страницы проверки («Изменить»): если остальные шаги заполнены, кнопка — «К проверке данных».
+  Смена региона сбрасывает медорганизацию и врача, смена медорганизации — врача.
+
+  Шаг 1: «На себя» — ИИН из контекста авторизации; «На ребёнка» — GBDFL_FamilyInfoToken и
+  MP_GUARDIANSHIP_UNIVERSAL_SERVICE параллельно, общий список (Ф.И.О., дата рождения), выбор одного.
+  Шаг 2: RPN_ATTACHMENTS_EGOV, следующий уровень появляется после выбора предыдущего
+  (город республиканского значения → район; область → район → сельский округ → населённый пункт);
+  единственный вариант уровня выбирается сам.
+  Шаг 6: «Назад», «Подписать и отправить» → ЭЦП (EdSign, пароль 1) → карточка заявки.
+  Данные — AttachData (window.mpAttach); незавершённая подача — sessionStorage `mp-attach-wiz`.
+  Панель «Прототип»: ответ сервисов о детях, начать заново.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-m:#CBF5E5;--green-d:#176448;
+    --teal:#35B9E9;--teal-l:#EBFAFF;--teal-dk:#1F87AD;
+    --red:#DF1C41;--red-l:#FDEDF0;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);
+  }
+  *{box-sizing:border-box;}
+  html{scrollbar-gutter:stable;}   /* шаги разной высоты — без сдвига раскладки из-за полосы прокрутки */
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes at-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes at-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes at-spin{to{transform:rotate(360deg)}}
+  @keyframes at-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
+  @keyframes at-nudge{0%,100%{transform:none}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+  /* Раскладка кабинета гражданина — как у остальных его страниц */
+  .at-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .at-wrap{padding:24px 24px 80px;} }
+  .at-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .at-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .at-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .at-main{min-width:0;container:atmain / inline-size;animation:mp-fade .2s ease;}
+  .at-title{margin:0 0 20px;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+
+  .at-layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(264px,22cqi,320px);gap:20px;align-items:start;}
+  .at-mprog{display:none;}
+  @container atmain (max-width:899px){
+    .at-layout{grid-template-columns:minmax(0,1fr);}
+    .at-side{display:none;}
+    .at-mprog{display:flex;}
+  }
+
+  /* Карточка шага */
+  .at-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);container:atcard / inline-size;min-width:0;}
+  .at-ch{padding:24px 28px 0;}
+  .at-h2{margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;color:var(--n900);outline:none;}
+  .at-body{padding:20px 28px 28px;min-height:160px;animation:at-in .22s ease;}
+  .at-foot{position:sticky;bottom:0;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 28px;border-top:1px solid var(--stroke);background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-radius:0 0 20px 20px;}
+  .at-foot-r{display:flex;align-items:center;gap:12px;margin-left:auto;}
+
+  /* Компактный прогресс (узкий контейнер) */
+  .at-mprog{flex-direction:column;gap:8px;padding:18px 20px 0;}
+  .at-mprog-t{display:flex;align-items:baseline;gap:8px;font-size:13px;line-height:18px;color:var(--n500);}
+  .at-mprog-t b{font-weight:600;color:var(--n900);}
+  .at-bars{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;}
+  .at-bar{height:4px;border-radius:2px;background:var(--n200);transition:background .2s;}
+  .at-bar.on{background:var(--primary);}
+
+  /* Кнопки */
+  .at-btn{height:44px;padding:0 20px;border-radius:12px;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s,opacity .15s;}
+  .at-btn i{font-size:18px;line-height:1;}
+  .at-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.18);min-width:148px;}
+  .at-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .at-btn.pri[aria-disabled="true"]{background:#B9B4F5;border-color:#B9B4F5;box-shadow:none;cursor:not-allowed;}
+  .at-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);font-weight:500;box-shadow:var(--sh-xs);}
+  .at-btn.sec:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .at-btn.busy{cursor:progress;}
+  .at-spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:at-spin .7s linear infinite;flex:0 0 auto;}
+  .at-link{border:none;background:none;padding:6px 8px;margin:-6px -8px;border-radius:8px;font-family:inherit;font-size:13px;line-height:18px;font-weight:600;color:var(--primary);cursor:pointer;white-space:nowrap;transition:background .15s;}
+  .at-link:hover{background:var(--primary-lighter);}
+
+  /* Плитки выбора (шаг 1, шаг 5) */
+  .at-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .at-tile{position:relative;display:flex;align-items:center;gap:14px;min-height:76px;padding:16px 18px;border:1px solid var(--stroke);border-radius:16px;background:var(--n0);font-family:inherit;text-align:left;color:var(--n900);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .at-tile:hover{border-color:var(--n300);background:var(--n50);}
+  .at-tile[aria-checked="true"]{border-color:var(--primary);background:#F8F9FF;box-shadow:0 0 0 1px var(--primary);}
+  .at-tile-ic{width:44px;height:44px;border-radius:12px;background:var(--n100);color:var(--n500);display:flex;align-items:center;justify-content:center;font-size:22px;flex:0 0 auto;transition:background .15s,color .15s;}
+  .at-tile[aria-checked="true"] .at-tile-ic{background:var(--primary-lighter);color:var(--primary);}
+  .at-tile-t{flex:1;min-width:0;font-size:15px;line-height:22px;font-weight:600;}
+  .at-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--n300);background:var(--n0);flex:0 0 auto;transition:border .15s;}
+  .at-tile:hover .at-radio,.at-opt:not([aria-disabled="true"]):hover .at-radio{border-color:var(--primary);}
+  [aria-checked="true"] > .at-radio,[aria-checked="true"] .at-radio{border:6px solid var(--primary);}
+  .at-group[data-err="true"] .at-tile,.at-group[data-err="true"] .at-opt{border-color:var(--red);}
+  .at-group[data-err="true"]{animation:at-nudge .35s ease;}
+
+  /* Список выбора (дети, медорганизации, врачи) */
+  .at-sub{margin-top:24px;display:flex;flex-direction:column;gap:12px;animation:at-in .2s ease;}
+  .at-sub-h{display:flex;align-items:center;gap:8px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
+  .at-cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .at-list{display:flex;flex-direction:column;gap:8px;}
+  .at-opt{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);font-family:inherit;text-align:left;color:inherit;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
+  .at-opt:hover{border-color:var(--n300);background:var(--n50);}
+  .at-opt[aria-checked="true"]{border-color:var(--primary);background:#F8F9FF;box-shadow:0 0 0 1px var(--primary);}
+  .at-opt[aria-disabled="true"]{cursor:default;background:var(--n50);}
+  .at-opt[aria-disabled="true"]:hover{border-color:var(--stroke);}
+  .at-opt[aria-disabled="true"] .at-radio{background:var(--n100);border-color:var(--n200);}
+  .at-ava{width:40px;height:40px;border-radius:12px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
+  .at-o-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .at-o-t{font-size:15px;line-height:22px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;}
+  .at-o-s{display:flex;align-items:flex-start;gap:6px;font-size:13px;line-height:18px;color:var(--n500);overflow-wrap:anywhere;}
+  .at-o-s i{font-size:15px;line-height:18px;color:var(--n400);flex:0 0 auto;}
+  .num{font-variant-numeric:tabular-nums;}
+  .at-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:32px 16px;border:1px dashed var(--n300);border-radius:16px;text-align:center;}
+  .at-empty-ic{width:48px;height:48px;border-radius:14px;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .at-empty-t{font-size:15px;line-height:22px;font-weight:600;color:var(--n900);}
+  .at-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:960px 100%;animation:at-sh 1.3s linear infinite;}
+  .at-skrow{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--n200);border-radius:14px;}
+
+  /* Поиск по списку */
+  .at-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .at-search{flex:1 1 280px;display:flex;align-items:center;gap:10px;height:44px;padding:0 6px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);transition:border-color .12s,box-shadow .12s;}
+  .at-search:hover{border-color:var(--n300);}
+  .at-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .at-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .at-search input::placeholder{color:var(--n400);}
+  .at-search input::-webkit-search-cancel-button{display:none;}
+  .at-x{width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;flex:0 0 auto;padding:0;transition:background .12s,color .12s;}
+  .at-x:hover{background:var(--n100);color:var(--n600);}
+  .at-found{font-size:13px;line-height:18px;color:var(--n500);white-space:nowrap;}
+  .at-mark{background:var(--primary-lighter);color:var(--primary-darker);border-radius:3px;box-shadow:0 0 0 1px var(--primary-lighter);}
+
+  /* Шаг 2: каскад справочников */
+  .at-cascade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px;align-items:start;}
+  @container atcard (max-width:560px){ .at-cascade{grid-template-columns:minmax(0,1fr);} }
+  .at-fld{display:flex;flex-direction:column;gap:6px;min-width:0;animation:at-in .2s ease;}
+  .at-lbl{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
+  .at-sel{position:relative;}
+  .at-sel-btn{width:100%;height:44px;display:flex;align-items:center;gap:10px;padding:0 12px 0 14px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;box-shadow:var(--sh-xs);transition:border-color .12s,box-shadow .12s,background .12s;}
+  .at-sel-btn:hover{border-color:var(--n300);}
+  .at-sel-btn[aria-expanded="true"]{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .at-sel-btn[data-err="true"]{border-color:var(--red);animation:at-nudge .35s ease;}
+  .at-sel-btn:disabled{background:var(--n50);cursor:progress;}
+  .at-sel-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .at-sel-v.ph{color:var(--n400);}
+  .at-sel-chev{font-size:20px;color:var(--n400);flex:0 0 auto;transition:transform .15s;}
+  .at-sel-btn[aria-expanded="true"] .at-sel-chev{transform:rotate(180deg);color:var(--primary);}
+  .at-pop{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;max-height:320px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);overflow:hidden;animation:at-pop .14s ease;}
+  .at-pop[data-up="true"]{top:auto;bottom:calc(100% + 6px);}
+  .at-pop-s{display:flex;align-items:center;gap:8px;margin:8px 8px 4px;height:38px;padding:0 10px;border:1px solid var(--stroke);border-radius:10px;}
+  .at-pop-s:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .at-pop-s input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .at-pop-l{overflow-y:auto;overscroll-behavior:contain;padding:4px 6px 6px;scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  .at-pop-g{padding:10px 10px 4px;font-size:12px;line-height:16px;font-weight:600;color:var(--n400);}
+  .at-pop-o{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .at-pop-o[data-hi="true"]{background:var(--n100);}
+  .at-pop-o[aria-selected="true"]{color:var(--primary-darker);font-weight:600;}
+  .at-pop-o i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .at-pop-none{padding:16px 12px;font-size:13px;line-height:18px;color:var(--n500);text-align:center;}
+
+  /* Шаг 4: врачи — таблица выбора */
+  .at-dt{display:flex;flex-direction:column;gap:8px;}
+  .at-dt-h,.at-doc{display:grid;grid-template-columns:20px minmax(0,2.2fr) minmax(76px,.6fr) minmax(120px,.8fr) minmax(120px,.8fr);align-items:center;gap:14px;}
+  .at-dt-h{padding:0 17px 2px;font-size:12px;line-height:16px;font-weight:500;color:var(--n400);}
+  .at-doc{padding:12px 16px;}
+  .at-doc .at-o-t{font-size:14px;line-height:20px;}
+  .at-c{font-size:14px;line-height:20px;color:var(--n700);white-space:nowrap;}
+  .at-st{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;justify-self:start;}
+  .at-st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .at-st.ok{background:var(--green-l);color:var(--green-d);}
+  .at-st.no{background:var(--n100);color:var(--n500);}
+  .at-doc[aria-disabled="true"] .at-o-t,.at-doc[aria-disabled="true"] .at-c{color:var(--n400);}
+  .at-dl-m{display:none;}
+  @container atcard (max-width:620px){
+    .at-dt-h{display:none;}
+    .at-doc{grid-template-columns:20px minmax(0,1fr) auto;gap:6px 12px;align-items:start;}
+    .at-doc .at-radio{margin-top:1px;}
+    .at-doc .at-c{display:none;}
+    .at-doc .at-st{grid-column:3;grid-row:1;}
+    .at-dl-m{display:flex;gap:4px 14px;flex-wrap:wrap;grid-column:2 / -1;font-size:13px;line-height:18px;color:var(--n500);}
+    .at-dl-m b{font-weight:500;color:var(--n900);}
+  }
+
+  /* Шаг 6: проверка данных */
+  .at-rv{margin:0;border:1px solid var(--stroke);border-radius:16px;overflow:hidden;}
+  .at-rv-r{display:grid;grid-template-columns:clamp(160px,30%,240px) minmax(0,1fr) auto;gap:6px 20px;align-items:start;padding:16px 20px;}
+  .at-rv-r + .at-rv-r{border-top:1px solid var(--stroke);}
+  .at-rv dt{font-size:13px;line-height:20px;color:var(--n500);}
+  .at-rv dd{margin:0;display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .at-rv-v{font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;}
+  .at-rv-s{font-size:13px;line-height:18px;color:var(--n500);overflow-wrap:anywhere;}
+  @container atcard (max-width:560px){
+    .at-rv-r{grid-template-columns:minmax(0,1fr) auto;padding:14px 16px;}
+    .at-rv dt{grid-column:1;}
+    .at-rv dd{grid-column:1 / -1;grid-row:2;}
+    .at-rv .at-link{grid-column:2;grid-row:1;}
+  }
+
+  /* Ход заполнения (справа) */
+  .at-side{position:sticky;top:90px;}
+  .at-sp{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);padding:20px 16px 12px;}
+  .at-sp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 6px 12px;font-size:13px;line-height:18px;color:var(--n500);}
+  .at-sp-h b{font-size:14px;font-weight:600;color:var(--n900);}
+  .at-sp .at-bars{padding:0 6px 14px;}
+  .at-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;}
+  .at-si{position:relative;width:100%;display:flex;align-items:flex-start;gap:12px;padding:10px 6px;border:none;border-radius:12px;background:none;font-family:inherit;text-align:left;color:inherit;cursor:pointer;transition:background .12s;}
+  .at-si:not(:disabled):hover{background:var(--n100);}
+  .at-si:disabled{cursor:default;}
+  .at-steps li + li .at-si::before{content:"";position:absolute;left:19px;top:-6px;height:14px;width:2px;border-radius:1px;background:var(--n200);}
+  .at-steps li.done + li .at-si::before{background:var(--primary-light);}
+  .at-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:0 0 auto;border:1.5px solid var(--n200);background:var(--n0);color:var(--n400);transition:background .15s,border-color .15s,color .15s;font-variant-numeric:tabular-nums;}
+  .at-dot i{font-size:16px;}
+  .at-si[data-st="done"] .at-dot{background:var(--primary-lighter);border-color:var(--primary-lighter);color:var(--primary);}
+  .at-si[data-st="cur"] .at-dot{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 0 0 4px var(--primary-lighter);}
+  .at-si-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding-top:4px;}
+  .at-si-t{font-size:14px;line-height:20px;font-weight:500;color:var(--n500);}
+  .at-si[data-st="cur"] .at-si-t{color:var(--n900);font-weight:600;}
+  .at-si[data-st="done"] .at-si-t{color:var(--n900);}
+  .at-si-v{font-size:13px;line-height:18px;color:var(--n500);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .at-si:not(:disabled):hover .at-si-t{color:var(--primary-darker);}
+
+  :is(.at-btn,.at-tile,.at-opt,.at-sel-btn,.at-si,.at-link,.at-x,.at-crumbs a,.pp-head,.pp-btn):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .at-pop-o:focus-visible{outline:none;background:var(--n100);}
+  .at-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .hm-tip.on{opacity:1;transform:none;}
+
+  /* Панель «Прототип» */
+  .at-pp{position:fixed;left:20px;bottom:20px;z-index:50;width:220px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .at-pp.open{width:260px;}
+  .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-head:hover{background:var(--n100);}
+  .pp-cap{margin:10px 0 2px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
+  .pp-btn{width:100%;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+
+  /* Мониторы 24–27" */
+  @media (min-width:1800px){
+    .at-ch{padding:28px 32px 0;}
+    .at-body{padding:22px 32px 32px;}
+    .at-foot{padding:18px 32px;}
+    .at-h2{font-size:22px;line-height:30px;}
+  }
+  @media (max-width:1024px){
+    .at-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .at-wrap{padding:16px 16px 80px;}
+    .at-crumbs{margin-bottom:16px;}
+    .at-title{font-size:22px;line-height:30px;margin-bottom:16px;}
+    .at-card{border-radius:16px;}
+    .at-ch{padding:18px 16px 0;}
+    .at-h2{font-size:18px;line-height:26px;}
+    .at-body{padding:16px 16px 20px;}
+    .at-foot{padding:12px 16px;border-radius:0 0 16px 16px;}
+    .at-foot .at-btn{flex:1;min-width:0;padding:0 14px;}
+    .at-foot-r{flex:1;}
+    .at-tiles{grid-template-columns:minmax(0,1fr);}
+    .at-mprog{padding:16px 16px 0;}
+    .at-search input,.at-pop-s input{font-size:16px;}
+    .at-pp{left:16px;bottom:16px;}
+  }
+  @media (prefers-reduced-motion:reduce){ .at-sk{animation:none;} .at-body,.at-sub,.at-fld,.at-pop{animation:none;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+  <dc-import name="FamilyData" hint-size="0px,0px"></dc-import>
+  <dc-import name="AttachData" hint-size="0px,0px"></dc-import>
+
+  <div class="at-wrap">
+    <nav class="at-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Услуги гражданина.dc.html">Услуги</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Паспорт услуги прикрепления.dc.html">Прикрепление к поликлинике</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Подача заявки</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="services" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="at-main">
+        <h1 class="at-title">Прикрепление к поликлинике</h1>
+
+        <div class="at-layout">
+          <section class="at-card" ref="{{ cardRef }}" aria-labelledby="at-q">
+            <!-- Узкий экран: прогресс над вопросом -->
+            <div class="at-mprog" aria-hidden="true">
+              <div class="at-mprog-t"><b>Шаг {{ step }} из 6</b><span>{{ stepName }}</span></div>
+              <div class="at-bars"><sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><span class="{{ b.cls }}"></span></sc-for></div>
+            </div>
+
+            <header class="at-ch">
+              <h2 id="at-q" class="at-h2" tabIndex="-1" ref="{{ qRef }}">{{ question }}</h2>
+            </header>
+
+            <div class="at-body" key="{{ step }}">
+              <!-- ШАГ 1. Выбор заявителя -->
+              <sc-if value="{{ s1 }}" hint-placeholder-val="{{ true }}">
+                <div class="at-group at-tiles" role="radiogroup" aria-labelledby="at-q" data-err="{{ err1 }}" ref="{{ whoRef }}">
+                  <sc-for list="{{ whoOpts }}" as="o" hint-placeholder-count="2">
+                    <button type="button" class="at-tile" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}" onKeyDown="{{ o.onKey }}" tabIndex="{{ o.tab }}">
+                      <span class="at-tile-ic" aria-hidden="true"><i class="{{ o.icon }}"></i></span>
+                      <span class="at-tile-t">{{ o.label }}</span>
+                      <span class="at-radio" aria-hidden="true"></span>
+                    </button>
+                  </sc-for>
+                </div>
+
+                <sc-if value="{{ isChild }}" hint-placeholder-val="{{ false }}">
+                  <div class="at-sub">
+                    <div class="at-sub-h" id="at-kids-h">Дети и подопечные<sc-if value="{{ kidsHas }}" hint-placeholder-val="{{ true }}"><span class="at-cnt">{{ kidsCount }}</span></sc-if></div>
+                    <sc-if value="{{ kidsLoading }}" hint-placeholder-val="{{ false }}">
+                      <div class="at-list" aria-busy="true" aria-label="Загрузка списка">
+                        <sc-for list="{{ sk3 }}" as="k" hint-placeholder-count="3">
+                          <div class="at-skrow"><span class="at-sk" style="width:20px;height:20px;border-radius:50%;"></span><span class="at-sk" style="width:40px;height:40px;border-radius:12px;"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;"><span class="at-sk" style="{{ k.w1 }}"></span><span class="at-sk" style="{{ k.w2 }}"></span></span></div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ kidsHas }}" hint-placeholder-val="{{ true }}">
+                      <div class="at-group at-list" role="radiogroup" aria-labelledby="at-kids-h" data-err="{{ errKid }}" ref="{{ kidsRef }}">
+                        <sc-for list="{{ kids }}" as="k" hint-placeholder-count="3">
+                          <button type="button" class="at-opt" role="radio" aria-checked="{{ k.on }}" onClick="{{ k.onClick }}" onKeyDown="{{ k.onKey }}" tabIndex="{{ k.tab }}">
+                            <span class="at-radio" aria-hidden="true"></span>
+                            <span class="at-ava" aria-hidden="true">{{ k.ini }}</span>
+                            <span class="at-o-b">
+                              <span class="at-o-t">{{ k.fio }}</span>
+                              <span class="at-o-s num">Дата рождения {{ k.dob }}</span>
+                            </span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ kidsNone }}" hint-placeholder-val="{{ false }}">
+                      <div class="at-empty" role="status">
+                        <div class="at-empty-ic" aria-hidden="true"><i class="ri-parent-line"></i></div>
+                        <div class="at-empty-t">Сведения о детях и подопечных не найдены</div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </sc-if>
+
+              <!-- ШАГ 2. Выбор региона -->
+              <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
+                <div class="at-cascade" ref="{{ cascRef }}">
+                  <sc-for list="{{ fields }}" as="f" hint-placeholder-count="2">
+                    <div class="at-fld">
+                      <label class="at-lbl" id="{{ f.lblId }}">{{ f.label }}</label>
+                      <div class="at-sel" onKeyDown="{{ f.onKey }}">
+                        <button type="button" class="at-sel-btn" id="{{ f.btnId }}" aria-haspopup="listbox" aria-expanded="{{ f.open }}" aria-labelledby="{{ f.lblBtn }}" data-err="{{ f.err }}" disabled="{{ f.loading }}" onClick="{{ f.onToggle }}" data-tip="{{ f.tip }}">
+                          <span class="{{ f.vCls }}" id="{{ f.valId }}">{{ f.value }}</span>
+                          <sc-if value="{{ f.loading }}" hint-placeholder-val="{{ false }}"><span class="at-spin" style="color:var(--n400);"></span></sc-if>
+                          <sc-if value="{{ f.idle }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-down-s-line at-sel-chev" aria-hidden="true"></i></sc-if>
+                        </button>
+                        <sc-if value="{{ f.isOpen }}" hint-placeholder-val="{{ false }}">
+                          <div class="at-pop" data-up="{{ f.up }}">
+                            <sc-if value="{{ f.searchable }}" hint-placeholder-val="{{ false }}">
+                              <label class="at-pop-s"><i class="ri-search-line" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i><input type="search" ref="{{ popSearchRef }}" value="{{ popQ }}" onChange="{{ onPopQ }}" placeholder="Поиск" aria-label="Поиск по списку" aria-controls="at-lb" autoComplete="off" spellCheck="false"></label>
+                            </sc-if>
+                            <div class="at-pop-l" role="listbox" id="at-lb" aria-labelledby="{{ f.lblId }}" ref="{{ popListRef }}">
+                              <sc-for list="{{ f.groups }}" as="g" hint-placeholder-count="1">
+                                <div role="group" aria-label="{{ g.label }}">
+                                  <sc-if value="{{ g.hasLabel }}" hint-placeholder-val="{{ false }}"><div class="at-pop-g" aria-hidden="true">{{ g.label }}</div></sc-if>
+                                  <sc-for list="{{ g.opts }}" as="o" hint-placeholder-count="4">
+                                    <button type="button" class="at-pop-o" role="option" aria-selected="{{ o.sel }}" data-hi="{{ o.hi }}" data-idx="{{ o.idx }}" tabIndex="-1" onClick="{{ o.onClick }}" onMouseMove="{{ o.onHover }}">
+                                      <span><sc-for list="{{ o.parts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span>
+                                      <sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if>
+                                    </button>
+                                  </sc-for>
+                                </div>
+                              </sc-for>
+                              <sc-if value="{{ f.noMatch }}" hint-placeholder-val="{{ false }}"><div class="at-pop-none">Ничего не найдено</div></sc-if>
+                            </div>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- ШАГ 3. Медицинская организация -->
+              <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                  <sc-if value="{{ moSearch }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-tools">
+                      <label class="at-search">
+                        <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;" aria-hidden="true"></i>
+                        <input type="search" value="{{ moQ }}" onChange="{{ onMoQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по названию или адресу" aria-label="Поиск по названию или адресу" autoComplete="off" spellCheck="false">
+                        <sc-if value="{{ moHasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="at-x" onClick="{{ clearMoQ }}" aria-label="Очистить поиск"><i class="ri-close-circle-fill"></i></button></sc-if>
+                      </label>
+                      <sc-if value="{{ moHasQ }}" hint-placeholder-val="{{ false }}"><span class="at-found" aria-live="polite">{{ moFound }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ mosLoading }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-list" aria-busy="true" aria-label="Загрузка списка">
+                      <sc-for list="{{ sk3 }}" as="k" hint-placeholder-count="3">
+                        <div class="at-skrow"><span class="at-sk" style="width:20px;height:20px;border-radius:50%;"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;"><span class="at-sk" style="{{ k.w1 }}"></span><span class="at-sk" style="{{ k.w2 }}"></span></span></div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ moHas }}" hint-placeholder-val="{{ true }}">
+                    <div class="at-group at-list" role="radiogroup" aria-labelledby="at-q" data-err="{{ err3 }}" ref="{{ moRef }}">
+                      <sc-for list="{{ mos }}" as="m" hint-placeholder-count="3">
+                        <button type="button" class="at-opt" role="radio" aria-checked="{{ m.on }}" onClick="{{ m.onClick }}" onKeyDown="{{ m.onKey }}" tabIndex="{{ m.tab }}">
+                          <span class="at-radio" aria-hidden="true"></span>
+                          <span class="at-o-b">
+                            <span class="at-o-t"><sc-for list="{{ m.nameParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span>
+                            <span class="at-o-s"><i class="ri-map-pin-line" aria-hidden="true"></i><span><sc-for list="{{ m.addrParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span></span>
+                          </span>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ moEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-empty" role="status">
+                      <div class="at-empty-ic" aria-hidden="true"><i class="ri-hospital-line"></i></div>
+                      <div class="at-empty-t">{{ moEmptyText }}</div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- ШАГ 4. Медицинский работник и участок -->
+              <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                  <sc-if value="{{ docSearch }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-tools">
+                      <label class="at-search">
+                        <i class="ri-search-line" style="font-size:20px;color:var(--n400);flex:0 0 auto;" aria-hidden="true"></i>
+                        <input type="search" value="{{ docQ }}" onChange="{{ onDocQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по Ф.И.О. или участку" aria-label="Поиск по Ф.И.О. или номеру участка" autoComplete="off" spellCheck="false">
+                        <sc-if value="{{ docHasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="at-x" onClick="{{ clearDocQ }}" aria-label="Очистить поиск"><i class="ri-close-circle-fill"></i></button></sc-if>
+                      </label>
+                      <sc-if value="{{ docHasQ }}" hint-placeholder-val="{{ false }}"><span class="at-found" aria-live="polite">{{ docFound }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ docsLoading }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-list" aria-busy="true" aria-label="Загрузка списка">
+                      <sc-for list="{{ sk5 }}" as="k" hint-placeholder-count="5">
+                        <div class="at-skrow"><span class="at-sk" style="width:20px;height:20px;border-radius:50%;"></span><span class="at-sk" style="{{ k.w1 }}"></span><span style="flex:1;"></span><span class="at-sk" style="width:76px;height:22px;border-radius:999px;"></span></div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ docHas }}" hint-placeholder-val="{{ true }}">
+                    <div class="at-dt">
+                      <div class="at-dt-h" aria-hidden="true"><span></span><span>Медицинский работник</span><span>Участок</span><span data-tip="Количество прикреплённого населения">Прикреплено, чел.</span><span>Статус</span></div>
+                      <div class="at-group at-list" role="radiogroup" aria-labelledby="at-q" data-err="{{ err4 }}" ref="{{ docRef }}">
+                        <sc-for list="{{ docs }}" as="d" hint-placeholder-count="5">
+                          <button type="button" class="at-opt at-doc" role="radio" aria-checked="{{ d.on }}" aria-disabled="{{ d.off }}" aria-label="{{ d.aria }}" onClick="{{ d.onClick }}" onKeyDown="{{ d.onKey }}" tabIndex="{{ d.tab }}">
+                            <span class="at-radio" aria-hidden="true"></span>
+                            <span class="at-o-t"><sc-for list="{{ d.fioParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.cls }}">{{ p.t }}</span></sc-for></span>
+                            <span class="at-c num">№{{ d.area }}</span>
+                            <span class="at-c num">{{ d.pop }}</span>
+                            <span class="{{ d.stCls }}">{{ d.st }}</span>
+                            <span class="at-dl-m num"><span>Участок <b>№{{ d.area }}</b></span><span>Прикреплено <b>{{ d.pop }}</b> чел.</span></span>
+                          </button>
+                        </sc-for>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ docEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div class="at-empty" role="status">
+                      <div class="at-empty-ic" aria-hidden="true"><i class="ri-stethoscope-line"></i></div>
+                      <div class="at-empty-t">{{ docEmptyText }}</div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+
+              <!-- ШАГ 5. Причина прикрепления -->
+              <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
+                <sc-if value="{{ reasonsLoading }}" hint-placeholder-val="{{ false }}">
+                  <div class="at-tiles" aria-busy="true"><span class="at-sk" style="height:76px;border-radius:16px;"></span><span class="at-sk" style="height:76px;border-radius:16px;"></span></div>
+                </sc-if>
+                <sc-if value="{{ reasonsReady }}" hint-placeholder-val="{{ true }}">
+                  <div class="at-group at-tiles" role="radiogroup" aria-labelledby="at-q" data-err="{{ err5 }}" ref="{{ reasonRef }}">
+                    <sc-for list="{{ reasons }}" as="o" hint-placeholder-count="2">
+                      <button type="button" class="at-tile" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}" onKeyDown="{{ o.onKey }}" tabIndex="{{ o.tab }}">
+                        <span class="at-tile-ic" aria-hidden="true"><i class="{{ o.icon }}"></i></span>
+                        <span class="at-tile-t">{{ o.label }}</span>
+                        <span class="at-radio" aria-hidden="true"></span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </sc-if>
+
+              <!-- ШАГ 6. Проверка данных перед подписанием -->
+              <sc-if value="{{ s6 }}" hint-placeholder-val="{{ false }}">
+                <dl class="at-rv">
+                  <sc-for list="{{ review }}" as="r" hint-placeholder-count="5">
+                    <div class="at-rv-r">
+                      <dt>{{ r.label }}</dt>
+                      <dd>
+                        <span class="at-rv-v">{{ r.v }}</span>
+                        <sc-if value="{{ r.hasS }}" hint-placeholder-val="{{ true }}"><span class="at-rv-s">{{ r.s }}</span></sc-if>
+                      </dd>
+                      <button type="button" class="at-link" onClick="{{ r.onEdit }}" aria-label="{{ r.editAria }}">Изменить</button>
+                    </div>
+                  </sc-for>
+                </dl>
+              </sc-if>
+            </div>
+
+            <footer class="at-foot">
+              <sc-if value="{{ hasBack }}" hint-placeholder-val="{{ true }}">
+                <button type="button" class="at-btn sec" onClick="{{ back }}" disabled="{{ signing }}"><i class="ri-arrow-left-line" aria-hidden="true"></i>Назад</button>
+              </sc-if>
+              <div class="at-foot-r">
+                <sc-if value="{{ notLast }}" hint-placeholder-val="{{ true }}">
+                  <button type="button" class="at-btn pri" onClick="{{ next }}" aria-disabled="{{ nextOff }}" data-tip="{{ nextTip }}">{{ nextLabel }}<i class="ri-arrow-right-line" aria-hidden="true"></i></button>
+                </sc-if>
+                <sc-if value="{{ isLast }}" hint-placeholder-val="{{ false }}">
+                  <button type="button" class="{{ signCls }}" onClick="{{ sign }}" aria-busy="{{ signing }}">
+                    <sc-if value="{{ signing }}" hint-placeholder-val="{{ false }}"><span class="at-spin"></span></sc-if>
+                    <sc-if value="{{ notSigning }}" hint-placeholder-val="{{ true }}"><i class="ri-quill-pen-line" aria-hidden="true"></i></sc-if>
+                    Подписать и отправить
+                  </button>
+                </sc-if>
+              </div>
+            </footer>
+          </section>
+
+          <!-- Ход заполнения -->
+          <aside class="at-side" aria-label="Ход заполнения">
+            <div class="at-sp">
+              <div class="at-sp-h"><b>Шаг {{ step }} из 6</b></div>
+              <div class="at-bars" aria-hidden="true"><sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><span class="{{ b.cls }}"></span></sc-for></div>
+              <ol class="at-steps">
+                <sc-for list="{{ steps }}" as="t" hint-placeholder-count="6">
+                  <li class="{{ t.liCls }}">
+                    <button type="button" class="at-si" data-st="{{ t.st }}" disabled="{{ t.off }}" onClick="{{ t.onClick }}" aria-current="{{ t.current }}" aria-label="{{ t.aria }}">
+                      <span class="at-dot" aria-hidden="true">
+                        <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line"></i></sc-if>
+                        <sc-if value="{{ t.notDone }}" hint-placeholder-val="{{ true }}">{{ t.n }}</sc-if>
+                      </span>
+                      <span class="at-si-b">
+                        <span class="at-si-t">{{ t.label }}</span>
+                        <sc-if value="{{ t.hasV }}" hint-placeholder-val="{{ false }}"><span class="at-si-v">{{ t.v }}</span></sc-if>
+                      </span>
+                    </button>
+                  </li>
+                </sc-for>
+              </ol>
+            </div>
+          </aside>
+        </div>
+        <span class="at-sr" aria-live="polite">{{ live }}</span>
+      </main>
+    </div>
+  </div>
+
+  <!-- Панель прототипа -->
+  <div class="{{ ppCls }}" role="region" aria-label="Панель прототипа">
+    <button type="button" class="pp-head" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppIsOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 12px 12px;border-top:1px solid var(--stroke);display:flex;flex-direction:column;gap:6px;">
+        <div class="pp-cap">Сведения о детях и подопечных</div>
+        <sc-for list="{{ ppKids }}" as="x" hint-placeholder-count="2">
+          <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+        </sc-for>
+        <div class="pp-cap">Подача</div>
+        <button type="button" class="pp-btn" onClick="{{ ppRestart }}"><i class="ri-restart-line" style="font-size:15px;" aria-hidden="true"></i>Начать заново</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <dc-import name="EdSign" hint-size="1px,1px"></dc-import>
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1000}}">
+const WIZ = 'mp-attach-wiz';
+const CARD = 'Заявка на прикрепление.dc.html';
+
+// Состав шагов — постановка; справа — короткие названия, в карточке — вопрос с экрана
+const STEPS = [
+  { n:1, label:'Заявитель', q:'На кого необходимо оформить прикрепление к поликлинике?' },
+  { n:2, label:'Регион', q:'Выберите регион, в котором находится медицинская организация' },
+  { n:3, label:'Медицинская организация', q:'Выберите медицинскую организацию' },
+  { n:4, label:'Медицинский работник и участок', q:'Выберите медицинского работника и участок' },
+  { n:5, label:'Причина прикрепления', q:'Укажите причину прикрепления' },
+  { n:6, label:'Проверка и подписание', q:'Проверьте данные перед подписанием' },
+];
+const WHO = [ { id:'self', label:'На себя', icon:'ri-user-3-line' }, { id:'child', label:'На ребёнка', icon:'ri-parent-line' } ];
+const REASON_ICON = { free:'ri-hand-heart-line', move:'ri-truck-line' };
+const NEED = {
+  1: { who:'Выберите, на кого оформить прикрепление', kid:'Выберите ребёнка из списка', none:'Сведения о детях и подопечных не найдены' },
+  3: 'Выберите медицинскую организацию',
+  4: 'Выберите медицинского работника',
+  5: 'Укажите причину прикрепления',
+};
+const SK3 = [[56, 32], [44, 26], [62, 30]].map(([a, b]) => ({ w1:`width:${a}%;height:12px;`, w2:`width:${b}%;height:10px;opacity:.8;` }));
+const SK5 = [46, 38, 52, 34, 42].map(a => ({ w1:`width:${a}%;height:12px;` }));
+
+const pad = n => String(n).padStart(2, '0');
+const fmtD = s => { const [y, m, d] = s.split('-'); return d + '.' + m + '.' + y; };
+const norm = s => String(s).toLowerCase().replace(/ё/g, 'е');
+const toks = q => norm(q).trim().split(/\s+/).filter(Boolean);
+const matchAll = (txt, tk) => { const t = norm(txt); return tk.every(x => t.includes(x)); };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
+function hl(text, tk){
+  if(!tk.length) return [{ t:text, cls:'' }];
+  const low = norm(text), mark = new Array(text.length).fill(false);
+  tk.forEach(x => { let i = low.indexOf(x); while(i !== -1){ for(let k = i; k < i + x.length; k++) mark[k] = true; i = low.indexOf(x, i + x.length); } });
+  const out = []; let cur = '', on = mark[0];
+  for(let i = 0; i < text.length; i++){ if(mark[i] !== on){ out.push({ t:cur, cls: on ? 'at-mark' : '' }); cur = ''; on = mark[i]; } cur += text[i]; }
+  out.push({ t:cur, cls: on ? 'at-mark' : '' });
+  return out.filter(p => p.t);
+}
+
+// Подсказки data-tip (как на других страницах кабинета)
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+const EMPTY = {
+  step:1, max:1,
+  who:null, kids:null, kidsLoading:false, kid:null,
+  path:[], lv:[], // lv[i] = { loading, opts:[{ id, name, leaf, city }] }
+  mos:null, mosLoading:false, mo:null, moQ:'',
+  docs:null, docsLoading:false, doc:null, docQ:'',
+  reasons:null, reasonsLoading:false, reason:null,
+};
+
+class Component extends DCLogic {
+  cardRef = React.createRef();
+  qRef = React.createRef();
+  whoRef = React.createRef(); kidsRef = React.createRef(); moRef = React.createRef(); docRef = React.createRef(); reasonRef = React.createRef();
+  cascRef = React.createRef(); popSearchRef = React.createRef(); popListRef = React.createRef();
+
+  state = { ...EMPTY, open:null, popQ:'', hi:0, up:false, err:null, signing:false, live:'', ppOpen:false, kidsScn:'auto', ready:false };
+
+  componentDidMount(){
+    installTips();
+    this._go = () => this.boot();
+    if(window.mpAttach && window.mpFamily) this.boot();
+    window.addEventListener('mp-attach-ready', this._go);
+    window.addEventListener('mp-family-ready', this._go);
+    this._down = (e) => { if(this.state.open != null && !(e.target.closest && e.target.closest('.at-sel'))) this.setState({ open:null }); };
+    document.addEventListener('mousedown', this._down);
+    this._signed = (e) => { const d = (e && e.detail) || {}; if(d.ctx === 'attach') this.submit(); };
+    this._cancel = (e) => { const d = (e && e.detail) || {}; if(d.ctx === 'attach') this.setState({ signing:false }); };
+    window.addEventListener('mp-sign-done', this._signed);
+    window.addEventListener('mp-sign-cancel', this._cancel);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-attach-ready', this._go);
+    window.removeEventListener('mp-family-ready', this._go);
+    document.removeEventListener('mousedown', this._down);
+    window.removeEventListener('mp-sign-done', this._signed);
+    window.removeEventListener('mp-sign-cancel', this._cancel);
+  }
+
+  // Первый запуск: восстанавливаем незавершённую подачу, догружаем то, что было в пути
+  boot(){
+    if(this._booted || !window.mpAttach || !window.mpFamily) return;
+    this._booted = true;
+    const A = window.mpAttach;
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem(WIZ) || 'null'); } catch(e){}
+    const st = { ready:true, kidsScn: A.kidsScn() };
+    if(saved && saved.step){
+      Object.assign(st, EMPTY, saved, { kidsLoading:false, mosLoading:false, docsLoading:false, reasonsLoading:false,
+        lv: (saved.lv || []).map(l => ({ loading:false, opts: l.opts || [] })) });
+    }
+    this.setState(st);
+    if(!this.state.lv.length || !this.state.lv[0].opts.length) this.loadLevel(0, null);
+    if(this.state.who === 'child' && !this.state.kids) this.loadKids();
+    this.ensure(this.state.step);
+  }
+  persist(){
+    const s = this.state;
+    const keep = { step:s.step, max:s.max, who:s.who, kids:s.kids, kid:s.kid, path:s.path, lv:s.lv.map(l => ({ opts:l.opts })),
+      mos:s.mos, mo:s.mo, moQ:s.moQ, docs:s.docs, doc:s.doc, docQ:s.docQ, reasons:s.reasons, reason:s.reason };
+    try { sessionStorage.setItem(WIZ, JSON.stringify(keep)); } catch(e){}
+  }
+  set(patch){ this.setState(patch); this.persist(); }
+
+  // ---------- Загрузка данных ----------
+  loadKids(){
+    const A = window.mpAttach; if(!A) return;
+    const t = this._kt = Date.now();
+    this.setState({ kidsLoading:true, kids:null });
+    A.kids().then(list => { if(this._kt !== t) return; this.set({ kidsLoading:false, kids:list, kid: list.some(k => k.iin === this.state.kid) ? this.state.kid : null }); });
+  }
+  loadLevel(i, parentId){
+    const A = window.mpAttach; if(!A) return;
+    const lv = this.state.lv.slice(0, i); lv[i] = { loading:true, opts:[] };
+    const t = this._lt = Date.now();
+    this.setState({ lv });
+    A.level(parentId).then(opts => {
+      if(this._lt !== t) return;
+      const lv2 = this.state.lv.slice(0, i); lv2[i] = { loading:false, opts };
+      this.set({ lv:lv2 });
+      // Единственный вариант уровня выбирается сам
+      if(i > 0 && opts.length === 1) this.pick(i, opts[0].id);
+    });
+  }
+  ensure(step){
+    const A = window.mpAttach, s = this.state; if(!A) return;
+    if(step === 3 && !s.mos && !s.mosLoading){
+      const leaf = s.path[s.path.length - 1], t = this._mt = Date.now();
+      this.setState({ mosLoading:true });
+      A.mos(leaf).then(list => { if(this._mt !== t) return; this.set({ mosLoading:false, mos:list }); });
+    }
+    if(step === 4 && !s.docs && !s.docsLoading && s.mo){
+      const t = this._dt = Date.now();
+      this.setState({ docsLoading:true });
+      A.doctors(s.mo).then(list => { if(this._dt !== t) return; this.set({ docsLoading:false, docs:list }); });
+    }
+    if(step === 5 && !s.reasons && !s.reasonsLoading){
+      this.setState({ reasonsLoading:true });
+      A.reasons().then(list => this.set({ reasonsLoading:false, reasons:list }));
+    }
+  }
+
+  // ---------- Регион: выбор уровня ----------
+  pathDone(path){
+    const s = this.state; if(!path.length) return false;
+    const i = path.length - 1, o = (s.lv[i] && s.lv[i].opts || []).find(x => x.id === path[i]);
+    return !!(o && o.leaf);
+  }
+  pick(i, id){
+    const s = this.state;
+    if(s.path[i] === id){ this.setState({ open:null }); return; }
+    const path = s.path.slice(0, i); path[i] = id;
+    const opt = (s.lv[i].opts || []).find(x => x.id === id);
+    const lv = s.lv.slice(0, i + 1);
+    // Смена территории — медорганизация и врач выбираются заново
+    this.set({ path, lv, open:null, err:null, mos:null, mo:null, moQ:'', docs:null, doc:null, docQ:'', max: Math.min(s.max, 2), live: (opt ? opt.name : '') + ' выбрано' });
+    if(opt && !opt.leaf) this.loadLevel(i + 1, id);
+    const btn = document.getElementById('at-sel-' + i); if(btn) btn.focus({ preventScroll:true });
+  }
+  openSel(i){
+    const s = this.state;
+    if(s.open === i){ this.setState({ open:null }); return; }
+    const opts = (s.lv[i] && s.lv[i].opts) || [];
+    const sel = opts.findIndex(o => o.id === s.path[i]);
+    const btn = document.getElementById('at-sel-' + i);
+    let up = false;
+    if(btn){ const r = btn.getBoundingClientRect(); up = innerHeight - r.bottom < 340 && r.top > innerHeight - r.bottom; }
+    this.setState({ open:i, popQ:'', hi: Math.max(0, sel), up });
+    setTimeout(() => {
+      if(this.popSearchRef.current) this.popSearchRef.current.focus();
+      this.scrollHi();
+    }, 0);
+  }
+  visible(i){
+    const s = this.state, tk = toks(s.popQ);
+    return ((s.lv[i] && s.lv[i].opts) || []).filter(o => !tk.length || matchAll(o.name, tk));
+  }
+  scrollHi(){
+    const l = this.popListRef.current; if(!l) return;
+    const el = l.querySelector('[data-hi="true"]'); if(el) el.scrollIntoView({ block:'nearest' });
+  }
+  selKey(i, e){
+    const s = this.state;
+    if(s.open !== i){
+      if(['ArrowDown', 'ArrowUp'].includes(e.key) && e.target.classList.contains('at-sel-btn')){ e.preventDefault(); this.openSel(i); }
+      return;
+    }
+    const vis = this.visible(i);
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.setState({ open:null }); const b = document.getElementById('at-sel-' + i); if(b) b.focus(); }
+    else if(e.key === 'ArrowDown'){ e.preventDefault(); this.setState({ hi: Math.min(vis.length - 1, s.hi + 1) }); setTimeout(() => this.scrollHi(), 0); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); this.setState({ hi: Math.max(0, s.hi - 1) }); setTimeout(() => this.scrollHi(), 0); }
+    else if(e.key === 'Enter'){ e.preventDefault(); const o = vis[s.hi]; if(o) this.pick(i, o.id); }
+    else if(e.key === 'Tab'){ this.setState({ open:null }); }
+  }
+
+  // ---------- Проверка шага ----------
+  missing(step){
+    const s = this.state;
+    if(step === 1){
+      if(!s.who) return { msg:NEED[1].who, ref:this.whoRef };
+      if(s.who === 'child'){
+        if(s.kidsLoading || !s.kids) return { msg:'', ref:null, wait:true };
+        if(!s.kids.length) return { msg:NEED[1].none, ref:null };
+        if(!s.kid) return { msg:NEED[1].kid, ref:this.kidsRef };
+      }
+      return null;
+    }
+    if(step === 2){
+      if(this.pathDone(s.path)) return null;
+      const i = s.path.length;
+      const label = window.mpAttach ? window.mpAttach.levelLabel(s.path[0], i) : '';
+      return { msg: 'Выберите ' + label.toLowerCase(), field:i };
+    }
+    if(step === 3) return s.mo ? null : { msg:NEED[3], ref:this.moRef, wait: !s.mos };
+    if(step === 4) return s.doc ? null : { msg:NEED[4], ref:this.docRef, wait: !s.docs };
+    if(step === 5) return s.reason ? null : { msg:NEED[5], ref:this.reasonRef, wait: !s.reasons };
+    return null;
+  }
+
+  go(step){
+    const s = this.state;
+    if(step < 1 || step > 6 || !this.reachable(step)) return;
+    this.set({ step, err:null, open:null, live: 'Шаг ' + step + ' из 6. ' + STEPS[step - 1].q });
+    this.ensure(step);
+    // К началу карточки, фокус — на вопрос шага
+    setTimeout(() => {
+      const c = this.cardRef.current;
+      if(c){ const top = c.getBoundingClientRect().top; if(top < 90 || top > innerHeight * .5) window.scrollTo({ top: Math.max(0, scrollY + top - 96), behavior:'smooth' }); }
+      if(this.qRef.current) this.qRef.current.focus({ preventScroll:true });
+    }, 30);
+  }
+  // К шагу можно перейти, если он уже открывался и все шаги до него заполнены
+  reachable(n){
+    if(n > this.state.max) return false;
+    for(let k = 1; k < n; k++) if(this.missing(k)) return false;
+    return true;
+  }
+  toReview(){ const s = this.state; return s.step < 6 && s.max === 6 && this.reachable(6); }
+  next(){
+    const s = this.state, m = this.missing(s.step);
+    if(m){
+      if(m.wait) return;
+      this.setState({ err:{ step:s.step, field: m.field != null ? m.field : null, kid: s.step === 1 && s.who === 'child' }, live:m.msg });
+      setTimeout(() => {
+        let el = null;
+        if(m.field != null) el = document.getElementById('at-sel-' + m.field);
+        else if(m.ref && m.ref.current) el = m.ref.current.querySelector('[tabindex="0"]') || m.ref.current.querySelector('button');
+        if(el){ el.focus({ preventScroll:true }); el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+      }, 0);
+      return;
+    }
+    // Правка со страницы проверки: остальные шаги заполнены — сразу обратно к проверке
+    if(this.toReview()){ this.go(6); return; }
+    const n = s.step + 1;
+    this.set({ max: Math.max(s.max, n) });
+    this.go(n);
+  }
+
+  // Радиогруппа: стрелки двигают выбор, как у нативных радиокнопок
+  arrows(e, list, cur, onPick){
+    const k = e.key; if(!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(k)) return;
+    e.preventDefault();
+    const en = list.filter(x => !x.off); if(!en.length) return;
+    let i = en.findIndex(x => x.id === cur); const d = (k === 'ArrowDown' || k === 'ArrowRight') ? 1 : -1;
+    i = i < 0 ? 0 : (i + d + en.length) % en.length;
+    onPick(en[i].id);
+    setTimeout(() => { const g = e.currentTarget && e.currentTarget.parentElement; const b = g && g.querySelector('[aria-checked="true"]'); if(b) b.focus(); }, 0);
+  }
+
+  signNow(){
+    if(this.state.signing) return;
+    this.setState({ signing:true });
+    const A = window.mpAttach, me = A.ME;
+    window.dispatchEvent(new CustomEvent('mp-sign-open', { detail:{ ctx:'attach', title:'Подписание запроса', doc:'Прикрепление к поликлинике',
+      certs:[{ id:'fl', fio:A.fio(me), iin:me.iin, org:'', bin:'', usage:'Ключ подписи RSA', from:'16.01.2026', to:'16.01.2027' }] } }));
+  }
+  submit(){
+    const A = window.mpAttach, s = this.state;
+    const sum = this.summary();
+    const app = A.create({ who:sum.whoObj, region:sum.regionArr, mo:sum.moObj, doc:sum.docObj, reason:sum.reasonLabel });
+    try { sessionStorage.removeItem(WIZ); } catch(e){}
+    location.href = CARD + '?n=' + encodeURIComponent(app.num);
+  }
+
+  // Сводка выбранного — для правой панели и шага 6
+  summary(){
+    const A = window.mpAttach, s = this.state;
+    if(!A) return { whoObj:null, regionArr:[], moObj:null, docObj:null, reasonLabel:'' };
+    let whoObj = null;
+    if(s.who === 'self') whoObj = A.me();
+    else if(s.who === 'child' && s.kid && s.kids){ const k = s.kids.find(x => x.iin === s.kid); if(k) whoObj = { iin:k.iin, fio:k.fio, dob:k.dob, self:false }; }
+    const regionArr = s.path.map((id, i) => { const o = (s.lv[i] && s.lv[i].opts || []).find(x => x.id === id); return o ? o.name : ''; }).filter(Boolean);
+    const m = (s.mos || []).find(x => x.id === s.mo) || null;
+    const moObj = m ? { id:m.id, name:m.name, short:m.short, address:m.address } : null;
+    const d = (s.docs || []).find(x => x.id === s.doc) || null;
+    const docObj = d ? { fio:d.fio, area:d.area } : null;
+    const r = (s.reasons || []).find(x => x.id === s.reason) || null;
+    return { whoObj, regionArr, moObj, docObj, reasonLabel: r ? r.label : '' };
+  }
+
+  renderVals(){
+    const s = this.state, A = window.mpAttach;
+    const step = s.step, err = s.err && s.err.step === step ? s.err : null;
+    const sum = this.summary();
+    const miss = this.missing(step);
+
+    // Шаг 1
+    const whoOpts = WHO.map((o, i) => {
+      const on = s.who === o.id;
+      return { ...o, on: on ? 'true' : 'false', tab: (on || (!s.who && i === 0)) ? '0' : '-1',
+        onClick: () => { if(o.id === s.who) return; this.set({ who:o.id, err:null }); if(o.id === 'child' && !s.kids) this.loadKids(); },
+        onKey: (e) => this.arrows(e, WHO, s.who, (id) => { this.set({ who:id }); if(id === 'child' && !this.state.kids) this.loadKids(); }) };
+    });
+    const kidsArr = (s.kids || []).map((k, i) => {
+      const on = s.kid === k.iin;
+      return { fio:k.fio, dob:fmtD(k.dob), ini: (k.last || '')[0] + (k.first || '')[0],
+        on: on ? 'true' : 'false', tab: (on || (!s.kid && i === 0)) ? '0' : '-1',
+        onClick: () => this.set({ kid:k.iin, err:null }),
+        onKey: (e) => this.arrows(e, s.kids.map(x => ({ id:x.iin })), s.kid, (id) => this.set({ kid:id })) };
+    });
+
+    // Шаг 2: поля каскада — следующий уровень появляется после выбора предыдущего
+    const fields = [];
+    const rootId = s.path[0];
+    for(let i = 0; i < s.lv.length; i++){
+      const lv = s.lv[i]; if(!lv) break;
+      const label = A ? A.levelLabel(rootId, i) : '';
+      const selId = s.path[i];
+      const selO = (lv.opts || []).find(o => o.id === selId);
+      const isOpen = s.open === i;
+      const vis = isOpen ? this.visible(i) : [];
+      const tk = toks(s.popQ);
+      const mk = (o, idx) => ({ idx: String(idx), sel: o.id === selId ? 'true' : 'false', isSel: o.id === selId, hi: idx === s.hi ? 'true' : 'false',
+        parts: hl(o.name, tk), onClick: () => this.pick(i, o.id), onHover: () => { if(this.state.hi !== idx) this.setState({ hi:idx }); } });
+      let groups;
+      if(i === 0 && !tk.length){
+        const cities = vis.filter(o => o.city), obl = vis.filter(o => !o.city);
+        groups = [ { label:'Города республиканского значения', opts:cities }, { label:'Области', opts:obl } ].filter(g => g.opts.length);
+        let idx = 0; groups = groups.map(g => ({ label:g.label, hasLabel:true, opts:g.opts.map(o => mk(o, idx++)) }));
+      } else groups = [ { label: label, hasLabel:false, opts: vis.map((o, idx) => mk(o, idx)) } ];
+      const ph = 'Выберите из списка';
+      const fieldErr = err && err.field === i;
+      fields.push({
+        label, lblId:'at-lbl-' + i, btnId:'at-sel-' + i, valId:'at-val-' + i, lblBtn: 'at-lbl-' + i + ' at-val-' + i,
+        value: lv.loading ? 'Загрузка…' : (selO ? selO.name : ph), vCls: selO && !lv.loading ? 'at-sel-v' : 'at-sel-v ph',
+        loading: !!lv.loading, idle: !lv.loading, open: isOpen ? 'true' : 'false', isOpen, up: s.up ? 'true' : 'false',
+        err: fieldErr ? 'true' : 'false', tip: fieldErr ? 'Выберите значение из списка' : '',
+        searchable: (lv.opts || []).length > 7, groups, noMatch: isOpen && !vis.length,
+        onToggle: () => this.openSel(i), onKey: (e) => this.selKey(i, e),
+      });
+    }
+
+    // Шаг 3
+    const moTk = toks(s.moQ);
+    const moAll = s.mos || [];
+    const moVis = moAll.filter(m => !moTk.length || matchAll(m.name + ' ' + m.address, moTk));
+    const mos = moVis.map((m, i) => {
+      const on = s.mo === m.id;
+      return { nameParts: hl(m.name, moTk), addrParts: hl(m.address, moTk), on: on ? 'true' : 'false',
+        tab: (on || (!moVis.some(x => x.id === s.mo) && i === 0)) ? '0' : '-1',
+        onClick: () => { if(s.mo === m.id) return; this.set({ mo:m.id, docs:null, doc:null, docQ:'', err:null, max: Math.min(s.max, 3) }); },
+        onKey: (e) => this.arrows(e, moVis, s.mo, (id) => this.set({ mo:id, docs:null, doc:null, docQ:'', max: Math.min(this.state.max, 3) })) };
+    });
+
+    // Шаг 4
+    const dTk = toks(s.docQ);
+    const dAll = s.docs || [];
+    const dVis = dAll.filter(d => !dTk.length || matchAll(d.fio + ' №' + d.area + ' ' + d.area, dTk));
+    const dList = dVis.map(d => ({ id:d.id, off:!d.avail }));
+    const firstEn = dVis.find(d => d.avail);
+    const docs = dVis.map(d => {
+      const on = s.doc === d.id, nf = A ? A.nf(d.pop) : d.pop;
+      return { area:d.area, pop:nf, fioParts: hl(d.fio, dTk),
+        on: on ? 'true' : 'false', off: d.avail ? 'false' : 'true',
+        st: d.avail ? 'Доступно' : 'Недоступно', stCls: 'at-st ' + (d.avail ? 'ok' : 'no'),
+        aria: `${d.fio}, участок №${d.area}, прикреплено ${nf} человек, ${d.avail ? 'доступно для прикрепления' : 'недоступно для прикрепления'}`,
+        tab: d.avail && (on || (!dVis.some(x => x.id === s.doc) && firstEn && firstEn.id === d.id)) ? '0' : '-1',
+        onClick: () => { if(!d.avail) return; this.set({ doc:d.id, err:null }); },
+        onKey: (e) => this.arrows(e, dList, s.doc, (id) => this.set({ doc:id })) };
+    });
+
+    // Шаг 5
+    const reasons = (s.reasons || []).map((r, i) => {
+      const on = s.reason === r.id;
+      return { ...r, icon: REASON_ICON[r.id] || 'ri-file-list-3-line', on: on ? 'true' : 'false', tab: (on || (!s.reason && i === 0)) ? '0' : '-1',
+        onClick: () => this.set({ reason:r.id, err:null }),
+        onKey: (e) => this.arrows(e, s.reasons, s.reason, (id) => this.set({ reason:id })) };
+    });
+
+    // Шаг 6 — состав постановки: заявитель, регион, медорганизация, медработник, причина
+    const W = sum.whoObj, M = sum.moObj, D = sum.docObj;
+    const review = [
+      { label:'Заявитель', v: W ? W.fio : '', s: W ? 'Дата рождения ' + fmtD(W.dob) : '', to:1 },
+      { label:'Регион', v: sum.regionArr.join(', '), s:'', to:2 },
+      { label:'Медицинская организация', v: M ? M.name : '', s: M ? M.address : '', to:3 },
+      { label:'Медицинский работник', v: D ? D.fio : '', s: D ? 'Участок №' + D.area : '', to:4 },
+      { label:'Причина прикрепления', v: sum.reasonLabel, s:'', to:5 },
+    ].map(r => ({ ...r, hasS: !!r.s, editAria: 'Изменить: ' + r.label.toLowerCase(), onEdit: () => this.go(r.to) }));
+
+    // Правая панель: значения пройденных шагов (на шаге 6 они в карточке — не дублируем)
+    const vals = [
+      W ? W.fio : '',
+      // Регион коротко: верхний и конечный уровень
+      sum.regionArr.length && this.pathDone(s.path) ? (sum.regionArr.length > 2 ? sum.regionArr[0] + ', ' + sum.regionArr[sum.regionArr.length - 1] : sum.regionArr.join(', ')) : '',
+      M ? M.short : '',
+      D ? D.fio + ', участок №' + D.area : '',
+      sum.reasonLabel,
+      '',
+    ];
+    const steps = STEPS.map((t, i) => {
+      const n = i + 1, cur = n === step, reach = this.reachable(n), done = !cur && n < 6 && reach && !this.missing(n);
+      const v = step === 6 ? '' : (n !== step && reach ? vals[i] : '');
+      return { n, label:t.label, st: cur ? 'cur' : (done && reach ? 'done' : 'todo'), done: done && reach && !cur, notDone: !(done && reach && !cur),
+        liCls: done && reach ? 'done' : '', off: !reach || cur, current: cur ? 'step' : undefined,
+        v, hasV: !!v, aria: `Шаг ${n}. ${t.label}${v ? ': ' + v : ''}${cur ? ', текущий' : ''}`,
+        onClick: () => this.go(n) };
+    });
+    const bars = STEPS.map((t, i) => ({ cls: 'at-bar' + (i < step ? ' on' : '') }));
+
+    const nextOff = !!miss && !miss.wait;
+    const kidsReady = !!s.kids && !s.kidsLoading;
+    return {
+      cardRef:this.cardRef, qRef:this.qRef, whoRef:this.whoRef, kidsRef:this.kidsRef, moRef:this.moRef, docRef:this.docRef, reasonRef:this.reasonRef,
+      cascRef:this.cascRef, popSearchRef:this.popSearchRef, popListRef:this.popListRef,
+      step, stepName: STEPS[step - 1].label, question: STEPS[step - 1].q, bars, steps, live:s.live,
+      s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5, s6: step === 6,
+
+      whoOpts, err1: err && !err.kid ? 'true' : 'false', isChild: s.who === 'child',
+      kidsLoading: s.who === 'child' && (s.kidsLoading || !s.kids), kidsReady, kidsHas: kidsReady && s.kids.length > 0, kidsNone: kidsReady && !s.kids.length,
+      kidsCount: s.kids ? s.kids.length : 0, kids: kidsArr, errKid: err && err.kid ? 'true' : 'false', sk3:SK3, sk5:SK5,
+
+      fields, popQ:s.popQ,
+      onPopQ: (e) => this.setState({ popQ:e.target.value, hi:0 }),
+
+      moSearch: moAll.length > 4, moQ:s.moQ, moHasQ: !!s.moQ.trim(),
+      moFound: `Найдено: ${moVis.length}`,
+      onMoQ: (e) => this.set({ moQ:e.target.value }), clearMoQ: () => this.set({ moQ:'' }),
+      onQKey: (e) => { if(e.key === 'Escape' && e.target.value){ e.preventDefault(); this.set(step === 3 ? { moQ:'' } : { docQ:'' }); } },
+      mosLoading: s.mosLoading || (step === 3 && !s.mos), moHas: !!s.mos && moVis.length > 0, mos, err3: err ? 'true' : 'false',
+      moEmpty: !!s.mos && !moVis.length, moEmptyText: moAll.length ? 'По запросу ничего не найдено' : 'В выбранной территории нет медицинских организаций для прикрепления',
+
+      docSearch: dAll.length > 6, docQ:s.docQ, docHasQ: !!s.docQ.trim(), docFound: `Найдено: ${dVis.length}`,
+      onDocQ: (e) => this.set({ docQ:e.target.value }), clearDocQ: () => this.set({ docQ:'' }),
+      docsLoading: s.docsLoading || (step === 4 && !s.docs), docHas: !!s.docs && dVis.length > 0, docs, err4: err ? 'true' : 'false',
+      docEmpty: !!s.docs && !dVis.length, docEmptyText: dAll.length ? 'По запросу ничего не найдено' : 'Нет медицинских работников, доступных для прикрепления',
+
+      reasonsLoading: s.reasonsLoading || (step === 5 && !s.reasons), reasonsReady: !!s.reasons, reasons, err5: err ? 'true' : 'false',
+
+      review,
+
+      hasBack: step > 1, notLast: step < 6, isLast: step === 6,
+      back: () => this.go(step - 1), next: () => this.next(),
+      nextOff: nextOff ? 'true' : 'false', nextTip: nextOff ? miss.msg : '',
+      nextLabel: !nextOff && this.toReview() ? 'К проверке данных' : 'Далее',
+      sign: () => this.signNow(), signing: s.signing, notSigning: !s.signing, signCls: 'at-btn pri' + (s.signing ? ' busy' : ''),
+
+      ppCls: 'at-pp' + (s.ppOpen ? ' open' : ''), ppOpen: s.ppOpen ? 'true' : 'false', ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppIsOpen: s.ppOpen, ppToggle: () => this.setState({ ppOpen:!s.ppOpen }),
+      ppKids: [ { id:'auto', label:'Есть сведения', icon:'ri-parent-line' }, { id:'none', label:'Нет сведений', icon:'ri-user-unfollow-line' } ]
+        .map(x => ({ ...x, on: s.kidsScn === x.id ? 'true' : 'false', onClick: () => {
+          if(A) A.setKidsScn(x.id);
+          this.set({ kidsScn:x.id, kid:null });
+          if(this.state.who === 'child') this.loadKids(); else this.set({ kids:null });
+        } })),
+      ppRestart: () => { try { sessionStorage.removeItem(WIZ); } catch(e){} this.setState({ ...EMPTY, err:null, open:null, signing:false }); this.persist(); this.loadLevel(0, null); },
+    };
+  }
+}
+</script>
+</body>
+</html>

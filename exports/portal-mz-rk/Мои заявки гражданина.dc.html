@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → «Мои заявки» (постановка «Прикрепление к поликлинике», 09.11.2026, раздел «Мои заявки»):
+  ранее поданные запросы на прикрепление — только поданные самим пользователем.
+    • фильтр по статусу — сегменты со счётчиками (один клик, без «Применить»);
+    • фильтр по периоду подачи — За всё время / 30 дней / 3 месяца / год / свой период (с — по);
+    • строка ведёт в карточку заявки;
+    • под статусом — дата и время последнего обновления статуса.
+  Сортировка — по номеру, дате подачи, статусу (по умолчанию новые сверху). Узко — строки становятся карточками.
+  Фильтры и сортировка — sessionStorage `mp-attach-reqs-ui`. Данные — AttachData (window.mpAttach).
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mr-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes mr-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
+
+  .mr-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .mr-wrap{padding:24px 24px 80px;} }
+  .mr-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .mr-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .mr-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .mr-main{min-width:0;display:flex;flex-direction:column;gap:16px;container:mrmain / inline-size;animation:mp-fade .2s ease;}
+  .mr-h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+
+  /* Карточка реестра */
+  .mr-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
+  .mr-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--stroke);}
+
+  /* Статусы — сегменты */
+  .mr-seg{display:flex;align-items:center;gap:2px;flex-wrap:wrap;}
+  .mr-chip{height:36px;display:inline-flex;align-items:center;gap:7px;padding:0 10px;border:1px solid transparent;border-radius:10px;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;transition:background .12s,color .12s,border-color .12s;}
+  .mr-chip:hover{background:var(--n100);color:var(--n900);}
+  .mr-chip[aria-pressed="true"]{background:var(--primary-lighter);border-color:#DDE3FF;color:var(--primary-darker);font-weight:600;}
+  .mr-chip[disabled]{opacity:.45;cursor:default;}
+  .mr-chip[disabled]:hover{background:none;color:var(--n500);}
+  .mr-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .mr-chip[aria-pressed="true"] .mr-n{background:var(--n0);color:var(--primary-darker);}
+
+  /* Период */
+  .mr-per{position:relative;margin-left:auto;display:flex;align-items:center;}
+  .mr-per-btn{height:36px;display:inline-flex;align-items:center;gap:8px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);cursor:pointer;white-space:nowrap;box-shadow:var(--sh-xs);transition:border-color .12s,background .12s,box-shadow .12s;}
+  .mr-per-btn:hover{border-color:var(--n300);background:var(--n50);}
+  .mr-per-btn[aria-expanded="true"]{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .mr-per-btn[data-on="true"]{padding-right:36px;border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .mr-per-btn i{font-size:18px;color:var(--n400);}
+  .mr-per-btn[data-on="true"] i{color:var(--primary);}
+  .mr-per-x{position:absolute;right:4px;top:4px;width:28px;height:28px;border:none;border-radius:8px;background:none;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;padding:0;}
+  .mr-per-x:hover{background:#E2E8FF;}
+  .mr-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:300px;max-width:calc(100vw - 32px);background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;animation:mr-pop .14s ease;}
+  .mr-po{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .mr-po:hover,.mr-po:focus-visible{background:var(--n100);outline:none;}
+  .mr-po[aria-checked="true"]{color:var(--primary-darker);font-weight:600;}
+  .mr-po i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .mr-range{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px 6px;border-top:1px solid var(--stroke);margin-top:4px;}
+  .mr-range label{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .mr-range input{width:100%;height:38px;padding:0 8px;border:1px solid var(--stroke);border-radius:10px;font-family:inherit;font-size:14px;color:var(--n900);background:var(--n0);outline:none;transition:border-color .12s,box-shadow .12s;}
+  .mr-range input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .mr-range-a{grid-column:1 / -1;display:flex;justify-content:flex-end;gap:8px;padding-top:6px;}
+
+  /* Таблица */
+  .mr-tbl{width:100%;border-collapse:collapse;}
+  .mr-tbl th{padding:12px 16px;font-size:12px;line-height:16px;font-weight:500;color:var(--n500);text-align:left;white-space:nowrap;background:var(--n50);border-bottom:1px solid var(--stroke);}
+  .mr-tbl th:first-child{padding-left:20px;}
+  .mr-tbl td{padding:14px 16px;font-size:14px;line-height:20px;color:var(--n900);vertical-align:middle;border-bottom:1px solid var(--n200);}
+  .mr-tbl td:first-child{padding-left:20px;}
+  .mr-tbl tbody tr{cursor:pointer;transition:background .12s;}
+  .mr-tbl tbody tr:hover{background:var(--n50);}
+  .mr-tbl tbody tr:last-child td{border-bottom:none;}
+  .mr-tbl tbody tr:last-child td:first-child{border-bottom-left-radius:19px;}
+  .mr-tbl tbody tr:last-child td:last-child{border-bottom-right-radius:19px;}
+  .mr-sort{display:inline-flex;align-items:center;gap:4px;margin:-4px -6px;padding:4px 6px;border:none;border-radius:6px;background:none;font:inherit;color:inherit;cursor:pointer;}
+  .mr-sort:hover{background:var(--n100);color:var(--n900);}
+  .mr-sort i{font-size:14px;color:var(--n400);}
+  .mr-sort[data-on="true"]{color:var(--n900);}
+  .mr-sort[data-on="true"] i{color:var(--primary);}
+  .mr-num{font-weight:600;color:var(--primary);text-decoration:none;font-variant-numeric:tabular-nums;border-radius:4px;white-space:nowrap;}
+  tr:hover .mr-num{text-decoration:underline;text-underline-offset:3px;}
+  .mr-sub{display:block;font-size:13px;line-height:18px;color:var(--n500);}
+  .mr-fio{white-space:nowrap;}
+  @media (max-width:1536px){ .mr-tbl th,.mr-tbl td{padding-left:12px;padding-right:12px;} .mr-tbl th:last-child,.mr-tbl td:last-child{padding-right:16px;} }
+  .mr-mo{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .mr-dt{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .mr-st{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;}
+  .mr-st::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .mr-st.blue{background:var(--primary-lighter);color:var(--primary-darker);}
+  .mr-st.green{background:var(--green-l);color:var(--green-d);}
+  .mr-st.red{background:var(--red-l);color:var(--red-d);}
+  .mr-st.orange{background:var(--orange-l);color:var(--orange-d);}
+  .mr-upd{display:block;margin-top:4px;font-size:12px;line-height:16px;color:var(--n500);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .mr-go{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--n400);font-size:20px;transition:background .12s,color .12s;}
+  tr:hover .mr-go{background:var(--n0);color:var(--primary);box-shadow:0 0 0 1px var(--stroke);}
+
+  /* Узкий контейнер: строки — карточками */
+  .mr-cards{display:none;list-style:none;margin:0;padding:8px;}
+  .mr-cards a{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:12px;text-decoration:none;color:var(--n900);transition:background .12s;}
+  .mr-cards a:hover{background:var(--n50);}
+  .mr-cards li + li a{border-top:1px solid var(--n200);border-radius:0;}
+  .mr-c-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .mr-c-row{display:flex;flex-direction:column;gap:2px;font-size:14px;line-height:20px;}
+  .mr-c-row > span:first-child{font-size:12px;line-height:16px;color:var(--n500);}
+  @container mrmain (max-width:820px){
+    .mr-tbl{display:none;}
+    .mr-cards{display:block;}
+  }
+
+  .mr-empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 24px 64px;text-align:center;}
+  .mr-empty-ic{width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:28px;}
+  .mr-empty-t{font-size:16px;line-height:24px;font-weight:600;color:var(--n900);}
+  .mr-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);transition:background .15s,border-color .15s,color .15s;}
+  .mr-btn:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .mr-btn.pri{border-color:var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .mr-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .mr-btn.sm{height:34px;padding:0 12px;font-size:13px;}
+  .mr-btn[disabled]{opacity:.45;cursor:not-allowed;box-shadow:none;}
+  .mr-btn.pri[disabled]:hover{background:var(--primary);border-color:var(--primary);}
+  .mr-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:960px 100%;animation:mr-sh 1.3s linear infinite;}
+
+  :is(.mr-chip,.mr-per-btn,.mr-per-x,.mr-sort,.mr-num,.mr-btn,.mr-crumbs a,.mr-cards a):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .mr-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+
+  @media (min-width:1800px){
+    .mr-bar{padding:18px 24px;}
+    .mr-tbl th:first-child,.mr-tbl td:first-child{padding-left:24px;}
+    .mr-tbl td{padding:16px 18px;}
+  }
+  @media (max-width:1024px){
+    .mr-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .mr-wrap{padding:16px 16px 80px;}
+    .mr-crumbs{margin-bottom:16px;}
+    .mr-h1{font-size:22px;line-height:30px;}
+    .mr-card{border-radius:16px;}
+    .mr-bar{padding:12px;}
+    .mr-seg{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -12px;padding:0 12px;width:calc(100% + 24px);}
+    .mr-seg::-webkit-scrollbar{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){ .mr-sk,.mr-pop{animation:none;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+  <dc-import name="FamilyData" hint-size="0px,0px"></dc-import>
+  <dc-import name="AttachData" hint-size="0px,0px"></dc-import>
+
+  <div class="mr-wrap">
+    <nav class="mr-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Мои заявки</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="requests" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="mr-main">
+        <h1 class="mr-h1">Мои заявки</h1>
+
+        <section class="mr-card" aria-label="Заявки на прикрепление">
+          <!-- Фильтры -->
+          <div class="mr-bar">
+            <div class="mr-seg" role="group" aria-label="Статус">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="5">
+                <button type="button" class="mr-chip" aria-pressed="{{ c.on }}" disabled="{{ c.off }}" onClick="{{ c.onClick }}">{{ c.label }}<span class="mr-n">{{ c.n }}</span></button>
+              </sc-for>
+            </div>
+            <div class="mr-per" ref="{{ perRef }}">
+              <button type="button" class="mr-per-btn" aria-haspopup="true" aria-expanded="{{ perOpen }}" data-on="{{ perOn }}" onClick="{{ perToggle }}" aria-label="{{ perAria }}">
+                <i class="ri-calendar-line" aria-hidden="true"></i><span class="num">{{ perLabel }}</span>
+                <sc-if value="{{ perIdle }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></sc-if>
+              </button>
+              <sc-if value="{{ perHasX }}" hint-placeholder-val="{{ false }}">
+                <button type="button" class="mr-per-x" onClick="{{ perClear }}" aria-label="Сбросить период" data-tip="Сбросить период"><i class="ri-close-line"></i></button>
+              </sc-if>
+              <sc-if value="{{ perIsOpen }}" hint-placeholder-val="{{ false }}">
+                <div class="mr-pop" role="dialog" aria-label="Период подачи" onKeyDown="{{ perKey }}">
+                  <div role="radiogroup" aria-label="Период подачи">
+                    <sc-for list="{{ perOpts }}" as="o" hint-placeholder-count="5">
+                      <button type="button" class="mr-po" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isOn }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if></button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ customOpen }}" hint-placeholder-val="{{ false }}">
+                    <div class="mr-range">
+                      <label>с<input type="date" aria-label="Дата подачи с" value="{{ dFrom }}" max="{{ dFromMax }}" onChange="{{ onFrom }}" ref="{{ fromRef }}"></label>
+                      <label>по<input type="date" aria-label="Дата подачи по" value="{{ dTo }}" min="{{ dToMin }}" max="{{ today }}" onChange="{{ onTo }}"></label>
+                      <div class="mr-range-a"><button type="button" class="mr-btn pri sm" onClick="{{ applyRange }}" disabled="{{ rangeOff }}">Применить</button></div>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- Загрузка -->
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:8px 20px 16px;display:flex;flex-direction:column;" aria-busy="true">
+              <sc-for list="{{ sk }}" as="k" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;gap:24px;padding:16px 0;border-bottom:1px solid var(--n100);"><span class="mr-sk" style="width:70px;height:12px;"></span><span class="mr-sk" style="{{ k.w }}"></span><span class="mr-sk" style="width:90px;height:12px;margin-left:auto;"></span><span class="mr-sk" style="width:110px;height:22px;border-radius:999px;"></span></div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- Список -->
+          <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+            <table class="mr-tbl">
+              <thead>
+                <tr>
+                  <th scope="col" aria-sort="{{ sNum }}"><button type="button" class="mr-sort" data-on="{{ sNumOn }}" onClick="{{ sortNum }}">№ заявки<i class="{{ sNumIc }}" aria-hidden="true"></i></button></th>
+                  <th scope="col">Заявитель</th>
+                  <th scope="col">Медицинская организация</th>
+                  <th scope="col" aria-sort="{{ sAt }}"><button type="button" class="mr-sort" data-on="{{ sAtOn }}" onClick="{{ sortAt }}">Дата подачи<i class="{{ sAtIc }}" aria-hidden="true"></i></button></th>
+                  <th scope="col" aria-sort="{{ sSt }}"><button type="button" class="mr-sort" data-on="{{ sStOn }}" onClick="{{ sortSt }}">Статус<i class="{{ sStIc }}" aria-hidden="true"></i></button></th>
+                  <th scope="col" style="width:48px;"><span class="mr-sr">Открыть</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+                  <tr onClick="{{ r.open }}">
+                    <td><a class="mr-num" href="{{ r.href }}" aria-label="{{ r.aria }}">{{ r.num }}</a></td>
+                    <td><span class="mr-fio">{{ r.fio }}</span></td>
+                    <td><span class="mr-mo" title="{{ r.moFull }}">{{ r.mo }}</span></td>
+                    <td><span class="mr-dt">{{ r.at }}</span><span class="mr-sub mr-dt">{{ r.atT }}</span></td>
+                    <td><span class="{{ r.stCls }}">{{ r.st }}</span><span class="mr-upd" data-tip="Дата последнего обновления статуса">Обновлено {{ r.upd }}</span></td>
+                    <td><span class="mr-go" aria-hidden="true"><i class="ri-arrow-right-s-line"></i></span></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <ul class="mr-cards">
+              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+                <li>
+                  <a href="{{ r.href }}" aria-label="{{ r.aria }}">
+                    <span class="mr-c-top"><span class="mr-num">№ {{ r.num }}</span><span class="{{ r.stCls }}">{{ r.st }}</span></span>
+                    <span class="mr-c-row"><span>Заявитель</span><span>{{ r.fio }}</span></span>
+                    <span class="mr-c-row"><span>Медицинская организация</span><span>{{ r.mo }}</span></span>
+                    <span class="mr-c-row"><span>Дата подачи</span><span class="num">{{ r.at }}, {{ r.atT }}</span></span>
+                    <span class="mr-upd">Обновлено {{ r.upd }}</span>
+                  </a>
+                </li>
+              </sc-for>
+            </ul>
+          </sc-if>
+
+          <!-- Пусто -->
+          <sc-if value="{{ noMatch }}" hint-placeholder-val="{{ false }}">
+            <div class="mr-empty" role="status">
+              <div class="mr-empty-ic" aria-hidden="true"><i class="ri-file-search-line"></i></div>
+              <div class="mr-empty-t">Заявки не найдены</div>
+              <button type="button" class="mr-btn" onClick="{{ resetAll }}"><i class="ri-filter-off-line" aria-hidden="true"></i>Сбросить фильтры</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noAny }}" hint-placeholder-val="{{ false }}">
+            <div class="mr-empty" role="status">
+              <div class="mr-empty-ic" aria-hidden="true"><i class="ri-draft-line"></i></div>
+              <div class="mr-empty-t">Заявок пока нет</div>
+              <a class="mr-btn pri" href="Услуги гражданина.dc.html"><i class="ri-government-line" aria-hidden="true"></i>Перейти к услугам</a>
+            </div>
+          </sc-if>
+        </section>
+        <span class="mr-sr" aria-live="polite">{{ live }}</span>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const UI = 'mp-attach-reqs-ui';
+const CARD = 'Заявка на прикрепление.dc.html';
+const PERIODS = [
+  { id:'all', label:'За всё время' },
+  { id:'30', label:'За 30 дней', days:30 },
+  { id:'90', label:'За 3 месяца', days:90 },
+  { id:'365', label:'За год', days:365 },
+  { id:'custom', label:'Свой период' },
+];
+const SK = [38, 30, 44, 34, 40].map(w => ({ w:`width:${w}%;height:12px;` }));
+const pad = n => String(n).padStart(2, '0');
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const ru = s => s ? s.split('-').reverse().join('.') : '';
+const startOf = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
+
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'hm-tip'; el.setAttribute('role', 'tooltip'); el.style.cssText = 'position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:#0A0D14;color:#fff;font:500 13px/1.45 Inter,system-ui,sans-serif;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transition:opacity .14s ease;'; document.body.appendChild(el); }
+    el.textContent = txt; el.style.opacity = '0'; el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => { if(el) el.style.opacity = '1'; });
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+  const _hide = hide; document.addEventListener('keydown', (e) => { if(e.key === 'Escape') _hide(); });
+};
+
+const DEF = { status:'all', period:'all', from:'', to:'', sort:'at', dir:'desc' };
+
+class Component extends DCLogic {
+  perRef = React.createRef();
+  fromRef = React.createRef();
+  state = { ready:false, list:[], ...DEF, perOpen:false, customOpen:false, dFrom:'', dTo:'', live:'' };
+
+  componentDidMount(){
+    installTips();
+    try { const u = JSON.parse(sessionStorage.getItem(UI) || 'null'); if(u) this.setState({ ...DEF, ...u }); } catch(e){}
+    this._go = () => this.load();
+    if(window.mpAttach) this.load();
+    window.addEventListener('mp-attach-ready', this._go);
+    window.addEventListener('mp-attach-change', this._go);
+    window.addEventListener('storage', this._go);
+    this._down = (e) => { if(this.state.perOpen && this.perRef.current && !this.perRef.current.contains(e.target)) this.setState({ perOpen:false }); };
+    document.addEventListener('mousedown', this._down);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-attach-ready', this._go);
+    window.removeEventListener('mp-attach-change', this._go);
+    window.removeEventListener('storage', this._go);
+    document.removeEventListener('mousedown', this._down);
+  }
+  load(){
+    const A = window.mpAttach; if(!A) return;
+    // Короткая загрузка — как у живого сервиса
+    if(!this.state.ready){ setTimeout(() => this.setState({ ready:true, list:A.list() }), 450); }
+    else this.setState({ list:A.list() });
+  }
+  save(patch){
+    this.setState(patch);
+    const s = this.state;
+    try { sessionStorage.setItem(UI, JSON.stringify({ status:s.status, period:s.period, from:s.from, to:s.to, sort:s.sort, dir:s.dir })); } catch(e){}
+  }
+
+  // Период подачи: [от, до) в мс
+  range(){
+    const s = this.state, now = Date.now();
+    if(s.period === 'custom'){
+      const a = s.from ? startOf(s.from) : -Infinity;
+      const b = s.to ? startOf(s.to) + 86400000 : Infinity;
+      return [a, b];
+    }
+    const p = PERIODS.find(x => x.id === s.period);
+    if(!p || !p.days) return [-Infinity, Infinity];
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    return [t.getTime() - (p.days - 1) * 86400000, Infinity];
+  }
+  sortBy(key){
+    const s = this.state;
+    const dir = s.sort === key ? (s.dir === 'desc' ? 'asc' : 'desc') : (key === 'st' ? 'asc' : 'desc');
+    this.save({ sort:key, dir });
+  }
+
+  renderVals(){
+    const s = this.state, A = window.mpAttach;
+    const ORDER = A ? A.ORDER : [], STATUS = A ? A.STATUS : {};
+    const [ra, rb] = this.range();
+    const inPeriod = s.list.filter(a => a.at >= ra && a.at < rb);
+    const count = (id) => inPeriod.filter(a => id === 'all' || a.status === id).length;
+
+    const chips = ['all'].concat(ORDER).map(id => {
+      const n = count(id), on = s.status === id;
+      return { label: id === 'all' ? 'Все' : STATUS[id].label, n, on: on ? 'true' : 'false', off: !on && id !== 'all' && n === 0,
+        onClick: () => this.save({ status:id, live: (id === 'all' ? 'Все заявки' : STATUS[id].label) + ': ' + n }) };
+    });
+
+    let rows = inPeriod.filter(a => s.status === 'all' || a.status === s.status);
+    const k = s.dir === 'asc' ? 1 : -1;
+    rows = rows.slice().sort((x, y) => {
+      if(s.sort === 'num') return k * x.num.localeCompare(y.num);
+      if(s.sort === 'st') return k * (ORDER.indexOf(x.status) - ORDER.indexOf(y.status)) || (y.at - x.at);
+      return k * (x.at - y.at);
+    });
+    const rowsV = rows.map(a => {
+      const st = STATUS[a.status], href = CARD + '?n=' + encodeURIComponent(a.num);
+      return { num:a.num, href, fio:a.who.fio, mo:a.mo.short, moFull:a.mo.name,
+        at:A.fmtDate(a.at), atT:A.fmtTime(a.at), st:st.label, stCls:'mr-st ' + st.tone, upd:A.fmtDT(a.upd),
+        aria: `Заявка № ${a.num}, ${a.who.fio}, ${st.label}`,
+        open: (e) => { if(e.target.closest && e.target.closest('a')) return; location.href = href; } };
+    });
+
+    const per = PERIODS.find(p => p.id === s.period) || PERIODS[0];
+    let perLabel = per.label;
+    if(s.period === 'custom') perLabel = s.from && s.to ? ru(s.from) + ' — ' + ru(s.to) : s.from ? 'с ' + ru(s.from) : s.to ? 'по ' + ru(s.to) : 'Свой период';
+    const perOn = s.period !== 'all';
+    const today = iso(new Date());
+    const sortIc = (key) => s.sort === key ? (s.dir === 'asc' ? 'ri-arrow-up-line' : 'ri-arrow-down-line') : 'ri-arrow-up-down-line';
+    const aria = (key) => s.sort === key ? (s.dir === 'asc' ? 'ascending' : 'descending') : 'none';
+    const filtered = s.status !== 'all' || perOn;
+
+    return {
+      perRef:this.perRef, fromRef:this.fromRef, live:s.live,
+      chips,
+      perOpen: s.perOpen ? 'true' : 'false', perIsOpen: s.perOpen, perOn: perOn ? 'true' : 'false', perLabel,
+      perAria: 'Период подачи: ' + perLabel, perIdle: !perOn, perHasX: perOn,
+      perToggle: () => this.setState({ perOpen:!s.perOpen, customOpen: s.period === 'custom', dFrom:s.from, dTo:s.to }),
+      perClear: () => this.save({ period:'all', from:'', to:'', perOpen:false, live:'Период сброшен' }),
+      perKey: (e) => { if(e.key === 'Escape'){ e.preventDefault(); this.setState({ perOpen:false }); const b = this.perRef.current && this.perRef.current.querySelector('.mr-per-btn'); if(b) b.focus(); } },
+      perOpts: PERIODS.map(p => {
+        const on = p.id === 'custom' ? s.customOpen || s.period === 'custom' : (!s.customOpen && s.period === p.id);
+        return { label:p.label, on: on ? 'true' : 'false', isOn: on && p.id !== 'custom',
+          onClick: () => {
+            if(p.id === 'custom'){ this.setState({ customOpen:true, dFrom:s.from, dTo:s.to }); setTimeout(() => { if(this.fromRef.current) this.fromRef.current.focus(); }, 0); return; }
+            this.save({ period:p.id, from:'', to:'', perOpen:false, customOpen:false });
+          } };
+      }),
+      customOpen: s.customOpen, dFrom:s.dFrom, dTo:s.dTo, today,
+      dFromMax: s.dTo || today, dToMin: s.dFrom || '',
+      onFrom: (e) => this.setState({ dFrom:e.target.value }), onTo: (e) => this.setState({ dTo:e.target.value }),
+      rangeOff: !s.dFrom && !s.dTo || (s.dFrom && s.dTo && s.dFrom > s.dTo),
+      applyRange: () => this.save({ period:'custom', from:s.dFrom, to:s.dTo, perOpen:false }),
+
+      loading: !s.ready, sk:SK,
+      hasRows: s.ready && rowsV.length > 0, rows: rowsV,
+      noMatch: s.ready && !rowsV.length && s.list.length > 0, noAny: s.ready && !s.list.length,
+      resetAll: () => this.save({ ...DEF, sort:s.sort, dir:s.dir, live:'Фильтры сброшены' }),
+
+      sNum: aria('num'), sNumOn: s.sort === 'num' ? 'true' : 'false', sNumIc: sortIc('num'), sortNum: () => this.sortBy('num'),
+      sAt: aria('at'), sAtOn: s.sort === 'at' ? 'true' : 'false', sAtIc: sortIc('at'), sortAt: () => this.sortBy('at'),
+      sSt: aria('st'), sStOn: s.sort === 'st' ? 'true' : 'false', sStIc: sortIc('st'), sortSt: () => this.sortBy('st'),
+    };
+  }
+}
+</script>
+</body>
+</html>
