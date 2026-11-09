@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  «Здоровье на каждом этапе жизни» (постановка от 06.11.2026) — три уровня на одной странице, адрес — в хэше:
+    #                      — шесть тематических карточек: иллюстрация, название, для кого, краткое описание, «Подробнее»;
+    #<направление>         — страница направления: подразделы карточками (иконка, название, переход);
+    #<направление>/<тема>  — информационная страница: хлебные крошки, заголовок, оглавление длинного материала,
+                             текст с подзаголовками, списками, таблицами и предупреждениями, «Все подразделы», соседние темы.
+  Контент — LifeStagesData (генерируется из постановки: node tools/life-stages-import.mjs). Новые направления и подразделы
+  появляются автоматически — сетки рассчитаны на любое количество карточек.
+  «Хронические заболевания и ПУЗ»: тексты готовят специалисты — показываем состав будущего материала, без «рыбы».
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .hm-root{ opacity:0; }
+  html.mp-ready .hm-root{ opacity:1; transition:opacity .45s ease; }
+  .ls-top{ position:sticky; top:0; z-index:40; }
+  .ls-main{ min-height:70vh; padding-bottom:clamp(48px,5vw,96px); }
+  .ls-hero{ background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 80%, #fff), #fff); padding-top:clamp(18px,1.6vw,28px); }
+
+  /* хлебные крошки */
+  .ls-bc{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; margin:0; padding:0; list-style:none; font-size:14px; line-height:20px; color:var(--n500); }
+  .ls-bc li{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
+  .ls-bc li + li::before{ content:''; width:6px; height:6px; border-top:1.5px solid var(--n300); border-right:1.5px solid var(--n300); transform:rotate(45deg); margin-right:4px; }
+  .ls-bc a{ color:var(--b700); text-decoration:none; border-radius:6px; }
+  .ls-bc a:hover{ text-decoration:underline; text-underline-offset:3px; }
+  .ls-bc [aria-current]{ color:var(--n600); }
+
+  .ls-h1{ margin:clamp(14px,1.4vw,22px) 0 0; font-size:clamp(28px,1.5vw + 16px,46px); line-height:1.1; font-weight:600; letter-spacing:-.03em; color:var(--n900); text-wrap:balance; }
+  .ls-sub{ margin:12px 0 0; max-width:62ch; text-wrap:pretty; font-size:clamp(15.5px,.25vw + 13px,18px); line-height:1.55; color:var(--n500); }
+  .ls-chip{ display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px; border-radius:999px; background:#fff; color:var(--n600); font-size:13px; font-weight:500; box-shadow:inset 0 0 0 1px var(--n200); white-space:nowrap; }
+  .ls-chip i{ font-size:15px; color:var(--b600); }
+
+  /* ——— 1. направления ——— */
+  .ls-grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(14px,1.3vw,24px); margin-top:clamp(24px,2.4vw,40px); }
+  .ls-card{ position:relative; display:flex; flex-direction:column; border-radius:24px; background:#fff; color:var(--n900); text-decoration:none; overflow:hidden;
+    border:1px solid var(--n200); transition:border-color .2s, box-shadow .25s, transform .25s; }
+  .ls-card:hover{ border-color:color-mix(in srgb, var(--a3) 40%, var(--n200)); box-shadow:0 28px 48px -32px color-mix(in srgb, var(--a5) 55%, transparent); transform:translateY(-2px); }
+  .ls-card:focus-visible{ outline:2px solid var(--b500); outline-offset:3px; }
+  .ls-pic{ position:relative; aspect-ratio:16/9; background:linear-gradient(140deg, var(--bg1), var(--bg2)); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .ls-pic::after{ content:''; position:absolute; width:62%; aspect-ratio:1; border-radius:50%; background:radial-gradient(closest-side, rgba(255,255,255,.75), transparent); }
+  .ls-pic .art{ position:relative; z-index:1; width:min(52%, 260px); aspect-ratio:240/200; transition:transform .5s cubic-bezier(.2,.7,.2,1); }
+  .ls-card:hover .ls-pic .art{ transform:translateY(-6px) scale(1.04); }
+  .ls-bd{ display:flex; flex-direction:column; align-items:flex-start; gap:10px; flex:1; padding:clamp(18px,1.4vw,24px); }
+  .ls-aud{ font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:color-mix(in srgb, var(--a4) 80%, var(--n600)); }
+  .ls-bd h2{ margin:0; font-size:clamp(18px,.4vw + 13px,21px); line-height:1.3; font-weight:600; letter-spacing:-.016em; text-wrap:balance; }
+  .ls-bd p{ margin:0; font-size:15px; line-height:1.5; color:var(--n500); }
+  .ls-more{ margin-top:auto; padding-top:6px; display:inline-flex; align-items:center; gap:6px; font-size:15px; font-weight:600; color:var(--b700); }
+  .ls-more i{ font-size:18px; transition:transform .2s; }
+  .ls-card:hover .ls-more i{ transform:translateX(3px); }
+
+  .ls-cta{ display:flex; align-items:center; gap:clamp(16px,2vw,32px); margin-top:clamp(24px,2.4vw,40px); padding:clamp(20px,2vw,32px); border-radius:24px; background:var(--b50); }
+  .ls-cta .ic{ width:56px; height:56px; flex:0 0 auto; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:26px; color:#fff; background:linear-gradient(145deg, var(--b400), var(--b700)); }
+  .ls-cta div{ flex:1; min-width:0; }
+  .ls-cta b{ display:block; font-size:clamp(17px,.3vw + 14px,20px); line-height:1.3; font-weight:600; letter-spacing:-.014em; }
+  .ls-cta span{ display:block; margin-top:4px; font-size:15px; line-height:1.5; color:var(--n600); }
+  .ls-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; height:48px; padding:0 20px; border:none; border-radius:14px; background:var(--b600); color:#fff; font:600 15.5px/1 'Inter',sans-serif; text-decoration:none; cursor:pointer; white-space:nowrap; transition:background .15s; }
+  .ls-btn i{ font-size:19px; }
+  .ls-btn:hover{ background:var(--b700); }
+  .ls-btn.line{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .ls-btn.line i{ color:var(--b600); }
+  .ls-btn.line:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); }
+  .ls-btn:focus-visible{ outline:2px solid var(--b500); outline-offset:3px; }
+
+  /* ——— 2. направление ——— */
+  .ls-sh{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:24px; }
+  .ls-sh .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .ls-sh-art{ width:clamp(150px,14vw,240px); aspect-ratio:1; border-radius:32px; background:linear-gradient(140deg, var(--bg1), var(--bg2)); display:flex; align-items:center; justify-content:center; }
+  .ls-sh-art .art{ width:84%; aspect-ratio:240/200; }
+  .ls-subs{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:clamp(10px,1vw,16px); margin-top:clamp(24px,2.4vw,40px); }
+  .ls-sub-card{ display:flex; align-items:center; gap:14px; min-height:84px; padding:14px 18px 14px 14px; border-radius:20px; background:#fff; border:1px solid var(--n200); color:var(--n900); text-decoration:none;
+    transition:border-color .2s, box-shadow .2s, background .2s; }
+  .ls-sub-card:hover{ border-color:var(--b200); background:color-mix(in srgb, var(--b50) 35%, #fff); box-shadow:0 18px 36px -30px rgba(10,13,20,.4); }
+  .ls-sub-card:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .ls-sub-card .ic{ width:48px; height:48px; flex:0 0 auto; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:23px; background:var(--bg1); color:var(--a4); }
+  .ls-sub-card.warn .ic{ background:var(--red-l); color:var(--red); }
+  .ls-sub-card .tx{ flex:1; min-width:0; }
+  .ls-sub-card b{ display:block; font-size:16px; line-height:1.35; font-weight:600; letter-spacing:-.01em; text-wrap:balance; }
+  .ls-sub-card small{ display:block; margin-top:2px; font-size:13.5px; color:var(--n500); }
+  .ls-sub-card > i{ font-size:20px; color:var(--n300); transition:color .2s, transform .2s; }
+  .ls-sub-card:hover > i{ color:var(--b600); transform:translateX(3px); }
+  .ls-h2{ margin:clamp(40px,4vw,72px) 0 0; font-size:clamp(20px,.6vw + 14px,26px); line-height:1.2; font-weight:600; letter-spacing:-.02em; }
+  .ls-others{ display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:clamp(10px,1vw,16px); margin-top:16px; }
+  .ls-other{ display:flex; flex-direction:column; gap:10px; padding:12px 12px 16px; border-radius:20px; background:var(--n100); color:var(--n900); text-decoration:none; transition:background .2s; }
+  .ls-other:hover{ background:linear-gradient(140deg, var(--bg1), var(--bg2)); }
+  .ls-other:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .ls-other .art{ width:64px; aspect-ratio:240/200; }
+  .ls-other b{ font-size:14.5px; line-height:1.35; font-weight:600; text-wrap:balance; }
+
+  /* ——— 3. информационная страница ——— */
+  .ls-page{ display:grid; grid-template-columns:clamp(220px,18vw,280px) minmax(0,1fr); gap:clamp(28px,4vw,80px); margin-top:clamp(24px,2.4vw,40px); align-items:start; }
+  .ls-page.solo{ grid-template-columns:minmax(0,1fr); }
+  .ls-toc{ position:sticky; top:96px; }
+  .ls-toc p{ margin:0 0 10px 14px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .ls-toc ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; border-left:2px solid var(--n200); }
+  .ls-toc a{ display:block; margin-left:-2px; padding:8px 12px 8px 14px; border-left:2px solid transparent; font-size:14.5px; line-height:1.4; color:var(--n600); text-decoration:none; border-radius:0 10px 10px 0; transition:background .15s, color .15s, border-color .15s; }
+  .ls-toc a:hover{ background:var(--n100); color:var(--n900); }
+  .ls-toc a[aria-current="true"]{ border-left-color:var(--b600); background:var(--b50); color:var(--b800); font-weight:600; }
+  .ls-toc a:focus-visible{ outline:2px solid var(--b500); outline-offset:-2px; }
+  .ls-toc-m{ display:none; }
+  .ls-art{ max-width:780px; font-size:16.5px; line-height:1.7; color:var(--n700); }
+  .ls-art > :first-child{ margin-top:0; }
+  .ls-art p{ margin:0 0 14px; }
+  .ls-art p.lead{ font-size:clamp(17px,.25vw + 14.5px,19px); line-height:1.6; color:var(--n600); }
+  .ls-art h2{ scroll-margin-top:96px; margin:clamp(30px,2.6vw,40px) 0 12px; font-size:clamp(20px,.5vw + 15px,24px); line-height:1.3; font-weight:600; letter-spacing:-.018em; color:var(--n900); }
+  .ls-art p.lbl{ margin:20px 0 8px; font-weight:600; color:var(--n900); }
+  .ls-art ul, .ls-art ol{ margin:0 0 16px; padding-left:24px; display:flex; flex-direction:column; gap:6px; }
+  .ls-art ul ul{ margin:6px 0 0; }
+  .ls-art li::marker{ color:var(--b500); }
+  .ls-art ol li::marker{ font-weight:600; }
+  .ls-art b{ font-weight:600; color:var(--n900); }
+  .ls-art .tbl{ margin:4px 0 20px; overflow-x:auto; border:1px solid var(--n200); border-radius:16px; }
+  .ls-art table{ width:100%; border-collapse:collapse; font-size:15px; line-height:1.5; }
+  .ls-art th{ text-align:left; padding:12px 16px; background:var(--n100); color:var(--n600); font-size:13px; font-weight:600; letter-spacing:.02em; border-bottom:1px solid var(--n200); }
+  .ls-art td{ padding:12px 16px; vertical-align:top; border-top:1px solid var(--n200); }
+  .ls-art tbody tr:first-child td{ border-top:none; }
+  .ls-art td:first-child{ white-space:nowrap; font-weight:600; color:var(--n900); }
+  .ls-art .alert{ display:flex; gap:14px; margin:24px 0; padding:16px 18px; border-radius:16px; background:var(--red-l); color:var(--red-d); }
+  .ls-art .alert > i{ font-size:22px; line-height:1.4; color:var(--red); }
+  .ls-art .alert b{ color:var(--red-d); }
+  .ls-art .alert p{ margin:4px 0 0; color:var(--red-d); }
+  .ls-art .alert .sos{ display:inline-flex; align-items:center; gap:8px; height:40px; margin-top:12px; padding:0 16px; border-radius:12px; background:var(--red); color:#fff; font-size:15px; font-weight:600; text-decoration:none; }
+  .ls-art .alert .sos:hover{ background:color-mix(in srgb, var(--red) 85%, #000); }
+  .ls-art .alert .sos:focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
+  .ls-soon{ max-width:780px; }
+  .ls-soon .note{ display:flex; gap:14px; padding:18px 20px; border-radius:18px; background:var(--b50); color:var(--n700); font-size:15.5px; line-height:1.6; }
+  .ls-soon .note > i{ font-size:22px; line-height:1.4; color:var(--b600); }
+  .ls-soon .note b{ display:block; color:var(--n900); font-weight:600; }
+  .ls-soon h2{ margin:28px 0 10px; font-size:20px; font-weight:600; letter-spacing:-.016em; color:var(--n900); }
+  .ls-sk{ display:flex; flex-direction:column; gap:10px; }
+  .ls-sk span{ height:12px; border-radius:6px; background:linear-gradient(90deg, var(--n100), var(--n200) 50%, var(--n100)); background-size:200% 100%; animation:ls-sh 1.6s linear infinite; }
+  .ls-sk span:nth-child(2){ width:92%; } .ls-sk span:nth-child(3){ width:64%; }
+  @keyframes ls-sh{ to{ background-position:-200% 0; } }
+
+  .ls-nav{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:clamp(36px,3.4vw,56px); max-width:780px; }
+  .ls-nav a{ display:flex; flex-direction:column; gap:4px; padding:16px 18px; border-radius:18px; border:1px solid var(--n200); color:var(--n900); text-decoration:none; transition:border-color .2s, background .2s; }
+  .ls-nav a:hover{ border-color:var(--b200); background:color-mix(in srgb, var(--b50) 40%, #fff); }
+  .ls-nav a:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .ls-nav small{ display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--n500); }
+  .ls-nav b{ font-size:15.5px; line-height:1.35; font-weight:600; }
+  .ls-nav .next{ text-align:right; align-items:flex-end; grid-column:2; }
+  .ls-all{ margin-top:16px; }
+
+  @media (max-width:1180px){ .ls-others{ grid-template-columns:repeat(3, minmax(0,1fr)); } }
+  @media (max-width:1100px){ .ls-grid, .ls-subs{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width:960px){
+    .ls-page{ grid-template-columns:minmax(0,1fr); }
+    .ls-toc{ display:none; }
+    .ls-toc-m{ display:block; margin-bottom:24px; border:1px solid var(--n200); border-radius:16px; }
+    .ls-toc-m summary{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:14px 16px; font-size:15px; font-weight:600; cursor:pointer; list-style:none; }
+    .ls-toc-m summary::-webkit-details-marker{ display:none; }
+    .ls-toc-m summary i{ font-size:20px; color:var(--n400); transition:transform .2s; }
+    .ls-toc-m[open] summary i{ transform:rotate(180deg); }
+    .ls-toc-m ol{ list-style:none; margin:0; padding:0 8px 10px; }
+    .ls-toc-m a{ display:block; padding:9px 10px; border-radius:10px; font-size:15px; line-height:1.4; color:var(--n700); text-decoration:none; }
+    .ls-toc-m a:hover{ background:var(--n100); }
+  }
+  @media (max-width:760px){
+    .ls-sh{ grid-template-columns:minmax(0,1fr); }
+    .ls-sh-art{ display:none; }
+    .ls-cta{ flex-direction:column; align-items:flex-start; }
+    .ls-cta .ls-btn{ width:100%; }
+    .ls-others{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  }
+  @media (max-width:640px){
+    .ls-grid, .ls-subs{ grid-template-columns:minmax(0,1fr); }
+    .ls-nav{ grid-template-columns:minmax(0,1fr); }
+    .ls-nav .next{ grid-column:1; }
+    .ls-art{ font-size:16px; }
+    .ls-art td:first-child{ white-space:normal; }
+  }
+  @media (prefers-reduced-motion:reduce){ .ls-sk span{ animation:none; } }
+</style>
+</helmet>
+
+<div class="hm-root">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="HomeArt" gallery="0" hint-size="0px,0px"></dc-import>
+  <dc-import name="LifeStagesData" hint-size="0px,0px"></dc-import>
+  <div class="ls-top"><dc-import name="PortalHeader" look="light" section="stages" hint-size="100%,72px"></dc-import></div>
+
+  <main class="ls-main" ref="{{ mainRef }}">
+    <div class="ls-hero">
+      <div class="hm-wrap">
+        <nav aria-label="Навигационная цепочка">
+          <ol class="ls-bc">
+            <sc-for list="{{ crumbs }}" as="c" hint-placeholder-count="2">
+              <li><sc-if value="{{ c.link }}" hint-placeholder-val="{{ true }}"><a href="{{ c.href }}">{{ c.label }}</a></sc-if><sc-if value="{{ c.here }}" hint-placeholder-val="{{ false }}"><span aria-current="page">{{ c.label }}</span></sc-if></li>
+            </sc-for>
+          </ol>
+        </nav>
+
+        <!-- 1. НАПРАВЛЕНИЯ -->
+        <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+          <h1 class="ls-h1">Здоровье на каждом этапе жизни</h1>
+          <p class="ls-sub">Информация, рекомендации и медицинская навигация для каждого этапа жизни</p>
+        </sc-if>
+
+        <!-- 2. НАПРАВЛЕНИЕ -->
+        <sc-if value="{{ isSection }}" hint-placeholder-val="{{ false }}">
+          <div class="ls-sh" style="{{ sec.vars }}">
+            <div>
+              <h1 class="ls-h1">{{ sec.full }}</h1>
+              <p class="ls-sub">{{ sec.desc }}</p>
+              <div class="chips"><span class="ls-chip"><i class="ri-group-line"></i>{{ sec.aud }}</span></div>
+            </div>
+            <div class="ls-sh-art" aria-hidden="true"><span class="art" data-art="{{ sec.art }}"></span></div>
+          </div>
+        </sc-if>
+
+        <!-- 3. СТРАНИЦА -->
+        <sc-if value="{{ isPage }}" hint-placeholder-val="{{ false }}">
+          <h1 class="ls-h1" tabIndex="-1" ref="{{ h1Ref }}">{{ page.title }}</h1>
+          <sc-if value="{{ page.hasMeta }}" hint-placeholder-val="{{ false }}"><div style="margin-top:14px;"><span class="ls-chip"><i class="ri-time-line"></i>{{ page.meta }}</span></div></sc-if>
+        </sc-if>
+      </div>
+    </div>
+
+    <div class="hm-wrap">
+      <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+        <div class="ls-grid">
+          <sc-for list="{{ cards }}" as="c" hint-placeholder-count="6">
+            <a class="ls-card" href="{{ c.href }}" style="{{ c.vars }}">
+              <span class="ls-pic" aria-hidden="true"><span class="art" data-art="{{ c.art }}"></span></span>
+              <span class="ls-bd">
+                <span class="ls-aud">{{ c.aud }}</span>
+                <h2>{{ c.title }}</h2>
+                <p>{{ c.desc }}</p>
+                <span class="ls-more">Подробнее<i class="ri-arrow-right-line" aria-hidden="true"></i></span>
+              </span>
+            </a>
+          </sc-for>
+        </div>
+        <div class="ls-cta">
+          <span class="ic" aria-hidden="true"><i class="ri-route-line"></i></span>
+          <div><b>Персональный маршрут здоровья</b><span>Осмотры, скрининги и прививки — с учётом возраста, пола и беременности</span></div>
+          <button type="button" class="ls-btn" onClick="{{ openRoute }}">Пройти опрос<i class="ri-arrow-right-line"></i></button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isSection }}" hint-placeholder-val="{{ false }}">
+        <div class="ls-subs" style="{{ sec.vars }}">
+          <sc-for list="{{ subs }}" as="p" hint-placeholder-count="9">
+            <a class="{{ p.cls }}" href="{{ p.href }}">
+              <span class="ic" aria-hidden="true"><i class="{{ p.icon }}"></i></span>
+              <span class="tx"><b>{{ p.title }}</b><sc-if value="{{ p.hasMeta }}" hint-placeholder-val="{{ false }}"><small>{{ p.meta }}</small></sc-if></span>
+              <i class="ri-arrow-right-line" aria-hidden="true"></i>
+            </a>
+          </sc-for>
+        </div>
+        <h2 class="ls-h2">Другие направления</h2>
+        <div class="ls-others">
+          <sc-for list="{{ others }}" as="o" hint-placeholder-count="5">
+            <a class="ls-other" href="{{ o.href }}" style="{{ o.vars }}"><span class="art" data-art="{{ o.art }}" aria-hidden="true"></span><b>{{ o.title }}</b></a>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isPage }}" hint-placeholder-val="{{ false }}">
+        <div class="{{ page.layout }}">
+          <sc-if value="{{ page.hasToc }}" hint-placeholder-val="{{ true }}">
+            <nav class="ls-toc" aria-label="Содержание">
+              <p>Содержание</p>
+              <ol><sc-for list="{{ page.toc }}" as="t" hint-placeholder-count="4"><li><a href="{{ t.href }}" aria-current="{{ t.on }}" onClick="{{ t.onClick }}">{{ t.label }}</a></li></sc-for></ol>
+            </nav>
+          </sc-if>
+          <div>
+            <sc-if value="{{ page.hasToc }}" hint-placeholder-val="{{ false }}">
+              <details class="ls-toc-m"><summary>Содержание<i class="ri-arrow-down-s-line" aria-hidden="true"></i></summary>
+                <ol><sc-for list="{{ page.toc }}" as="t" hint-placeholder-count="4"><li><a href="{{ t.href }}" onClick="{{ t.onClick }}">{{ t.label }}</a></li></sc-for></ol>
+              </details>
+            </sc-if>
+            <sc-if value="{{ page.hasHtml }}" hint-placeholder-val="{{ true }}"><article class="ls-art" ref="{{ artRef }}"></article></sc-if>
+            <sc-if value="{{ page.soon }}" hint-placeholder-val="{{ false }}">
+              <div class="ls-soon">
+                <p style="margin:0 0 20px;font-size:18px;line-height:1.6;color:var(--n600);">{{ page.plan }}</p>
+                <div class="note"><i class="ri-quill-pen-line" aria-hidden="true"></i><div><b>Материал готовят специалисты Министерства здравоохранения</b>Раздел будет дополнен в ближайшее время</div></div>
+                <sc-for list="{{ page.blocks }}" as="b" hint-placeholder-count="0"><h2>{{ b }}</h2><div class="ls-sk" aria-hidden="true"><span></span><span></span><span></span></div></sc-for>
+              </div>
+            </sc-if>
+            <nav class="ls-nav" aria-label="Соседние темы">
+              <sc-if value="{{ page.hasPrev }}" hint-placeholder-val="{{ true }}"><a href="{{ page.prev.href }}"><small><i class="ri-arrow-left-line"></i>Предыдущая тема</small><b>{{ page.prev.title }}</b></a></sc-if>
+              <sc-if value="{{ page.hasNext }}" hint-placeholder-val="{{ true }}"><a class="next" href="{{ page.next.href }}"><small>Следующая тема<i class="ri-arrow-right-line"></i></small><b>{{ page.next.title }}</b></a></sc-if>
+            </nav>
+            <div class="ls-all"><a class="ls-btn line" href="{{ page.allHref }}"><i class="ri-layout-grid-line"></i>Все подразделы</a></div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+  <dc-import name="HealthRoute" mode="modal" hint-size="1px,1px"></dc-import>
+  <dc-import name="AiPanel" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const PAGE_TITLE = 'Здоровье на каждом этапе жизни';
+const parse = () => { const h = decodeURIComponent((location.hash || '').replace(/^#/, '')); const [s, p] = h.split('/'); return { s: s || '', p: p || '' }; };
+const homeHref = () => { try { return localStorage.getItem('mp-home-page') || 'Главная J - Итоговый.dc.html'; } catch(e){ return 'Главная J - Итоговый.dc.html'; } };
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.mainRef = React.createRef(); this.artRef = React.createRef(); this.h1Ref = React.createRef();
+    this.state = { ...parse(), tick:0, spy:'' };
+  }
+  componentDidMount(){
+    this._rd = () => this.setState({ tick:Date.now() });
+    ['mp-stages-ready', 'mp-art-ready', 'mp-home-ready'].forEach(e => window.addEventListener(e, this._rd));
+    this._hc = () => { const r = parse(); const prev = this.state.s + '/' + this.state.p; this.setState({ ...r, spy:'' }); if(prev !== r.s + '/' + r.p){ window.scrollTo(0, 0); setTimeout(() => { const h = this.h1Ref.current; if(h && r.p) h.focus({ preventScroll:true }); }, 60); } };
+    window.addEventListener('hashchange', this._hc);
+    this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 2500);
+    this.sync();
+  }
+  componentDidUpdate(){ this.sync(); }
+  componentWillUnmount(){
+    ['mp-stages-ready', 'mp-art-ready', 'mp-home-ready'].forEach(e => window.removeEventListener(e, this._rd));
+    window.removeEventListener('hashchange', this._hc); clearTimeout(this._fb); if(this._io) this._io.disconnect();
+  }
+  // текст страницы, иллюстрации, заголовок вкладки, отслеживание текущего раздела оглавления
+  sync(){
+    if(window.mpArt) window.mpArt.paint(this.mainRef.current);
+    const S = window.mpStages, st = this.state;
+    const sec = S && S.get(st.s), page = sec && st.p ? sec.subs.find(x => x.id === st.p) : null;
+    document.title = (page ? page.title + ' — ' : sec ? sec.title + ' — ' : '') + PAGE_TITLE;
+    const el = this.artRef.current, key = page ? sec.id + '/' + page.id : '';
+    if(el && el.__key !== key){
+      el.innerHTML = page ? page.html : ''; el.__key = key;
+      if(this._io) this._io.disconnect();
+      const hs = el.querySelectorAll('h2[id]');
+      if(hs.length && 'IntersectionObserver' in window){
+        this._io = new IntersectionObserver((ens) => { const v = ens.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if(v && v.target.id !== this.state.spy) this.setState({ spy:v.target.id }); }, { rootMargin:'-96px 0px -65% 0px' });
+        hs.forEach(h => this._io.observe(h));
+      }
+    }
+  }
+  go(id){ const t = document.getElementById(id); if(!t) return; let calm = false; try { calm = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){} t.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block:'start' }); this.setState({ spy:id }); }
+  renderVals(){
+    const S = window.mpStages, A = window.mpArt, st = this.state;
+    const tone = (t) => A ? A.tone(t) : '';
+    const sec = S && S.get(st.s), page = sec && st.p ? sec.subs.find(x => x.id === st.p) : null;
+    const view = page ? 'page' : sec ? 'section' : 'list';
+    const home = { label:'Главная', href:homeHref() }, root = { label:PAGE_TITLE, href:'#' };
+    const crumbs = (view === 'list' ? [home, { label:PAGE_TITLE }] : view === 'section' ? [home, root, { label:sec.title }] : [home, root, { label:sec.title, href:'#' + sec.id }, { label:page.title }])
+      .map(c => ({ ...c, link:!!c.href, here:!c.href }));
+    const base = { mainRef:this.mainRef, artRef:this.artRef, h1Ref:this.h1Ref, crumbs, isList:view === 'list', isSection:view === 'section', isPage:view === 'page',
+      openRoute:() => { try { window.dispatchEvent(new CustomEvent('mp-route-open')); } catch(e){} },
+      cards:[], sec:{ vars:'', full:'', desc:'', aud:'', art:'' }, subs:[], others:[],
+      page:{ title:'', meta:'', hasMeta:false, layout:'ls-page', toc:[], hasToc:false, hasHtml:false, soon:false, plan:'', blocks:[], prev:{}, next:{}, hasPrev:false, hasNext:false, allHref:'#' } };
+    if(!S) return base;
+    const L = S.SECTIONS;
+    if(view === 'list') return { ...base, cards: L.map(s => ({ ...s, href:'#' + s.id, vars:tone(s.tone) })) };
+    const secVals = { vars:tone(sec.tone), full:sec.full || sec.title, desc:sec.desc, aud:sec.aud, art:sec.art };
+    if(view === 'section') return { ...base, sec:secVals,
+      subs: sec.subs.map(p => ({ ...p, href:'#' + sec.id + '/' + p.id, hasMeta:!!p.meta, cls:'ls-sub-card' + (/обратиться/i.test(p.title) ? ' warn' : '') })),
+      others: L.filter(o => o.id !== sec.id).map(o => ({ ...o, href:'#' + o.id, vars:tone(o.tone) })) };
+    const i = sec.subs.indexOf(page), prev = sec.subs[i - 1], next = sec.subs[i + 1];
+    const toc = (page.toc || []).map(t => ({ ...t, href:'#' + sec.id + '/' + page.id, on: st.spy === t.id ? 'true' : 'false', onClick:(e) => { e.preventDefault(); this.go(t.id); } }));
+    const hasToc = toc.length >= 2;
+    return { ...base, sec:secVals,
+      page:{ title:page.title, meta:page.meta || '', hasMeta:!!page.meta, layout:'ls-page' + (hasToc ? '' : ' solo'), toc, hasToc,
+        hasHtml:!!page.html, soon:!page.html, plan:page.plan || '', blocks:page.blocks || [],
+        prev: prev ? { title:prev.title, href:'#' + sec.id + '/' + prev.id } : {}, next: next ? { title:next.title, href:'#' + sec.id + '/' + next.id } : {},
+        hasPrev:!!prev, hasNext:!!next, allHref:'#' + sec.id } };
+  }
+}
+</script>
+</body>
+</html>

@@ -320,6 +320,64 @@ const A = (() => {
       + solid(p, P('M120 144c-20-24-32-40-32-56a32 32 0 0 1 64 0c0 16-12 32-32 56z'), 7, 't', 'ts')
       + fill('#fff', C(120, 88, 14)) + cross(120, 88, 16, 6, u(p, 'r'))
       + gloss(p, 104, 70, 9, 6, -30, .7) + spark(186, 54, 9),
+
+    // ——— «Здоровье на каждом этапе жизни» ———
+    // Новорождённый — бутылочка для кормления и сердце
+    babybottle:(p) => {
+      const body = R(86, 78, 68, 96, 22);
+      return shadow(p, 122, 188, 66, 10)
+        + solid(p, P('M106 60c0-16 6-28 14-32 8 4 14 16 14 32z'), 4, 'l', 'ls')
+        + solid(p, R(92, 56, 56, 22, 8), 5, 't', 'ts')
+        + '<path d="M100 63h40" stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>'
+        + solid(p, body, 8, 'w', 'ws')
+        + '<clipPath id="' + p + 'cb">' + body + '</clipPath>'
+        + '<g clip-path="url(#' + p + 'cb)">' + fill(u(p, 'l'), R(80, 122, 80, 60, 0)) + '<ellipse cx="120" cy="122" rx="34" ry="4.5" fill="var(--a1)"/></g>'
+        + '<g stroke="' + mix('var(--a3)', 70, '#FFFFFF') + '" stroke-width="2.6" stroke-linecap="round">' + [96, 110, 124, 138, 152].map((y, i) => '<path d="M138 ' + y + 'h' + (i % 2 ? 8 : 12) + '"/>').join('') + '</g>'
+        + '<rect x="96" y="88" width="7" height="72" rx="3.5" fill="#fff" opacity=".8"/>'
+        + solid(p, C(184, 72, 22), 5, 'r', 'rs') + '<path transform="translate(171 60) scale(.17)" d="' + HEART + '" fill="#fff"/>'
+        + gloss(p, 177, 63, 8, 4.5, -28) + spark(50, 64, 9) + sphere(p, 58, 150, 8);
+    },
+    // Репродуктивное здоровье — два сердца
+    hearts:(p) => shadow(p, 116, 186, 74, 10)
+      + solid(p, '<g transform="translate(10 28) scale(.8)">' + P(HEART) + '</g>', 10, 't', 'ts')
+      + '<g transform="translate(10 28) scale(.8)">' + gloss(p, 80, 66, 18, 10, -35, .75) + '</g>'
+      + solid(p, '<g transform="translate(112 6) scale(.5)">' + P(HEART) + '</g>', 6, 'r', 'rs')
+      + '<g transform="translate(112 6) scale(.5)">' + gloss(p, 80, 66, 16, 9, -35, .8) + '</g>'
+      + spark(46, 54, 9) + sphere(p, 204, 150, 8),
+    // Беременность и роды — детская коляска
+    stroller:(p) => shadow(p, 118, 190, 84, 9)
+      + '<path d="M176 100l14-34h14" fill="none" stroke="' + u(p, 'ts') + '" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>'
+      + fill(u(p, 'ws'), R(82, 146, 7, 22, 3.5) + R(150, 146, 7, 22, 3.5))
+      + solid(p, P('M52 98h130c0 34-27 56-65 56S52 132 52 98z'), 8, 'w', 'ws')
+      + solid(p, P('M52 98a64 64 0 0 1 64-64v64z'), 8, 't', 'ts')
+      + '<g stroke="#fff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round" fill="none"><path d="M116 40v56M72 54l40 40M60 78h52"/></g>'
+      + fill(u(p, 'l'), R(60, 104, 116, 8, 4))
+      + solid(p, C(86, 170, 14), 4, 'dk', 'ts') + fill('#fff', C(86, 170, 4.5)) + solid(p, C(154, 170, 14), 4, 'dk', 'ts') + fill('#fff', C(154, 170, 4.5))
+      + spark(196, 40, 9) + sphere(p, 34, 132, 8),
+    // Хронические заболевания и ПУЗ — тонометр
+    tonometer:(p) => shadow(p, 120, 188, 88, 10)
+      + solid(p, R(34, 104, 84, 54, 18), 7, 't', 'ts')
+      + '<g stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"><path d="M48 118h40M48 130h56M48 142h30"/></g>'
+      + '<path d="M118 132c14 0 10-16 22-16" fill="none" stroke="' + u(p, 'ts') + '" stroke-width="6" stroke-linecap="round"/>'
+      + solid(p, R(122, 52, 84, 112, 20), 8, 'w', 'ws')
+      + fill(u(p, 'l'), R(134, 66, 60, 50, 10))
+      + '<path transform="translate(141 74) scale(.13)" d="' + HEART + '" fill="#DF1C41"/>'
+      + fill(u(p, 't'), R(162, 76, 24, 9, 4.5) + R(162, 92, 18, 9, 4.5)) + fill('var(--a2)', R(142, 100, 44, 6, 3))
+      + solid(p, C(164, 140, 12), 3, 't', 'ts') + gloss(p, 160, 136, 5, 3, -30, .8)
+      + spark(196, 34, 9) + sphere(p, 54, 76, 8),
+    // Здоровое долголетие — росток в горшке
+    plant:(p) => {
+      const leaf = (d) => solid(p, P(d), 5, 'e', 'es');
+      return shadow(p, 120, 188, 62, 10)
+        + leaf('M118 122c-26-6-46-30-46-58 28 4 46 26 46 58z')
+        + leaf('M122 122c26-6 46-30 46-58-28 4-46 26-46 58z')
+        + leaf('M120 118c-16-20-16-54 0-80 16 26 16 60 0 80z')
+        + '<g stroke="#fff" stroke-opacity=".6" stroke-width="2.6" stroke-linecap="round" fill="none"><path d="M120 50v62M84 74c12 10 22 24 30 40M156 74c-12 10-22 24-30 40"/></g>'
+        + solid(p, P('M88 132h64l-9 40a8 8 0 0 1-8 6h-30a8 8 0 0 1-8-6z'), 6, 't', 'ts')
+        + solid(p, R(82, 120, 76, 18, 9), 4, 't', 'ts')
+        + '<path d="M90 126h50" stroke="#fff" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>'
+        + spark(186, 50, 9) + spark(54, 132, 7) + sphere(p, 192, 140, 8);
+    },
   };
   const IDS = Object.keys(ART);
   let seq = 0;
