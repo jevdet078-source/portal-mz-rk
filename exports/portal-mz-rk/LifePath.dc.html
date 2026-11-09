@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  «Жизненный путь здоровья» — Национальный календарь прививок (ПП РК № 612) и целевые скрининги (Приказ ҚР ДСМ-174/2020)
+  по возрастным этапам. Контент — как на тестовом стенде portal.isapp (09.11.2026), подача доработана:
+    • все 9 этапов видны целиком, без обрезанных подписей; на узких экранах — горизонтальная прокрутка;
+    • «Бесплатно в рамках ГОБМП…» и «Целевой скрининг ОСМС / ПМСП» — один раз на колонку (в подсказке), а не у каждой строки;
+    • пол — значком с подписью вместо символов ♀ / ♂;
+    • с главной открывается из «Персонального маршрута здоровья»: событие 'mp-lifepath-open' { stage } или ссылка #lifepath=<stage>.
+  <dc-import name="LifePath" hint-size="100%,760px">
+-->
+<x-dc>
+<helmet>
+<style>
+  .lp{ font-family:'Inter',system-ui,sans-serif; color:var(--n900); scroll-margin-top:96px; }
+  .lp *, .lp *::before, .lp *::after{ box-sizing:border-box; }
+  .lp-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px 24px; flex-wrap:wrap; margin-bottom:clamp(20px,2vw,28px); }
+  .lp-head p{ margin:10px 0 0; font-size:clamp(15px,.2vw + 13px,17px); line-height:1.55; color:var(--n500); }
+
+  /* этапы */
+  .lp-tabs{ display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:clamp(6px,.6vw,12px); }
+  .lp-tab{ position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-height:96px; padding:12px 12px 14px; border:none; border-radius:18px; background:#fff; text-align:left; cursor:pointer;
+    font-family:inherit; color:var(--n900); box-shadow:inset 0 0 0 1px var(--n200); transition:box-shadow .18s, background .18s, color .18s, transform .18s; }
+  .lp-tab:hover{ box-shadow:inset 0 0 0 1px var(--b300); background:color-mix(in srgb, var(--b50) 50%, #fff); }
+  .lp-tab:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .lp-tab .top{ display:flex; align-items:center; justify-content:space-between; gap:6px; width:100%; }
+  .lp-tab .age{ display:inline-flex; align-items:center; height:22px; padding:0 8px; border-radius:999px; background:var(--n100); color:var(--n600); font-size:12px; font-weight:600; white-space:nowrap; transition:background .18s, color .18s; }
+  .lp-tab .top i{ font-size:18px; color:var(--n400); transition:color .18s; }
+  .lp-tab b{ margin-top:auto; font-size:clamp(13.5px,.15vw + 11.5px,15px); line-height:1.25; font-weight:600; letter-spacing:-.01em; text-wrap:balance; hyphens:manual; }
+  .lp-tab[aria-selected="true"]{ background:var(--b600); color:#fff; box-shadow:0 14px 28px -18px color-mix(in srgb, var(--b700) 90%, transparent); }
+  .lp-tab[aria-selected="true"] .age{ background:rgba(255,255,255,.18); color:#fff; }
+  .lp-tab[aria-selected="true"] .top i{ color:rgba(255,255,255,.85); }
+
+  /* панель этапа */
+  .lp-panel{ margin-top:clamp(12px,1vw,16px); padding:clamp(22px,2.2vw,40px); border-radius:28px; background:#fff; border:1px solid var(--n200); animation:lp-in .3s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes lp-in{ from{ opacity:0; transform:translateY(6px); } }
+  .lp-ph{ display:flex; gap:18px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; padding-bottom:clamp(18px,1.6vw,26px); border-bottom:1px solid var(--n200); }
+  .lp-ph h3{ margin:0; font-size:clamp(20px,.6vw + 14px,28px); line-height:1.2; font-weight:600; letter-spacing:-.022em; }
+  .lp-ph p{ margin:8px 0 0; max-width:70ch; font-size:15.5px; line-height:1.55; color:var(--n500); }
+  .lp-route{ display:inline-flex; align-items:center; gap:8px; height:44px; padding:0 16px; border:none; border-radius:12px; background:var(--b50); color:var(--b800); font:600 14.5px/1 'Inter',sans-serif; cursor:pointer; transition:background .15s; white-space:nowrap; }
+  .lp-route i{ font-size:18px; color:var(--b600); }
+  .lp-route:hover{ background:var(--b100); }
+  .lp-route:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+
+  .lp-cols{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:clamp(18px,2.4vw,48px); padding-top:clamp(18px,1.6vw,26px); }
+  .lp-ch{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .lp-ch .ic{ width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:19px; }
+  .lp-ch .ic.v{ background:var(--b50); color:var(--b600); }
+  .lp-ch .ic.s{ background:var(--green-l); color:var(--green-d); }
+  .lp-ch b{ font-size:16px; font-weight:600; letter-spacing:-.01em; }
+  .lp-badge{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 10px; border-radius:999px; font-size:12.5px; font-weight:500; white-space:nowrap; cursor:help; }
+  .lp-badge i{ font-size:14px; }
+  .lp-badge.v{ background:var(--b50); color:var(--b800); }
+  .lp-badge.s{ background:var(--green-l); color:var(--green-d); }
+  .lp-badge:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+
+  /* прививки — шкала времени */
+  .lp-tl{ list-style:none; margin:0; padding:0; }
+  .lp-tl li{ position:relative; display:grid; grid-template-columns:20px minmax(0,1fr); gap:12px; padding-bottom:16px; }
+  .lp-tl li:last-child{ padding-bottom:0; }
+  .lp-tl li::before{ content:''; position:absolute; left:9px; top:20px; bottom:-2px; width:2px; border-radius:1px; background:var(--n200); }
+  .lp-tl li:last-child::before{ display:none; }
+  .lp-tl .dot{ width:20px; height:20px; margin-top:1px; border-radius:50%; background:#fff; box-shadow:inset 0 0 0 2px var(--b500); display:flex; align-items:center; justify-content:center; }
+  .lp-tl .dot::after{ content:''; width:8px; height:8px; border-radius:50%; background:var(--b500); }
+  .lp-tl b{ display:flex; align-items:center; gap:4px; font-size:15px; line-height:1.4; font-weight:600; color:var(--b800); }
+  .lp-tl p{ margin:3px 0 0; font-size:15px; line-height:1.55; color:var(--n600); }
+
+  /* скрининги */
+  .lp-sl{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .lp-sl li{ display:flex; align-items:flex-start; gap:12px; padding:13px 14px; border-radius:14px; background:var(--n100); }
+  .lp-sl li > i{ flex:0 0 auto; font-size:20px; line-height:1.2; color:var(--green); }
+  .lp-sl span{ flex:1; min-width:0; font-size:15px; line-height:1.45; font-weight:500; }
+  .lp-sex{ font-style:normal; display:inline-flex; align-items:center; gap:4px; height:22px; margin-left:8px; padding:0 8px; border-radius:999px; background:#fff; color:var(--n500); font-size:12px; font-weight:500; vertical-align:1px; box-shadow:inset 0 0 0 1px var(--n200); white-space:nowrap; }
+  .lp-sex i{ font-size:13px; }
+
+  .lp-law{ display:flex; align-items:flex-start; gap:8px; margin-top:clamp(18px,1.6vw,26px); padding-top:16px; border-top:1px solid var(--n200); font-size:13.5px; line-height:1.5; color:var(--n500); }
+  .lp-law i{ font-size:16px; color:var(--n400); line-height:1.3; }
+
+  @media (max-width:1180px){
+    .lp-tabs{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; margin-inline:calc(-1 * var(--gut, 16px)); padding:2px var(--gut, 16px) 4px; scroll-padding-inline:var(--gut, 16px); }
+    .lp-tabs::-webkit-scrollbar{ display:none; }
+    .lp-tab{ flex:0 0 144px; scroll-snap-align:start; }
+  }
+  @media (max-width:860px){ .lp-cols{ grid-template-columns:minmax(0,1fr); } .lp-route{ width:100%; justify-content:center; } }
+  @media (max-width:560px){ .lp-panel{ border-radius:22px; padding:18px 16px; } .lp-badge{ display:none; } .lp-tab{ flex-basis:132px; min-height:88px; } }
+  @media (prefers-reduced-motion:reduce){ .lp-panel{ animation:none; } }
+</style>
+</helmet>
+
+<section class="lp" id="lifepath" ref="{{ rootRef }}" aria-labelledby="lp-title">
+  <div class="lp-head">
+    <div>
+      <h2 class="hm-h2" id="lp-title">Жизненный путь здоровья</h2>
+      <p>Национальный календарь профилактических прививок и целевые скрининги населения</p>
+    </div>
+  </div>
+
+  <div class="lp-tabs" role="tablist" aria-label="Возрастной этап" ref="{{ tabsRef }}" onKeyDown="{{ onKey }}">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="9">
+      <button type="button" class="lp-tab" role="tab" id="{{ t.tid }}" aria-selected="{{ t.on }}" aria-controls="lp-panel" tabIndex="{{ t.ti }}" onClick="{{ t.onClick }}" data-tip="{{ t.hint }}">
+        <span class="top"><span class="age">{{ t.age }}</span><i class="{{ t.icon }}" aria-hidden="true"></i></span>
+        <b>{{ t.name }}</b>
+      </button>
+    </sc-for>
+  </div>
+
+  <div class="lp-panel" id="lp-panel" role="tabpanel" aria-labelledby="{{ cur.tid }}" key="{{ cur.id }}">
+    <div class="lp-ph">
+      <div>
+        <h3>{{ cur.tMain }} <span style="white-space:nowrap;">{{ cur.tParen }}</span></h3>
+        <p>{{ cur.desc }}</p>
+      </div>
+      <sc-if value="{{ hasRoute }}" hint-placeholder-val="{{ true }}"><button type="button" class="lp-route" onClick="{{ openRoute }}"><i class="ri-route-line"></i>Мой маршрут здоровья</button></sc-if>
+    </div>
+    <div class="lp-cols">
+      <div>
+        <div class="lp-ch"><span class="ic v" aria-hidden="true"><i class="ri-syringe-line"></i></span><b>Прививки</b>
+          <span class="lp-badge v" tabIndex="0" data-tip="Национальный календарь прививок (ПП РК № 612). Бесплатно в рамках ГОБМП по месту прикрепления"><i class="ri-gift-line"></i>Бесплатно</span></div>
+        <ol class="lp-tl">
+          <sc-for list="{{ cur.vac }}" as="v" hint-placeholder-count="3">
+            <li><span class="dot" aria-hidden="true"></span><div><b>{{ v.when }}<sc-if value="{{ v.hasNote }}" hint-placeholder-val="{{ false }}"><span class="hm-info" tabIndex="0" role="note" aria-label="{{ v.note }}" data-tip="{{ v.note }}"><i class="ri-information-line"></i></span></sc-if></b><p>{{ v.what }}</p></div></li>
+          </sc-for>
+        </ol>
+      </div>
+      <div>
+        <div class="lp-ch"><span class="ic s" aria-hidden="true"><i class="ri-stethoscope-line"></i></span><b>Скрининги</b>
+          <span class="lp-badge s" tabIndex="0" data-tip="Целевые скрининги в рамках ОСМС / ГОБМП — в поликлинике по месту прикрепления (ПМСП)"><i class="ri-hospital-line"></i>В поликлинике</span></div>
+        <ul class="lp-sl">
+          <sc-for list="{{ cur.scr }}" as="c" hint-placeholder-count="3">
+            <li><i class="ri-checkbox-circle-fill" aria-hidden="true"></i><span>{{ c.t }}<sc-if value="{{ c.hasSex }}" hint-placeholder-val="{{ false }}"><em class="lp-sex"><i class="{{ c.sexIcon }}"></i>{{ c.sexLabel }}</em></sc-if></span></li>
+          </sc-for>
+        </ul>
+      </div>
+    </div>
+    <div class="lp-law"><i class="ri-scales-3-line" aria-hidden="true"></i><span>Нормативная основа: {{ cur.law }}</span></div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:820}}">
+const FREE = '';
+const HPV = 'Вирус папилломы человека высокого онкогенного риска — главный этиологический фактор развития рака шейки матки';
+const STAGES = [
+  { id:'newborn', age:'0–28 дней', name:'Новорождённый', icon:'ri-bear-smile-line', hint:'БЦЖ, ВГВ',
+    title:'Период новорождённости (0–28 дней)', desc:'Критический этап защиты ребёнка. Неонатальные скрининги и формирование первого иммунитета в родильном доме.',
+    vac:[ { when:'В первые 1–4 дня жизни', what:'Прививки от туберкулёза (БЦЖ) и гепатита B (ВГВ).' } ],
+    scr:[ { t:'Неонатальный скрининг (ФКУ, врождённый гипотиреоз)' }, { t:'Аудиологический скрининг слуха' } ],
+    law:'ПП РК № 612 / Приказ МЗ РК № ҚР ДСМ-174/2020' },
+  { id:'infant', age:'1–12 мес', name:'Младенец', icon:'ri-emotion-happy-line', hint:'АбКДС, ИПВ, Хиб, Пневмо',
+    title:'Грудной возраст (1–12 месяцев)', desc:'Интенсивная иммунизация первого года жизни против полиомиелита, коклюша, дифтерии, столбняка, пневмококка и ХИБ-инфекции.',
+    vac:[ { when:'В 2 месяца', what:'Прививки от гепатита B (ВГВ), полиомиелита (ИПВ), коклюша, дифтерии и столбняка (АбКДС) и гемофильной инфекции типа b (Хиб), а также вакцина от пневмококковой инфекции (Пневмо).' },
+      { when:'В 3 месяца', what:'Прививки от коклюша, дифтерии и столбняка (АбКДС), полиомиелита (ИПВ) и гемофильной инфекции типа b (Хиб).' },
+      { when:'В 4 месяца', what:'Прививки от гепатита B (ВГВ), полиомиелита (ИПВ), гемофильной инфекции типа b (Хиб), коклюша, дифтерии и столбняка (АбКДС), а также вторая прививка от пневмококковой инфекции (Пневмо).' } ],
+    scr:[ { t:'Ежемесячный осмотр педиатра / ВОП' }, { t:'Скрининг психофизического развития (до 1 года)' } ], law:'ПП РК № 612' },
+  { id:'preschool', age:'1–5 лет', name:'Дошкольник', icon:'ri-plant-line', hint:'ККП, ВГА',
+    title:'Дошкольный возраст (1–5 лет)', desc:'Ревакцинация против кори, краснухи, паротита, гепатита A и подготовка иммунитета к детскому саду.',
+    vac:[ { when:'В 12–15 месяцев', what:'Прививки от кори, краснухи и паротита (ККП), повторная вакцинация от полиомиелита (ОПВ) и пневмококковой инфекции (Пневмо).' },
+      { when:'В 18 месяцев', what:'Ревакцинация от коклюша, дифтерии и столбняка (АбКДС), полиомиелита (ИПВ) и гемофильной инфекции типа b (Хиб).' },
+      { when:'В 2 года', what:'Прививка от вирусного гепатита A (ВГА).' },
+      { when:'В 2 года 6 месяцев', what:'Ревакцинация от вирусного гепатита A (ВГА).' } ],
+    scr:[ { t:'Скрининг зрения и слуха в 1 и 3 года' }, { t:'Стоматологический скрининг прикуса и кариеса' } ], law:'ПП РК № 612' },
+  { id:'school', age:'6–11 лет', name:'Школьник', icon:'ri-book-open-line', hint:'АбКДС, ККП, ВПЧ',
+    title:'Школьный возраст (6–11 лет)', desc:'Первый класс и предподростковый возраст. Ревакцинация против дифтерии, столбняка, кори и вакцинация девочек от ВПЧ.',
+    vac:[ { when:'В 6 лет (1 класс)', what:'Прививки от коклюша, дифтерии и столбняка (АбКДС), а также от кори, краснухи и паротита (ККП).' },
+      { when:'В 11 лет', what:'Прививка от вируса папилломы человека (ВПЧ).', note:HPV },
+      { when:'В 11 лет 6 месяцев', what:'Ревакцинация от вируса папилломы человека (ВПЧ).', note:HPV } ],
+    scr:[ { t:'Ежегодный углублённый профосмотр школьников' }, { t:'Скрининг осанки и остроты зрения' } ], law:'ПП РК № 612 (с изменениями по ВПЧ)' },
+  { id:'teen', age:'12–17 лет', name:'Подросток', icon:'ri-run-line', hint:'АДС-м в 16 лет',
+    title:'Подростковый возраст (12–17 лет)', desc:'Формирование репродуктивной системы, финальная детская ревакцинация АДС-м в 16 лет.',
+    vac:[ { when:'В 16 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' } ],
+    scr:[ { t:'Оценка полового и репродуктивного развития' }, { t:'Скрининг артериального давления и осанки' } ], law:'Приказ МЗ РК № ҚР ДСМ-174/2020' },
+  { id:'young', age:'18–39 лет', name:'Молодой возраст', icon:'ri-user-smile-line', hint:'АДС-м в 26 и 36 лет',
+    title:'Молодой возраст (18–39 лет)', desc:'Поддержание поствакцинального иммунитета против дифтерии и столбняка, осознанное родительство, кардиоконтроль и женский онкоскрининг.',
+    vac:[ { when:'В 26 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' }, { when:'В 36 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' } ],
+    scr:[ { t:'Скрининг на раннее выявление артериальной гипертензии и ИБС (с 35 лет)' }, { t:'Онкоцитология шейки матки (ПАП-тест, 30–39 лет, раз в 4 года)', sex:'f' },
+      { t:'Контроль холестерина и глюкозы крови', sex:'m' } ], law:'ПП РК № 612 / Приказ МЗ РК № ҚР ДСМ-174/2020' },
+  { id:'mature', age:'40–59 лет', name:'Зрелый возраст', icon:'ri-shield-check-line', hint:'Онкоскрининги (РМЖ)',
+    title:'Зрелый возраст (40–59 лет)', desc:'Максимальный охват национальными онкологическими и сердечно-сосудистыми скринингами в рамках ГОБМП.',
+    vac:[ { when:'В 46 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' }, { when:'В 56 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' } ],
+    scr:[ { t:'Маммография молочных желёз (женщины 40–70 лет, 1 раз в 2 года)', sex:'f' }, { t:'Цитологический скрининг шейки матки (до 70 лет, 1 раз в 4 года)', sex:'f' },
+      { t:'Колоректальный скрининг, гемокульт-тест (мужчины и женщины 50–70 лет, раз в 2 года)' }, { t:'Скрининг на сахарный диабет и холестерин (раз в 2 года)' },
+      { t:'Кардиоваскулярный риск по шкале SCORE', sex:'m' } ], law:'Приказ МЗ РК № ҚР ДСМ-174/2020' },
+  { id:'elderly', age:'60–74 года', name:'Пожилой возраст', icon:'ri-walk-line', hint:'Глаукома, сосуды',
+    title:'Пожилой возраст (60–74 года)', desc:'Профилактика потери зрения, контроль сосудистых рисков, мониторинг остеопороза и онкозаболеваний.',
+    vac:[ { when:'В 66 лет', what:'Прививка от столбняка и дифтерии (АДС-м).' } ],
+    scr:[ { t:'Скрининг глаукомы (внутриглазное давление, раз в 2 года)' }, { t:'Маммография (женщины до 70 лет)', sex:'f' }, { t:'Колоректальный скрининг (до 70 лет)' },
+      { t:'Мониторинг сосудов шеи и атеросклероза', sex:'m' } ], law:'Приказ МЗ РК № ҚР ДСМ-174/2020' },
+  { id:'senior', age:'75+ лет', name:'Старческий возраст', icon:'ri-hand-heart-line', hint:'Гериатрия, хронические заболевания',
+    title:'Старческий возраст (75+ лет)', desc:'Индивидуальный гериатрический маршрут, профилактика старческой астении и падений, диспансерное наблюдение.',
+    vac:[ { when:'Ежегодно', what:'Сезонная вакцинация против гриппа.' }, { when:'По клиническим показаниям', what:'Прививка от столбняка и дифтерии (АДС-м).' } ],
+    scr:[ { t:'Комплексная гериатрическая оценка здоровья' }, { t:'Мониторинг когнитивных функций и слуха' }, { t:'Динамическое наблюдение хронических неинфекционных заболеваний' } ],
+    law:'Клинические протоколы МЗ РК' },
+];
+const SEXL = { f:{ label:'Женщины', icon:'ri-women-line' }, m:{ label:'Мужчины', icon:'ri-men-line' } };
+const fromHash = () => { try { const m = (location.hash || '').match(/lifepath=([a-z]+)/); return m && STAGES.some(s => s.id === m[1]) ? m[1] : null; } catch(e){ return null; } };
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.rootRef = React.createRef(); this.tabsRef = React.createRef();
+    this.state = { cur: fromHash() || 'newborn' };
+  }
+  componentDidMount(){
+    window.mpLifePath = true;
+    this._open = (e) => { const id = e && e.detail && e.detail.stage; if(STAGES.some(s => s.id === id)) this.select(id, true); };
+    window.addEventListener('mp-lifepath-open', this._open);
+    if(fromHash()) setTimeout(() => this.reveal(), 600);
+  }
+  componentWillUnmount(){ window.removeEventListener('mp-lifepath-open', this._open); window.mpLifePath = false; }
+  reveal(){
+    const r = this.rootRef.current; if(!r) return;
+    let calm = false; try { calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){}
+    r.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block:'start' });
+  }
+  select(id, scroll){
+    this.setState({ cur:id });
+    setTimeout(() => {
+      const t = this.tabsRef.current && this.tabsRef.current.querySelector('[aria-selected="true"]');
+      if(t && t.scrollIntoView) t.scrollIntoView({ block:'nearest', inline:'nearest' });
+      if(scroll){ this.reveal(); t && t.focus({ preventScroll:true }); }
+    }, 30);
+  }
+  renderVals(){
+    const s = this.state, cur = STAGES.find(x => x.id === s.cur) || STAGES[0];
+    return {
+      rootRef:this.rootRef, tabsRef:this.tabsRef,
+      tabs: STAGES.map(t => ({ ...t, tid:'lp-tab-' + t.id, on: t.id === s.cur ? 'true' : 'false', ti: t.id === s.cur ? '0' : '-1', hint:'Прививки: ' + t.hint, onClick:() => this.select(t.id) })),
+      onKey:(e) => {
+        const i = STAGES.findIndex(x => x.id === s.cur); let j = -1;
+        if(e.key === 'ArrowRight') j = (i + 1) % STAGES.length; else if(e.key === 'ArrowLeft') j = (i - 1 + STAGES.length) % STAGES.length;
+        else if(e.key === 'Home') j = 0; else if(e.key === 'End') j = STAGES.length - 1;
+        if(j < 0) return; e.preventDefault(); this.select(STAGES[j].id);
+        setTimeout(() => { const t = this.tabsRef.current && this.tabsRef.current.querySelector('[aria-selected="true"]'); t && t.focus(); }, 40);
+      },
+      hasRoute: this.props.route !== '0',
+      openRoute:() => { try { window.dispatchEvent(new CustomEvent('mp-route-open')); } catch(e){} },
+      // возраст в скобках не переносим по тире: «(0–28 дней)» целиком
+      cur:{ ...cur, tid:'lp-tab-' + cur.id, tMain: cur.title.replace(/\s*\([^)]*\)$/, ''), tParen: (cur.title.match(/\([^)]*\)$/) || [''])[0],
+        vac: cur.vac.map(v => ({ ...v, note: v.note || '', hasNote: !!v.note })),
+        scr: cur.scr.map(c => ({ ...c, hasSex: !!c.sex, sexIcon: c.sex ? SEXL[c.sex].icon : '', sexLabel: c.sex ? SEXL[c.sex].label : '' })) },
+    };
+  }
+}
+</script>
+</body>
+</html>

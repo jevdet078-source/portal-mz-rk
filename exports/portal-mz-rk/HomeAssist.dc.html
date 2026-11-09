@@ -13,8 +13,10 @@
 <body>
 <!--
   AI-помощник на первом экране (варианты главной H и I) — левая половина рядом с баннерами.
-  <dc-import name="HomeAssist" look="light | dark" hint-size="100%,560px">
-    light — белая карточка; dark — прямо на тёмном баннере, стеклянные строки, белое поле.
+  <dc-import name="HomeAssist" look="light | dark | open" max="3" hint-size="100%,560px">
+    light — белая карточка; dark — прямо на тёмном баннере, стеклянные строки, белое поле;
+    open — без карточки, прямо на светлом фоне первого экрана (вариант J): метка «Цифровой помощник», белые строки и поле с мягкой тенью.
+    max — сколько частых вопросов показать (по умолчанию все); qs — свои частые вопросы через «|» (вместо HomeData.AI_SUGGEST).
 
   Одно поле = поиск + помощник:
     • пока поле пустое — частые вопросы роли (HomeData.AI_SUGGEST);
@@ -80,7 +82,8 @@
 
   /* поле */
   .as-field{ flex:0 0 auto; display:flex; align-items:flex-end; gap:8px; margin-top:14px; padding:8px 8px 8px 18px; border-radius:20px; background:#fff; transition:box-shadow .2s; }
-  .as-field textarea{ flex:1; min-width:0; height:48px; max-height:120px; resize:none; border:none; outline:none; background:none; padding:13px 0; font:400 16px/1.4 'Inter',sans-serif; color:var(--n900); }
+  .as-field textarea{ flex:1; min-width:0; height:48px; max-height:120px; resize:none; border:none; outline:none; background:none; padding:12px 0; font:400 16px/24px 'Inter',sans-serif; color:var(--n900); overflow-y:auto; scrollbar-width:none; }
+  .as-field textarea::-webkit-scrollbar{ display:none; }
   .as-field textarea::placeholder{ color:var(--n400); }
   .as-send{ width:48px; height:48px; flex:0 0 auto; border:none; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; background:var(--b600); cursor:pointer; transition:background .15s, opacity .15s; }
   .as-send:hover{ background:var(--b700); }
@@ -175,6 +178,43 @@
   .ai-fab{ transition:transform .18s, background .18s, opacity .25s; }
   html.hm-ai-inview .ai-fab{ opacity:0; transform:translateY(16px) scale(.96); pointer-events:none; }
 
+  /* ===== OPEN: на светлом фоне первого экрана, без карточки ===== */
+  .as-name-i{ display:none; }
+  .as-open{ color:var(--n900); }
+  .as-open .as-orb{ display:none; }
+  /* блок помощника целиком по центру колонки: метка — заголовок — вопросы — поле */
+  .as-open{ justify-content:center; }
+  .as-open .as-body{ flex:0 1 auto; }
+  .as-open .as-h1{ margin-top:0; padding-top:clamp(16px,2.2vh,26px); }
+  .as-open .as-list{ padding-top:clamp(18px,2.6vh,28px); }
+  .as-open .as-field{ margin-top:12px; }
+  .as-open .as-name{ display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 14px 0 12px; border-radius:999px; background:rgba(255,255,255,.85); color:var(--b800);
+    font-size:12.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; box-shadow:0 0 0 1px color-mix(in srgb, var(--b200) 70%, transparent), 0 6px 16px -10px color-mix(in srgb, var(--b900) 35%, transparent); }
+  .as-open .as-name-i{ display:inline; font-size:16px; color:var(--b600); }
+  .as-open .as-ib{ background:rgba(255,255,255,.7); color:var(--n600); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--b200) 60%, transparent); }
+  .as-open .as-ib:hover{ background:#fff; color:var(--n900); }
+  .as-open .as-h1 span{ background:linear-gradient(90deg, var(--b600), var(--b900)); -webkit-background-clip:text; background-clip:text; }
+  .as-open .as-row{ background:rgba(255,255,255,.88); color:var(--n700); box-shadow:0 0 0 1px color-mix(in srgb, var(--b200) 45%, transparent), 0 8px 20px -16px color-mix(in srgb, var(--b900) 40%, transparent); }
+  .as-open .as-row > i:first-child{ color:var(--b600); }
+  .as-open .as-row > i:last-child{ color:var(--n300); }
+  .as-open .as-row .hm-ico{ background:var(--b50); color:var(--b600); }
+  .as-open .as-row:hover{ background:#fff; color:var(--n900); box-shadow:0 0 0 1px var(--b300), 0 12px 24px -16px color-mix(in srgb, var(--b900) 45%, transparent); }
+  .as-open .as-row:hover > i:last-child{ color:var(--b600); }
+  .as-open .as-row.ask{ background:rgba(255,255,255,.6); }
+  .as-open .as-cap{ color:var(--n500); }
+  .as-open .as-bot{ background:#fff; box-shadow:0 0 0 1px color-mix(in srgb, var(--b200) 45%, transparent); }
+  .as-open .as-bot .txt{ color:var(--n700); }
+  .as-open .as-bot.warn{ background:#FFF8F9; box-shadow:0 0 0 1px #F9C4CF; }
+  .as-open .as-links{ box-shadow:inset 0 0 0 1px var(--n200); background:#fff; }
+  .as-open .as-links a{ color:var(--n900); } .as-open .as-links a + a{ border-top:1px solid var(--n200); } .as-open .as-links a:hover{ background:var(--b50); }
+  .as-open .as-chip{ background:#fff; color:var(--b800); box-shadow:inset 0 0 0 1px var(--b200); }
+  .as-open .as-typing{ background:#fff; }
+  .as-open .as-cta.line{ background:#fff; color:var(--n700); box-shadow:inset 0 0 0 1px var(--n200); }
+  .as-open .as-cta.line i{ color:var(--b600); }
+  .as-open .as-field{ box-shadow:0 0 0 1px color-mix(in srgb, var(--b200) 60%, transparent), 0 18px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); }
+  .as-open .as-field:focus-within{ box-shadow:0 0 0 1.5px var(--b400), 0 0 0 5px color-mix(in srgb, var(--b200) 55%, transparent), 0 18px 40px -24px color-mix(in srgb, var(--b900) 45%, transparent); }
+  html[data-fill="flat"] .as-open .as-h1 span{ background:none; color:var(--b700); }
+
   @media (prefers-reduced-motion:reduce){ .as-orb::after, .as-caret{ animation:none; } }
   @media (max-width:760px){
     .as-h1{ font-size:34px; margin-top:14px; }
@@ -187,7 +227,7 @@
 <section class="{{ cls }}" ref="{{ rootRef }}" aria-label="AI-помощник">
   <div class="as-head">
     <span class="as-orb" aria-hidden="true"><i class="ri-sparkling-2-fill"></i></span>
-    <b class="as-name">AI-помощник</b>
+    <b class="as-name"><i class="ri-sparkling-2-fill as-name-i" aria-hidden="true"></i>{{ name }}</b>
     <span class="hm-info" tabIndex="0" role="note" aria-label="{{ note }}" data-tip="{{ note }}"><i class="ri-information-line"></i></span>
     <span class="as-sp"></span>
     <sc-if value="{{ hasMsgs }}" hint-placeholder-val="{{ false }}"><button type="button" class="as-ib" aria-label="Новый диалог" data-tip="Новый диалог" onClick="{{ reset }}"><i class="ri-chat-new-line"></i></button></sc-if>
@@ -301,10 +341,11 @@ class Component extends DCLogic {
   }
   renderVals(){
     const H = window.mpHome, s = this.state, role = s.role;
-    const q = s.input.trim(), dark = this.props.look === 'dark';
+    const q = s.input.trim(), look = this.props.look, dark = look === 'dark', open = look === 'open';
+    const max = Number(this.props.max) || 0;
     const hasMsgs = s.msgs.length > 0 || s.typing;
     const base = {
-      cls: 'as ' + (dark ? 'as-dark' : 'as-light'), rootRef:this.rootRef, bodyRef:this.bodyRef, inputRef:this.inputRef,
+      cls: 'as ' + (dark ? 'as-dark' : open ? 'as-open' : 'as-light'), name: open ? 'Цифровой помощник' : 'AI-помощник', rootRef:this.rootRef, bodyRef:this.bodyRef, inputRef:this.inputRef,
       note: 'Отвечает на вопросы о здоровье и услугах портала. Справочная информация — не заменяет консультацию врача',
       input: s.input, inputShort: q.length > 42 ? q.slice(0, 40) + '…' : q, typing: s.typing,
       hasMsgs, noMsgs: !hasMsgs, h1Cls: 'as-h1' + (hasMsgs ? ' hm-sr' : ''),
@@ -315,7 +356,7 @@ class Component extends DCLogic {
       askNow: () => this.send(),
       reset: () => { clearInterval(this._iv); clearTimeout(this._t); this.setState({ msgs:[], typing:false }); this.focus(); },
       expand: () => { try { window.dispatchEvent(new CustomEvent('mp-ai-open', { detail:{ sync:true } })); } catch(e){} },
-      placeholder: 'Спросите или найдите услугу',
+      placeholder: open ? 'Например, как записаться к врачу?' : 'Спросите или найдите услугу',
     };
     if(!H) return { ...base, sugg:[], showSugg:false, showFound:false, found:[], msgs:[] };
     const found = q.length >= 2 ? H.search(q, role).slice(0, 4) : [];
@@ -323,7 +364,7 @@ class Component extends DCLogic {
       ...base,
       showSugg: q.length < 2, showFound: q.length >= 2,
       // значок строки — от самой подходящей услуги или раздела (поиск по порталу), иначе — «вопрос»
-      sugg: (H.AI_SUGGEST[role] || []).map(g => { const hit = H.search(g.q, role)[0]; return { ...g, icon: hit && hit.icon ? hit.icon : 'ri-question-answer-line', onClick:() => this.send(g.q) }; }),
+      sugg: (this.props.qs && role === 'citizens' ? String(this.props.qs).split('|').map(q => ({ q:q.trim() })) : (H.AI_SUGGEST[role] || [])).slice(0, max || undefined).map(g => { const hit = H.search(g.q, role)[0]; return { ...g, icon: hit && hit.icon ? hit.icon : 'ri-question-answer-line', onClick:() => this.send(g.q) }; }),
       found: found.map(f => ({ ...f, target: ext(f.href) ? '_blank' : '_self', tip: [f.kind, H.whereTip(f.href)].filter(Boolean).join(' · '),
         arrow: ext(f.href) ? 'ri-external-link-line' : 'ri-arrow-right-line' })),
       msgs: s.msgs.map(m => {

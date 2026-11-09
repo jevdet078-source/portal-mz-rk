@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  «Персональный маршрут здоровья» — пошаговый опросник (постановка «Персональный маршрут здоровья», 06.11.2026).
+  <dc-import name="HealthRoute" hint-size="100%,560px">  — карточка на главной (вариант J); кнопка «Развернуть»
+  открывает тот же опросник на весь экран, состояние общее.
+  <dc-import name="HealthRoute" mode="modal" hint-size="1px,1px"> — только окно: открывается событием 'mp-route-open'.
+
+  Шаги (следующий вопрос — с учётом предыдущих ответов, неприменимые вопросы не показываются):
+    1. Для кого — для себя / для ребёнка
+    2. Биологический пол
+    3. Возраст — для себя 18+, для ребёнка 0–17 (категории и коды AGE_* из постановки)
+    4. Беременность — только женщинам, возраст из PREG_AGES (см. ниже)
+    5. Срок беременности — только при «Да» на шаге 4
+    (6. Динамическое наблюдение по хроническим заболеваниям — по постановке «пока не реализовываем»)
+  Результат: заголовок, текст, персональный маршрут (пункты по полу), переходы в разделы
+  «Здоровье на каждом этапе жизни» и в «Жизненный путь здоровья» (календарь прививок и скринингов).
+  Беременным — маршрут текущего триместра и последующие этапы наблюдения переключателем триместров.
+
+  Выбор варианта сразу ведёт к следующему шагу; ответы видны сверху и кликабельны — вернуться к любому шагу.
+-->
+<x-dc>
+<helmet>
+<style>
+  .sc-host:has(> .hr){ height:100%; }
+  .hr{ position:relative; height:100%; min-height:0; display:flex; flex-direction:column; font-family:'Inter',system-ui,sans-serif; color:var(--n900);
+    background:#fff; border-radius:28px; box-shadow:0 0 0 1px var(--n200), 0 30px 60px -44px color-mix(in srgb, var(--b900) 40%, transparent); container-type:inline-size; }
+  .hr *, .hr *::before, .hr *::after{ box-sizing:border-box; }
+  .hr-in{ display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding:clamp(20px,1.7vw,30px); }
+
+  /* шапка */
+  .hr-head{ display:flex; align-items:center; gap:14px; flex:0 0 auto; }
+  .hr-ic{ width:44px; height:44px; flex:0 0 auto; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff;
+    background:linear-gradient(145deg, var(--b400), var(--b700)); box-shadow:0 10px 20px -12px color-mix(in srgb, var(--b700) 90%, transparent), inset 0 1px 0 rgba(255,255,255,.3); }
+  .hr-tt{ flex:1; min-width:0; display:flex; align-items:center; gap:6px; }
+  .hr-tt h2{ margin:0; font-size:clamp(18px,.45vw + 13px,21px); line-height:1.25; font-weight:600; letter-spacing:-.016em; text-wrap:balance; }
+  .hr-ib{ width:40px; height:40px; flex:0 0 auto; border:none; border-radius:12px; display:flex; align-items:center; justify-content:center; background:transparent; color:var(--n500); font-size:20px; cursor:pointer; transition:background .15s, color .15s; }
+  .hr-ib:hover{ background:var(--n100); color:var(--n900); }
+  .hr-ib:focus-visible, .hr-opt:focus-visible, .hr-ans:focus-visible, .hr-btn:focus-visible, .hr-tri button:focus-visible, .hr-link:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+
+  /* прогресс и ответы */
+  .hr-prog{ display:flex; gap:4px; margin-top:clamp(16px,1.4vw,22px); flex:0 0 auto; }
+  .hr-prog.done{ display:none; }
+  .hr-prog span{ flex:1; height:4px; border-radius:2px; background:var(--n200); transition:background .3s; }
+  .hr-prog span.on{ background:var(--b500); }
+  .hr-prog span.cur{ background:var(--b200); }
+  .hr-answers{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; min-height:32px; flex:0 0 auto; }
+  .hr-ans{ display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px 0 12px; border:none; border-radius:999px; background:var(--b50); color:var(--b800); font:500 13.5px/1 'Inter',sans-serif; cursor:pointer; transition:background .15s; }
+  .hr-ans i{ font-size:15px; color:var(--b600); opacity:.7; transition:opacity .15s; }
+  .hr-ans:hover{ background:var(--b100); } .hr-ans:hover i{ opacity:1; }
+  .hr-hint{ display:inline-flex; align-items:center; height:32px; font-size:13.5px; color:var(--n400); }
+
+  /* шаг */
+  .hr-body{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; margin-top:clamp(14px,1.4vw,22px); }
+  .hr-step{ display:flex; flex-direction:column; flex:1 1 auto; min-height:0; animation:hr-in .32s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes hr-in{ from{ opacity:0; transform:translateX(14px); } to{ opacity:1; transform:none; } }
+  .hr-step.back{ animation-name:hr-back; }
+  @keyframes hr-back{ from{ opacity:0; transform:translateX(-14px); } to{ opacity:1; transform:none; } }
+  .hr-cap{ font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .hr-q{ margin:6px 0 0; font-size:clamp(18px,.5vw + 13px,22px); line-height:1.3; font-weight:600; letter-spacing:-.018em; text-wrap:balance; }
+  .hr-opts{ display:grid; gap:12px; margin-top:clamp(16px,1.5vw,24px); grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .hr-opts.n3{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .hr-opts.ages{ grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+  .hr-opts.ages.n4{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .hr-opt{ position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:12px; min-height:clamp(124px,11vw,176px); padding:16px 16px 16px; border:none; border-radius:18px; background:#fff; text-align:left;
+    box-shadow:inset 0 0 0 1.5px var(--n200); font-family:inherit; color:var(--n900); cursor:pointer; transition:box-shadow .18s, background .18s, transform .18s; }
+  .hr-opt:hover{ box-shadow:inset 0 0 0 1.5px var(--b300); background:color-mix(in srgb, var(--b50) 45%, #fff); }
+  .hr-opt:active{ transform:scale(.985); }
+  .hr-opt[aria-checked="true"]{ box-shadow:inset 0 0 0 2px var(--b500), 0 10px 24px -18px color-mix(in srgb, var(--b700) 80%, transparent); background:color-mix(in srgb, var(--b50) 70%, #fff); }
+  .hr-opt .oi{ width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:21px; background:var(--b50); color:var(--b600); transition:background .18s, color .18s; }
+  .hr-opt[aria-checked="true"] .oi{ background:var(--b500); color:#fff; }
+  .hr-opt .ot{ margin-top:auto; display:flex; flex-direction:column; gap:3px; }
+  .hr-opt b{ font-size:16px; line-height:1.3; font-weight:600; letter-spacing:-.01em; }
+  .hr-opt small{ font-size:13.5px; line-height:1.4; color:var(--n500); }
+  .hr-opt .ck{ position:absolute; top:14px; right:14px; width:22px; height:22px; border-radius:50%; box-shadow:inset 0 0 0 1.5px var(--n300); display:flex; align-items:center; justify-content:center; color:#fff; font-size:15px; transition:background .18s, box-shadow .18s; }
+  .hr-opt[aria-checked="true"] .ck{ background:var(--b500); box-shadow:none; }
+  .hr-opt .ck i{ opacity:0; transform:scale(.6); transition:opacity .18s, transform .18s; }
+  .hr-opt[aria-checked="true"] .ck i{ opacity:1; transform:none; }
+  /* возраст — компактные плитки */
+  .ages .hr-opt{ min-height:60px; flex-direction:row; align-items:center; gap:10px; padding:0 44px 0 16px; border-radius:14px; }
+  .ages .hr-opt b{ font-size:15.5px; }
+  .ages .hr-opt .ot{ margin-top:0; }
+  .ages .hr-opt .ck{ top:50%; margin-top:-11px; }
+  .hr-foot{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:auto; padding-top:16px; }
+  .hr-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 18px; border:none; border-radius:12px; font:600 15px/1 'Inter',sans-serif; cursor:pointer; text-decoration:none; transition:background .15s, color .15s, box-shadow .15s; white-space:nowrap; }
+  .hr-btn i{ font-size:18px; }
+  .hr-btn.ghost{ background:transparent; color:var(--n600); padding:0 14px 0 10px; }
+  .hr-btn.ghost:hover{ background:var(--n100); color:var(--n900); }
+  .hr-btn.pri{ background:var(--b600); color:#fff; }
+  .hr-btn.pri:hover{ background:var(--b700); }
+  .hr-btn.sec{ background:#fff; color:var(--n800, var(--n700)); box-shadow:inset 0 0 0 1px var(--n200); }
+  .hr-btn.sec i{ color:var(--b600); }
+  .hr-btn.sec:hover{ background:var(--b50); box-shadow:inset 0 0 0 1px var(--b200); }
+
+  /* результат */
+  .hr-res{ flex:1 1 auto; min-height:0; display:flex; flex-direction:column; animation:hr-in .36s cubic-bezier(.2,.7,.2,1) both; }
+  .hr-scroll{ flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; margin:0 -10px; padding:0 10px 4px;
+    -webkit-mask-image:linear-gradient(180deg, #000 calc(100% - 28px), transparent); mask-image:linear-gradient(180deg, #000 calc(100% - 28px), transparent); }
+  .hr-res-cat{ display:inline-flex; align-items:center; gap:6px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--b700); }
+  .hr-res-cat i{ font-size:15px; }
+  .hr-res h3{ margin:8px 0 0; font-size:clamp(20px,.6vw + 14px,26px); line-height:1.22; font-weight:600; letter-spacing:-.022em; text-wrap:balance; }
+  .hr-res-txt{ margin:10px 0 0; font-size:15px; line-height:1.6; color:var(--n500); max-width:72ch; }
+  .hr-tri{ display:flex; gap:4px; margin-top:16px; padding:4px; border-radius:14px; background:var(--n100); }
+  .hr-tri button{ flex:1; min-width:0; height:40px; border:none; border-radius:10px; background:transparent; color:var(--n500); font:500 14px/1.2 'Inter',sans-serif; cursor:pointer; transition:background .15s, color .15s, box-shadow .15s; }
+  .hr-tri button:hover{ color:var(--n900); }
+  .hr-tri button[aria-selected="true"]{ background:#fff; color:var(--n900); font-weight:600; box-shadow:0 1px 2px rgba(10,13,20,.06), 0 4px 10px -6px rgba(10,13,20,.18); }
+  .hr-tri button em{ font-style:normal; font-size:11.5px; font-weight:600; margin-left:6px; padding:2px 6px; border-radius:6px; background:var(--b500); color:#fff; vertical-align:1px; }
+  .hr-sub{ margin:18px 0 8px; font-size:12px; line-height:16px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--n400); }
+  .hr-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .hr-list > li{ display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-radius:14px; background:var(--n100); }
+  .hr-list > li > i{ flex:0 0 auto; width:22px; height:22px; margin-top:1px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; background:#fff; color:var(--green-d); box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--green) 55%, #fff); }
+  .hr-list .tx{ flex:1; min-width:0; }
+  .hr-list b{ display:block; font-size:15px; line-height:1.45; font-weight:500; color:var(--n900); }
+  .hr-list small{ display:block; margin-top:3px; font-size:13.5px; line-height:1.45; color:var(--n500); }
+  .hr-list ul{ margin:8px 0 0; padding:0 0 0 18px; display:flex; flex-direction:column; gap:3px; font-size:14px; line-height:1.45; color:var(--n600); }
+  .hr-list ul li::marker{ color:var(--b500); }
+  .hr-tag{ display:inline-flex; align-items:center; gap:4px; height:22px; margin-left:6px; padding:0 8px; border-radius:999px; background:#fff; color:var(--n500); font-size:12px; font-weight:500; vertical-align:2px; box-shadow:inset 0 0 0 1px var(--n200); white-space:nowrap; }
+  .hr-tag i{ font-size:13px; }
+  .hr-acts{ display:flex; flex-wrap:wrap; gap:8px; padding-bottom:20px; }
+  .hr-acts .hr-btn{ height:44px; }
+  .hr-acts .sp{ flex:1; }
+
+  .hr-hidden{ display:none; }
+  /* на весь экран */
+  .hr-dim{ position:fixed; inset:0; z-index:190; background:rgba(10,13,20,.42); -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); animation:hr-fade .2s ease both; }
+  @keyframes hr-fade{ from{ opacity:0; } }
+  .hr.is-full{ position:fixed; z-index:200; inset:clamp(12px,4vh,48px) 50% auto; transform:translateX(-50%); width:min(920px, calc(100vw - 24px)); height:auto; max-height:min(820px, calc(100dvh - 2*clamp(12px,4vh,48px)));
+    box-shadow:0 40px 80px -30px rgba(10,13,20,.45); animation:hr-pop .26s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes hr-pop{ from{ opacity:0; transform:translateX(-50%) translateY(12px) scale(.985); } }
+  .hr.is-full .hr-in{ padding:clamp(22px,2.6vw,40px); min-height:0; }
+  .hr.is-full .hr-body{ min-height:380px; }
+  .hr.is-full .hr-opt{ min-height:150px; }
+  .hr.is-full .ages .hr-opt{ min-height:64px; }
+
+  /* узкая карточка */
+  @container (max-width:520px){
+    .hr-opts.n3{ grid-template-columns:minmax(0,1fr); }
+    .hr-opts.n3 .hr-opt{ min-height:64px; flex-direction:row; align-items:center; padding-right:44px; }
+    .hr-opts.n3 .hr-opt .ot{ margin-top:0; }
+    .hr-opts.n3 .hr-opt .ck{ top:50%; margin-top:-11px; }
+    .hr-opts.ages{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  }
+  @container (max-width:400px){
+    .hr-opt{ min-height:104px; padding:14px; }
+    .hr-opt b{ font-size:15px; }
+    .hr-acts .hr-btn{ flex:1 1 100%; }
+    .hr-acts .sp{ display:none; }
+  }
+  /* телефон: карточка растёт по содержимому — без внутренней прокрутки и без «Развернуть» */
+  @media (max-width:760px){
+    .hr:not(.is-full) .hr-scroll{ overflow:visible; -webkit-mask-image:none; mask-image:none; margin:0; padding:0; }
+    .hr:not(.is-full) .hr-expand{ display:none; }
+    .hr{ border-radius:24px; }
+    .hr-in{ padding:20px 16px; }
+    .hr-head{ gap:12px; }
+    .hr-ic{ width:40px; height:40px; font-size:20px; border-radius:12px; }
+    .hr-tt h2{ font-size:17px; }
+    .hr-ib{ width:36px; height:36px; }
+  }
+  @media (prefers-reduced-motion:reduce){ .hr-step, .hr-res, .hr.is-full, .hr-dim{ animation:none; } }
+</style>
+</helmet>
+
+<sc-if value="{{ full }}" hint-placeholder-val="{{ false }}"><div class="hr-dim" onClick="{{ close }}" aria-hidden="true"></div></sc-if>
+<section class="{{ cls }}" ref="{{ rootRef }}" role="{{ dlgRole }}" aria-modal="{{ dlgModal }}" aria-labelledby="hr-title" id="route">
+  <div class="hr-in">
+    <div class="hr-head">
+      <span class="hr-ic" aria-hidden="true"><i class="ri-route-line"></i></span>
+      <div class="hr-tt">
+        <h2 id="hr-title">Персональный маршрут здоровья</h2>
+        <span class="hm-info" tabIndex="0" role="note" aria-label="{{ note }}" data-tip="{{ note }}"><i class="ri-information-line"></i></span>
+      </div>
+      <sc-if value="{{ started }}" hint-placeholder-val="{{ false }}"><button type="button" class="hr-ib" aria-label="Начать заново" data-tip="Начать заново" onClick="{{ restart }}"><i class="ri-restart-line"></i></button></sc-if>
+      <sc-if value="{{ notFull }}" hint-placeholder-val="{{ true }}"><button type="button" class="hr-ib hr-expand" aria-label="Развернуть на весь экран" data-tip="Развернуть" onClick="{{ open }}"><i class="ri-expand-diagonal-line"></i></button></sc-if>
+      <sc-if value="{{ full }}" hint-placeholder-val="{{ false }}"><button type="button" class="hr-ib" aria-label="Закрыть" data-tip="Закрыть" onClick="{{ close }}"><i class="ri-close-line"></i></button></sc-if>
+    </div>
+
+    <div class="{{ progCls }}" aria-hidden="true"><sc-for list="{{ prog }}" as="p" hint-placeholder-count="4"><span class="{{ p.cls }}"></span></sc-for></div>
+    <div class="hr-answers">
+      <sc-for list="{{ answers }}" as="a" hint-placeholder-count="0">
+        <button type="button" class="hr-ans" onClick="{{ a.onClick }}" aria-label="{{ a.aria }}" data-tip="Изменить ответ">{{ a.label }}<i class="ri-pencil-line"></i></button>
+      </sc-for>
+      <sc-if value="{{ noAnswers }}" hint-placeholder-val="{{ true }}"><span class="hr-hint">{{ hint }}</span></sc-if>
+    </div>
+
+    <div class="hr-body">
+      <!-- вопрос -->
+      <sc-if value="{{ isQ }}" hint-placeholder-val="{{ true }}">
+        <div class="{{ stepCls }}" key="{{ stepKey }}">
+          <span class="hr-cap">Шаг {{ stepNo }}</span>
+          <h3 class="hr-q" id="hr-q">{{ q.title }}</h3>
+          <div class="{{ q.cls }}" role="radiogroup" aria-labelledby="hr-q">
+            <sc-for list="{{ q.opts }}" as="o" hint-placeholder-count="2">
+              <button type="button" class="hr-opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}">
+                <sc-if value="{{ o.hasIcon }}" hint-placeholder-val="{{ true }}"><span class="oi" aria-hidden="true"><i class="{{ o.icon }}"></i></span></sc-if>
+                <span class="ot"><b>{{ o.label }}</b><sc-if value="{{ o.hasSub }}" hint-placeholder-val="{{ true }}"><small>{{ o.sub }}</small></sc-if></span>
+                <span class="ck" aria-hidden="true"><i class="ri-check-line"></i></span>
+              </button>
+            </sc-for>
+          </div>
+          <div class="hr-foot">
+            <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}"><button type="button" class="hr-btn ghost" onClick="{{ back }}"><i class="ri-arrow-left-line"></i>Назад</button></sc-if>
+            <span></span>
+            <sc-if value="{{ canNext }}" hint-placeholder-val="{{ false }}"><button type="button" class="hr-btn pri" onClick="{{ next }}">Далее<i class="ri-arrow-right-line"></i></button></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- результат -->
+      <sc-if value="{{ isRes }}" hint-placeholder-val="{{ false }}">
+        <div class="hr-res" key="{{ resKey }}">
+          <div class="hr-scroll" ref="{{ scrollRef }}">
+            <span class="hr-res-cat"><i class="{{ r.icon }}"></i>{{ r.cat }}</span>
+            <h3 tabIndex="-1" ref="{{ resHeadRef }}">{{ r.title }}</h3>
+            <p class="hr-res-txt">{{ r.text }}</p>
+            <sc-if value="{{ r.isPreg }}" hint-placeholder-val="{{ false }}">
+              <div class="hr-tri" role="tablist" aria-label="Триместр беременности">
+                <sc-for list="{{ r.tris }}" as="t" hint-placeholder-count="3">
+                  <button type="button" role="tab" aria-selected="{{ t.on }}" onClick="{{ t.onClick }}">{{ t.label }}<sc-if value="{{ t.cur }}" hint-placeholder-val="{{ false }}"><em>сейчас</em></sc-if></button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <p class="hr-sub">Персональный маршрут</p>
+            <ul class="hr-list">
+              <sc-for list="{{ r.items }}" as="it" hint-placeholder-count="5">
+                <li>
+                  <i class="ri-check-line" aria-hidden="true"></i>
+                  <div class="tx">
+                    <b>{{ it.t }}<sc-if value="{{ it.hasTag }}" hint-placeholder-val="{{ false }}"><span class="hr-tag"><i class="{{ it.tagIcon }}"></i>{{ it.tag }}</span></sc-if></b>
+                    <sc-if value="{{ it.hasD }}" hint-placeholder-val="{{ false }}"><small>{{ it.d }}</small></sc-if>
+                    <sc-if value="{{ it.hasSub }}" hint-placeholder-val="{{ false }}"><ul><sc-for list="{{ it.sub }}" as="s" hint-placeholder-count="3"><li>{{ s }}</li></sc-for></ul></sc-if>
+                  </div>
+                </li>
+              </sc-for>
+            </ul>
+            <p class="hr-sub">Подробнее</p>
+            <div class="hr-acts">
+              <sc-for list="{{ r.links }}" as="l" hint-placeholder-count="2">
+                <a class="{{ l.cls }}" href="{{ l.href }}" onClick="{{ l.onClick }}"><i class="{{ l.icon }}"></i>{{ l.label }}</a>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:720,&quot;height&quot;:600}}">
+const STAGES_PAGE = 'Здоровье на каждом этапе жизни.dc.html';
+const calm = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e){ return false; } };
+
+// ——— Справочники постановки ———
+const WHO = [
+  { id:'self', label:'Для себя', sub:'Взрослый маршрут здоровья', icon:'ri-user-3-line' },
+  { id:'child', label:'Для ребёнка', sub:'Здоровье и развитие ребёнка', icon:'ri-parent-line' },
+];
+const SEX = [ { id:'m', label:'Мужской', icon:'ri-men-line' }, { id:'f', label:'Женский', icon:'ri-women-line' } ];
+// stage — вкладка «Жизненного пути здоровья», section — направление «Здоровья на каждом этапе жизни»
+const AGES = [
+  { id:'AGE_0_28_DAYS',   label:'0–28 дней',       child:true, stage:'newborn',   section:'newborn' },
+  { id:'AGE_1_12_MONTHS', label:'1–12 месяцев',    child:true, stage:'infant',    section:'growth' },
+  { id:'AGE_1_5_YEARS',   label:'1–5 лет',         child:true, stage:'preschool', section:'growth' },
+  { id:'AGE_6_17_YEARS',  label:'6–17 лет',        child:true, stage:'school',    section:'growth' },
+  { id:'AGE_18_29',       label:'18–29 лет',       stage:'young',   section:'reproductive' },
+  { id:'AGE_30_39',       label:'30–39 лет',       stage:'young',   section:'reproductive' },
+  { id:'AGE_40_49',       label:'40–49 лет',       stage:'mature',  section:'reproductive' },
+  { id:'AGE_50_59',       label:'50–59 лет',       stage:'mature',  section:'chronic' },
+  { id:'AGE_60_69',       label:'60–69 лет',       stage:'elderly', section:'longevity' },
+  { id:'AGE_70_PLUS',     label:'70 лет и старше', stage:'elderly', section:'longevity' },
+];
+// Вопрос о беременности. В постановке предложено «6–17 и все взрослые»; задаём в репродуктивном возрасте
+// (вопрос 70-летней женщине или о дочери 6 лет — ошибка UX). Поменять список — одна строка.
+const PREG_AGES = ['AGE_18_29', 'AGE_30_39', 'AGE_40_49'];
+const SECTION_NAMES = { newborn:'Здоровье новорождённого', growth:'Рост и развитие ребёнка', reproductive:'Репродуктивное здоровье и планирование семьи',
+  pregnancy:'Беременность, роды и послеродовой период', chronic:'Хронические заболевания и ПУЗ', longevity:'Здоровое долголетие' };
+
+// пункт: t — что, d — периодичность / условие, sex — только для пола
+const HEP = (d) => ({ t:'Скрининг вирусных гепатитов B и C', d });
+const CERV = (d) => ({ t:'Скрининг рака шейки матки', d, sex:'f' });
+const BREAST = (d) => ({ t:'Скрининг рака молочной железы', d, sex:'f' });
+const STROKE = { t:'Скрининг нарушений мозгового кровообращения', sex:'m' };
+const COLON = { t:'Скрининг колоректального рака' };
+const LUNG = { t:'Скрининг рака лёгкого', d:'При наличии установленных факторов риска' };
+const CARDIO = (d, sex) => ({ t:'Скрининг сердечно-сосудистых заболеваний, сахарного диабета и глаукомы', d, sex });
+const NAT = { t:'Профилактические прививки согласно Национальному календарю' };
+
+const RESULTS = {
+  AGE_0_28_DAYS:{ cat:'Новорождённый', title:'Здоровье новорождённого',
+    text:'Первые 28 дней жизни — важный период адаптации ребёнка к окружающей среде. В этот период необходимо обеспечить медицинское наблюдение, контроль состояния здоровья, правильный уход и поддержку грудного вскармливания.',
+    items:[ { t:'Патронаж новорождённого медицинским работником' }, { t:'Наблюдение педиатра или врача общей практики' }, { t:'Контроль физического и нервно-психического развития' },
+      { t:'Контроль состояния пупочной ранки, кожи, питания и сна' }, { t:'Консультации по грудному вскармливанию и уходу за ребёнком' }, NAT ],
+    links:[ { label:'Здоровье новорождённого', section:'newborn' }, { label:'Национальный календарь профилактических прививок', calendar:true } ] },
+  AGE_1_12_MONTHS:{ cat:'Грудной возраст', title:'Здоровье и развитие ребёнка первого года жизни',
+    text:'Первый год жизни характеризуется интенсивным физическим и нервно-психическим развитием ребёнка. Регулярное наблюдение помогает своевременно оценивать развитие, выявлять возможные отклонения и получать рекомендации по питанию и уходу.',
+    items:[ { t:'Профилактические осмотры педиатра' }, { t:'Контроль роста, массы тела и развития ребёнка' }, { t:'Оценка нервно-психического и двигательного развития' },
+      { t:'Консультации по грудному вскармливанию и введению прикорма' }, { t:'Патронажное наблюдение на дому в соответствии с установленным порядком' }, { t:'Профилактические прививки по Национальному календарю' } ] },
+  AGE_1_5_YEARS:{ cat:'Ранний и дошкольный возраст', title:'Здоровое развитие ребёнка',
+    text:'В раннем и дошкольном возрасте важно следить за физическим, речевым, двигательным и эмоциональным развитием ребёнка. Регулярные профилактические осмотры позволяют оценивать состояние здоровья и своевременно выявлять возможные нарушения.',
+    items:[ { t:'Профилактические медицинские осмотры по возрасту' }, { t:'Оценка физического и нервно-психического развития' }, { t:'Контроль речевого развития' }, { t:'Оценка зрения и слуха' },
+      { t:'Профилактика заболеваний полости рта' }, { t:'Рекомендации по рациональному питанию, физической активности и режиму сна' }, NAT ] },
+  AGE_6_17_YEARS:{ cat:'Школьный возраст и подростковый период', title:'Здоровье школьника и подростка',
+    text:'В школьном и подростковом возрасте происходят важные изменения физического и психоэмоционального состояния. Профилактические осмотры помогают контролировать развитие ребёнка, выявлять нарушения зрения, слуха, осанки и другие состояния, требующие внимания.',
+    items:[ { t:'Профилактические медицинские осмотры в соответствии с возрастом и образовательным этапом' }, { t:'Контроль физического развития и состояния здоровья' }, { t:'Оценка зрения, слуха и осанки' },
+      { t:'Профилактика заболеваний полости рта' }, { t:'Консультации по вопросам полового созревания и репродуктивного здоровья подростков' },
+      { t:'Рекомендации по питанию, физической активности, сну и психологическому благополучию' }, NAT ] },
+  AGE_18_29:{ cat:'Взрослый возраст', title:'Профилактика и сохранение здоровья',
+    text:'В этом возрасте важно сформировать привычки, которые помогают сохранить здоровье в долгосрочной перспективе. Рекомендуется регулярно проходить профилактические осмотры, следить за факторами риска и уделять внимание репродуктивному здоровью.',
+    items:[ HEP('С 18 лет один раз в три года, если вы не состоите на динамическом наблюдении по поводу хронических вирусных гепатитов B и C и на учёте по беременности'),
+      { t:'Консультации по вопросам репродуктивного здоровья и планирования семьи' }, { t:'Профилактические осмотры и обращение к врачу при наличии жалоб' },
+      { t:'Оценка факторов риска хронических неинфекционных заболеваний' }, { t:'Рекомендации по здоровому питанию, физической активности и отказу от курения' } ] },
+  AGE_30_39:{ cat:'Взрослый возраст', title:'Контроль здоровья и ранняя профилактика заболеваний',
+    text:'В этом возрасте особое значение имеет профилактика хронических заболеваний и своевременное выявление факторов риска.',
+    textF:' Для женщин предусмотрены возрастные скрининговые исследования для раннего выявления рака шейки матки.',
+    items:[ CERV('В 30, 34 и 38 лет — один раз в четыре года'), HEP('Один раз в три года при соблюдении установленных критериев'),
+      { t:'Профилактика сердечно-сосудистых заболеваний и сахарного диабета' }, { t:'Оценка факторов риска хронических заболеваний' }, { t:'Консультации по вопросам репродуктивного здоровья и планирования семьи' } ] },
+  AGE_40_49:{ cat:'Взрослый возраст', title:'Комплексная профилактика и раннее выявление заболеваний',
+    text:'После 40 лет возрастает значимость регулярной оценки факторов риска сердечно-сосудистых заболеваний, сахарного диабета и других состояний. Для отдельных групп предусмотрены скрининговые исследования в рамках действующих государственных программ.',
+    items:[ CARDIO('Один раз в два года'), BREAST('Один раз в два года'), CERV(), HEP('Один раз в три года при соблюдении установленных критериев'),
+      { t:'Профилактика хронических неинфекционных заболеваний' }, { t:'Консультации по вопросам питания, физической активности и контроля факторов риска' } ] },
+  AGE_50_59:{ cat:'Зрелый возраст', title:'Профилактика возрастных заболеваний',
+    text:'В возрасте 50–59 лет важно регулярно проходить предусмотренные скрининговые исследования, контролировать состояние сердечно-сосудистой системы и своевременно выявлять онкологические заболевания.',
+    items:[ CARDIO(), STROKE, BREAST(), CERV(), COLON, LUNG, HEP('При соблюдении установленных критериев') ] },
+  AGE_60_69:{ cat:'Старший возраст', title:'Контроль здоровья и активное долголетие',
+    text:'В этом возрасте важно поддерживать физическую и когнитивную активность, контролировать хронические заболевания и проходить предусмотренные скрининговые исследования. Регулярное медицинское наблюдение помогает своевременно выявлять изменения состояния здоровья.',
+    // по постановке скрининг ССЗ, СД и глаукомы в 60–69 лет — только для мужчин (вопрос аналитику)
+    items:[ CARDIO(undefined, 'm'), STROKE, BREAST(), CERV(), COLON, LUNG, { t:'Динамическое наблюдение при наличии хронических заболеваний' },
+      { t:'Профилактика падений, поддержание физической и когнитивной активности' } ] },
+  AGE_70_PLUS:{ cat:'Старший возраст', title:'Здоровое долголетие и сохранение качества жизни',
+    text:'В старшем возрасте основное внимание уделяется сохранению самостоятельности, профилактике осложнений хронических заболеваний, поддержанию физической и когнитивной активности и своевременному получению медицинской помощи.',
+    items:[ CARDIO(), STROKE, BREAST(), CERV(), COLON, LUNG, { t:'Динамическое наблюдение при наличии хронических заболеваний' },
+      { t:'Оценка риска падений, нарушений памяти и других гериатрических синдромов' }, { t:'Консультации по вопросам лекарственной безопасности и сохранения самостоятельности' } ] },
+};
+const TRIS = [
+  { id:'T1', label:'I триместр', sub:'До 13 недель', short:'I', title:'Первый триместр беременности',
+    text:'Первый триместр — важный этап формирования беременности. Рекомендуется как можно раньше обратиться в медицинскую организацию для подтверждения беременности, постановки на учёт и прохождения первоначального комплекса обследований.',
+    items:[ { t:'Обратиться в медицинскую организацию для постановки на учёт по беременности', d:'Ранняя постановка на учёт предусмотрена до 12 недель' },
+      { t:'Пройти первичный осмотр акушера-гинеколога и оценку факторов риска' },
+      { t:'Пройти первоначальный комплекс лабораторных исследований, назначаемых врачом', sub:[ 'Общий анализ крови', 'Общий анализ мочи', 'Определение группы крови и резус-фактора', 'Обследование на сифилис и ВИЧ', 'Обследование на маркеры гепатитов B и C', 'Определение уровня глюкозы', 'Другие исследования согласно стандарту и медицинским показаниям' ] },
+      { t:'Пройти первый ультразвуковой пренатальный скрининг', d:'В сроке 11 недель — 13 недель 6 дней' },
+      { t:'Пройти исследование материнских сывороточных маркеров первого триместра и расчёт индивидуального генетического риска' },
+      { t:'Получить рекомендации по питанию, образу жизни и приёму фолиевой кислоты' },
+      { t:'Пройти консультации профильных специалистов по медицинским показаниям' },
+      { t:'Пройти дородовой патронаж', d:'До 12 недель' } ] },
+  { id:'T2', label:'II триместр', sub:'13–27 недель', short:'II', title:'Второй триместр беременности',
+    text:'Во втором триместре продолжается наблюдение за состоянием здоровья будущей матери и развитием плода. Важно соблюдать график посещений медицинской организации и проходить обследования в установленные сроки.',
+    items:[ { t:'Регулярное посещение акушера-гинеколога согласно индивидуальному графику' }, { t:'Контроль артериального давления, массы тела и общего состояния беременной' },
+      { t:'Оценка результатов ранее проведённых лабораторных исследований' }, { t:'Второй ультразвуковой пренатальный скрининг', d:'В сроке 19–21 неделя' },
+      { t:'Дополнительные обследования и консультации по медицинским показаниям' }, { t:'Получение рекомендаций по питанию, физической активности и подготовке к родам' },
+      { t:'Посещение школы подготовки к родам' } ] },
+  { id:'T3', label:'III триместр', sub:'28 недель и более', short:'III', title:'Третий триместр беременности',
+    text:'Третий триместр — заключительный этап беременности. Основное внимание уделяется контролю состояния матери и плода, оценке готовности к родам и определению дальнейшей тактики родоразрешения.',
+    items:[ { t:'Продолжение регулярного наблюдения акушером-гинекологом' },
+      { t:'Повторный комплекс лабораторных обследований', d:'Примерно в 30 недель: общий анализ крови, общий анализ мочи, обследование на сифилис; повторное обследование на ВИЧ — в 28–30 недель' },
+      { t:'Третий ультразвуковой пренатальный скрининг', d:'В сроке 30–32 недели' }, { t:'Проведение дополнительных исследований по медицинским показаниям' },
+      { t:'Направление на дородовой патронаж', d:'В 32 недели' }, { t:'Консультации по подготовке к родам и грудному вскармливанию' },
+      { t:'Комиссионное определение метода и уровня родоразрешения', d:'При наличии факторов риска — в 36 недель; повторный комиссионный осмотр — в 38–40 недель' },
+      { t:'Подготовка документов и выбор медицинской организации для родов' } ] },
+];
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.rootRef = React.createRef(); this.scrollRef = React.createRef(); this.resHeadRef = React.createRef();
+    this.state = { a:{}, step:'who', dir:'fwd', full:false, tri:null, n:0 };
+  }
+  componentDidMount(){
+    this._key = (e) => { if(e.key === 'Escape' && this.state.full) this.setFull(false); };
+    window.addEventListener('keydown', this._key);
+    this._open = () => this.setFull(true);
+    window.addEventListener('mp-route-open', this._open);
+  }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._key); window.removeEventListener('mp-route-open', this._open); clearTimeout(this._t); this.lock(false); }
+  lock(on){ try { document.documentElement.style.overflow = on ? 'hidden' : ''; } catch(e){} }
+  setFull(on){
+    this._ret = on ? document.activeElement : this._ret;
+    this.setState({ full:on }); this.lock(on);
+    setTimeout(() => { const r = this.rootRef.current; if(on && r){ const f = r.querySelector('.hr-opt[aria-checked="true"], .hr-opt, .hr-res h3'); f && f.focus({ preventScroll:true }); } else if(!on && this._ret && this._ret.focus) this._ret.focus({ preventScroll:true }); }, 40);
+  }
+  // порядок шагов по уже данным ответам
+  flow(a){
+    const f = ['who', 'sex', 'age'];
+    if(a.sex === 'f' && a.who === 'self' && PREG_AGES.includes(a.age)) { f.push('preg'); if(a.preg === 'yes') f.push('tri'); }
+    f.push('res');
+    return f;
+  }
+  // неприменимые ответы сбрасываются при смене предыдущих
+  sanitize(a){
+    const o = { ...a };
+    if(o.age){ const ag = AGES.find(x => x.id === o.age); if(!ag || !!ag.child !== (o.who === 'child')) delete o.age; }
+    if(!(o.sex === 'f' && o.who === 'self' && PREG_AGES.includes(o.age))){ delete o.preg; delete o.tri; }
+    if(o.preg !== 'yes') delete o.tri;
+    return o;
+  }
+  answer(key, val){
+    const a = this.sanitize({ ...this.state.a, [key]:val });
+    // после правки ответа — сразу к первому неотвеченному шагу (или к результату), без повторных кликов
+    const f = this.flow(a), i = f.indexOf(key), nextStep = f.slice(i + 1).find(k => k === 'res' || a[k] == null) || 'res';
+    this.setState({ a, n:this.state.n + 1 });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.go(nextStep, 'fwd'), calm() ? 0 : 200);
+  }
+  go(step, dir){
+    this.setState({ step, dir, tri: step === 'res' ? null : this.state.tri, n:this.state.n + 1 });
+    setTimeout(() => {
+      const r = this.rootRef.current; if(!r) return;
+      if(step === 'res'){ const s = this.scrollRef.current; if(s) s.scrollTop = 0; const h = this.resHeadRef.current; h && h.focus({ preventScroll:true }); }
+      else { const o = r.querySelector('.hr-opt[aria-checked="true"]') || r.querySelector('.hr-opt'); if(o && (this.state.full || r.contains(document.activeElement))) o.focus({ preventScroll:true }); }
+    }, 60);
+  }
+  calendar(stage){
+    this.setFull(false);
+    if(window.mpLifePath){ try { window.dispatchEvent(new CustomEvent('mp-lifepath-open', { detail:{ stage } })); } catch(e){} return true; }
+    return false;
+  }
+  result(){
+    const a = this.state.a, ag = AGES.find(x => x.id === a.age) || AGES[0];
+    const sexOk = (it) => !it.sex || it.sex === a.sex;
+    const item = (it) => ({ t:it.t, d:it.d || '', hasD:!!it.d, sub:it.sub || [], hasSub:!!(it.sub && it.sub.length), hasTag:false, tag:'', tagIcon:'' });
+    const sec = (id, label) => ({ cls:'hr-btn sec', icon:'ri-arrow-right-up-line', label: label || SECTION_NAMES[id], href: STAGES_PAGE + '#' + id, onClick:() => { this.setFull(false); } });
+    const cal = (label, stage) => ({ cls:'hr-btn sec', icon:'ri-calendar-check-line', label, href:'#lifepath', onClick:(e) => { if(this.calendar(stage)) e.preventDefault(); else { e.preventDefault(); location.href = (localStorage.getItem('mp-home-page') || 'Главная J - Итоговый.dc.html') + '#lifepath=' + stage; } } });
+    if(a.preg === 'yes'){
+      const cur = TRIS.findIndex(t => t.id === a.tri), show = this.state.tri != null ? this.state.tri : Math.max(0, cur), T = TRIS[show];
+      return { isPreg:true, icon:'ri-heart-pulse-line', cat:'Беременность · ' + TRIS[Math.max(0, cur)].label, title:T.title, text:T.text,
+        tris: TRIS.map((t, i) => ({ label:t.label, on: i === show ? 'true' : 'false', cur: i === cur, onClick:() => this.setState({ tri:i }) })),
+        items: T.items.map(item),
+        links:[ sec('pregnancy', 'Подробнее о наблюдении во время беременности'), cal('Скрининговые исследования', ag.stage) ] };
+    }
+    const R = RESULTS[ag.id];
+    const links = R.links ? R.links.map(l => l.calendar ? cal(l.label, ag.stage) : sec(l.section, l.label)) : [ sec(ag.section), cal('Календарь прививок и скринингов', ag.stage) ];
+    return { isPreg:false, icon: a.who === 'child' ? 'ri-parent-line' : 'ri-user-3-line', cat:R.cat + ' · ' + ag.label, title:R.title, text:R.text + (a.sex === 'f' && R.textF ? R.textF : ''), tris:[],
+      // пункты уже отобраны по полу пользователя — метка «Женщинам / Мужчинам» была бы лишней
+      items: R.items.filter(sexOk).map(item), links };
+  }
+  renderVals(){
+    const s = this.state, a = s.a, f = this.flow(a), idx = Math.max(0, f.indexOf(s.step));
+    const child = a.who === 'child';
+    const opt = (key, o) => ({ label:o.label, sub:o.sub || '', hasSub:!!o.sub, icon:o.icon || '', hasIcon:!!o.icon, on: a[key] === o.id ? 'true' : 'false', onClick:() => this.answer(key, o.id) });
+    const Q = {
+      who:{ title:'Для кого вы хотите сформировать персональный маршрут здоровья?', cls:'hr-opts', opts:WHO.map(o => opt('who', o)) },
+      sex:{ title: child ? 'Укажите биологический пол ребёнка' : 'Укажите биологический пол', cls:'hr-opts', opts:SEX.map(o => opt('sex', o)) },
+      age:(() => { const list = AGES.filter(x => !!x.child === child); return { title: child ? 'Укажите возраст ребёнка' : 'Укажите возраст', cls:'hr-opts ages' + (list.length === 4 ? ' n4' : ''), opts:list.map(o => opt('age', o)) }; })(),
+      preg:{ title:'Вы беременны на данный момент?', cls:'hr-opts', opts:[ { id:'yes', label:'Да', icon:'ri-heart-pulse-line' }, { id:'no', label:'Нет', icon:'ri-close-circle-line' } ].map(o => opt('preg', o)) },
+      tri:{ title:'Укажите срок вашей беременности', cls:'hr-opts n3', opts:TRIS.map((t, i) => opt('tri', { id:t.id, label:t.label, sub:t.sub, icon:'ri-number-' + (i + 1) })) },
+    };
+    const LBL = {
+      who:(v) => (WHO.find(x => x.id === v) || {}).label, sex:(v) => (SEX.find(x => x.id === v) || {}).label,
+      age:(v) => (AGES.find(x => x.id === v) || {}).label, preg:(v) => v === 'yes' ? 'Беременность' : 'Не беременна', tri:(v) => (TRIS.find(x => x.id === v) || {}).label,
+    };
+    const answered = f.filter(k => k !== 'res' && a[k] != null);
+    const isRes = s.step === 'res';
+    const total = f.length - 1, done = isRes ? total : idx;
+    return {
+      rootRef:this.rootRef, scrollRef:this.scrollRef, resHeadRef:this.resHeadRef,
+      cls:'hr' + (s.full ? ' is-full' : '') + (this.props.mode === 'modal' && !s.full ? ' hr-hidden' : ''), full:s.full, notFull:!s.full,
+      dlgRole: s.full ? 'dialog' : 'region', dlgModal: s.full ? 'true' : 'false',
+      note:'Подберём профилактические осмотры, скрининги и прививки с учётом возраста, пола и беременности. Справочная информация — не заменяет консультацию врача',
+      open:() => this.setFull(true), close:() => this.setFull(false),
+      started: answered.length > 0, restart:() => { clearTimeout(this._t); this.setState({ a:{}, tri:null }); this.go('who', 'back'); },
+      progCls: 'hr-prog' + (isRes ? ' done' : ''),
+      prog: Array.from({ length: total }, (_, i) => ({ cls: i < done ? 'on' : (i === done && !isRes ? 'cur' : '') })),
+      answers: answered.map(k => ({ label:LBL[k](a[k]), aria:'Изменить ответ: ' + LBL[k](a[k]), onClick:() => this.go(k, 'back') })),
+      noAnswers: answered.length === 0, hint:'3–5 вопросов, меньше минуты',
+      isQ: !isRes, isRes,
+      stepKey: s.step + '-' + s.n, resKey: 'res-' + s.n, stepCls: 'hr-step' + (s.dir === 'back' ? ' back' : ''),
+      stepNo: idx + 1,
+      q: !isRes ? Q[s.step] : { title:'', cls:'', opts:[] },
+      canBack: idx > 0 && !isRes, back:() => this.go(f[idx - 1], 'back'),
+      canNext: !isRes && a[s.step] != null, next:() => this.go(f[idx + 1] || 'res', 'fwd'),
+      r: isRes ? this.result() : { isPreg:false, icon:'', cat:'', title:'', text:'', tris:[], items:[], links:[] },
+    };
+  }
+}
+</script>
+</body>
+</html>
