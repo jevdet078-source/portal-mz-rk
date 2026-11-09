@@ -249,6 +249,8 @@ class Component extends DCLogic {
     this._role = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._role);
     this._fb = setTimeout(() => document.documentElement.classList.add('mp-ready'), 3500);
+    // ссылка «…#route» ведёт прямо к опроснику (блок появляется после загрузки, поэтому прокручиваем сами)
+    if(location.hash === '#route') this._rt = setTimeout(() => { const r = document.getElementById('route'); if(r) r.scrollIntoView({ block:'center' }); }, 1200);
     this.paint();
   }
   componentDidUpdate(){ this.paint(); }
