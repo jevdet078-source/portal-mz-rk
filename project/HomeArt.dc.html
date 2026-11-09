@@ -451,21 +451,24 @@ const A = (() => {
       count: gov ? h.plural(h.GOV_COUNT[role], 'услуга', 'услуги', 'услуг') : '' };
   };
   // Фото направлений «Здоровье на каждом этапе жизни» (вместо объёмных иллюстраций — замечание руководства 10.11.2026).
-  // Unsplash License (бесплатно, в т. ч. для коммерческого использования). pos — точка фокуса для object-fit:cover,
-  // чтобы при любой обрезке (плитка, карточка 16:9, миниатюра) в кадре оставались лица.
+  // Люди — казахи и жители Центральной Азии (сайт Минздрава РК): серии казахстанских фотографов на Pexels.
+  // Pexels License — бесплатно, в т. ч. для коммерческого использования, без обязательной подписи автора.
+  // Исходники кадрированы под 3:2 по лицам; pos — точка фокуса для object-fit:cover, чтобы при любой обрезке
+  // (плитка на главной, карточка 16:9, шапка направления, миниатюра) в кадре оставались лица.
+  // Беременность — без открытого живота: будущая мама в платье с сыном.
   const PHOTOS = {
-    newborn:      { pos:'30% 30%', by:'Kelly Sikkema',   src:'https://unsplash.com/photos/Z4GKcFAGck4' },
-    growth:       { pos:'62% 36%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/EiL21cqvo58' },
-    reproductive: { pos:'42% 44%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/3rXZyQdMdlI' },
-    pregnancy:    { pos:'36% 50%', by:'freestocks',      src:'https://unsplash.com/photos/ux53SGpRAHU' },
-    chronic:      { pos:'58% 38%', by:'Vitaly Gariev',   src:'https://unsplash.com/photos/NDOYHZ_98Rw' },
-    longevity:    { pos:'80% 42%', by:'Esther Ann',      src:'https://unsplash.com/photos/glpYh1cWf0o' },
+    newborn:      { pos:'50% 38%', src:'https://www.pexels.com/photo/7499569/' },   // мама с малышом
+    growth:       { pos:'58% 40%', src:'https://www.pexels.com/photo/17302521/' },  // мама с дочкой, Алматы
+    reproductive: { pos:'56% 14%', src:'https://www.pexels.com/photo/29945216/' },  // молодая пара
+    pregnancy:    { pos:'42% 0%', src:'https://www.pexels.com/photo/7780877/' },   // будущая мама с сыном
+    chronic:      { pos:'50% 30%', src:'https://www.pexels.com/photo/7659571/' },   // врач измеряет давление
+    longevity:    { pos:'52% 42%', src:'https://www.pexels.com/photo/4971629/' },   // пожилая пара на зарядке в парке
   };
   // photo(id) → { img (1200w), thumb (480w), srcset, pos } или null, если фото для направления нет (тогда — иллюстрация)
   const photo = (id) => {
     const p = PHOTOS[id]; if(!p) return null;
     const img = 'assets/stages/' + id + '.jpg', thumb = 'assets/stages/' + id + '-s.jpg';
-    return { img, thumb, srcset: thumb + ' 480w, ' + img + ' 1200w', pos:p.pos, style:'object-position:' + p.pos + ';', by:p.by };
+    return { img, thumb, srcset: thumb + ' 480w, ' + img + ' 1200w', pos:p.pos, style:'object-position:' + p.pos + ';', src:p.src };
   };
   return { TONES, TONE_NAMES, tone, ART, IDS, svg, paint, banners, tiles, allTile, PHOTOS, photo };
 })();
