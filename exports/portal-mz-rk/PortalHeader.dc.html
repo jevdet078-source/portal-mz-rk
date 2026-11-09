@@ -365,6 +365,9 @@ class Component extends DCLogic {
     if(window.ResizeObserver && this._roEl !== bar){
       if(this._ro) this._ro.disconnect();
       this._ro = new ResizeObserver(() => this.fit()); this._ro.observe(bar); this._roEl = bar;
+      // кнопки справа и герб с названием меняют ширину и без изменения ширины шапки (догрузка шрифта, вход, роль) —
+      // без этого шапка изредка вылезала за край на пару пикселей (горизонтальная прокрутка)
+      ['.ph-acts', '.ph-brand'].forEach(s => { const el = bar.querySelector(s); if(el) this._ro.observe(el); });
     }
     const set = (v) => { if((bar.getAttribute('data-fit') || '') !== v) bar.setAttribute('data-fit', v); };
     const proto = bar.querySelector('.ph-proto'), brand = bar.querySelector('.ph-brand');
