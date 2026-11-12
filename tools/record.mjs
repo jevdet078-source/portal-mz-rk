@@ -172,7 +172,8 @@ if (voiceOn) {
       for (let attempt = 1; ; attempt++) {
         rmSync(join(voiceDir, mp3), { force: true });
         // через раз — запрос с явным русским языком в SSML (tools/edge-tts-ru.py): часть фраз проходит только так
-        const args = attempt % 2
+        // во фразе с английским словом (dashboard) русский язык не навязываем — иначе прочтёт его по-русски
+        const args = attempt % 2 || /[A-Za-z]/.test(p.text)
           ? ['edge-tts', '--voice', EDGE_VOICE, '--text', p.text, '--write-media', mp3]
           : ['--with', 'edge-tts', 'python', '-I', join(root, 'tools', 'edge-tts-ru.py'), EDGE_VOICE, p.text, mp3];
         try { execFileSync('uvx', args, { cwd: voiceDir, stdio: ['ignore', 'ignore', 'ignore'] }); } catch (e) {}
