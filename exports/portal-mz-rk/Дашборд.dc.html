@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Администрирование → Дашборд, вкладка «Пользователи» (мониторинг пользователей).
+  Источники: постановка «Дашборд админ панель» (Confluence, 12.11.2026) и задание
+  «Разработка UI/UX-дизайна дашборда мониторинга панели администратора» (Word).
+  Референс аналитика — пример композиции, не копия.
+
+  Блоки (данные — агрегаты Backend API, без ИИН, ФИО, телефонов и почты):
+    1. Четыре карточки — учётные записи users по статусам (SQL-01). Актуальное состояние базы:
+       период регистрации на них не влияет; пользователь с несколькими профилями — один раз.
+       Карточка открывает «Пользователей» на нужной вкладке.
+    ⚠ Требуют внимания — профили, деактивированные вместе с удалённой организацией
+       (organization_deactivated = TRUE считаем деактивацией — вопрос постановки, согласовать).
+    2. Пользователи по профилям (SQL-02/03) — пять типов, у «Бизнеса» разбивка ИП / ЮЛ
+       по subject_type. Пользователь учитывается в каждом своём типе — сумма больше общего числа.
+       Форма — сегментная полоса «часть целого» + строки со значением и долей (читается точнее кольца).
+    3. Динамика регистрации — новые учётные записи за период, сравнение с предыдущим
+       периодом той же длины. Шаг: ≤ 31 дня — дни, ≤ 120 — недели, ≤ 36 месяцев — месяцы, иначе кварталы.
+       Незавершённый месяц / неделя — светлее.
+    4. Пользователи по профилям и статусам (SQL-04) — считаются ПРОФИЛИ user_profiles
+       (is_deleted, status). Столбец «Прочие» появляется, только если такие профили есть.
+    5. Крупнейшие организации — по числу профилей, переход в «Организации» (?bin= открывает карточку).
+
+  Фильтры: период регистрации, тип профиля, тип субъекта, статус + «Применить» / «Сбросить».
+  Черновик фильтров применяется кнопкой. Тип профиля и тип субъекта связаны: недопустимые
+  сочетания не предлагаются. Статус — пользователя (карточки не фильтруются, динамика)
+  или профиля (распределение, таблица, организации). В таблице и распределении выбранные
+  профиль и статус подсвечиваются, остальное приглушается — контекст не теряется.
+
+  Состояния: загрузка (скелетон), обновление (прежние данные приглушены), нет данных,
+  сбой блока и сбой API — переключаются в панели «Прототип» слева внизу.
+  Доступ — только роль «Администратор»; заявитель видит экран о недоступности раздела.
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;
+    --green:#38C793;--green-l:#CBF5E5;--green-ll:#EFFAF6;--green-d:#176448;
+    --orange:#F17B2C;--orange-l:#FFDAC2;--orange-ll:#FEF3EB;--orange-d:#6E330C;
+    --red:#DF1C41;--red-dk:#AF1D38;--red-l:#F8C9D2;--red-ll:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-md:0 8px 16px rgba(10,13,20,.06);--sh-lg:0 16px 32px -12px rgba(10,13,20,.12);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  button,input{font-family:inherit;}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes db-fade{from{opacity:0}to{opacity:1}}
+  @keyframes db-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes db-spin{to{transform:rotate(360deg)}}
+  @keyframes db-sh{0%{background-position:-320px 0}100%{background-position:calc(320px + 100%) 0}}
+
+  /* ── раскладка: ширина контента, а не окна (меню 272 / 80 px) ── */
+  .db-main{flex:1;min-width:0;container-type:inline-size;container-name:db;}
+  .db-pad{padding-left:32px;padding-right:32px;}
+  .db-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;}
+  .db-r2,.db-r3{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:16px;align-items:stretch;}
+  @container db (max-width:1135px){
+    .db-r2{grid-template-columns:minmax(340px,5fr) minmax(0,7fr);}
+    .db-r3{grid-template-columns:minmax(0,1fr);}
+    .db-r3 .db-orgs{order:2;}
+  }
+  @container db (max-width:899px){
+    .db-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .db-r2{grid-template-columns:minmax(0,1fr);}
+  }
+  @container db (max-width:599px){
+    .db-pad{padding-left:16px;padding-right:16px;}
+    .db-head{flex-wrap:wrap;}
+  }
+  @container db (max-width:459px){
+    .db-kpis{grid-template-columns:minmax(0,1fr);}
+    .db-upd{display:none;}
+  }
+
+  /* ── кнопки и поля (как в «Пользователях» и «Организациях») ── */
+  .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+  .btn-sm{height:32px;padding:0 12px;border-radius:8px;font-size:13px;gap:6px;}
+  .btn-p{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.08);}
+  .btn-p:hover{background:var(--primary-dark);}
+  .btn-s{border:1px solid var(--stroke);background:#fff;color:var(--n600);box-shadow:var(--sh-xs);}
+  .btn-s:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .btn-g{border:none;background:transparent;color:var(--n500);}
+  .btn-g:hover{background:var(--n100);color:var(--n900);}
+  .btn:disabled{background:var(--n100);border-color:var(--n100);color:var(--n300);box-shadow:none;cursor:not-allowed;}
+  .btn-g:disabled{background:transparent;}
+  .ib{width:40px;height:40px;padding:0;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;box-shadow:var(--sh-xs);transition:background .15s,color .15s,border-color .15s;}
+  .ib:hover{background:var(--n50);border-color:var(--n300);color:var(--n900);}
+  .ib:disabled{cursor:progress;color:var(--n400);background:#fff;}
+  .fbtn{height:40px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);white-space:nowrap;max-width:280px;transition:background .15s,border-color .15s;}
+  .fbtn:hover{background:var(--n50);border-color:var(--n300);}
+  .fbtn[aria-expanded="true"]{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .fbtn-on{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+  .fbtn-on:hover{background:var(--primary-lighter);border-color:var(--primary);}
+  .fbtn i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .fbtn-on i{color:var(--primary);}
+  .pop{position:absolute;left:0;top:calc(100% + 6px);z-index:50;min-width:100%;width:max-content;max-width:min(360px,calc(100vw - 32px));background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:4px;animation:db-pop .14s ease;}
+  .opt{width:100%;display:flex;align-items:center;gap:10px;min-height:36px;padding:8px 10px;border:none;border-radius:8px;background:none;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);text-align:left;cursor:pointer;white-space:nowrap;}
+  .opt:hover,.opt:focus-visible{background:var(--n100);outline:none;}
+  .opt[aria-selected="true"],.opt[aria-checked="true"]{font-weight:500;}
+  .opt i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .rng{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 10px 8px;border-top:1px solid var(--stroke);margin-top:4px;}
+  .rng label{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .rng input{width:100%;height:36px;padding:0 8px;border:1px solid var(--stroke);border-radius:8px;font-size:14px;color:var(--n900);background:#fff;outline:none;transition:border-color .12s,box-shadow .12s;}
+  .rng input:hover{border-color:var(--n300);}
+  .rng input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .rng input[aria-invalid="true"]{border-color:var(--red);}
+
+  .tab{height:44px;padding:0 2px;flex:0 0 auto;border:none;border-bottom:2px solid transparent;background:none;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--n500);transition:color .15s,border-color .15s;}
+  .tab:hover{color:var(--n900);}
+  .tab[aria-selected="true"]{color:var(--n900);border-bottom-color:var(--primary);cursor:default;}
+  .tab[aria-disabled="true"],.tab[aria-disabled="true"]:hover{color:var(--n300);cursor:not-allowed;}
+
+  /* ── карточки ── */
+  .card{background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+  .card-h{display:flex;align-items:center;gap:6px;padding:16px 20px 0;min-height:56px;flex-wrap:wrap;}
+  .ttl{margin:0;font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;color:var(--n900);}
+  .info{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--n400);cursor:help;flex:0 0 auto;}
+  .info:hover{color:var(--n600);}
+  .info i{font-size:16px;}
+  .kpi{position:relative;display:flex;flex-direction:column;gap:12px;padding:16px 20px 18px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);text-decoration:none;color:inherit;min-width:0;transition:border-color .15s,box-shadow .15s;}
+  .kpi:hover{border-color:var(--primary-light);box-shadow:var(--sh-md);}
+  .kpi-go{position:absolute;right:16px;bottom:16px;font-size:18px;color:var(--n300);opacity:0;transform:translate(-4px,4px);transition:opacity .15s,transform .15s,color .15s;}
+  .kpi:hover .kpi-go,.kpi:focus-visible .kpi-go{opacity:1;transform:none;color:var(--primary);}
+  .lnk{display:inline-flex;align-items:center;gap:2px;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;color:var(--primary);text-decoration:none;border-radius:6px;white-space:nowrap;}
+  .lnk:hover{text-decoration:underline;text-underline-offset:3px;}
+  .lnk i{font-size:18px;}
+  .org{display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:12px;align-items:start;padding:12px 20px;text-decoration:none;color:inherit;border-top:1px solid var(--n100);transition:background .12s;}
+  .org:first-child{border-top:none;}
+  .org:hover{background:var(--n50);}
+  .org:hover .org-n{color:var(--primary);}
+  .prow{transition:opacity .15s;}
+  .bk{outline:none;}
+  .bk:focus-visible>span:first-child{box-shadow:inset 0 0 0 2px var(--primary-light);}
+
+  .tb{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;line-height:20px;letter-spacing:-.006em;}
+  .tb th{height:40px;padding:0 8px;background:var(--n50);border-top:1px solid var(--stroke);border-bottom:1px solid var(--stroke);font-weight:500;color:var(--n500);text-align:right;white-space:nowrap;}
+  .tb th:first-child,.tb td:first-child{text-align:left;padding-left:20px;padding-right:12px;}
+  .tb th:last-child,.tb td:last-child{padding-right:20px;}
+  .tb td{height:48px;padding:0 8px;border-bottom:1px solid var(--n100);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .tb tbody th{height:48px;background:none;border-top:none;border-bottom:1px solid var(--n100);}
+  .hint{text-decoration:underline dotted;text-underline-offset:4px;text-decoration-thickness:1px;cursor:help;}
+  .tb tbody tr{transition:background .12s;}
+  .tb tbody tr:hover{background:var(--n50);}
+  .tb tfoot td{background:var(--n50);font-weight:500;color:var(--n900);border-bottom:none;border-top:1px solid var(--stroke);}
+
+  .sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,#EDEFF3 50%,var(--n100) 100%);background-size:320px 100%;background-repeat:no-repeat;background-color:var(--n100);animation:db-sh 1.3s linear infinite;}
+  .btn:focus-visible,.ib:focus-visible,.fbtn:focus-visible,.tab:focus-visible,.lnk:focus-visible,.kpi:focus-visible,.org:focus-visible,.info:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  @media (prefers-reduced-motion:reduce){ .sk,.pop{animation:none;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="dashboard" hint-size="272px,827px"></dc-import>
+    </div>
+
+    <main class="db-main" style="padding:8px 0 96px;">
+
+      <!-- ── Роль не та: раздел ведут только администраторы ── -->
+      <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:64px 32px;display:flex;justify-content:center;animation:mp-slidein .2s ease;">
+          <div style="max-width:520px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:32px;display:flex;flex-direction:column;align-items:flex-start;gap:16px;">
+            <div style="width:48px;height:48px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-shield-keyhole-line" style="font-size:24px;color:var(--primary);"></i></div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Раздел доступен в роли «Администратор»</div>
+              <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">Дашборд мониторинга пользователей видят сотрудники с ролью администратора. Сейчас вы работаете как заявитель.</div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-p" onClick="{{ becomeAdmin }}"><i class="ri-shield-user-line" style="font-size:18px;"></i>Переключиться на роль администратора</button>
+              <a href="Кабинет бизнеса.dc.html" class="btn btn-s"><i class="ri-arrow-left-line" style="font-size:18px;"></i>Вернуться в кабинет</a>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;animation:mp-slidein .2s ease;">
+
+        <!-- Заголовок раздела -->
+        <div class="db-pad db-head" style="padding-top:16px;padding-bottom:16px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:16px;">
+          <h1 style="flex:1;min-width:0;margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--n900);">Дашборд</h1>
+          <span class="db-upd" aria-live="polite" style="font-size:13px;line-height:20px;color:var(--n500);white-space:nowrap;font-variant-numeric:tabular-nums;">{{ updatedLabel }}</span>
+          <button class="ib" onClick="{{ onRefresh }}" disabled="{{ busy }}" aria-label="Обновить данные" data-tip="Обновить данные"><i class="ri-refresh-line" style="{{ refreshIconStyle }}"></i></button>
+        </div>
+
+        <div class="db-pad" style="padding-top:8px;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Вкладки дашборда -->
+          <div role="tablist" aria-label="Разделы дашборда" style="display:flex;gap:24px;box-shadow:inset 0 -1px 0 var(--stroke);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+              <button role="tab" class="tab" aria-selected="{{ t.sel }}" aria-disabled="{{ t.dis }}" tabIndex="{{ t.ti }}" data-tip="{{ t.tip }}"><i class="{{ t.icon }}" style="font-size:18px;"></i>{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <!-- Фильтры -->
+          <div role="search" aria-label="Фильтры дашборда" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <!-- Период регистрации -->
+            <div data-pop="period" style="position:relative;">
+              <button type="button" id="db-f-period" class="{{ per.cls }}" onClick="{{ per.onToggle }}" aria-haspopup="dialog" aria-expanded="{{ per.expanded }}" aria-label="{{ per.aria }}" data-tip="{{ per.tip }}">
+                <i class="ri-calendar-line"></i><span style="overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;">{{ per.text }}</span><i class="ri-arrow-down-s-line" style="{{ per.chev }}"></i>
+              </button>
+              <sc-if value="{{ per.open }}" hint-placeholder-val="{{ false }}">
+                <div class="pop" role="dialog" aria-label="Период регистрации" onKeyDown="{{ per.onKey }}" style="width:300px;">
+                  <div role="radiogroup" aria-label="Период регистрации">
+                    <sc-for list="{{ per.opts }}" as="o" hint-placeholder-count="6">
+                      <button type="button" class="opt" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isOn }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if></button>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ per.custom }}" hint-placeholder-val="{{ false }}">
+                    <div class="rng">
+                      <label>Дата начала<input id="db-from" type="date" value="{{ per.from }}" min="{{ per.min }}" max="{{ per.max }}" onChange="{{ per.onFrom }}" aria-invalid="{{ per.bad }}"></label>
+                      <label>Дата окончания<input type="date" value="{{ per.to }}" min="{{ per.min }}" max="{{ per.max }}" onChange="{{ per.onTo }}" aria-invalid="{{ per.bad }}"></label>
+                      <sc-if value="{{ per.hasErr }}" hint-placeholder-val="{{ false }}">
+                        <div role="alert" style="grid-column:1 / -1;font-size:12px;line-height:16px;color:var(--red);">{{ per.err }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- Тип профиля · Тип субъекта · Статус -->
+            <sc-for list="{{ selects }}" as="fl" hint-placeholder-count="3">
+              <div data-pop="{{ fl.key }}" style="position:relative;">
+                <button type="button" id="{{ fl.btnId }}" class="{{ fl.cls }}" onClick="{{ fl.onToggle }}" aria-haspopup="listbox" aria-expanded="{{ fl.expanded }}" aria-label="{{ fl.aria }}">
+                  <span style="overflow:hidden;text-overflow:ellipsis;">{{ fl.text }}</span><i class="ri-arrow-down-s-line" style="{{ fl.chev }}"></i>
+                </button>
+                <sc-if value="{{ fl.open }}" hint-placeholder-val="{{ false }}">
+                  <div class="pop" role="listbox" id="{{ fl.listId }}" aria-label="{{ fl.label }}" onKeyDown="{{ fl.onKey }}">
+                    <sc-for list="{{ fl.options }}" as="o" hint-placeholder-count="4">
+                      <button type="button" class="opt" role="option" aria-selected="{{ o.sel }}" onClick="{{ o.onPick }}">
+                        <sc-if value="{{ o.hasDot }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ o.dot }}"></span></sc-if>
+                        <span>{{ o.label }}</span>
+                        <sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <button class="btn btn-p" onClick="{{ onApply }}" disabled="{{ applyDisabled }}">Применить</button>
+            <button class="btn btn-g" onClick="{{ onReset }}" disabled="{{ resetDisabled }}"><i class="ri-filter-off-line" style="font-size:18px;"></i>Сбросить</button>
+          </div>
+
+          <!-- ═══ Сбой API: ни один блок не загрузился ═══ -->
+          <sc-if value="{{ errAll }}" hint-placeholder-val="{{ false }}">
+            <div class="card" style="padding:56px 24px;align-items:center;text-align:center;gap:16px;animation:db-fade .2s ease;">
+              <div style="width:56px;height:56px;border-radius:14px;background:var(--red-ll);display:flex;align-items:center;justify-content:center;"><i class="ri-error-warning-line" style="font-size:28px;color:var(--red);"></i></div>
+              <div style="font-size:16px;line-height:24px;font-weight:500;letter-spacing:-.011em;">Не удалось загрузить данные дашборда</div>
+              <button class="btn btn-s" onClick="{{ onRetry }}" disabled="{{ busy }}"><i class="ri-refresh-line" style="{{ refreshIconStyle }}"></i>Повторить</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showData }}" hint-placeholder-val="{{ true }}">
+          <div aria-busy="{{ busyA }}" style="{{ dataStyle }}">
+
+            <!-- ═══ 1. Общие показатели ═══ -->
+            <div class="db-kpis">
+              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+                <a class="kpi" href="{{ k.href }}" aria-label="{{ k.aria }}">
+                  <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                    <span style="min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ k.label }}</span>
+                    <sc-if value="{{ k.hasTip }}" hint-placeholder-val="{{ false }}"><span class="info" data-tip="{{ k.tip }}" aria-hidden="true"><i class="ri-information-line"></i></span></sc-if>
+                    <span style="flex:1;"></span>
+                    <span aria-hidden="true" style="{{ k.icStyle }}"><i class="{{ k.icon }}" style="font-size:18px;"></i></span>
+                  </div>
+                  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span class="sk" style="width:60%;height:28px;margin:4px 0;"></span></sc-if>
+                  <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0;">
+                      <span style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;color:var(--n900);white-space:nowrap;">{{ k.value }}</span>
+                      <sc-if value="{{ k.hasPct }}" hint-placeholder-val="{{ true }}"><span style="{{ k.pctStyle }}">{{ k.pct }}</span></sc-if>
+                    </div>
+                  </sc-if>
+                  <i class="ri-arrow-right-up-line kpi-go" aria-hidden="true"></i>
+                </a>
+              </sc-for>
+            </div>
+
+            <!-- ⚠ Требуют внимания -->
+            <sc-if value="{{ attn.show }}" hint-placeholder-val="{{ true }}">
+              <div role="status" style="display:flex;align-items:center;gap:12px;padding:10px 10px 10px 16px;background:var(--orange-ll);border:1px solid var(--orange-l);border-radius:12px;animation:db-fade .2s ease;">
+                <i class="ri-error-warning-fill" aria-hidden="true" style="font-size:20px;color:var(--orange);flex:0 0 auto;"></i>
+                <div style="flex:1;min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);"><b style="font-weight:600;">{{ attn.count }}</b> {{ attn.text }}</div>
+                <a class="btn btn-s btn-sm" href="Пользователи.dc.html?tab=inactive" style="flex:0 0 auto;">Посмотреть<i class="ri-arrow-right-s-line" style="font-size:16px;"></i></a>
+              </div>
+            </sc-if>
+
+            <!-- ═══ 2 + 3. Аналитика ═══ -->
+            <div class="db-r2">
+
+              <!-- Пользователи по профилям -->
+              <section class="card" aria-labelledby="db-t-prof">
+                <div class="card-h">
+                  <h2 id="db-t-prof" class="ttl">Пользователи по профилям</h2>
+                  <span class="info" tabIndex="0" role="img" aria-label="{{ profTip }}" data-tip="{{ profTip }}"><i class="ri-information-line"></i></span>
+                </div>
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:18px;">
+                    <span class="sk" style="height:10px;border-radius:4px;"></span>
+                    <sc-for list="{{ skRows }}" as="sr" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;gap:10px;"><span class="sk" style="width:8px;height:8px;border-radius:50%;"></span><span class="sk" style="{{ sr.w }}"></span><span style="flex:1;"></span><span class="sk" style="width:44px;height:12px;"></span><span class="sk" style="width:40px;height:12px;"></span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prof.empty }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;padding:32px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+                    <div style="width:48px;height:48px;border-radius:12px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-pie-chart-2-line" style="font-size:24px;color:var(--n400);"></i></div>
+                    <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ emptyText }}</div>
+                    <sc-if value="{{ canReset }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ onReset }}"><i class="ri-filter-off-line" style="font-size:16px;"></i>Сбросить фильтры</button></sc-if>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ prof.has }}" hint-placeholder-val="{{ true }}">
+                  <div style="padding:16px 20px 12px;display:flex;flex-direction:column;gap:8px;flex:1;">
+                    <div role="img" aria-label="{{ prof.aria }}" style="display:flex;gap:2px;height:10px;margin-bottom:8px;">
+                      <sc-for list="{{ prof.segs }}" as="sg" hint-placeholder-count="5">
+                        <span onMouseEnter="{{ sg.onEnter }}" onMouseLeave="{{ sg.onLeave }}" data-tip="{{ sg.tip }}" style="{{ sg.style }}"></span>
+                      </sc-for>
+                    </div>
+                    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;">
+                      <sc-for list="{{ prof.rows }}" as="r" hint-placeholder-count="5">
+                        <li class="prow" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="{{ r.style }}">
+                          <span aria-hidden="true" style="{{ r.dot }}"></span>
+                          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+                            <span style="{{ r.labelStyle }}">{{ r.label }}</span>
+                            <sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}">
+                              <span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.sub }}</span>
+                            </sc-if>
+                          </div>
+                          <span style="{{ r.countStyle }}">{{ r.count }}</span>
+                          <span style="width:52px;flex:0 0 auto;text-align:right;font-size:13px;line-height:20px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.pct }}</span>
+                        </li>
+                      </sc-for>
+                    </ul>
+                  </div>
+                </sc-if>
+              </section>
+
+              <!-- Динамика регистрации -->
+              <section class="card" aria-labelledby="db-t-dyn">
+                <div class="card-h" style="align-items:flex-start;">
+                  <h2 id="db-t-dyn" class="ttl" style="flex:1;min-width:0;margin-top:0;">Динамика регистрации</h2>
+                  <sc-if value="{{ dyn.hasSum }}" hint-placeholder-val="{{ true }}">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+                      <span style="font-size:14px;line-height:24px;color:var(--n500);white-space:nowrap;"><b style="font-size:16px;font-weight:600;letter-spacing:-.011em;color:var(--n900);">{{ dyn.total }}</b> {{ dyn.totalWord }}</span>
+                      <sc-if value="{{ dyn.hasDelta }}" hint-placeholder-val="{{ true }}">
+                        <span tabIndex="0" role="img" aria-label="{{ dyn.deltaTip }}" data-tip="{{ dyn.deltaTip }}" style="{{ dyn.deltaStyle }}"><i class="{{ dyn.deltaIcon }}" style="font-size:14px;"></i>{{ dyn.delta }}</span>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;min-height:268px;padding:20px 20px 16px;display:flex;align-items:flex-end;gap:12px;">
+                    <sc-for list="{{ skBars }}" as="sb" hint-placeholder-count="11"><span class="sk" style="{{ sb.h }}"></span></sc-for>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ dyn.err }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;min-height:268px;padding:24px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+                    <div style="width:48px;height:48px;border-radius:12px;background:var(--red-ll);display:flex;align-items:center;justify-content:center;"><i class="ri-error-warning-line" style="font-size:24px;color:var(--red);"></i></div>
+                    <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">Не удалось загрузить динамику</div>
+                    <button class="btn btn-s btn-sm" onClick="{{ onRetry }}" disabled="{{ busy }}"><i class="ri-refresh-line" style="{{ refreshIconStyle }}"></i>Повторить</button>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ dyn.empty }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;min-height:268px;padding:24px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+                    <div style="width:48px;height:48px;border-radius:12px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-bar-chart-2-line" style="font-size:24px;color:var(--n400);"></i></div>
+                    <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);">{{ dyn.emptyText }}</div>
+                    <sc-if value="{{ canReset }}" hint-placeholder-val="{{ false }}"><button class="btn btn-s btn-sm" onClick="{{ onReset }}"><i class="ri-filter-off-line" style="font-size:16px;"></i>Сбросить фильтры</button></sc-if>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ dyn.has }}" hint-placeholder-val="{{ true }}">
+                  <div style="flex:1;min-height:268px;padding:16px 20px 14px 12px;display:flex;flex-direction:column;">
+                    <div style="flex:1;min-height:216px;display:flex;gap:8px;">
+                      <!-- ось Y -->
+                      <div aria-hidden="true" style="position:relative;width:44px;flex:0 0 auto;">
+                        <sc-for list="{{ dyn.ticks }}" as="tk" hint-placeholder-count="5">
+                          <span style="{{ tk.lblStyle }}">{{ tk.label }}</span>
+                        </sc-for>
+                      </div>
+                      <!-- область графика -->
+                      <div role="list" aria-label="{{ dyn.aria }}" style="position:relative;flex:1;min-width:0;">
+                        <sc-for list="{{ dyn.ticks }}" as="tk" hint-placeholder-count="5">
+                          <span aria-hidden="true" style="{{ tk.lineStyle }}"></span>
+                        </sc-for>
+                        <div style="{{ dyn.barsStyle }}">
+                          <sc-for list="{{ dyn.bars }}" as="b" hint-placeholder-count="11">
+                            <div role="listitem" class="bk" tabIndex="0" aria-label="{{ b.aria }}" onMouseEnter="{{ b.onEnter }}" onMouseLeave="{{ b.onLeave }}" onFocus="{{ b.onEnter }}" onBlur="{{ b.onLeave }}" style="position:relative;flex:1 1 0;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center;cursor:default;">
+                              <span aria-hidden="true" style="{{ b.hoverStyle }}"></span>
+                              <span aria-hidden="true" style="{{ b.barStyle }}"></span>
+                            </div>
+                          </sc-for>
+                        </div>
+                        <!-- подсказка столбца -->
+                        <sc-if value="{{ dyn.tipOn }}" hint-placeholder-val="{{ false }}">
+                          <div aria-hidden="true" style="{{ dyn.tipStyle }}">
+                            <div style="font-size:12px;line-height:16px;color:rgba(255,255,255,.64);white-space:nowrap;">{{ dyn.tipTitle }}</div>
+                            <div style="font-size:14px;line-height:20px;white-space:nowrap;"><b style="font-weight:600;">{{ dyn.tipValue }}</b> <span style="color:rgba(255,255,255,.72);">{{ dyn.tipWord }}</span></div>
+                            <sc-if value="{{ dyn.tipHasNote }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;line-height:16px;color:rgba(255,255,255,.72);white-space:nowrap;">{{ dyn.tipNote }}</div></sc-if>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                    <!-- ось X -->
+                    <div aria-hidden="true" style="display:flex;gap:{{ dyn.gap }}px;margin-left:52px;padding-top:8px;">
+                      <sc-for list="{{ dyn.bars }}" as="b" hint-placeholder-count="11">
+                        <span style="{{ b.xStyle }}">{{ b.x }}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </section>
+            </div>
+
+            <!-- ═══ 4 + 5. Детализация ═══ -->
+            <div class="db-r3">
+
+              <!-- Крупнейшие организации -->
+              <section class="card db-orgs" aria-labelledby="db-t-org">
+                <div class="card-h">
+                  <h2 id="db-t-org" class="ttl">Крупнейшие организации</h2>
+                  <span class="info" tabIndex="0" role="img" aria-label="По числу пользовательских профилей" data-tip="По числу пользовательских профилей"><i class="ri-information-line"></i></span>
+                  <span style="flex:1;"></span>
+                  <a class="lnk" href="Организации.dc.html" aria-label="Все организации">Все<i class="ri-arrow-right-s-line"></i></a>
+                </div>
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:12px 20px 20px;display:flex;flex-direction:column;gap:22px;">
+                    <sc-for list="{{ skRows }}" as="sr" hint-placeholder-count="5">
+                      <div style="display:flex;gap:12px;"><span class="sk" style="width:16px;height:12px;"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px;"><span class="sk" style="{{ sr.w }}"></span><span class="sk" style="height:4px;"></span></div><span class="sk" style="width:36px;height:12px;"></span></div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ orgs.empty }}" hint-placeholder-val="{{ false }}">
+                  <div style="flex:1;padding:32px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
+                    <div style="width:48px;height:48px;border-radius:12px;background:var(--n100);display:flex;align-items:center;justify-content:center;"><i class="ri-building-2-line" style="font-size:24px;color:var(--n400);"></i></div>
+                    <div style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);max-width:280px;">{{ orgs.emptyText }}</div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ orgs.has }}" hint-placeholder-val="{{ true }}">
+                  <ol style="list-style:none;margin:8px 0 0;padding:0 0 8px;display:flex;flex-direction:column;">
+                    <sc-for list="{{ orgs.rows }}" as="o" hint-placeholder-count="5">
+                      <li style="display:contents;">
+                        <a class="org" href="{{ o.href }}" aria-label="{{ o.aria }}">
+                          <span aria-hidden="true" style="font-size:13px;line-height:20px;font-weight:500;color:var(--n400);font-variant-numeric:tabular-nums;">{{ o.rank }}</span>
+                          <div style="min-width:0;display:flex;flex-direction:column;gap:8px;">
+                            <span class="org-n clamp2" data-tip="{{ o.full }}" style="font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);transition:color .12s;">{{ o.name }}</span>
+                            <span aria-hidden="true" style="display:block;height:4px;border-radius:2px;background:var(--n100);overflow:hidden;"><span style="{{ o.bar }}"></span></span>
+                          </div>
+                          <span style="font-size:14px;line-height:20px;font-weight:500;color:var(--n900);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ o.count }}</span>
+                        </a>
+                      </li>
+                    </sc-for>
+                  </ol>
+                </sc-if>
+              </section>
+
+              <!-- Пользователи по профилям и статусам -->
+              <section class="card" aria-labelledby="db-t-tab">
+                <div class="card-h" style="padding-bottom:12px;">
+                  <h2 id="db-t-tab" class="ttl">Пользователи по профилям и статусам</h2>
+                  <span class="info" tabIndex="0" role="img" aria-label="{{ tableTip }}" data-tip="{{ tableTip }}"><i class="ri-information-line"></i></span>
+                </div>
+                <div style="overflow-x:auto;flex:1;display:flex;flex-direction:column;">
+                  <table class="tb" style="flex:1;">
+                    <thead>
+                      <tr>
+                        <sc-for list="{{ table.head }}" as="h" hint-placeholder-count="5">
+                          <th scope="col" style="{{ h.style }}"><span class="{{ h.cls }}" tabIndex="{{ h.ti }}" data-tip="{{ h.tip }}" aria-description="{{ h.tip }}">{{ h.label }}</span></th>
+                        </sc-for>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+                        <sc-for list="{{ skRows }}" as="sr" hint-placeholder-count="5">
+                          <tr><td><span class="sk" style="{{ sr.w }}"></span></td><sc-for list="{{ table.foot }}" as="c" hint-placeholder-count="4"><td><span class="sk" style="width:44px;height:12px;margin-left:auto;"></span></td></sc-for></tr>
+                        </sc-for>
+                      </sc-if>
+                      <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                        <sc-for list="{{ table.rows }}" as="r" hint-placeholder-count="5">
+                          <tr style="{{ r.style }}">
+                            <th scope="row" style="{{ r.headStyle }}"><span style="display:inline-flex;align-items:center;gap:10px;"><span aria-hidden="true" style="{{ r.dot }}"></span>{{ r.label }}</span></th>
+                            <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4">
+                              <td data-tip="{{ c.tip }}" style="{{ c.style }}">{{ c.v }}</td>
+                            </sc-for>
+                          </tr>
+                        </sc-for>
+                      </sc-if>
+                    </tbody>
+                    <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                      <tfoot>
+                        <tr>
+                          <td>Итого</td>
+                          <sc-for list="{{ table.foot }}" as="c" hint-placeholder-count="4">
+                            <td style="{{ c.style }}">{{ c.v }}</td>
+                          </sc-for>
+                        </tr>
+                      </tfoot>
+                    </sc-if>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <!-- ═══ Панель прототипа ═══ -->
+  <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;left:16px;bottom:76px;z-index:85;display:flex;flex-direction:column;align-items:flex-start;gap:8px;">
+      <sc-if value="{{ demoOpen }}" hint-placeholder-val="{{ false }}">
+        <div role="region" aria-label="Настройки прототипа" style="width:340px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);padding:14px;display:flex;flex-direction:column;gap:14px;animation:db-pop .15s ease;">
+          <sc-for list="{{ demoGroups }}" as="dg" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">{{ dg.title }}</span>
+              <div style="display:flex;background:var(--n100);border-radius:8px;padding:2px;gap:2px;">
+                <sc-for list="{{ dg.opts }}" as="o" hint-placeholder-count="2">
+                  <button onClick="{{ o.onClick }}" aria-pressed="{{ o.on }}" style="{{ o.style }}">{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <button onClick="{{ toggleDemo }}" aria-expanded="{{ demoOpenA }}" style="height:32px;padding:0 12px;border:1px solid var(--stroke);border-radius:999px;background:var(--n0);box-shadow:var(--sh-md);font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><i class="ri-flask-line" style="font-size:16px;color:var(--primary);"></i>Прототип<i class="{{ demoChev }}" style="font-size:16px;"></i></button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1180}}">
+// ═══ Время и календарь (UTC — без сдвигов часовых поясов) ═══
+const DAY = 86400000;
+const T0 = Date.UTC(2024, 2, 1);                 // запуск регистрации на портале
+const dayOf = (y, m, d) => Math.round((Date.UTC(y, m, d) - T0) / DAY);
+const NOW = { y:2026, m:10, d:12, hh:16, mm:50 };  // «сейчас» прототипа
+const TODAY = dayOf(NOW.y, NOW.m, NOW.d);
+const dt = (i) => new Date(T0 + i * DAY);
+const pad = (n) => String(n).padStart(2, '0');
+const isoOf = (i) => { const d = dt(i); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
+const ruOf = (i) => { const d = dt(i); return pad(d.getUTCDate()) + '.' + pad(d.getUTCMonth() + 1) + '.' + d.getUTCFullYear(); };
+const fromIso = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? dayOf(+m[1], +m[2] - 1, +m[3]) : null; };
+const MON  = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const MONF = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONG = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MOND = ['январю','февралю','марту','апрелю','маю','июню','июлю','августу','сентябрю','октябрю','ноябрю','декабрю'];
+const QR = ['I','II','III','IV'];
+
+// ═══ Числа ═══
+const fmt = (n) => Number(n || 0).toLocaleString('ru-RU');
+const pctOf = (v, t) => { if(!t || !v) return '0%'; const p = v / t * 100; return p < 0.1 ? '<0,1%' : p.toFixed(1).replace('.', ',') + '%'; };
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
+const W_REG = ['регистрация','регистрации','регистраций'];
+const W_NEW = ['новая','новые','новых'];
+const W_PROF = ['профиль','профиля','профилей'];
+
+// ═══ Справочники ═══
+// Цвета профилей — категориальная палитра из оттенков AlignUI, проверена валидатором
+// (светлота, различимость при дальтонизме, контраст ≥ 3:1). Статусные зелёный / оранжевый / красный не используются.
+const PROFILES = [
+  { id:'citizen',  label:'Гражданин',               color:'#4D42E9', subj:['FL'] },
+  { id:'business', label:'Бизнес',                  color:'#1F87AD', subj:['IP','UL'] },
+  { id:'medic',    label:'Медицинский работник',    color:'#E255F2', subj:['UL'] },
+  { id:'medorg',   label:'Медицинская организация', color:'#B47818', subj:['UL'] },
+  { id:'gov',      label:'Государственный орган',   color:'#9C23A9', subj:['UL'] },
+];
+const SUBJECTS = [
+  { id:'FL', label:'Физическое лицо', short:'ФЛ' },
+  { id:'IP', label:'Индивидуальный предприниматель', short:'ИП' },
+  { id:'UL', label:'Юридическое лицо', short:'ЮЛ' },
+];
+// статус: 0 — активный, 1 — деактивированный, 2 — удалённый, 3 — прочие (только у профилей)
+const STATUSES = [
+  { id:'active',  label:'Активные',         c:'var(--green)',  ll:'var(--green-ll)',  d:'var(--green-d)',  icon:'ri-user-follow-line',   tab:'active' },
+  { id:'deact',   label:'Деактивированные', c:'var(--orange)', ll:'var(--orange-ll)', d:'var(--orange-d)', icon:'ri-user-unfollow-line', tab:'inactive' },
+  { id:'deleted', label:'Удалённые',        c:'var(--red)',    ll:'var(--red-ll)',    d:'var(--red-d)',    icon:'ri-delete-bin-line',    tab:'deleted' },
+];
+const PIDX = {}; PROFILES.forEach((p, i) => PIDX[p.id] = i);
+const SIDX = {}; SUBJECTS.forEach((p, i) => SIDX[p.id] = i);
+const STIDX = {}; STATUSES.forEach((p, i) => STIDX[p.id] = i);
+
+// Организации — те же, что в реестре «Организаций» (mp-admin-db): ?bin= открывает карточку.
+// g — к каким профилям относятся сотрудники, w — вес в демо-данных, closed — удалена из реестра.
+const ORGS = [
+  { bin:'040540003344', g:'med', w:10,  name:'ГКП на ПХВ «Многопрофильная городская больница № 1» акимата города Астаны' },
+  { bin:'061240007788', g:'med', w:7.5, name:'ГКП на ПХВ «Городская поликлиника № 5» акимата города Астаны' },
+  { bin:'160740004455', g:'med', w:2,   name:'ТОО «Шифа Медикал»' },
+  { bin:'131240004404', g:'gov', w:6,   name:'РГП на ПХВ «Республиканский центр электронного здравоохранения» Министерства здравоохранения Республики Казахстан' },
+  { bin:'110340017483', g:'gov', w:5,   name:'РГП на ПХВ «Национальный научный центр развития здравоохранения имени Салидат Каирбековой» Министерства здравоохранения Республики Казахстан' },
+  { bin:'980240003251', g:'gov', w:4,   name:'РГП на ПХВ «Национальный центр экспертизы лекарственных средств и медицинских изделий» Комитета медицинского и фармацевтического контроля МЗ РК' },
+  { bin:'201040018899', g:'gov', w:3,   name:'РГУ «Комитет медицинского и фармацевтического контроля Министерства здравоохранения Республики Казахстан»' },
+  { bin:'030440004933', g:'gov', w:2,   name:'НАО «Информационно-аналитический центр»' },
+  { bin:'050940012345', g:'biz', w:5,   name:'ТОО «Фарм Групп»' },
+  { bin:'180540024521', g:'biz', w:4,   name:'ТОО «Астана Групп»' },
+  { bin:'991140001122', g:'biz', w:3.5, name:'АО «Каспий Фарм»' },
+  { bin:'190940008899', g:'biz', w:3,   name:'ТОО «КазМедИмпорт»' },
+  { bin:'071040005566', g:'biz', w:2.5, name:'ТОО «Алатау Фарм»' },
+  { bin:'150340009876', g:'biz', w:2,   name:'ТОО «МедТех KZ»' },
+  { bin:'120640011223', g:'biz', w:1.5, name:'ТОО «Дәрі-Дәрмек Сервис»' },
+  { bin:'170840006677', g:'biz', w:1.2, name:'ТОО «Биомед Ассистанс»' },
+  { bin:'101140002233', g:'biz', w:1.4, name:'ТОО «ФармЛайн Восток»', closed:true },
+  { bin:'130240005511', g:'biz', w:1.2, name:'ТОО «Эко Мед Трейд»', closed:true },
+];
+
+const shortOrg = (s) => { const m = /^(\S+)[^«]*(«.+»)/.exec(s); return m ? m[1] + ' ' + m[2] : s; };
+
+// ═══ Демо-база: 24 320 учётных записей и их профили (детерминированно) ═══
+// Агрегаты считаются по правилам постановки: SQL-01 (учётные записи по статусам),
+// SQL-02/03 (уникальные пользователи по типам и субъектам), SQL-04 (профили по статусам).
+const TOTAL_USERS = 24320;
+const MONTH_W = [180,210,240,260,280,300,330,360,380,400, 420,430,470,500,540,560,600,650,760,820,860,900, 900,950,1010,1060,1110,1180,1260,1380,1760,2020,800];
+const rngOf = (seed) => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const genDb = () => {
+  if(window.__mpDashDb) return window.__mpDashDb;
+  const R = rngOf(20261112);
+  const N = TOTAL_USERS;
+  const reg = new Int32Array(N), ust = new Uint8Array(N), ufirst = new Int32Array(N), ucount = new Uint8Array(N);
+  const sumW = MONTH_W.reduce((a, b) => a + b, 0);
+  let u = 0;
+  MONTH_W.forEach((w, mi) => {
+    const y = 2024 + Math.floor((2 + mi) / 12), m = (2 + mi) % 12;
+    const last = mi === MONTH_W.length - 1;
+    const d0 = dayOf(y, m, 1), d1 = last ? TODAY : dayOf(y, m + 1, 1) - 1;
+    const c = last ? N - u : Math.round(w / sumW * N);
+    for(let k = 0; k < c && u < N; k++){
+      let d;
+      do { d = d0 + Math.floor(R() * (d1 - d0 + 1)); } while(((dt(d).getUTCDay() + 6) % 7 >= 5) && R() > 0.45);
+      reg[u++] = d;
+    }
+  });
+  // статусы учётных записей (SQL-01): 500 удалённых, 1 402 деактивированных
+  const idx = Array.from({ length:N }, (_, i) => i);
+  for(let i = N - 1; i > 0; i--){ const j = Math.floor(R() * (i + 1)); const t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+  for(let i = 0; i < 500; i++) ust[idx[i]] = 2;
+  for(let i = 500; i < 1902; i++) ust[idx[i]] = 1;
+
+  const pick = (list) => { const s = list.reduce((a, o) => a + o.w, 0); let r = R() * s; for(const o of list){ r -= o.w; if(r <= 0) return o; } return list[list.length - 1]; };
+  const byG = { med:[], gov:[], biz:[] }; ORGS.forEach((o, i) => byG[o.g].push({ i, w:o.w }));
+  const pu = [], pt = [], ps = [], pst = [], pod = [], porg = [];
+  const add = (uid, t, s, org) => {
+    let st = 0, od = 0;
+    if(ust[uid] === 2) st = 2;
+    else if(ust[uid] === 1) st = 1;
+    else { const r = R(); st = r < 0.011 ? 2 : r < 0.038 ? 1 : r < 0.0405 ? 3 : 0; }
+    if(org >= 0 && ORGS[org].closed && st !== 2){ st = 1; od = 1; }
+    pu.push(uid); pt.push(t); ps.push(s); pst.push(st); pod.push(od); porg.push(org);
+  };
+  const orgFor = (g, p) => R() < p ? pick(byG[g]).i : -1;
+  for(let i = 0; i < N; i++){
+    ufirst[i] = pt.length;
+    const r = R();
+    const prim = r < 0.60 ? 0 : r < 0.76 ? 1 : r < 0.885 ? 2 : r < 0.95 ? 3 : 4;
+    if(prim === 0){
+      add(i, 0, 0, -1);
+      if(R() < 0.03){ const ip = R() < 0.44; add(i, 1, ip ? 1 : 2, ip ? -1 : orgFor('biz', 0.30)); }
+    } else {
+      if(prim === 1){ const ip = R() < 0.44; add(i, 1, ip ? 1 : 2, ip ? -1 : orgFor('biz', 0.30)); }
+      if(prim === 2) add(i, 2, 2, orgFor('med', 0.22));
+      if(prim === 3) add(i, 3, 2, orgFor('med', 0.30));
+      if(prim === 4) add(i, 4, 2, orgFor('gov', 0.90));
+      if(R() < [0, 0.35, 0.55, 0.25, 0.40][prim]) add(i, 0, 0, -1);
+    }
+    ucount[i] = pt.length - ufirst[i];
+  }
+  window.__mpDashDb = { N, reg, ust, ufirst, ucount, pu, pt, ps, pst, pod, porg };
+  return window.__mpDashDb;
+};
+
+// Агрегаты под выбранные тип профиля, тип субъекта и статус (период — отдельно, по дням)
+const aggregate = (f, empty) => {
+  const T = PROFILES.length;
+  const out = { kpi:[0,0,0,0], dist:new Array(T).fill(0), bizSub:[0,0,0], table:PROFILES.map(() => [0,0,0,0]), orgs:new Array(ORGS.length).fill(0), attn:0, days:new Int32Array(TODAY + 1) };
+  if(empty) return out;
+  const db = genDb();
+  const ft = f.profile ? PIDX[f.profile] : -1, fs = f.subject ? SIDX[f.subject] : -1, fst = f.status ? STIDX[f.status] : -1;
+  for(let u = 0; u < db.N; u++){
+    let match = ft < 0 && fs < 0;
+    const a = db.ufirst[u], b = a + db.ucount[u];
+    for(let p = a; p < b; p++){
+      const t = db.pt[p], s = db.ps[p], st = db.pst[p];
+      const tOk = ft < 0 || t === ft, sOk = fs < 0 || s === fs, stOk = fst < 0 || st === fst;
+      if(tOk && sOk) match = true;
+      if(!sOk) continue;
+      out.table[t][st]++;
+      if(stOk){ out.dist[t]++; if(t === 1) out.bizSub[s]++; }
+      if(tOk && stOk && db.porg[p] >= 0) out.orgs[db.porg[p]]++;
+      if(tOk && db.pod[p] && st === 1 && (fst < 0 || fst === 1)) out.attn++;
+    }
+    if(!match) continue;
+    out.kpi[0]++; out.kpi[1 + db.ust[u]]++;
+    if(fst < 0 || db.ust[u] === fst) out.days[db.reg[u]]++;
+  }
+  return out;
+};
+
+// Корзины графика динамики
+const bucketize = (days, a, b) => {
+  const span = b - a + 1;
+  const sum = (x, y) => { let s = 0; for(let i = Math.max(x, 0); i <= Math.min(y, TODAY); i++) s += days[i]; return s; };
+  const da = dt(a), db_ = dt(b);
+  const months = (db_.getUTCFullYear() - da.getUTCFullYear()) * 12 + db_.getUTCMonth() - da.getUTCMonth() + 1;
+  const unit = span <= 31 ? 'day' : span <= 120 ? 'week' : months <= 36 ? 'month' : 'quarter';
+  const out = [];
+  if(unit === 'day'){
+    for(let i = a; i <= b; i++){ const d = dt(i); out.push({ a:i, b:i, natB:i, y:d.getUTCFullYear(), m:d.getUTCMonth(), x:pad(d.getUTCDate()) + '.' + pad(d.getUTCMonth() + 1), title:d.getUTCDate() + ' ' + MONG[d.getUTCMonth()] + ' ' + d.getUTCFullYear() }); }
+  } else if(unit === 'week'){
+    let s = a - (dt(a).getUTCDay() + 6) % 7;   // с понедельника
+    for(; s <= b; s += 7){
+      const x = Math.max(s, a), y = Math.min(s + 6, b), d = dt(x);
+      out.push({ a:x, b:y, natB:s + 6, x:pad(d.getUTCDate()) + '.' + pad(d.getUTCMonth() + 1), title:ruOf(x).slice(0, 5) + ' – ' + ruOf(y) });
+    }
+  } else {
+    const step = unit === 'month' ? 1 : 3;
+    let y = da.getUTCFullYear(), m = unit === 'month' ? da.getUTCMonth() : Math.floor(da.getUTCMonth() / 3) * 3;
+    while(true){
+      const s = dayOf(y, m, 1); if(s > b) break;
+      const e = dayOf(y, m + step, 1) - 1, x = Math.max(s, a), z = Math.min(e, b);
+      const cut = x !== s || (z !== e && e <= TODAY);
+      out.push({ a:x, b:z, natB:e, y, m, q:Math.floor(m / 3),
+        x: unit === 'month' ? MON[m] : QR[Math.floor(m / 3)] + ' кв.',
+        title: unit === 'month' ? (cut ? ruOf(x) + ' – ' + ruOf(z) : MONF[m] + ' ' + y) : QR[Math.floor(m / 3)] + ' квартал ' + y });
+      m += step; if(m > 11){ m -= 12; y++; }
+    }
+  }
+  out.forEach(k => { k.v = sum(k.a, k.b); k.open = k.natB >= TODAY && k.b >= TODAY; });
+  return { unit, list:out, total:sum(a, b), prev: a - span >= 0 || a - span + span - 1 >= 0 ? sum(a - span, a - 1) : 0, prevA:a - span, prevB:a - 1 };
+};
+const niceStep = (max, n) => { const raw = Math.max(max, 1) / n, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
+
+// Периоды регистрации
+const PERIODS = [
+  { id:'d30',    label:'Последние 30 дней',   range:() => [TODAY - 29, TODAY] },
+  { id:'m3',     label:'Последние 3 месяца',  range:() => [dayOf(NOW.y, NOW.m - 3, NOW.d + 1), TODAY] },
+  { id:'m12',    label:'Последние 12 месяцев', range:() => [dayOf(NOW.y, NOW.m - 11, 1), TODAY] },
+  { id:'year',   label:'Текущий год',         range:() => [dayOf(NOW.y, 0, 1), TODAY] },
+  { id:'prev',   label:'Прошлый год',         range:() => [dayOf(NOW.y - 1, 0, 1), dayOf(NOW.y - 1, 11, 31)] },
+  { id:'all',    label:'Всё время',           range:() => [0, TODAY] },
+  { id:'custom', label:'Свой период' },
+];
+const DEF = { period:'year', from:'', to:'', profile:'', subject:'', status:'' };
+const UI_KEY = 'mp-admin-dash-ui';
+const same = (a, b) => ['period','from','to','profile','subject','status'].every(k => (a[k] || '') === (b[k] || ''));
+const rangeOf = (f) => {
+  if(f.period === 'custom'){ const a = fromIso(f.from), b = fromIso(f.to); return (a === null || b === null) ? null : [a, b]; }
+  return (PERIODS.find(p => p.id === f.period) || PERIODS[3]).range();
+};
+const periodErr = (f) => {
+  if(f.period !== 'custom') return '';
+  const a = fromIso(f.from), b = fromIso(f.to);
+  if(a === null || b === null) return 'Укажите обе даты';
+  if(a > b) return 'Дата начала позже даты окончания';
+  if(b > TODAY) return 'Дата окончания не может быть в будущем';
+  return '';
+};
+
+// Подсказки по data-tip (как на других страницах портала)
+const installTips = () => {
+  if(window.__hmTips) return; window.__hmTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.style.opacity = '0'; };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.setAttribute('role', 'tooltip'); el.style.cssText = 'position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:#0A0D14;color:#fff;font:500 13px/1.45 Inter,system-ui,sans-serif;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transition:opacity .14s ease;'; document.body.appendChild(el); }
+    el.textContent = txt; el.style.opacity = '0'; el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => { if(el) el.style.opacity = '1'; });
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+};
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let ui = null;
+    try { ui = JSON.parse(sessionStorage.getItem(UI_KEY) || 'null'); } catch(e){}
+    const applied = Object.assign({}, DEF, ui || {});
+    if(periodErr(applied)) Object.assign(applied, { period:DEF.period, from:'', to:'' });
+    this.state = {
+      role:'admin', applied, draft:Object.assign({}, applied),
+      loading:true, busy:false, open:null, hovProf:-1, hovBar:-1,
+      demoData:'ok', demoState:'ok', demoOpen:false,
+      updated: pad(NOW.hh) + ':' + pad(NOW.mm),
+    };
+    this.agg = null;
+  }
+
+  componentDidMount(){
+    installTips();
+    try {
+      const r = localStorage.getItem('mp-biz-role');
+      if(r === 'applicant') this.setState({ role:'applicant' });
+      else if(r !== 'admin'){ localStorage.setItem('mp-biz-role', 'admin'); window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:'admin' })); }
+    } catch(e){}
+    this._onRole = (e) => { if(e && e.detail) this.setState({ role: e.detail === 'applicant' ? 'applicant' : 'admin' }); };
+    window.addEventListener('mp-biz-role-change', this._onRole);
+    this._onDown = (e) => {
+      const k = this.state.open; if(!k) return;
+      const t = e.target; if(t && t.closest && t.closest('[data-pop="' + k + '"]')) return;
+      this.setState({ open:null });
+    };
+    window.addEventListener('mousedown', this._onDown);
+    this._onKey = (e) => {
+      if(e.key !== 'Escape' || e.defaultPrevented) return;
+      if(this.state.open){ const k = this.state.open; this.setState({ open:null }); this.focusTrigger(k); }
+      else if(this.state.demoOpen) this.setState({ demoOpen:false });
+    };
+    window.addEventListener('keydown', this._onKey);
+    this.agg = this.compute(this.state.applied);
+    this._lt = setTimeout(() => this.setState({ loading:false }), 700);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-biz-role-change', this._onRole);
+    window.removeEventListener('mousedown', this._onDown);
+    window.removeEventListener('keydown', this._onKey);
+    [this._lt, this._bt].forEach(clearTimeout);
+  }
+
+  compute(f){ return aggregate(f, this.state.demoData === 'empty'); }
+  focusTrigger(k){ setTimeout(() => { const el = document.getElementById('db-f-' + k); if(el) el.focus(); }, 0); }
+
+  // Обновление данных: прежняя картинка остаётся, приглушённая, — без скачков раскладки
+  refetch(next){
+    clearTimeout(this._bt);
+    const applied = next || this.state.applied;
+    this.setState({ busy:true, applied, open:null, hovBar:-1, hovProf:-1 });
+    try { sessionStorage.setItem(UI_KEY, JSON.stringify(applied)); } catch(e){}
+    this._bt = setTimeout(() => {
+      this.agg = this.compute(applied);
+      const d = new Date();
+      this.setState({ busy:false, updated: pad(d.getHours()) + ':' + pad(d.getMinutes()) });
+    }, 550);
+  }
+
+  setDraft(patch){
+    const d = Object.assign({}, this.state.draft, patch);
+    // тип профиля и тип субъекта связаны — недопустимое сочетание сбрасываем
+    if(patch.profile !== undefined && d.subject && d.profile && PROFILES[PIDX[d.profile]].subj.indexOf(d.subject) < 0) d.subject = '';
+    if(patch.subject !== undefined && d.subject && d.profile && PROFILES[PIDX[d.profile]].subj.indexOf(d.subject) < 0) d.profile = '';
+    this.setState({ draft:d });
+  }
+
+  // ——— фильтры ———
+  buildFilters(){
+    const s = this.state, d = s.draft;
+    const dirty = !same(d, s.applied), err = periodErr(d);
+    const per = PERIODS.find(p => p.id === d.period) || PERIODS[3];
+    const rg = rangeOf(d);
+    const rangeTxt = rg ? ruOf(rg[0]) + ' – ' + ruOf(rg[1]) : '';
+    const perOpen = s.open === 'period';
+    const perText = d.period === 'custom' ? (rg && !err ? rangeTxt : 'Свой период') : per.label;
+
+    const selDefs = [
+      { key:'profile', label:'Тип профиля', all:'Все профили',
+        list: PROFILES.filter(p => !d.subject || p.subj.indexOf(d.subject) >= 0).map(p => ({ id:p.id, label:p.label, color:p.color })) },
+      { key:'subject', label:'Тип субъекта', all:'Все субъекты',
+        list: SUBJECTS.filter(x => !d.profile || PROFILES[PIDX[d.profile]].subj.indexOf(x.id) >= 0).map(x => ({ id:x.id, label:x.label })) },
+      { key:'status', label:'Статус', all:'Все статусы',
+        list: STATUSES.map(x => ({ id:x.id, label:x.label, color:x.c })) },
+    ];
+    const selects = selDefs.map(fd => {
+      const val = d[fd.key] || '';
+      const cur = fd.list.find(o => o.id === val);
+      const open = s.open === fd.key;
+      const opts = [{ id:'', label:fd.all }].concat(fd.list);
+      return {
+        key:fd.key, label:fd.label, btnId:'db-f-' + fd.key, listId:'db-l-' + fd.key, open,
+        expanded: open ? 'true' : 'false',
+        cls: 'fbtn' + (cur ? ' fbtn-on' : ''),
+        text: cur ? cur.label : fd.label,
+        aria: fd.label + ': ' + (cur ? cur.label : fd.all),
+        chev: 'font-size:18px;transition:transform .15s;' + (open ? 'transform:rotate(180deg);' : ''),
+        onToggle: () => {
+          this.setState({ open: open ? null : fd.key });
+          if(!open) setTimeout(() => { const el = document.querySelector('#db-l-' + fd.key + ' [aria-selected="true"]'); if(el) el.focus(); }, 0);
+        },
+        onKey: (e) => this.listKey(e, fd.key),
+        options: opts.map(o => {
+          const sel = o.id === val;
+          return { label:o.label, sel: sel ? 'true' : 'false', isSel: sel, hasDot: !!o.color,
+            dot: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + (o.color || 'transparent') + ';',
+            onPick: () => { this.setDraft({ [fd.key]: o.id }); this.setState({ open:null }); this.focusTrigger(fd.key); } };
+        }),
+      };
+    });
+
+    return {
+      per: {
+        open: perOpen, expanded: perOpen ? 'true' : 'false',
+        cls: 'fbtn' + (d.period !== DEF.period ? ' fbtn-on' : ''),
+        text: perText,
+        tip: perOpen || !rangeTxt ? '' : 'Период регистрации: ' + rangeTxt,
+        aria: 'Период регистрации: ' + (rangeTxt || per.label),
+        chev: 'font-size:18px;transition:transform .15s;' + (perOpen ? 'transform:rotate(180deg);' : ''),
+        onToggle: () => {
+          this.setState({ open: perOpen ? null : 'period' });
+          if(!perOpen) setTimeout(() => { const el = document.querySelector('[data-pop="period"] [aria-checked="true"]'); if(el) el.focus(); }, 0);
+        },
+        onKey: (e) => this.listKey(e, 'period'),
+        opts: PERIODS.map(p => {
+          const on = d.period === p.id;
+          return { label:p.label, on: on ? 'true' : 'false', isOn: on,
+            onClick: () => {
+              if(p.id === 'custom'){
+                const r0 = rangeOf(d) || [dayOf(NOW.y, 0, 1), TODAY];
+                this.setDraft({ period:'custom', from: d.period === 'custom' ? d.from : isoOf(r0[0]), to: d.period === 'custom' ? d.to : isoOf(r0[1]) });
+                setTimeout(() => { const el = document.getElementById('db-from'); if(el) el.focus(); }, 0);
+                return;
+              }
+              this.setDraft({ period:p.id, from:'', to:'' });
+              this.setState({ open:null }); this.focusTrigger('period');
+            } };
+        }),
+        custom: d.period === 'custom',
+        from: d.from, to: d.to, min: isoOf(0), max: isoOf(TODAY),
+        bad: err && d.period === 'custom' ? 'true' : 'false', hasErr: !!err, err,
+        onFrom: (e) => this.setDraft({ from: e.target.value }),
+        onTo: (e) => this.setDraft({ to: e.target.value }),
+      },
+      selects,
+      applyDisabled: !dirty || !!err || s.busy,
+      resetDisabled: (same(d, DEF) && same(s.applied, DEF)) || s.busy,
+      onApply: () => { if(dirty && !err) this.refetch(Object.assign({}, d)); },
+      onReset: () => { this.setState({ draft:Object.assign({}, DEF) }); this.refetch(Object.assign({}, DEF)); },
+      canReset: !same(s.applied, DEF),
+    };
+  }
+
+  // стрелки внутри выпадающих списков
+  listKey(e, key){
+    const list = Array.from((e.currentTarget || document).querySelectorAll('.opt'));
+    const i = list.indexOf(document.activeElement);
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      const n = list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length];
+      if(n) n.focus();
+    } else if(e.key === 'Tab' && !(key === 'period' && this.state.draft.period === 'custom')){
+      this.setState({ open:null });
+    } else if(e.key === 'Escape'){
+      e.preventDefault(); this.setState({ open:null }); this.focusTrigger(key);
+    }
+  }
+
+  // ——— 1. карточки ———
+  buildKpis(A){
+    const s = this.state, k = A.kpi, total = k[0];
+    const cards = [
+      { label:'Всего пользователей', icon:'ri-group-line', c:'var(--primary)', ll:'var(--primary-lighter)', v:total, tab:'',
+        tip:'Текущее состояние базы — период регистрации не учитывается. Пользователь с несколькими профилями учитывается один раз' },
+    ].concat(STATUSES.map((st, i) => ({ label:st.label, icon:st.icon, c:st.c, ll:st.ll, d:st.d, v:k[1 + i], tab:st.tab, share:true })));
+    return cards.map(c => ({
+      label:c.label, icon:c.icon, value:fmt(c.v), hasTip:!!c.tip, tip:c.tip || '',
+      hasPct: !!c.share && total > 0, pct: pctOf(c.v, total),
+      pctStyle: 'font-size:12px;line-height:16px;font-weight:500;padding:2px 6px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap;background:' + c.ll + ';color:' + c.d + ';',
+      icStyle: 'width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:' + c.ll + ';color:' + c.c + ';',
+      href: 'Пользователи.dc.html' + (c.tab ? '?tab=' + c.tab : ''),
+      aria: c.label + ': ' + fmt(c.v) + (c.share && total ? ', ' + pctOf(c.v, total) : '') + '. Открыть раздел «Пользователи»',
+    }));
+  }
+
+  // ——— 2. распределение по профилям ———
+  buildProf(A){
+    const s = this.state, f = s.applied;
+    const sum = A.dist.reduce((a, b) => a + b, 0);
+    const em = f.profile ? PIDX[f.profile] : -1;        // выбранный профиль подсвечен
+    const hv = s.hovProf;
+    const focus = hv >= 0 ? hv : em;
+    const vis = PROFILES.map((p, i) => ({ p, i, v:A.dist[i] })).filter(x => x.v > 0);
+    const segs = vis.map(x => ({
+      tip: x.p.label + ' — ' + fmt(x.v) + ' (' + pctOf(x.v, sum) + ')',
+      onEnter: () => this.setState({ hovProf:x.i }), onLeave: () => this.setState({ hovProf:-1 }),
+      style: 'flex:' + x.v + ' 1 0;min-width:4px;height:100%;border-radius:3px;background:' + x.p.color + ';transition:opacity .15s;' + (focus >= 0 && focus !== x.i ? 'opacity:.25;' : ''),
+    }));
+    const rows = PROFILES.map((p, i) => {
+      const v = A.dist[i], dim = focus >= 0 && focus !== i;
+      const subs = i === 1 ? SUBJECTS.map((x, j) => ({ x, v:A.bizSub[j] })).filter(o => o.v > 0) : [];
+      return {
+        label:p.label, count:fmt(v), pct:pctOf(v, sum),
+        hasSub: subs.length > 1,
+        sub: subs.map(o => o.x.short + ' ' + fmt(o.v)).join(' · '),
+        onEnter: () => this.setState({ hovProf:i }), onLeave: () => this.setState({ hovProf:-1 }),
+        style: 'display:flex;align-items:center;gap:10px;padding:9px 0;border-top:' + (i ? '1px solid var(--n100)' : 'none') + ';' + (dim ? 'opacity:.45;' : ''),
+        dot: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + p.color + ';',
+        labelStyle: 'font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' + (focus === i ? 'font-weight:500;' : ''),
+        countStyle: 'flex:0 0 auto;font-size:14px;line-height:20px;font-weight:500;color:' + (v ? 'var(--n900)' : 'var(--n400)') + ';font-variant-numeric:tabular-nums;white-space:nowrap;',
+      };
+    });
+    return {
+      has: sum > 0, empty: sum === 0, segs, rows,
+      aria: 'Распределение: ' + vis.map(x => x.p.label + ' ' + pctOf(x.v, sum)).join(', '),
+    };
+  }
+
+  // ——— 3. динамика ———
+  buildDyn(A){
+    const s = this.state, f = s.applied;
+    const rg = rangeOf(f) || PERIODS[3].range();
+    const B = bucketize(A.days, rg[0], rg[1]);
+    const L = B.list, n = L.length;
+    const max = Math.max.apply(null, L.map(k => k.v).concat([0]));
+    const step = niceStep(max, 4), top = Math.max(step, Math.ceil(max / step) * step), nt = Math.round(top / step);
+    const color = f.profile ? PROFILES[PIDX[f.profile]].color : 'var(--primary)';
+    const multiYear = L.length && dt(rg[0]).getUTCFullYear() !== dt(rg[1]).getUTCFullYear();
+    // подписи оси X: не больше ~12, январь — годом
+    let every = 1;
+    if(B.unit === 'month'){ every = n <= 12 ? 1 : n <= 24 ? 2 : 3; }
+    else every = Math.ceil(n / (B.unit === 'day' ? 10 : 12));
+    const gap = n > 40 ? 2 : n > 20 ? 4 : 8;
+    const ticks = [];
+    for(let i = 0; i <= nt; i++){
+      const p = i / nt * 100;
+      ticks.push({ label: fmt(i * step),
+        lblStyle: 'position:absolute;right:0;bottom:' + p + '%;transform:translateY(50%);font-size:12px;line-height:16px;color:var(--n400);font-variant-numeric:tabular-nums;white-space:nowrap;',
+        lineStyle: 'position:absolute;left:0;right:0;bottom:' + p + '%;height:1px;background:' + (i === 0 ? 'var(--n200)' : 'var(--n100)') + ';' });
+    }
+    const hb = s.hovBar >= 0 && s.hovBar < n ? s.hovBar : -1;
+    const word = W_REG;
+    const bars = L.map((k, i) => {
+      const h = top ? k.v / top * 100 : 0, on = hb === i;
+      let show = i % every === 0;
+      if(B.unit === 'month') show = k.m % every === 0 || (i === 0 && n <= 12);
+      let x = k.x, xBold = false;
+      if(B.unit === 'month' && multiYear && k.m === 0){ x = String(k.y); xBold = true; }
+      if(B.unit === 'quarter' && k.q === 0){ x = String(k.y); xBold = true; }
+      return {
+        x, aria: k.title + ': ' + fmt(k.v) + ' ' + plural(k.v, word) + (k.open ? ', период не завершён' : ''),
+        onEnter: () => this.setState({ hovBar:i }), onLeave: () => { if(this.state.hovBar === i) this.setState({ hovBar:-1 }); },
+        hoverStyle: 'position:absolute;inset:0 ' + (n > 20 ? 0 : -gap / 2) + 'px;border-radius:6px;background:' + (on ? 'var(--n100)' : 'transparent') + ';transition:background .12s;',
+        barStyle: 'position:relative;display:block;width:100%;max-width:40px;height:' + h + '%;min-height:' + (k.v ? 2 : 0) + 'px;border-radius:4px 4px 0 0;background:' + color + ';'
+          + (k.open ? 'opacity:.4;' : '') + (on ? 'filter:brightness(.88);' : '') + 'transition:height .3s ease,filter .12s;',
+        xStyle: 'flex:1 1 0;min-width:0;text-align:center;font-size:12px;line-height:16px;white-space:nowrap;overflow:visible;font-variant-numeric:tabular-nums;'
+          + (show ? '' : 'visibility:hidden;') + 'color:' + (xBold ? 'var(--n600)' : 'var(--n400)') + ';' + (xBold ? 'font-weight:500;' : ''),
+      };
+    });
+    // подсказка столбца
+    let tip = {};
+    if(hb >= 0){
+      const k = L[hb], prev = hb > 0 ? L[hb - 1] : null;
+      let note = '';
+      if(k.open) note = { day:'День ещё не завершён', week:'Неделя ещё не завершена', month:'Месяц ещё не завершён', quarter:'Квартал ещё не завершён' }[B.unit];
+      else if(prev && prev.v > 0){
+        const dlt = (k.v - prev.v) / prev.v * 100;
+        const to = { day:'предыдущему дню', week:'предыдущей неделе', month: MOND[prev.m], quarter:'предыдущему кварталу' }[B.unit];
+        note = (dlt >= 0 ? '+' : '−') + Math.abs(dlt).toFixed(1).replace('.', ',') + '% к ' + to;
+      }
+      // сбоку от столбца, у верхнего края области графика — не закрывает сам столбец и шапку карточки
+      const right = (hb + 0.5) / n > 0.5;
+      const align = right ? 'right:calc(' + ((n - hb) / n * 100) + '% + 6px);' : 'left:calc(' + ((hb + 1) / n * 100) + '% + 6px);';
+      tip = { tipOn:true, tipTitle:k.title, tipValue:fmt(k.v), tipWord:plural(k.v, word), tipHasNote:!!note, tipNote:note,
+        tipStyle: 'position:absolute;z-index:5;top:0;' + align + 'pointer-events:none;padding:8px 11px;border-radius:10px;background:#0A0D14;color:#fff;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);display:flex;flex-direction:column;gap:2px;animation:db-fade .12s ease;' };
+    }
+    // итог за период и сравнение с предыдущим периодом той же длины
+    const hasDelta = f.period !== 'all' && B.prev > 0 && B.prevA >= 0;
+    const dl = hasDelta ? (B.total - B.prev) / B.prev * 100 : 0;
+    const up = dl >= 0;
+    const empty = B.total === 0;
+    return Object.assign({
+      has: !empty, empty, err:false, hasSum: !empty,
+      emptyText: this.state.demoData === 'empty' ? 'Нет данных о регистрациях' : 'Нет регистраций за выбранный период',
+      total: fmt(B.total), totalWord: plural(B.total, W_NEW),
+      hasDelta, delta: Math.abs(dl).toFixed(1).replace('.', ',') + '%', deltaIcon: up ? 'ri-arrow-up-line' : 'ri-arrow-down-line',
+      deltaTip: hasDelta ? 'Предыдущий период ' + ruOf(B.prevA) + ' – ' + ruOf(B.prevB) + ': ' + fmt(B.prev) : '',
+      deltaStyle: 'display:inline-flex;align-items:center;gap:2px;height:24px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;cursor:help;outline:none;background:' + (up ? 'var(--green-ll)' : 'var(--red-ll)') + ';color:' + (up ? 'var(--green-d)' : 'var(--red-d)') + ';',
+      ticks, bars, gap,
+      barsStyle: 'position:absolute;inset:0;display:flex;align-items:flex-end;gap:' + gap + 'px;',
+      aria: 'Регистрации по ' + { day:'дням', week:'неделям', month:'месяцам', quarter:'кварталам' }[B.unit],
+      tipOn:false, tipTitle:'', tipValue:'', tipWord:'', tipHasNote:false, tipNote:'', tipStyle:'',
+    }, tip);
+  }
+
+  // ——— 4. таблица профилей по статусам ———
+  buildTable(A){
+    const s = this.state, f = s.applied;
+    const er = f.profile ? PIDX[f.profile] : -1, ec = f.status ? STIDX[f.status] : -1;
+    const tot = [0,0,0,0];
+    A.table.forEach(r => r.forEach((v, j) => tot[j] += v));
+    const hasOther = tot[3] > 0;
+    const cols = [0, 1, 2].concat(hasOther ? [3] : []);
+    const dimCol = (j) => ec >= 0 && j !== ec;
+    const H = (label, style, tip) => ({ label, style: style || '', tip: tip || '', cls: tip ? 'hint' : '', ti: tip ? 0 : -1 });
+    const head = [H('Профиль'), H('Всего')]
+      .concat(cols.map(j => j === 3
+        ? H('Прочие', 'color:var(--orange-d);', 'Статус профиля не задан или отличается от активного, деактивированного и удалённого — требует проверки')
+        : H(STATUSES[j].label, ec === j ? 'color:var(--primary-darker);' : '')));
+    const cell = (v, j, rowDim, rowTotal, isTotal) => {
+      const dim = rowDim || (j >= 0 && dimCol(j));
+      let color = v ? 'var(--n900)' : 'var(--n400)';
+      if(j === 3 && v) color = 'var(--orange-d)';
+      if(dim) color = 'var(--n400)';
+      return { v:fmt(v), tip: (!isTotal && j >= 0 && v && rowTotal) ? pctOf(v, rowTotal) + ' профилей типа' : '',
+        style: 'color:' + color + ';' + (j >= 0 && ec === j && !rowDim ? 'font-weight:500;' : '') + (j >= 0 && ec === j ? 'background:rgba(238,242,255,.6);' : '') };
+    };
+    const rows = PROFILES.map((p, i) => {
+      const r = A.table[i], all = r[0] + r[1] + r[2] + r[3];
+      const rowDim = er >= 0 && er !== i;
+      return {
+        label:p.label,
+        style: er === i ? 'background:var(--primary-lighter);' : '',
+        headStyle: 'font-weight:' + (er === i ? 500 : 400) + ';color:' + (rowDim ? 'var(--n400)' : 'var(--n900)') + ';text-align:left;padding-left:20px;white-space:nowrap;',
+        dot: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + p.color + ';' + (rowDim ? 'opacity:.4;' : ''),
+        cells: [cell(all, -1, rowDim, all, true)].concat(cols.map(j => cell(r[j], j, rowDim, all, false))),
+      };
+    });
+    const grand = tot[0] + tot[1] + tot[2] + tot[3];
+    const foot = [{ v:fmt(grand), style:'' }].concat(cols.map(j => ({ v:fmt(tot[j]), style: j === 3 && tot[j] ? 'color:var(--orange-d);' : '' })));
+    return { head, rows, foot };
+  }
+
+  // ——— 5. организации ———
+  buildOrgs(A){
+    const f = this.state.applied;
+    const top = ORGS.map((o, i) => ({ o, v:A.orgs[i] })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 5);
+    const max = top.length ? top[0].v : 1;
+    const pl = f.profile ? PROFILES[PIDX[f.profile]] : null;
+    return {
+      has: top.length > 0, empty: !top.length,
+      emptyText: pl && f.profile === 'citizen' ? 'Профиль «Гражданин» не связан с организациями' : 'Нет организаций по выбранным фильтрам',
+      rows: top.map((x, i) => ({
+        // в списке — форма и название в кавычках, полное наименование — в подсказке
+        rank: i + 1, name: shortOrg(x.o.name), full: shortOrg(x.o.name) === x.o.name ? '' : x.o.name, count: fmt(x.v),
+        href: 'Организации.dc.html?bin=' + x.o.bin,
+        aria: x.o.name + ': ' + fmt(x.v) + ' ' + plural(x.v, W_PROF),
+        bar: 'display:block;height:100%;border-radius:2px;background:var(--primary);width:' + (x.v / max * 100) + '%;',
+      })),
+    };
+  }
+
+  // ——— панель прототипа ———
+  buildDemo(){
+    const s = this.state;
+    const seg = (on) => 'flex:1;height:28px;padding:0 6px;border:none;border-radius:6px;font-size:12px;line-height:16px;font-weight:500;cursor:pointer;white-space:nowrap;'
+      + (on ? 'background:#fff;color:var(--n900);box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:var(--n500);');
+    const set = (patch) => {
+      clearTimeout(this._lt); clearTimeout(this._bt);
+      const next = Object.assign({}, s, patch);
+      this.setState(Object.assign({ busy:false }, patch));
+      this.agg = aggregate(next.applied, next.demoData === 'empty');
+      if(next.demoState === 'loading') this.setState({ loading:true });
+      else if(s.loading) this.setState({ loading:false });
+    };
+    return {
+      demoOpen: s.demoOpen, demoOpenA: s.demoOpen ? 'true' : 'false', demoChev: s.demoOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      toggleDemo: () => this.setState({ demoOpen: !s.demoOpen }),
+      demoGroups: [
+        { title:'Ответ API', opts:[['ok','Есть данные'],['empty','Нет данных']].map(([id, label]) => ({ label, on: s.demoData === id ? 'true' : 'false', style:seg(s.demoData === id), onClick: () => set({ demoData:id }) })) },
+        { title:'Состояние', opts:[['ok','Норма'],['loading','Загрузка'],['dynErr','Сбой блока'],['err','Сбой API']].map(([id, label]) => ({ label, on: s.demoState === id ? 'true' : 'false', style:seg(s.demoState === id), onClick: () => set({ demoState:id }) })) },
+      ],
+    };
+  }
+
+  renderVals(){
+    const s = this.state;
+    if(s.role !== 'admin'){
+      return { denied:true, allowed:false,
+        becomeAdmin: () => {
+          try { localStorage.setItem('mp-biz-role', 'admin'); window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:'admin' })); } catch(e){}
+          this.setState({ role:'admin' });
+        } };
+    }
+    if(!this.agg) this.agg = this.compute(s.applied);
+    const A = this.agg;
+    const loading = s.loading;
+    const errAll = s.demoState === 'err' && !loading;
+    const F = this.buildFilters();
+    const dyn = this.buildDyn(A);
+    if(s.demoState === 'dynErr'){ Object.assign(dyn, { has:false, empty:false, err:true, hasSum:false, tipOn:false }); }
+    if(loading) Object.assign(dyn, { has:false, empty:false, err:false, hasSum:false });
+    const prof = this.buildProf(A);
+    if(loading) Object.assign(prof, { has:false, empty:false });
+    const orgs = this.buildOrgs(A);
+    if(loading) Object.assign(orgs, { has:false, empty:false });
+    const attnN = A.attn;
+    const retry = () => this.refetch();
+
+    return Object.assign({
+      denied:false, allowed:true, loading, loaded:!loading, errAll, showData: !errAll,
+      busy: s.busy, busyA: s.busy || loading ? 'true' : 'false',
+      dataStyle: 'display:flex;flex-direction:column;gap:16px;transition:opacity .2s;' + (s.busy ? 'opacity:.5;pointer-events:none;' : ''),
+      updatedLabel: 'Обновлено в ' + s.updated,
+      refreshIconStyle: 'font-size:18px;' + (s.busy ? 'animation:db-spin .8s linear infinite;' : ''),
+      onRefresh: retry, onRetry: retry,
+      tabs: [
+        { label:'Пользователи', icon:'ri-group-line', sel:'true', dis:'false', ti:0, tip:'' },
+        { label:'Заявки', icon:'ri-file-list-3-line', sel:'false', dis:'true', ti:-1, tip:'Раздел в разработке' },
+        { label:'Статистическая отчётность', icon:'ri-file-chart-line', sel:'false', dis:'true', ti:-1, tip:'Раздел в разработке' },
+      ],
+      kpis: this.buildKpis(A),
+      attn: { show: !loading && attnN > 0, count: fmt(attnN) + ' ' + plural(attnN, W_PROF),
+        text: plural(attnN, ['деактивирован','деактивированы','деактивированы']) + ' вместе с удалённой организацией' },
+      profTip: 'Пользователь с несколькими профилями учитывается в каждом из них, поэтому сумма больше общего числа пользователей',
+      tableTip: 'Считаются профили: у одного пользователя может быть несколько профилей с разными статусами',
+      prof, dyn, orgs, table: this.buildTable(A),
+      emptyText: s.demoData === 'empty' ? 'Нет данных о пользователях' : 'Нет пользователей по выбранным фильтрам',
+      skRows: [52, 38, 64, 70, 58].map(w => ({ w:'width:' + w + '%;height:12px;' })),
+      skBars: [22, 30, 34, 40, 46, 52, 58, 64, 82, 96, 70].map(h => ({ h:'flex:1;height:' + h + '%;border-radius:4px 4px 0 0;' })),
+    }, F, this.buildDemo());
+  }
+}
+</script>
+</body>
+</html>

@@ -167,7 +167,21 @@ if (voiceOn) {
     console.log(`Озвучка edge-tts (${EDGE_VOICE}): синтезирую ${todo.length} фраз…`);
     for (const p of todo) {
       const mp3 = p.file.replace(/.wav$/, '.mp3');
-      execFileSync('uvx', ['edge-tts', '--voice', EDGE_VOICE, '--text', p.text, '--write-media', mp3], { cwd: voiceDir, stdio: ['ignore', 'ignore', 'inherit'] });
+      // сервис edge-tts временами отвечает «No audio was received» на ту же фразу, что через минуту проходит, —
+      // повторяем с паузой; удачные фразы уже лежат в кэше .voice и при перезапуске не синтезируются заново
+      for (let attempt = 1; ; attempt++) {
+        rmSync(join(voiceDir, mp3), { force: true });
+        // через раз — запрос с явным русским языком в SSML (tools/edge-tts-ru.py): часть фраз проходит только так
+        // во фразе с английским словом (dashboard) русский язык не навязываем — иначе прочтёт его по-русски
+        const args = attempt % 2 || /[A-Za-z]/.test(p.text)
+          ? ['edge-tts', '--voice', EDGE_VOICE, '--text', p.text, '--write-media', mp3]
+          : ['--with', 'edge-tts', 'python', '-I', join(root, 'tools', 'edge-tts-ru.py'), EDGE_VOICE, p.text, mp3];
+        try { execFileSync('uvx', args, { cwd: voiceDir, stdio: ['ignore', 'ignore', 'ignore'] }); } catch (e) {}
+        if (existsSync(join(voiceDir, mp3)) && statSync(join(voiceDir, mp3)).size > 0) break;
+        if (attempt >= 12) throw new Error('edge-tts не озвучил фразу после 12 попыток: ' + p.text);
+        console.log(`  edge-tts без звука, повтор ${attempt}…`);
+        await new Promise((res) => setTimeout(res, 2500 * attempt));
+      }
       // в WAV 24 кГц моно — как у остальных движков; пути относительные (ffmpeg и кириллица)
       execFileSync(ffmpeg.path, ['-y', '-loglevel', 'error', '-i', mp3, '-ar', '24000', '-ac', '1', '-c:a', 'pcm_s16le', p.file], { cwd: voiceDir });
       rmSync(join(voiceDir, mp3), { force: true });
