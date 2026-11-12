@@ -32,6 +32,8 @@
   @media (max-width:860px){
     .hdr-user-txt,.hdr-org-txt{display:none !important;}
     .hdr-user{padding:0 4px !important;}
+    /* кабинет на планшете: роль организации важнее подписи герба — иначе шапка шире экрана */
+    .hdr-bar-app .hdr-brand-txt{display:none;}
   }
   @media (max-width:640px){
     .hdr-bar-app,.hdr-bar-wide{padding:12px 16px !important;gap:12px !important;}
@@ -294,7 +296,7 @@ class Component extends DCLogic {
     try { localStorage.setItem('mp-biz-role', id); } catch(e){}
     try { window.dispatchEvent(new CustomEvent('mp-biz-role-change', { detail:id })); } catch(e){}
     // у ролей разный состав разделов — уводим на стартовую страницу новой роли
-    setTimeout(() => { location.href = id === 'admin' ? 'Пользователи.dc.html' : 'Кабинет бизнеса.dc.html'; }, 120);
+    setTimeout(() => { location.href = id === 'admin' ? 'Дашборд.dc.html' : 'Кабинет бизнеса.dc.html'; }, 120);
   }
   setRole(id){
     this.setState({ role:id });
@@ -375,7 +377,7 @@ class Component extends DCLogic {
     const isAdmin = s.bizRole === 'admin';
     const bizRoleData = [
       { id:'applicant', label:'Заявитель',     desc:'Договоры, платежи, подача заявок на ЛС и МИ', icon:'ri-briefcase-4-line' },
-      { id:'admin',     label:'Администратор', desc:'То же плюс «Администрирование»: пользователи, организации, календарь', icon:'ri-shield-user-line' },
+      { id:'admin',     label:'Администратор', desc:'То же плюс «Администрирование»: дашборд, пользователи, организации, календарь', icon:'ri-shield-user-line' },
     ];
     const bizRoles = bizRoleData.map(r => { const on = s.bizRole === r.id; return { ...r, on,
       onClick: () => { if(on){ this.setState({ orgOpen:false }); return; } this.setBizRole(r.id); },
