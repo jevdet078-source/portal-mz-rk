@@ -70,9 +70,7 @@
   .ez-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);min-width:0;}
   .ez-kid{container-type:inline-size;}
   .ez-kid-h{display:flex;align-items:center;gap:16px;padding:20px 20px 18px 24px;flex-wrap:wrap;}
-  .ez-ava{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
-  .ez-ava.kin{background:var(--primary-lighter);color:var(--primary);}
-  .ez-ava.ward{background:var(--teal-l);color:var(--teal-dk);}
+  .ez-ava{width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
   .ez-kid-name{flex:1;min-width:220px;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;overflow-wrap:anywhere;}
   .ez-acts{display:flex;gap:8px;flex-wrap:wrap;}
   .ez-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0;border-top:1px solid var(--stroke);}
@@ -1059,8 +1057,8 @@ ${kid.blood ? `<dt>Группа крови</dt><dd>${esc(kid.blood)}</dd>` : ''}
 
         return {
       ...base,
-      fio: F.fio(kid), ini: F.initials(kid), iin: kid.iin, avaCls: 'ez-ava ' + kid.kind,
-      accessTip: (kid.kind === 'kin' ? 'Родство подтверждено ГБД ФЛ' : 'Опека подтверждена РБДС МП РК') + ': вы можете просматривать ЭПЗ ребёнка',
+      fio: F.fio(kid), ini: F.initials(kid), iin: kid.iin, avaCls: 'ez-ava',
+      accessTip: 'Вы можете просматривать ЭПЗ ребёнка',
       facts: factsV,
       pdf: () => this.pdf(), pdfBusy: s.pdfBusy, pdfIdle: !s.pdfBusy,
       openQr: () => this.openQr(),

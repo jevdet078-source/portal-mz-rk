@@ -13,18 +13,19 @@
 <body>
 <!--
   Личный кабинет гражданина → Моя семья.
-  Постановка «Добавление детей и просмотр электронного паспорта здоровья (ЭПЗ) ребёнка» (п. 2–5):
-    2.1 заголовок «Моя семья» (подзаголовок — в подсказке ⓘ), «Добавить ребёнка», информационный блок, список детей;
-    2.2 карточка ребёнка: инициалы, ФИО, ИИН, дата рождения и возраст, статус (сын / дочь / подопечный),
-        подтверждение (зелёное — родство ГБД ФЛ, бирюзовое — опека РБДС МП РК), документ об опеке, «ЭПЗ ребёнка»;
-    3   окно «Добавить ребёнка в семью»: вкладки «Родные дети (ГБД ФЛ)» и «Опекаемый ребёнок (РБДС)»;
-    3.1 выбор родных детей чекбоксами, «Отменить» / «Добавить выбранных (N)», сообщение «все уже добавлены»;
-    3.2 / 4 проверка опеки по ИИН: пустое поле, некорректный ИИН, загрузка, найден, найдено несколько
-        («Выбрать всех» / «Снять выбор», прокрутка), не найден (рекомендации, «Повторить поиск»),
-        сервис недоступен, техническая ошибка, ребёнок добавлен ранее;
-    5   после добавления окно закрывается, список обновляется, зелёное уведомление «Успешно: …».
-  Данные и сервисы — FamilyData (window.mpFamily), добавленные дети — localStorage mp-family.
-  Панель «Прототип» (слева внизу): ответ РБДС, тестовые ИИН, заполнить / очистить список. Демо-кнопок в интерфейсе нет.
+  Постановка «Объединение детей в разделе „Моя семья“»:
+    1 родные и опекаемые дети — единый список, без категорий и без типа родства или опеки;
+    2 карточки одинакового оформления: ФИО, ИИН, дата рождения и возраст, «ЭПЗ ребёнка»;
+      без подписей «Родной ребёнок», «Опекаемый ребёнок», «Сын», «Дочь», «Подопечный» и значков типа связи;
+      «Добавить ребёнка» — в верхней части раздела;
+    3 окно «Добавление детей»: единый список без вкладок и группировки — чекбокс, ФИО, ИИН, дата рождения;
+      «Выбрать всех» / «Снять выбор», «Добавить выбранных (N)» (неактивна до выбора) и «Отмена»;
+      уже добавленные — метка «Уже добавлен», выбрать повторно нельзя; после сохранения дети — в общем списке;
+    4 состояния: пустой раздел («Вы пока не добавили детей» + «Добавить ребёнка»), заполненный раздел,
+      окно до и после выбора, загрузка сведений, нет доступных для добавления детей, ошибка загрузки с «Повторить».
+  В пустом разделе кнопка «Добавить ребёнка» одна — в пустом состоянии (в шапке раздела её нет, чтобы не дублировать).
+  Данные и сервис — FamilyData (window.mpFamily), добавленные дети — localStorage mp-family.
+  Панель «Прототип» (слева внизу): ответ сервиса, заполнить / очистить список. Демо-кнопок в интерфейсе нет.
 -->
 <x-dc>
 <helmet>
@@ -32,10 +33,8 @@
   :root{
     --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
     --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
-    --green:#38C793;--green-l:#EFFAF6;--green-m:#CBF5E5;--green-dk:#2D9F75;--green-d:#176448;
-    --teal:#35B9E9;--teal-l:#EBFAFF;--teal-m:#C2EFFF;--teal-dk:#1F87AD;--teal-d:#164564;
-    --orange:#F17B2C;--orange-l:#FEF3EB;--orange-m:#FFDAC2;--orange-d:#6E330C;
-    --red:#DF1C41;--red-l:#FDEDF0;--red-m:#F8C9D2;--red-d:#710E21;
+    --green:#38C793;--green-l:#EFFAF6;--green-m:#CBF5E5;--green-d:#176448;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-m:#F8C9D2;
     --stroke:#E2E4E9;--bg:#F6F8FA;
     --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);--sh-2xl:0 40px 96px -24px rgba(14,18,27,.24);
   }
@@ -48,6 +47,7 @@
   @keyframes fm-sh{0%{background-position:-320px 0}100%{background-position:320px 0}}
   @keyframes fm-new{0%,55%{box-shadow:0 0 0 3px var(--primary-light),var(--sh-xs);border-color:var(--primary)}100%{box-shadow:var(--sh-xs);border-color:var(--stroke)}}
   image-slot{display:block!important;width:100%!important;height:100%!important;}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
   /* Раскладка кабинета гражданина: на всю ширину окна, поля 32 (монитор) / 24 (ноутбук, планшет) / 16 px — как у шапки */
   .fm-wrap{padding:28px 32px 80px;}
@@ -58,14 +58,14 @@
   .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
   @media (max-width:1536px){ .lk-grid{gap:20px;} }
   .cn-host{position:sticky;top:90px;}
-  .fm-main{min-width:0;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;}
+  .fm-main{min-width:0;display:flex;flex-direction:column;gap:20px;animation:mp-fade .2s ease;}
 
-  /* Заголовок */
+  /* Заголовок раздела */
   .fm-head{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;min-height:40px;}
   .fm-tt{display:flex;align-items:center;gap:8px;min-width:0;}
   .fm-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
   .fm-info{width:28px;height:28px;border:none;border-radius:8px;background:none;color:var(--n400);display:inline-flex;align-items:center;justify-content:center;font-size:18px;cursor:help;flex:0 0 auto;padding:0;transition:background .15s,color .15s;}
-  .fm-info:hover{background:var(--n100);color:var(--n600);}
+  .fm-info:hover{background:var(--n200);color:var(--n600);}
 
   /* Кнопки */
   .fm-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,opacity .15s,box-shadow .15s;}
@@ -75,147 +75,95 @@
   .fm-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);}
   .fm-btn.sec:not([disabled]):hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
   .fm-btn.soft{border:1px solid var(--primary-lighter);background:var(--primary-lighter);color:var(--primary);font-weight:600;}
-  .fm-btn.soft:not([disabled]):hover{background:#E2E8FF;border-color:var(--primary-light);}
+  .fm-btn.soft:hover{background:var(--primary-light);border-color:var(--primary-light);color:var(--primary-darker);}
   .fm-btn[disabled]{cursor:not-allowed;opacity:.45;box-shadow:none;}
   .fm-btn.busy{cursor:progress;opacity:1;}
   .fm-spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:fm-spin .7s linear infinite;flex:0 0 auto;}
-  .fm-link{border:none;background:none;padding:4px 6px;margin:-4px -6px;border-radius:6px;font-family:inherit;font-size:13px;line-height:18px;font-weight:500;color:var(--primary);cursor:pointer;transition:background .15s,color .15s;}
-  .fm-link:not([disabled]):hover{background:var(--primary-lighter);}
-  .fm-link[disabled]{color:var(--n400);cursor:default;}
 
-  /* Уведомления на странице */
-  .fm-ok{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 16px;border-radius:14px;background:var(--green-l);border:1px solid var(--green-m);color:var(--green-d);font-size:14px;line-height:20px;animation:mp-slidein .25s ease;}
-  .fm-ok-ic{width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;}
-  .fm-ok-t{flex:1;min-width:0;}
-  .fm-x{width:32px;height:32px;border:none;border-radius:8px;background:none;color:inherit;display:inline-flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex:0 0 auto;padding:0;opacity:.75;transition:background .15s,opacity .15s;}
-  .fm-x:hover{opacity:1;background:rgba(10,13,20,.06);}
-  .fm-note{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:14px;background:var(--primary-lighter);border:1px solid #E0E6FF;font-size:13.5px;line-height:20px;color:var(--n600);}
-  .fm-note i{font-size:18px;line-height:20px;color:var(--primary);flex:0 0 auto;}
-
-  /* Список детей */
-  .fm-sec{display:flex;align-items:center;gap:10px;margin-top:4px;}
-  .fm-h2{font-size:17px;line-height:24px;font-weight:600;margin:0;}
-  .fm-count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 8px;border-radius:999px;background:var(--n200);color:var(--n600);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;}
-  .fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:16px;}
-  .fm-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);display:flex;flex-direction:column;min-width:0;transition:border-color .15s,box-shadow .15s;}
+  /* Карточки детей: одинаковое оформление для всех */
+  .fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr));gap:16px;}
+  .fm-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:20px;display:flex;flex-direction:column;gap:18px;min-width:0;container-type:inline-size;transition:border-color .15s,box-shadow .15s;}
   .fm-card:hover{border-color:var(--n300);box-shadow:0 6px 18px -10px rgba(14,18,27,.16);}
   .fm-card.new{animation:fm-new 2.6s ease;}
-  .fm-c-top{display:flex;align-items:center;gap:14px;padding:18px 20px 0;}
-  .fm-ava{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
-  .fm-ava.kin{background:var(--primary-lighter);color:var(--primary);}
-  .fm-ava.ward{background:var(--teal-l);color:var(--teal-dk);}
-  .fm-c-id{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
-  .fm-c-name{font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;color:var(--n900);overflow-wrap:anywhere;}
-  .fm-rel{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;}
-  .fm-rel.kin{background:var(--primary-lighter);color:var(--primary-darker);}
-  .fm-rel.ward{background:var(--teal-l);color:var(--teal-d);}
-  .fm-dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:0;padding:16px 20px;}
+  .fm-c-top{display:flex;align-items:center;gap:14px;min-width:0;}
+  .fm-ava{width:48px;height:48px;border-radius:14px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;letter-spacing:.02em;flex:0 0 auto;}
+  .fm-c-name{margin:0;font-size:16px;line-height:22px;font-weight:600;letter-spacing:-.01em;color:var(--n900);overflow-wrap:anywhere;}
+  .fm-c-foot{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 16px;}
+  .fm-dl{display:flex;gap:12px 28px;margin:0;min-width:0;}
   .fm-dl div{min-width:0;}
-  .fm-dl .full{grid-column:1 / -1;}
   .fm-dl dt{font-size:12px;line-height:16px;color:var(--n400);margin:0 0 2px;}
-  .fm-dl dd{margin:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
-  .fm-dl dd span{color:var(--n500);font-weight:400;}
+  .fm-dl dd{margin:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n900);white-space:nowrap;}
+  .fm-age{color:var(--n500);font-weight:400;}
   .num{font-variant-numeric:tabular-nums;letter-spacing:.01em;}
-  .fm-c-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px 12px;flex-wrap:wrap;padding:12px 16px 12px 20px;border-top:1px solid var(--stroke);}
-  .fm-conf{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:13px;line-height:18px;font-weight:500;}
-  .fm-conf i{font-size:17px;flex:0 0 auto;}
-  .fm-conf.kin{color:var(--green-d);} .fm-conf.kin i{color:var(--green);}
-  .fm-conf.ward{color:var(--teal-d);} .fm-conf.ward i{color:var(--teal);}
-  .fm-c-foot .fm-btn{height:36px;padding:0 14px;}
+  .fm-c-foot .fm-btn{height:36px;padding:0 14px;flex:0 0 auto;}
+  /* узкая карточка (ноутбук 1280, планшет, телефон): кнопка — отдельной строкой на всю ширину */
+  @container (max-width:479px){ .fm-c-foot{flex-direction:column;align-items:stretch;} .fm-c-foot .fm-btn{width:100%;} }
 
-  .fm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:260px;padding:40px 24px;border:1px dashed var(--n300);border-radius:16px;background:var(--n0);text-align:center;}
-  .fm-empty-ic{width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:28px;}
-  .fm-empty-t{font-size:16px;line-height:22px;font-weight:600;color:var(--n900);}
+  .fm-skc{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:18px;}
+  .fm-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,var(--n200) 40px,var(--n100) 80px) var(--n100);background-size:640px 100%;animation:fm-sh 1.2s linear infinite;}
 
-  /* ---------- Окно «Добавить ребёнка в семью» ---------- */
+  /* Пустой раздел */
+  .fm-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:340px;padding:48px 24px;border:1px dashed var(--n300);border-radius:16px;background:var(--n0);text-align:center;}
+  .fm-empty-ic{width:64px;height:64px;border-radius:18px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:30px;}
+  .fm-empty-t{margin:0;font-size:17px;line-height:24px;font-weight:600;color:var(--n900);}
+
+  /* Уведомление о добавлении */
+  .fm-toast{position:fixed;right:28px;bottom:96px;z-index:80;display:flex;align-items:center;gap:10px;max-width:380px;padding:12px 16px 12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);font-size:14px;line-height:20px;font-weight:500;animation:mp-slidein .2s ease;}
+  .fm-toast i{font-size:22px;color:var(--green);flex:0 0 auto;}
+
+  /* ---------- Окно «Добавление детей» ---------- */
   .fm-ov{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,13,20,.48);animation:mp-fade .15s ease;}
-  .fm-dlg{width:680px;max-width:100%;max-height:min(840px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-2xl);overflow:hidden;animation:fm-pop .2s ease;outline:none;}
-  .fm-dh{display:flex;align-items:flex-start;gap:14px;padding:20px 20px 16px 24px;}
+  .fm-dlg{width:600px;max-width:100%;max-height:min(760px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-2xl);overflow:hidden;animation:fm-pop .2s ease;outline:none;}
+  .fm-dh{display:flex;align-items:center;gap:14px;padding:20px 20px 16px 24px;}
   .fm-dh-ic{width:40px;height:40px;border-radius:12px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;}
-  .fm-dh-t{flex:1;min-width:0;padding-top:1px;}
-  .fm-dh-t h2{margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
-  .fm-dh-t p{margin:2px 0 0;font-size:13.5px;line-height:20px;color:var(--n500);}
-  .fm-dh .fm-x{color:var(--n500);margin:-2px -2px 0 0;}
-  .fm-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0 24px;padding:4px;border-radius:12px;background:var(--n100);}
-  .fm-tab{height:36px;border:none;border-radius:9px;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;white-space:nowrap;min-width:0;transition:background .15s,color .15s,box-shadow .15s;}
-  .fm-tab i{font-size:17px;}
-  .fm-tab:hover{color:var(--n900);}
-  .fm-tab[aria-selected="true"]{background:var(--n0);color:var(--n900);font-weight:600;box-shadow:0 1px 3px rgba(14,18,27,.1),0 0 0 1px rgba(14,18,27,.03);}
-  .fm-tab[aria-selected="true"] i{color:var(--primary);}
-  .fm-tab-l{overflow:hidden;text-overflow:ellipsis;}
-  .fm-db{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 24px 20px;display:flex;flex-direction:column;gap:14px;scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  .fm-dh h2{flex:1;min-width:0;margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .fm-x{width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex:0 0 auto;padding:0;transition:background .15s,color .15s;}
+  .fm-x:hover{background:var(--n100);color:var(--n900);}
+  .fm-db{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 24px 20px;}
   .fm-df{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--stroke);background:var(--n0);}
   .fm-df .fm-btn{min-width:120px;}
 
-  .fm-bar{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;min-height:24px;}
-  .fm-bar-t{display:flex;align-items:center;gap:8px;font-size:13px;line-height:18px;font-weight:600;color:var(--n600);}
-  .fm-bar-a{display:flex;align-items:center;gap:14px;}
-  .fm-list{display:flex;flex-direction:column;gap:10px;}
-
-  /* Карточка выбора */
-  .fm-opt{width:100%;display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);font-family:inherit;text-align:left;color:inherit;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
-  .fm-opt:not([disabled]):hover{border-color:var(--n300);background:var(--n50);}
-  .fm-opt[aria-checked="true"]{border-color:var(--primary);background:#F8F9FF;box-shadow:0 0 0 1px var(--primary);}
-  .fm-opt[aria-checked="true"]:hover{border-color:var(--primary);background:#F4F6FF;}
-  .fm-opt[disabled]{cursor:default;background:var(--n50);}
-  .fm-opt[disabled] .fm-o-name,.fm-opt[disabled] .fm-o-meta{color:var(--n500);}
-  .fm-chk{width:20px;height:20px;margin-top:14px;border-radius:6px;border:1px solid var(--n300);background:var(--n0);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex:0 0 auto;transition:background .12s,border-color .12s;}
+  /* Единый список детей: шапка «Выбрать всех» + строки */
+  .fm-list{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;border:1px solid var(--stroke);border-radius:14px;overflow:hidden;}
+  .fm-lhw{display:flex;align-items:center;min-height:48px;border-bottom:1px solid var(--stroke);background:var(--n50);flex:0 0 auto;}
+  .fm-lh{flex:1;min-width:0;align-self:stretch;display:flex;align-items:center;gap:14px;padding:0 16px;border:none;background:none;font-family:inherit;font-size:13px;line-height:18px;font-weight:600;color:var(--n600);text-align:left;cursor:pointer;transition:background .15s,color .15s;}
+  .fm-lh:hover{background:var(--n100);color:var(--n900);}
+  .fm-clr{flex:0 0 auto;margin-right:10px;padding:6px 8px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:13px;line-height:18px;font-weight:500;color:var(--primary);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s;}
+  .fm-clr:hover{background:var(--primary-lighter);color:var(--primary-darker);}
+  .fm-rows{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  .fm-opt{width:100%;display:flex;align-items:center;gap:14px;padding:12px 16px;border:none;border-top:1px solid var(--stroke);background:var(--n0);font-family:inherit;text-align:left;color:inherit;cursor:pointer;transition:background .12s;}
+  .fm-opt:first-child{border-top:none;}
+  .fm-opt:not([disabled]):hover{background:var(--n50);}
+  .fm-opt[aria-checked="true"],.fm-opt[aria-checked="true"]:hover{background:var(--primary-lighter);}
+  .fm-opt[disabled]{cursor:default;background:var(--n0);}
+  .fm-chk{width:20px;height:20px;border-radius:6px;border:1px solid var(--n300);background:var(--n0);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex:0 0 auto;transition:background .12s,border-color .12s;}
   .fm-chk i{opacity:0;transition:opacity .12s;}
-  .fm-opt:not([disabled]):hover .fm-chk{border-color:var(--primary);}
-  .fm-opt[aria-checked="true"] .fm-chk{background:var(--primary);border-color:var(--primary);}
-  .fm-opt[aria-checked="true"] .fm-chk i{opacity:1;}
-  .fm-opt[disabled] .fm-chk{background:var(--n100);border-color:var(--n200);}
-  .fm-opt .fm-ava{width:44px;height:44px;border-radius:12px;font-size:15px;}
-  .fm-opt[disabled] .fm-ava{filter:grayscale(1);opacity:.6;}
-  .fm-o-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;padding-top:1px;}
-  .fm-o-h{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;}
-  .fm-o-name{font-size:15px;line-height:22px;font-weight:600;color:var(--n900);}
-  .fm-o-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 14px;font-size:13px;line-height:18px;color:var(--n500);}
-  .fm-o-meta b{font-weight:500;color:var(--n900);}
-  .fm-o-doc{display:inline-flex;align-items:flex-start;gap:6px;font-size:13px;line-height:18px;color:var(--n600);}
-  .fm-o-doc i{font-size:15px;line-height:18px;color:var(--n400);flex:0 0 auto;}
-  .fm-tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;background:var(--n100);color:var(--n500);font-size:12px;font-weight:600;white-space:nowrap;}
+  .fm-opt:not([disabled]):hover .fm-chk,.fm-lh:hover .fm-chk{border-color:var(--primary);}
+  .fm-chk.on{background:var(--primary);border-color:var(--primary);}
+  .fm-chk.on i{opacity:1;}
+  .fm-chk.off{background:var(--n100);border-color:var(--n200);}
+  .fm-opt .fm-ava{width:40px;height:40px;border-radius:12px;font-size:14px;}
+  .fm-opt[disabled] .fm-ava{background:var(--n100);color:var(--n400);}
+  .fm-o-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .fm-o-h{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-width:0;}
+  .fm-o-name{font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;}
+  .fm-o-meta{display:flex;align-items:center;flex-wrap:wrap;gap:2px 16px;font-size:13px;line-height:18px;color:var(--n500);}
+  .fm-o-meta b{font-weight:500;color:var(--n700);}
+  .fm-opt[disabled] .fm-o-name,.fm-opt[disabled] .fm-o-meta b{color:var(--n500);}
+  .fm-opt[disabled] .fm-o-meta{color:var(--n400);}
+  .fm-tag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:6px;background:var(--n100);color:var(--n500);font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;flex:0 0 auto;}
+  .fm-tag i{font-size:14px;}
 
-  /* Вкладка РБДС */
-  .fm-field{display:flex;flex-direction:column;gap:6px;}
-  .fm-lbl{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
-  .fm-row{display:flex;gap:10px;}
-  .fm-inp{flex:1;min-width:0;position:relative;}
-  .fm-inp i{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--n400);pointer-events:none;}
-  .fm-inp input{width:100%;height:40px;padding:0 12px 0 40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);font-family:inherit;font-size:14px;color:var(--n900);font-variant-numeric:tabular-nums;letter-spacing:.04em;outline:none;box-shadow:var(--sh-xs);transition:border-color .15s,box-shadow .15s;}
-  .fm-inp input::placeholder{color:var(--n400);letter-spacing:0;}
-  .fm-inp input:hover{border-color:var(--n300);}
-  .fm-inp input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
-  .fm-inp input[aria-invalid="true"]{border-color:var(--red);}
-  .fm-inp input[aria-invalid="true"]:focus{box-shadow:0 0 0 3px var(--red-l);}
-  .fm-inp input[disabled]{background:var(--n50);color:var(--n500);}
-  .fm-err{display:flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--red);}
-  .fm-err i{font-size:16px;}
+  /* Загрузка, нет детей, ошибка */
+  .fm-skr{display:flex;align-items:center;gap:14px;padding:12px 16px;border-top:1px solid var(--stroke);}
+  .fm-skr:first-child{border-top:none;}
+  .fm-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:248px;padding:32px 24px;border:1px solid var(--stroke);border-radius:14px;text-align:center;animation:mp-fade .2s ease;}
+  .fm-state-ic{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--n100);color:var(--n500);}
+  .fm-state-ic.err{background:var(--red-l);color:var(--red);}
+  .fm-state-t{margin:0;font-size:16px;line-height:22px;font-weight:600;color:var(--n900);}
 
-  .fm-load{display:flex;align-items:center;gap:10px;font-size:13px;line-height:18px;font-weight:500;color:var(--n500);}
-  .fm-load .fm-spin{color:var(--primary);}
-  .fm-skel{display:flex;gap:14px;padding:14px 16px;border:1px solid var(--stroke);border-radius:14px;}
-  .fm-sk{border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,#EDEFF3 40px,var(--n100) 80px) var(--n100);background-size:640px 100%;animation:fm-sh 1.2s linear infinite;}
-
-  .fm-alert{border-radius:14px;padding:16px;display:flex;gap:12px;animation:mp-slidein .2s ease;}
-  .fm-alert.warn{background:var(--orange-l);border:1px solid var(--orange-m);}
-  .fm-alert.err{background:var(--red-l);border:1px solid var(--red-m);}
-  .fm-alert.ok{background:var(--green-l);border:1px solid var(--green-m);}
-  .fm-al-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex:0 0 auto;background:var(--n0);}
-  .fm-alert.warn .fm-al-ic{color:var(--orange);}
-  .fm-alert.err .fm-al-ic{color:var(--red);}
-  .fm-alert.ok .fm-al-ic{color:var(--green-dk);}
-  .fm-al-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
-  .fm-al-t{font-size:15px;line-height:22px;font-weight:600;color:var(--n900);padding-top:6px;}
-  .fm-al-p{margin:0;font-size:13.5px;line-height:20px;color:var(--n600);}
-  .fm-al-ul{margin:4px 0 0;padding:12px 14px;list-style:none;display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.7);border-radius:10px;}
-  .fm-al-ul li{display:flex;gap:8px;font-size:13.5px;line-height:20px;color:var(--n700);}
-  .fm-al-ul li i{font-size:16px;line-height:20px;color:var(--orange);flex:0 0 auto;}
-  .fm-al-cap{font-size:12px;line-height:16px;font-weight:600;color:var(--orange-d);margin-top:4px;}
-  .fm-al-f{display:flex;justify-content:flex-start;margin-top:6px;}
-  .fm-al-f .fm-btn{height:36px;padding:0 14px;}
-
-  .fm-btn:focus-visible,.fm-x:focus-visible,.fm-info:focus-visible,.fm-link:focus-visible,.fm-tab:focus-visible,.fm-opt:focus-visible,.pp-btn:focus-visible,.fm-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .fm-btn:focus-visible,.fm-x:focus-visible,.fm-info:focus-visible,.fm-opt:focus-visible,.fm-lh:focus-visible,.fm-clr:focus-visible,.pp-btn:focus-visible,.fm-crumbs a:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);position:relative;z-index:1;}
+  .fm-opt:focus-visible,.fm-lh:focus-visible{box-shadow:inset 0 0 0 2px var(--primary-light);}
 
   .hm-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
   .hm-tip.on{opacity:1;transform:none;}
@@ -228,7 +176,6 @@
   .pp-btn{min-height:30px;padding:6px 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
   .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
   .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
-  .pp-btn .num{margin-left:auto;color:var(--n400);font-size:11px;}
 
   @media (max-width:1024px){
     .fm-wrap{padding:20px 24px 80px;}
@@ -239,23 +186,20 @@
     .fm-wrap{padding:16px 16px 80px;}
     .fm-crumbs{margin-bottom:16px;}
     .fm-title{font-size:20px;line-height:28px;}
-    .fm-c-top{padding:16px 16px 0;}
-    .fm-dl{padding:14px 16px;grid-template-columns:minmax(0,1fr);}
-    .fm-c-foot{padding:12px 16px;}
-    .fm-c-foot .fm-btn{width:100%;}
+    .fm-card{padding:16px;gap:16px;}
+    .fm-c-foot .fm-btn{height:40px;}
+    .fm-toast{left:16px;right:16px;bottom:80px;max-width:none;}
     .fm-ov{padding:8px;align-items:flex-end;}
     .fm-dlg{max-height:calc(100vh - 16px);border-radius:18px;}
     .fm-dh{padding:16px 12px 12px 16px;}
-    .fm-tabs{margin:0 16px;}
-    .fm-tab{font-size:13px;padding:0 6px;}
-    .fm-tab i{display:none;}
-    .fm-db{padding:14px 16px 16px;}
+    .fm-db{padding:0 16px 16px;}
     .fm-df{padding:12px 16px;}
-    .fm-df .fm-btn{flex:1;min-width:0;padding:0 10px;}
-    .fm-row{flex-direction:column;}
-    .fm-opt{padding:12px;gap:10px;}
-    .fm-opt .fm-ava{display:none;}
-    .fm-chk{margin-top:2px;}
+    .fm-df .fm-btn{flex:1 1 auto;min-width:0;padding:0 12px;}
+    .fm-df .fm-btn.sec{flex:0 0 auto;min-width:96px;}
+    .fm-opt,.fm-skr{padding:12px;gap:12px;}
+    .fm-lh{padding:0 12px;gap:12px;}
+    .fm-clr{margin-right:4px;}
+    .fm-opt .fm-ava,.fm-skr .fm-sk.ava{display:none;}
     .pp{left:16px;bottom:16px;max-width:calc(100% - 32px);}
   }
 </style>
@@ -277,68 +221,58 @@
         <dc-import name="CitizenNav" active="family" hint-size="300px,560px"></dc-import>
       </aside>
 
-      <main class="fm-main">
-        <!-- 2.1 Заголовок и «Добавить ребёнка» -->
+      <main class="fm-main" aria-busy="{{ pageBusy }}">
+        <!-- Заголовок и «Добавить ребёнка» в верхней части раздела -->
         <div class="fm-head">
           <div class="fm-tt">
             <h1 class="fm-title">Моя семья</h1>
             <button type="button" class="fm-info" aria-label="{{ headTip }}" data-tip="{{ headTip }}"><i class="ri-information-line" aria-hidden="true"></i></button>
           </div>
-          <button type="button" class="fm-btn pri" ref="{{ addRef }}" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>Добавить ребёнка</button>
+          <sc-if value="{{ hasKids }}" hint-placeholder-val="{{ true }}">
+            <button type="button" class="fm-btn pri" ref="{{ addRef }}" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>Добавить ребёнка</button>
+          </sc-if>
         </div>
 
-        <!-- 5 Успешное добавление -->
-        <sc-if value="{{ hasOk }}" hint-placeholder-val="{{ false }}">
-          <div class="fm-ok" role="status" aria-live="polite">
-            <span class="fm-ok-ic" aria-hidden="true"><i class="ri-check-line"></i></span>
-            <div class="fm-ok-t"><b style="font-weight:600;">Успешно:</b> {{ okText }}</div>
-            <button type="button" class="fm-x" onClick="{{ closeOk }}" aria-label="Закрыть уведомление"><i class="ri-close-line" aria-hidden="true"></i></button>
+        <!-- Загрузка сведений -->
+        <sc-if value="{{ pageLoading }}" hint-placeholder-val="{{ false }}">
+          <div class="fm-grid" aria-hidden="true">
+            <sc-for list="{{ skel2 }}" as="z" hint-placeholder-count="2">
+              <div class="fm-skc">
+                <div class="fm-c-top"><span class="fm-sk" style="width:48px;height:48px;border-radius:14px;flex:0 0 auto;"></span><span class="fm-sk" style="width:58%;height:16px;"></span></div>
+                <div class="fm-c-foot"><span style="display:flex;gap:28px;"><span style="display:flex;flex-direction:column;gap:6px;"><span class="fm-sk" style="width:28px;height:10px;"></span><span class="fm-sk" style="width:104px;height:14px;"></span></span><span style="display:flex;flex-direction:column;gap:6px;"><span class="fm-sk" style="width:86px;height:10px;"></span><span class="fm-sk" style="width:128px;height:14px;"></span></span></span><span class="fm-sk" style="width:136px;height:36px;border-radius:10px;"></span></div>
+              </div>
+            </sc-for>
+          </div>
+          <span class="sr" role="status">Загрузка сведений</span>
+        </sc-if>
+
+        <!-- Заполненный раздел: единый список детей -->
+        <sc-if value="{{ hasKids }}" hint-placeholder-val="{{ true }}">
+          <div class="fm-grid" role="list" aria-label="Дети">
+            <sc-for list="{{ kids }}" as="k" hint-placeholder-count="4">
+              <article class="{{ k.cls }}" role="listitem" aria-label="{{ k.fio }}">
+                <div class="fm-c-top">
+                  <span class="fm-ava" aria-hidden="true">{{ k.ini }}</span>
+                  <h2 class="fm-c-name">{{ k.fio }}</h2>
+                </div>
+                <div class="fm-c-foot">
+                  <dl class="fm-dl">
+                    <div><dt>ИИН</dt><dd class="num">{{ k.iin }}</dd></div>
+                    <div><dt>Дата рождения</dt><dd><span class="num">{{ k.dob }}</span> <span class="fm-age">· {{ k.age }}</span></dd></div>
+                  </dl>
+                  <a class="fm-btn soft" href="{{ k.href }}" aria-label="{{ k.epzLabel }}"><i class="ri-heart-pulse-line" aria-hidden="true"></i>ЭПЗ ребёнка</a>
+                </div>
+              </article>
+            </sc-for>
           </div>
         </sc-if>
 
-        <div class="fm-note">
-          <i class="ri-information-fill" aria-hidden="true"></i>
-          <div>Сведения о детях до 18 лет синхронизируются автоматически с Государственной базой данных «Физические лица» (ГБД ФЛ) и актовыми записями ЗАГС. Родители и законные представители имеют доступ к электронным паспортам здоровья (ЭПЗ) детей.</div>
-        </div>
-
-        <!-- 2.2 Список детей -->
-        <sc-if value="{{ hasKids }}" hint-placeholder-val="{{ true }}">
-          <section aria-labelledby="fm-list-h" style="display:flex;flex-direction:column;gap:12px;">
-            <div class="fm-sec">
-              <h2 class="fm-h2" id="fm-list-h">Список прикреплённых детей</h2>
-              <span class="fm-count" aria-label="{{ countLabel }}">{{ count }}</span>
-            </div>
-            <div class="fm-grid">
-              <sc-for list="{{ kids }}" as="k" hint-placeholder-count="4">
-                <article class="{{ k.cls }}" aria-label="{{ k.fio }}">
-                  <div class="fm-c-top">
-                    <span class="{{ k.avaCls }}" aria-hidden="true">{{ k.ini }}</span>
-                    <div class="fm-c-id">
-                      <div class="fm-c-name">{{ k.fio }}</div>
-                      <span class="{{ k.relCls }}">{{ k.rel }}</span>
-                    </div>
-                  </div>
-                  <dl class="fm-dl">
-                    <div><dt>ИИН</dt><dd class="num">{{ k.iin }}</dd></div>
-                    <div><dt>Дата рождения</dt><dd><span class="num" style="color:var(--n900);font-weight:500;">{{ k.dob }}</span> <span>· {{ k.age }}</span></dd></div>
-                    <sc-if value="{{ k.hasDoc }}" hint-placeholder-val="{{ false }}">
-                      <div class="full"><dt>Документ об опеке</dt><dd>{{ k.doc }}</dd></div>
-                    </sc-if>
-                  </dl>
-                  <div class="fm-c-foot">
-                    <span class="{{ k.confCls }}" data-tip="{{ k.confTip }}"><i class="{{ k.confIcon }}" aria-hidden="true"></i>{{ k.conf }}</span>
-                    <a class="fm-btn soft" href="{{ k.href }}"><i class="ri-heart-pulse-line" aria-hidden="true"></i>ЭПЗ ребёнка</a>
-                  </div>
-                </article>
-              </sc-for>
-            </div>
-          </section>
-        </sc-if>
-
+        <!-- Пустой раздел -->
         <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
           <div class="fm-empty">
             <span class="fm-empty-ic" aria-hidden="true"><i class="ri-parent-line"></i></span>
-            <div class="fm-empty-t">Дети не добавлены</div>
+            <p class="fm-empty-t">Вы пока не добавили детей</p>
+            <button type="button" class="fm-btn pri" ref="{{ addRef }}" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>Добавить ребёнка</button>
           </div>
         </sc-if>
       </main>
@@ -347,185 +281,93 @@
 
   <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
 
-  <!-- 3 Окно «Добавить ребёнка в семью» -->
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="fm-toast" role="status" aria-live="polite"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>{{ toastText }}</div>
+  </sc-if>
+
+  <!-- Окно «Добавление детей» -->
   <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
     <div class="fm-ov" onMouseDown="{{ onBackdrop }}">
       <div class="fm-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="fm-dlg-t" tabIndex="-1" onKeyDown="{{ onDlgKey }}" onMouseDown="{{ stop }}">
         <div class="fm-dh">
           <span class="fm-dh-ic" aria-hidden="true"><i class="ri-user-add-line"></i></span>
-          <div class="fm-dh-t">
-            <h2 id="fm-dlg-t">Добавить ребёнка в семью</h2>
-            <p>Выберите родных детей или найдите опекаемого ребёнка по ИИН</p>
-          </div>
+          <h2 id="fm-dlg-t">Добавление детей</h2>
           <button type="button" class="fm-x" onClick="{{ close }}" aria-label="Закрыть"><i class="ri-close-line" aria-hidden="true"></i></button>
         </div>
 
-        <div class="fm-tabs" role="tablist" aria-label="Источник сведений">
-          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
-            <button type="button" class="fm-tab" role="tab" id="{{ t.id }}" aria-selected="{{ t.sel }}" aria-controls="fm-panel" tabIndex="{{ t.tabIndex }}" onClick="{{ t.onClick }}" onKeyDown="{{ t.onKey }}"><i class="{{ t.icon }}" aria-hidden="true"></i><span class="fm-tab-l">{{ t.label }}</span></button>
-          </sc-for>
-        </div>
+        <div class="fm-db">
+          <!-- Загрузка сведений -->
+          <sc-if value="{{ dLoading }}" hint-placeholder-val="{{ false }}">
+            <div class="fm-list" aria-busy="true">
+              <div class="fm-lhw"><span class="fm-lh" style="pointer-events:none;"><span class="fm-chk off" aria-hidden="true"></span><span class="fm-sk" style="width:96px;height:12px;"></span></span></div>
+              <div class="fm-rows" aria-hidden="true">
+                <sc-for list="{{ skel3 }}" as="z" hint-placeholder-count="3">
+                  <div class="fm-skr"><span class="fm-sk" style="width:20px;height:20px;flex:0 0 auto;"></span><span class="fm-sk ava" style="width:40px;height:40px;border-radius:12px;flex:0 0 auto;"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;"><span class="fm-sk" style="{{ z.w1 }}"></span><span class="fm-sk" style="{{ z.w2 }}"></span></span></div>
+                </sc-for>
+              </div>
+            </div>
+            <span class="sr" role="status">Загрузка сведений</span>
+          </sc-if>
 
-        <div class="fm-db" id="fm-panel" role="tabpanel" aria-labelledby="{{ panelBy }}" ref="{{ bodyRef }}">
-          <!-- 3.1 Родные дети (ГБД ФЛ) -->
-          <sc-if value="{{ isGbd }}" hint-placeholder-val="{{ true }}">
-            <div style="display:flex;flex-direction:column;gap:12px;">
-              <sc-if value="{{ gbdLoading }}" hint-placeholder-val="{{ false }}">
-                <div class="fm-load" role="status"><span class="fm-spin" aria-hidden="true"></span>Получение сведений из ГБД ФЛ…</div>
-                <div class="fm-list" aria-hidden="true">
-                  <sc-for list="{{ skel2 }}" as="z" hint-placeholder-count="2">
-                    <div class="fm-skel"><span class="fm-sk" style="width:20px;height:20px;margin-top:12px;"></span><span class="fm-sk" style="width:44px;height:44px;border-radius:12px;"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px;"><span class="fm-sk" style="width:55%;height:14px;"></span><span class="fm-sk" style="width:80%;height:12px;"></span></span></div>
-                  </sc-for>
+          <!-- Единый список: до и после выбора -->
+          <sc-if value="{{ dList }}" hint-placeholder-val="{{ true }}">
+            <div class="fm-list">
+              <sc-if value="{{ multi }}" hint-placeholder-val="{{ true }}">
+                <div class="fm-lhw">
+                  <button type="button" class="fm-lh" role="checkbox" aria-checked="{{ allAria }}" onClick="{{ toggleAll }}"><span class="{{ allChk }}" aria-hidden="true"><i class="{{ allIcon }}"></i></span>Выбрать всех</button>
+                  <sc-if value="{{ anySel }}" hint-placeholder-val="{{ true }}"><button type="button" class="fm-clr" onClick="{{ clearSel }}">Снять выбор</button></sc-if>
                 </div>
               </sc-if>
-
-              <sc-if value="{{ gbdAllAdded }}" hint-placeholder-val="{{ false }}">
-                <div class="fm-alert ok" role="status">
-                  <span class="fm-al-ic" aria-hidden="true"><i class="ri-checkbox-circle-line"></i></span>
-                  <div class="fm-al-b"><div class="fm-al-t">Все найденные дети уже добавлены</div><p class="fm-al-p">Дети из ГБД ФЛ, родство с которыми подтверждено, уже есть в разделе «Моя семья».</p></div>
-                </div>
-              </sc-if>
-
-              <sc-if value="{{ gbdNone }}" hint-placeholder-val="{{ false }}">
-                <div class="fm-alert warn" role="status">
-                  <span class="fm-al-ic" aria-hidden="true"><i class="ri-user-search-line"></i></span>
-                  <div class="fm-al-b"><div class="fm-al-t">Сведения о детях не найдены в ГБД ФЛ</div></div>
-                </div>
-              </sc-if>
-
-              <sc-if value="{{ gbdShow }}" hint-placeholder-val="{{ true }}">
-                <div class="fm-bar">
-                  <span class="fm-bar-t">Найдено в ГБД ФЛ: {{ gbdTotal }}</span>
-                  <sc-if value="{{ gbdMulti }}" hint-placeholder-val="{{ true }}">
-                    <span class="fm-bar-a">
-                      <button type="button" class="fm-link" onClick="{{ gbdAll }}" disabled="{{ gbdAllOff }}">Выбрать всех</button>
-                      <button type="button" class="fm-link" onClick="{{ gbdNoneSel }}" disabled="{{ gbdNoneOff }}">Снять выбор</button>
+              <div class="fm-rows" role="group" aria-label="Дети, доступные для добавления">
+                <sc-for list="{{ items }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="fm-opt" role="checkbox" aria-checked="{{ o.on }}" disabled="{{ o.added }}" onClick="{{ o.toggle }}">
+                    <span class="{{ o.chk }}" aria-hidden="true"><i class="ri-check-line"></i></span>
+                    <span class="fm-ava" aria-hidden="true">{{ o.ini }}</span>
+                    <span class="fm-o-b">
+                      <span class="fm-o-h"><span class="fm-o-name">{{ o.fio }}</span><sc-if value="{{ o.added }}" hint-placeholder-val="{{ false }}"><span class="fm-tag"><i class="ri-check-line" aria-hidden="true"></i>Уже добавлен</span></sc-if></span>
+                      <span class="fm-o-meta"><span>ИИН <b class="num">{{ o.iin }}</b></span><span>Дата рождения <b class="num">{{ o.dob }}</b></span></span>
                     </span>
-                  </sc-if>
-                </div>
-                <div class="fm-list">
-                  <sc-for list="{{ gbdItems }}" as="o" hint-placeholder-count="2">
-                    <button type="button" class="fm-opt" role="checkbox" aria-checked="{{ o.on }}" disabled="{{ o.added }}" onClick="{{ o.toggle }}">
-                      <span class="fm-chk" aria-hidden="true"><i class="ri-check-line"></i></span>
-                      <span class="{{ o.avaCls }}" aria-hidden="true">{{ o.ini }}</span>
-                      <span class="fm-o-b">
-                        <span class="fm-o-h"><span class="fm-o-name">{{ o.fio }}</span><span class="{{ o.relCls }}">{{ o.rel }}</span><sc-if value="{{ o.added }}" hint-placeholder-val="{{ false }}"><span class="fm-tag"><i class="ri-check-line" aria-hidden="true"></i>Уже добавлен</span></sc-if></span>
-                        <span class="fm-o-meta"><span>ИИН <b class="num">{{ o.iin }}</b></span><span>Дата рождения <b class="num">{{ o.dob }}</b> · {{ o.age }}</span></span>
-                      </span>
-                    </button>
-                  </sc-for>
-                </div>
-              </sc-if>
+                  </button>
+                </sc-for>
+              </div>
             </div>
           </sc-if>
 
-          <!-- 3.2 Опекаемый ребёнок (РБДС) -->
-          <sc-if value="{{ isRb }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;flex-direction:column;gap:16px;">
-              <div class="fm-note" style="background:var(--teal-l);border-color:var(--teal-m);">
-                <i class="ri-shield-user-line" aria-hidden="true" style="color:var(--teal-dk);"></i>
-                <div>Для прикрепления опекаемого ребёнка укажите его ИИН. Сведения о статусе законного представителя проверяются в РБДС Министерства просвещения Республики Казахстан в режиме онлайн.</div>
-              </div>
+          <!-- Нет доступных для добавления детей -->
+          <sc-if value="{{ dNone }}" hint-placeholder-val="{{ false }}">
+            <div class="fm-state" role="status">
+              <span class="fm-state-ic" aria-hidden="true"><i class="{{ noneIcon }}"></i></span>
+              <p class="fm-state-t">{{ noneTitle }}</p>
+            </div>
+          </sc-if>
 
-              <div class="fm-field">
-                <label class="fm-lbl" for="fm-iin">ИИН опекаемого ребёнка</label>
-                <div class="fm-row">
-                  <div class="fm-inp">
-                    <i class="ri-profile-line" aria-hidden="true"></i>
-                    <input id="fm-iin" ref="{{ iinRef }}" type="text" inputMode="numeric" autoComplete="off" maxLength="12" placeholder="12 цифр" value="{{ iin }}" onChange="{{ onIin }}" onKeyDown="{{ onIinKey }}" disabled="{{ rbBusy }}" aria-invalid="{{ iinBad }}" aria-describedby="fm-iin-err">
-                  </div>
-                  <button type="button" class="{{ checkCls }}" onClick="{{ check }}" disabled="{{ rbBusy }}">
-                    <sc-if value="{{ rbBusy }}" hint-placeholder-val="{{ false }}"><span class="fm-spin" aria-hidden="true"></span>Проверка…</sc-if>
-                    <sc-if value="{{ rbIdleBtn }}" hint-placeholder-val="{{ true }}"><i class="ri-search-line" aria-hidden="true"></i>Проверить в РБДС</sc-if>
-                  </button>
-                </div>
-                <sc-if value="{{ hasIinErr }}" hint-placeholder-val="{{ false }}">
-                  <div class="fm-err" id="fm-iin-err" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ iinErr }}</div>
-                </sc-if>
-              </div>
-
-              <!-- Загрузка -->
-              <sc-if value="{{ rbBusy }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                  <div class="fm-load" role="status"><span class="fm-spin" aria-hidden="true"></span>Проверка сведений в РБДС МП РК…</div>
-                  <div class="fm-skel" aria-hidden="true"><span class="fm-sk" style="width:20px;height:20px;margin-top:12px;"></span><span class="fm-sk" style="width:44px;height:44px;border-radius:12px;"></span><span style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px;"><span class="fm-sk" style="width:50%;height:14px;"></span><span class="fm-sk" style="width:76%;height:12px;"></span><span class="fm-sk" style="width:62%;height:12px;"></span></span></div>
-                </div>
-              </sc-if>
-
-              <!-- 4.1 / 4.2 Найден / найдено несколько -->
-              <sc-if value="{{ rbFound }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;flex-direction:column;gap:10px;" role="region" aria-label="Результат проверки в РБДС">
-                  <div class="fm-bar">
-                    <span class="fm-bar-t">Результат проверки в РБДС<span class="fm-count" style="background:var(--teal-l);color:var(--teal-d);">{{ rbCountText }}</span></span>
-                    <sc-if value="{{ rbMulti }}" hint-placeholder-val="{{ false }}">
-                      <span class="fm-bar-a">
-                        <button type="button" class="fm-link" onClick="{{ rbAll }}" disabled="{{ rbAllOff }}">Выбрать всех</button>
-                        <button type="button" class="fm-link" onClick="{{ rbNoneSel }}" disabled="{{ rbNoneOff }}">Снять выбор</button>
-                      </span>
-                    </sc-if>
-                  </div>
-                  <div class="fm-list">
-                    <sc-for list="{{ rbItems }}" as="o" hint-placeholder-count="1">
-                      <button type="button" class="fm-opt" role="checkbox" aria-checked="{{ o.on }}" disabled="{{ o.added }}" onClick="{{ o.toggle }}">
-                        <span class="fm-chk" aria-hidden="true"><i class="ri-check-line"></i></span>
-                        <span class="{{ o.avaCls }}" aria-hidden="true">{{ o.ini }}</span>
-                        <span class="fm-o-b">
-                          <span class="fm-o-h"><span class="fm-o-name">{{ o.fio }}</span><sc-if value="{{ o.added }}" hint-placeholder-val="{{ false }}"><span class="fm-tag" data-tip="Ребёнок уже есть в разделе «Моя семья»"><i class="ri-check-line" aria-hidden="true"></i>Добавлен ранее</span></sc-if></span>
-                          <span class="fm-o-meta"><span>ИИН <b class="num">{{ o.iin }}</b></span><span>Дата рождения <b class="num">{{ o.dob }}</b> · {{ o.age }}</span></span>
-                          <span class="fm-o-h"><span class="{{ o.relCls }}">{{ o.rel }}</span><span class="fm-conf ward"><i class="ri-shield-check-fill" aria-hidden="true"></i>Опека подтверждена РБДС МП РК</span></span>
-                          <sc-if value="{{ o.hasDoc }}" hint-placeholder-val="{{ true }}"><span class="fm-o-doc"><i class="ri-file-text-line" aria-hidden="true"></i>{{ o.doc }}</span></sc-if>
-                        </span>
-                      </button>
-                    </sc-for>
-                  </div>
-                </div>
-              </sc-if>
-
-              <!-- 4.3 Не найден -->
-              <sc-if value="{{ rbNotFound }}" hint-placeholder-val="{{ false }}">
-                <div class="fm-alert warn" role="alert">
-                  <span class="fm-al-ic" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
-                  <div class="fm-al-b">
-                    <div class="fm-al-t">Сведения не найдены в РБДС МП РК</div>
-                    <p class="fm-al-p">По ИИН <b class="num" style="font-weight:600;color:var(--n900);">{{ rbIin }}</b> отсутствуют сведения об установлении опеки или попечительства.</p>
-                    <div class="fm-al-cap">Рекомендации</div>
-                    <ul class="fm-al-ul">
-                      <li><i class="ri-checkbox-circle-line" aria-hidden="true"></i>Проверьте правильность введённого ИИН</li>
-                      <li><i class="ri-checkbox-circle-line" aria-hidden="true"></i>Проверьте наличие зарегистрированного решения об установлении опеки</li>
-                      <li><i class="ri-checkbox-circle-line" aria-hidden="true"></i>При необходимости обратитесь в органы опеки и попечительства</li>
-                    </ul>
-                    <div class="fm-al-f"><button type="button" class="fm-btn sec" onClick="{{ retrySearch }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить поиск</button></div>
-                  </div>
-                </div>
-              </sc-if>
-
-              <!-- 4.4 Сервис недоступен / техническая ошибка -->
-              <sc-if value="{{ rbErr }}" hint-placeholder-val="{{ false }}">
-                <div class="fm-alert err" role="alert">
-                  <span class="fm-al-ic" aria-hidden="true"><i class="{{ rbErrIcon }}"></i></span>
-                  <div class="fm-al-b">
-                    <div class="fm-al-t">{{ rbErrTitle }}</div>
-                    <p class="fm-al-p">{{ rbErrText }}</p>
-                    <div class="fm-al-f"><button type="button" class="fm-btn sec" onClick="{{ check }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить проверку</button></div>
-                  </div>
-                </div>
-              </sc-if>
+          <!-- Ошибка загрузки -->
+          <sc-if value="{{ dErr }}" hint-placeholder-val="{{ false }}">
+            <div class="fm-state" role="alert">
+              <span class="fm-state-ic err" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
+              <p class="fm-state-t">Не удалось загрузить сведения</p>
+              <button type="button" class="fm-btn sec" ref="{{ retryRef }}" onClick="{{ retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button>
             </div>
           </sc-if>
         </div>
 
         <div class="fm-df">
-          <button type="button" class="fm-btn sec" onClick="{{ close }}">Отменить</button>
-          <button type="button" class="{{ addCls }}" onClick="{{ doAdd }}" disabled="{{ addOff }}" aria-live="polite">
-            <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}"><span class="fm-spin" aria-hidden="true"></span>Добавление…</sc-if>
-            <sc-if value="{{ notAdding }}" hint-placeholder-val="{{ true }}">{{ addLabel }}</sc-if>
-          </button>
+          <sc-if value="{{ footFull }}" hint-placeholder-val="{{ true }}">
+            <button type="button" class="fm-btn sec" onClick="{{ close }}" disabled="{{ adding }}">Отмена</button>
+            <button type="button" class="{{ addCls }}" onClick="{{ doAdd }}" disabled="{{ addOff }}">
+              <sc-if value="{{ adding }}" hint-placeholder-val="{{ false }}"><span class="fm-spin" aria-hidden="true"></span>Добавление…</sc-if>
+              <sc-if value="{{ notAdding }}" hint-placeholder-val="{{ true }}">{{ addLabel }}</sc-if>
+            </button>
+          </sc-if>
+          <sc-if value="{{ footClose }}" hint-placeholder-val="{{ false }}">
+            <button type="button" class="fm-btn sec" onClick="{{ close }}">Закрыть</button>
+          </sc-if>
         </div>
       </div>
     </div>
   </sc-if>
 
-  <!-- Панель прототипа: ответ РБДС, тестовые ИИН, список -->
+  <!-- Панель прототипа: ответ сервиса, список -->
   <div class="pp" style="{{ ppW }}">
     <button type="button" class="pp-h" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
       <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
@@ -534,16 +376,12 @@
     </button>
     <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
       <div class="pp-b">
-        <span class="pp-cap" style="font-size:10.5px;color:var(--n400);">Ответ РБДС</span>
-        <div role="radiogroup" aria-label="Ответ РБДС" style="display:flex;flex-direction:column;gap:6px;">
+        <span class="pp-cap" style="font-size:10.5px;color:var(--n400);">Ответ сервиса</span>
+        <div role="radiogroup" aria-label="Ответ сервиса" style="display:flex;flex-direction:column;gap:6px;">
           <sc-for list="{{ scns }}" as="x" hint-placeholder-count="3">
             <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
           </sc-for>
         </div>
-        <span class="pp-cap" style="font-size:10.5px;color:var(--n400);margin-top:6px;">Тестовые ИИН</span>
-        <sc-for list="{{ samples }}" as="x" hint-placeholder-count="4">
-          <button type="button" class="pp-btn" onClick="{{ x.onClick }}">{{ x.label }}<span class="num">{{ x.iin }}</span></button>
-        </sc-for>
         <span class="pp-cap" style="font-size:10.5px;color:var(--n400);margin-top:6px;">Список детей</span>
         <div style="display:flex;gap:6px;">
           <button type="button" class="pp-btn" style="flex:1;justify-content:center;" onClick="{{ ppFill }}"><i class="ri-group-line" style="font-size:15px;" aria-hidden="true"></i>Заполнить</button>
@@ -579,29 +417,20 @@ const installTips = () => {
 };
 
 const SCNS = [
-  { id:'auto', label:'Ответ по ИИН', icon:'ri-search-eye-line' },
-  { id:'down', label:'Сервис недоступен', icon:'ri-cloud-off-line' },
-  { id:'fail', label:'Техническая ошибка', icon:'ri-error-warning-line' },
+  { id:'ok', label:'Дети найдены', icon:'ri-group-line' },
+  { id:'none', label:'Нет детей', icon:'ri-user-unfollow-line' },
+  { id:'fail', label:'Ошибка загрузки', icon:'ri-error-warning-line' },
 ];
-const TABS = [
-  { id:'gbd', label:'Родные дети (ГБД ФЛ)', icon:'ri-parent-line' },
-  { id:'rbds', label:'Опекаемый ребёнок (РБДС)', icon:'ri-shield-user-line' },
-];
-const IIN_ERR = {
-  empty:'Введите ИИН ребёнка',
-  length:'ИИН должен содержать 12 цифр',
-  invalid:'Некорректный ИИН. Проверьте цифры',
-};
+const SKEL3 = [{ w1:'width:52%;height:13px;', w2:'width:74%;height:11px;' }, { w1:'width:44%;height:13px;', w2:'width:68%;height:11px;' }, { w1:'width:48%;height:13px;', w2:'width:72%;height:11px;' }];
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
 
 class Component extends DCLogic {
   state = {
-    ready:false, kids:[], ok:0, newAt:0,
-    dlg:false, tab:'gbd',
-    gbdSt:'idle', gbdList:[], selG:[],
-    iin:'', iinErr:'', rbSt:'idle', rbList:[], rbIin:'', selR:[],
-    adding:false, scn:'auto', ppOpen:false,
+    ready:false, kids:[], newAt:0, toast:'',
+    dlg:false, dSt:'idle', avail:[], sel:[], adding:false,
+    scn:'ok', ppOpen:false,
   };
-  addRef = React.createRef(); dlgRef = React.createRef(); bodyRef = React.createRef(); iinRef = React.createRef();
+  addRef = React.createRef(); dlgRef = React.createRef(); retryRef = React.createRef();
 
   componentDidMount(){
     try { installTips(); } catch(e){}
@@ -610,209 +439,148 @@ class Component extends DCLogic {
     window.addEventListener('mp-family-change', this._onReady);
     this._onStorage = (e) => { if(e.key === 'mp-family') this.sync(); };
     window.addEventListener('storage', this._onStorage);
-    if(window.mpFamily) this.sync();
+    // загрузка сведений о добавленных детях
+    this._boot = setTimeout(() => { this._booted = true; this.sync(); }, 450);
   }
   componentWillUnmount(){
     window.removeEventListener('mp-family-ready', this._onReady);
     window.removeEventListener('mp-family-change', this._onReady);
     window.removeEventListener('storage', this._onStorage);
+    clearTimeout(this._boot); clearTimeout(this._tt); clearTimeout(this._newT);
     document.body.style.overflow = '';
   }
   sync(){
-    const F = window.mpFamily; if(!F) return;
+    const F = window.mpFamily; if(!F || !this._booted) return;
     this.setState({ ready:true, kids:F.children(), scn:F.scn() });
   }
 
   // ---------- Окно ----------
-  open(tab, iin){
-    const F = window.mpFamily; if(!F) return;
+  open(){
+    if(!window.mpFamily) return;
     this._ret = document.activeElement;
-    this.setState({ dlg:true, tab:tab || 'gbd', gbdSt:'loading', gbdList:[], selG:[],
-      iin:iin || '', iinErr:'', rbSt:'idle', rbList:[], rbIin:'', selR:[], adding:false });
+    this.setState({ dlg:true, sel:[], adding:false });
     document.body.style.overflow = 'hidden';
-    const gen = this._gGen = (this._gGen || 0) + 1;
-    F.gbd().then(list => { if(gen === this._gGen && this.state.dlg) this.setState({ gbdSt:'ok', gbdList:list }); });
-    setTimeout(() => {
-      if(tab === 'rbds' && this.iinRef.current) this.iinRef.current.focus();
-      else if(this.dlgRef.current) this.dlgRef.current.focus();
-    }, 30);
+    this.load();
+    setTimeout(() => { if(this.dlgRef.current) this.dlgRef.current.focus(); }, 30);
+  }
+  load(){
+    const F = window.mpFamily; if(!F) return;
+    const gen = this._gen = (this._gen || 0) + 1;
+    this.setState({ dSt:'loading', avail:[], sel:[] });
+    F.available().then(
+      list => { if(gen === this._gen && this.state.dlg) this.setState({ dSt:'ok', avail:list }); },
+      () => { if(gen === this._gen && this.state.dlg){ this.setState({ dSt:'fail' }); setTimeout(() => this.retryRef.current && this.retryRef.current.focus(), 30); } }
+    );
   }
   close(){
     if(this.state.adding) return;
-    this._rGen = (this._rGen || 0) + 1; this._gGen = (this._gGen || 0) + 1;
+    this._gen = (this._gen || 0) + 1;
     this.setState({ dlg:false });
     document.body.style.overflow = '';
-    const r = this._ret && document.body.contains(this._ret) ? this._ret : this.addRef.current;
-    setTimeout(() => { try { r && r.focus(); } catch(e){} }, 0);
-  }
-  setTab(id, focus){
-    this.setState({ tab:id });
-    if(this.bodyRef.current) this.bodyRef.current.scrollTop = 0;
-    setTimeout(() => {
-      if(focus){ const b = document.getElementById('fm-tab-' + id); if(b) b.focus(); }
-      else if(id === 'rbds' && this.iinRef.current && !this.state.iin) this.iinRef.current.focus();
-    }, 0);
+    // фокус — на кнопку, открывшую окно; если её уже нет (пустое состояние сменилось списком) — на «Добавить ребёнка» в шапке
+    setTimeout(() => { const r = this._ret && document.body.contains(this._ret) ? this._ret : this.addRef.current; try { r && r.focus({ preventScroll:true }); } catch(e){} }, 60);
   }
   trap(e){
     if(e.key === 'Escape'){ e.preventDefault(); this.close(); return; }
     if(e.key !== 'Tab' || !this.dlgRef.current) return;
-    const f = [...this.dlgRef.current.querySelectorAll('button:not([disabled]),input:not([disabled]),a[href],[tabindex="0"]')].filter(x => x.offsetParent !== null && x.tabIndex !== -1);
+    const f = [...this.dlgRef.current.querySelectorAll('button:not([disabled]),a[href]')].filter(x => x.offsetParent !== null);
     if(!f.length) return;
     const first = f[0], last = f[f.length - 1];
     if(e.shiftKey && (document.activeElement === first || document.activeElement === this.dlgRef.current)){ e.preventDefault(); last.focus(); }
     else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
   }
 
-  // ---------- Проверка в РБДС ----------
-  check(){
-    const F = window.mpFamily; if(!F || this.state.rbSt === 'loading') return;
-    const v = this.state.iin, err = F.checkIin(v);
-    if(err){ this.setState({ iinErr:IIN_ERR[err], rbSt:'idle', rbList:[], selR:[] }); setTimeout(() => this.iinRef.current && this.iinRef.current.focus(), 0); return; }
-    const gen = this._rGen = (this._rGen || 0) + 1;
-    this.setState({ iinErr:'', rbSt:'loading', rbList:[], selR:[], rbIin:v });
-    F.rbds(v).then(list => {
-      if(gen !== this._rGen) return;
-      if(!list.length) return this.setState({ rbSt:'notfound' });
-      // найденные и ещё не добавленные — сразу отмечены
-      this.setState({ rbSt:'found', rbList:list, selR:list.filter(p => !F.has(p.iin)).map(p => p.iin) });
-    }, why => { if(gen === this._rGen) this.setState({ rbSt:why === 'down' ? 'down' : 'fail' }); });
-  }
-  retrySearch(){
-    this.setState({ rbSt:'idle', rbList:[], selR:[] });
-    setTimeout(() => { const i = this.iinRef.current; if(i){ i.focus(); i.select(); } }, 0);
-  }
-
   doAdd(){
-    const F = window.mpFamily, s = this.state;
-    const all = s.tab === 'gbd' ? s.selG : s.selR;   // добавляются дети, выбранные на открытой вкладке
-    if(!F || !all.length || s.adding) return;
+    const F = window.mpFamily, sel = this.state.sel;
+    if(!F || !sel.length || this.state.adding) return;
     this.setState({ adding:true });
     setTimeout(() => {
-      F.add(all);
-      const at = F.list().filter(x => all.includes(x.iin)).reduce((m, x) => Math.max(m, x.at), 0);
-      this.setState({ adding:false, ok:all.length, newAt:at, kids:F.children() });
+      F.add(sel);
+      const at = F.list().filter(x => sel.includes(x.iin)).reduce((m, x) => Math.max(m, x.at), 0);
+      const n = sel.length;
+      this.setState({ adding:false, newAt:at, kids:F.children(), ready:true,
+        toast: n === 1 ? 'Ребёнок добавлен' : 'Добавлено ' + n + ' ' + plural(n, ['ребёнок', 'ребёнка', 'детей']) });
       this.close();
-      try { window.scrollTo({ top:0, behavior:'smooth' }); } catch(e){}
+      // показать добавленных: первая новая карточка — в зону видимости
+      setTimeout(() => {
+        const c = document.querySelector('.fm-card.new');
+        if(c){ const r = c.getBoundingClientRect(); if(r.top < 80 || r.bottom > innerHeight) c.scrollIntoView({ behavior:'smooth', block:'center' }); }
+      }, 60);
       clearTimeout(this._newT); this._newT = setTimeout(() => this.setState({ newAt:0 }), 2800);
-    }, 700);
+      clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast:'' }), 3200);
+    }, 600);
   }
-
-  pick(list, _sel, key){ return (iin) => { const sel = this.state[key]; this.setState({ [key]: sel.includes(iin) ? sel.filter(x => x !== iin) : list.filter(p => p.iin === iin || sel.includes(p.iin)).map(p => p.iin) }); }; }
 
   renderVals(){
     const s = this.state, F = window.mpFamily;
-    const has = (iin) => !!F && s.kids.some(k => k.iin === iin);
+    const added = (iin) => s.kids.some(k => k.iin === iin);
 
-    const kids = s.kids.map(p => ({
+    const kids = F ? s.kids.map(p => ({
       fio: F.fio(p), ini: F.initials(p), iin: p.iin, dob: F.date(p.dob), age: F.age(p.dob),
-      rel: F.relation(p), conf: F.confirm(p), doc: p.doc || '', hasDoc: !!p.doc,
       cls: 'fm-card' + (s.newAt && p.at === s.newAt ? ' new' : ''),
-      avaCls: 'fm-ava ' + p.kind, relCls: 'fm-rel ' + p.kind, confCls: 'fm-conf ' + p.kind,
-      confIcon: p.kind === 'kin' ? 'ri-checkbox-circle-fill' : 'ri-shield-check-fill',
-      confTip: p.kind === 'kin' ? 'Сведения о родстве получены из ГБД ФЛ и актовых записей ЗАГС' : 'Статус законного представителя подтверждён в РБДС МП РК',
       href: 'ЭПЗ ребёнка.dc.html?iin=' + p.iin,
-    }));
+      epzLabel: 'ЭПЗ ребёнка: ' + F.fio(p),
+    })) : [];
     const n = kids.length;
 
-    // ГБД ФЛ
-    const gbdAvail = s.gbdList.filter(p => !has(p.iin));
-    const gbdItems = s.gbdList.map(p => {
-      const added = has(p.iin), on = !added && s.selG.includes(p.iin);
-      return { fio: F.fio(p), ini: F.initials(p), iin: p.iin, dob: F.date(p.dob), age: F.age(p.dob), rel: F.relation(p),
-        added, on: String(on), avaCls: 'fm-ava kin', relCls: 'fm-rel kin',
-        toggle: () => { if(!added) this.pick(s.gbdList, s.selG, 'selG')(p.iin); } };
-    });
-    // РБДС
-    const rbAvail = s.rbList.filter(p => !has(p.iin));
-    const rbItems = s.rbList.map(p => {
-      const added = has(p.iin), on = !added && s.selR.includes(p.iin);
-      return { fio: F.fio(p), ini: F.initials(p), iin: p.iin, dob: F.date(p.dob), age: F.age(p.dob), rel: F.relation(p),
-        doc: p.doc ? 'Документ: ' + p.doc : '', hasDoc: !!p.doc,
-        added, on: String(on), avaCls: 'fm-ava ward', relCls: 'fm-rel ward',
-        toggle: () => { if(!added) this.pick(s.rbList, s.selR, 'selR')(p.iin); } };
-    });
-
-    const total = s.tab === 'gbd' ? s.selG.length : s.selR.length;
-    const single = s.tab === 'rbds' && s.rbSt === 'found' && s.rbList.length === 1 && total === 1;
-    const addLabel = total === 0 ? 'Добавить' : single ? 'Добавить (1)' : 'Добавить выбранных (' + total + ')';
-    const rbBusy = s.rbSt === 'loading';
-    const errDown = s.rbSt === 'down';
+    // Окно: доступные — сверху, уже добавленные — внизу
+    const free = s.avail.filter(p => !added(p.iin)), done = s.avail.filter(p => added(p.iin));
+    const items = F ? free.concat(done).map(p => {
+      const isAdded = added(p.iin), on = !isAdded && s.sel.includes(p.iin);
+      return { fio: F.fio(p), ini: F.initials(p), iin: p.iin, dob: F.date(p.dob),
+        added: isAdded, on: String(on), chk: 'fm-chk' + (on ? ' on' : isAdded ? ' off' : ''),
+        toggle: () => { if(isAdded) return; const cur = this.state.sel; this.setState({ sel: cur.includes(p.iin) ? cur.filter(x => x !== p.iin) : free.filter(x => x.iin === p.iin || cur.includes(x.iin)).map(x => x.iin) }); } };
+    }) : [];
+    const k = s.sel.length, all = free.length > 0 && k === free.length;
+    const listOk = s.dSt === 'ok' && free.length > 0;
+    const none = s.dSt === 'ok' && free.length === 0;
 
     return {
       headTip: 'Управление доступом к медицинским данным и электронным паспортам здоровья членов семьи',
-      addRef: this.addRef, openAdd: () => this.open('gbd'),
+      addRef: this.addRef, openAdd: () => this.open(),
 
-      hasOk: s.ok > 0,
-      okText: s.ok === 1 ? 'Ребёнок успешно прикреплён к личному кабинету. Сведения актуализированы.' : 'Дети успешно прикреплены к личному кабинету. Сведения актуализированы.',
-      closeOk: () => this.setState({ ok:0 }),
-
+      pageLoading: !s.ready, pageBusy: String(!s.ready), skel2: [1, 2],
       hasKids: s.ready && n > 0, isEmpty: s.ready && n === 0,
-      kids, count: n, countLabel: 'Записей: ' + n,
+      kids,
+
+      hasToast: !!s.toast, toastText: s.toast,
 
       // окно
-      dlg: s.dlg, dlgRef: this.dlgRef, bodyRef: this.bodyRef, iinRef: this.iinRef,
+      dlg: s.dlg, dlgRef: this.dlgRef, retryRef: this.retryRef,
       close: () => this.close(),
-      onBackdrop: () => this.close(),
+      // по фону закрывается, только если ничего не выбрано — выбор не теряется случайным кликом
+      onBackdrop: () => { if(!this.state.sel.length) this.close(); },
       stop: (e) => e.stopPropagation(),
       onDlgKey: (e) => this.trap(e),
-      tabs: TABS.map((t, i) => ({ ...t, id: 'fm-tab-' + t.id, sel: String(s.tab === t.id), tabIndex: s.tab === t.id ? 0 : -1,
-        onClick: () => this.setTab(t.id),
-        onKey: (e) => { if(e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ e.preventDefault(); this.setTab(TABS[(i + 1) % 2].id, true); } } })),
-      panelBy: 'fm-tab-' + s.tab,
-      isGbd: s.tab === 'gbd', isRb: s.tab === 'rbds',
-      skel2: [1, 2],
+      skel3: SKEL3,
 
-      gbdLoading: s.gbdSt === 'loading',
-      gbdNone: s.gbdSt === 'ok' && s.gbdList.length === 0,
-      gbdAllAdded: s.gbdSt === 'ok' && s.gbdList.length > 0 && gbdAvail.length === 0,
-      gbdShow: s.gbdSt === 'ok' && gbdAvail.length > 0,
-      gbdTotal: s.gbdList.length, gbdItems,
-      gbdMulti: gbdAvail.length > 1,
-      gbdAll: () => this.setState({ selG: gbdAvail.map(p => p.iin) }),
-      gbdNoneSel: () => this.setState({ selG: [] }),
-      gbdAllOff: s.selG.length === gbdAvail.length, gbdNoneOff: s.selG.length === 0,
+      dLoading: s.dSt === 'loading',
+      dList: listOk, items,
+      multi: free.length > 1,
+      allAria: k === 0 ? 'false' : all ? 'true' : 'mixed',
+      allChk: 'fm-chk' + (k ? ' on' : ''), allIcon: k && !all ? 'ri-subtract-line' : 'ri-check-line',
+      // чекбокс «Выбрать всех»: при частичном выборе — дозакрыть до всех; при полном — снять
+      toggleAll: () => this.setState({ sel: all ? [] : free.map(p => p.iin) }),
+      anySel: k > 0, clearSel: () => this.setState({ sel: [] }),
 
-      iin: s.iin,
-      onIin: (e) => {
-        const v = String(e.target.value || '').replace(/\D/g, '').slice(0, 12);
-        // новый ИИН — прежний результат проверки больше не относится к полю
-        this._rGen = (this._rGen || 0) + 1;
-        this.setState(v === s.rbIin && s.rbSt !== 'idle' ? { iin:v, iinErr:'' } : { iin:v, iinErr:'', rbSt:'idle', rbList:[], selR:[] });
-      },
-      onIinKey: (e) => { if(e.key === 'Enter'){ e.preventDefault(); this.check(); } },
-      iinBad: String(!!s.iinErr), hasIinErr: !!s.iinErr, iinErr: s.iinErr,
-      check: () => this.check(),
-      checkCls: 'fm-btn soft' + (rbBusy ? ' busy' : ''),
-      rbBusy, rbIdleBtn: !rbBusy,
-      rbFound: s.rbSt === 'found', rbItems,
-      rbMulti: s.rbList.length > 1 && rbAvail.length > 1,
-      rbCountText: s.rbList.length === 1 ? 'Найден 1 ребёнок' : 'Найдено детей: ' + s.rbList.length,
-      rbAll: () => this.setState({ selR: rbAvail.map(p => p.iin) }),
-      rbNoneSel: () => this.setState({ selR: [] }),
-      rbAllOff: s.selR.length === rbAvail.length, rbNoneOff: s.selR.length === 0,
-      rbNotFound: s.rbSt === 'notfound', rbIin: s.rbIin,
-      retrySearch: () => this.retrySearch(),
-      rbErr: s.rbSt === 'down' || s.rbSt === 'fail',
-      rbErrIcon: errDown ? 'ri-cloud-off-line' : 'ri-error-warning-line',
-      rbErrTitle: errDown ? 'Сервис РБДС МП РК недоступен' : 'Техническая ошибка',
-      rbErrText: errDown ? 'Проверка не выполнена: сервис временно не отвечает. Повторите попытку позже.' : 'Не удалось выполнить проверку. Повторите попытку.',
+      dNone: none,
+      noneIcon: done.length ? 'ri-user-follow-line' : 'ri-user-search-line',
+      noneTitle: done.length ? 'Все дети уже добавлены' : 'Нет детей, доступных для добавления',
+      dErr: s.dSt === 'fail', retry: () => this.load(),
 
+      footFull: s.dSt === 'loading' || listOk, footClose: s.dSt === 'fail' || none,
       adding: s.adding, notAdding: !s.adding,
-      addOff: total === 0 || s.adding,
+      addOff: k === 0 || s.adding,
       addCls: 'fm-btn pri' + (s.adding ? ' busy' : ''),
-      addLabel, doAdd: () => this.doAdd(),
+      addLabel: 'Добавить выбранных (' + k + ')', doAdd: () => this.doAdd(),
 
       // панель «Прототип»
-      ppOpen: s.ppOpen, ppW: 'width:' + (s.ppOpen ? 264 : 236) + 'px;',
+      ppOpen: s.ppOpen, ppW: 'width:' + (s.ppOpen ? 248 : 236) + 'px;',
       ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
       ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
-      scns: SCNS.map(x => ({ ...x, on: String(s.scn === x.id), onClick: () => { F && F.setScn(x.id); this.setState({ scn:x.id }); } })),
-      samples: (F ? F.SAMPLES : []).map(x => ({ ...x, onClick: () => {
-        if(!s.dlg) this.open('rbds', x.iin);
-        else { this.setTab('rbds'); this._rGen = (this._rGen || 0) + 1; this.setState({ iin:x.iin, iinErr:'', rbSt:'idle', rbList:[], selR:[] }); }
-      } })),
-      ppFill: () => { F && F.demo(); this.setState({ ok:0 }); },
-      ppClear: () => { F && F.clear(); this.setState({ ok:0 }); },
+      scns: SCNS.map(x => ({ ...x, on: String(s.scn === x.id), onClick: () => { F && F.setScn(x.id); this.setState({ scn:x.id }); if(s.dlg) this.load(); } })),
+      ppFill: () => { F && F.demo(); },
+      ppClear: () => { F && F.clear(); },
     };
   }
 }
