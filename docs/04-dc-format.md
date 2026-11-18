@@ -115,6 +115,10 @@ const tabs = data.map(t => ({
 | `mp-attach-reqs-ui` (sessionStorage) | фильтры и сортировка «Моих заявок» гражданина | `Мои заявки гражданина` |
 | `mp-family` | `[{ iin, at }]` — дети, добавленные в «Мою семью» (родные из ГБД ФЛ и подопечные из РБДС) | `FamilyData` (window.mpFamily) ↔ `Моя семья`, `ЭПЗ ребёнка` (событие `mp-family-change`) |
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
+| `mp-avatar` | фото профиля гражданина — data:URL JPEG 400×400; нет — инициалы | `CitizenNav` (окно «Изменение фото профиля») → `Header`, `Профиль гражданина`, `Услуги гражданина` (событие `mp-avatar-change`; открыть окно — событие `mp-avatar-edit`) |
+| `mp-avatar-scn` (sessionStorage) | сохранение фото в прототипе: `ok` / `fail` | панель «Прототип» `Услуги гражданина`, `Профиль гражданина` → `CitizenNav` |
+| `mp-citizen-email` | электронная почта гражданина; нет ключа — демо-адрес, пустая строка — «Не указана» | `Профиль гражданина` |
+| `mp-citizen-fio` (sessionStorage) | `long` — длинное ФИО демо-гражданина для проверки переноса | панель «Прототип» `Профиль гражданина` → `Header`, `CitizenNav` (событие `mp-citizen-change`) |
 | `mp-org-head` | `{ iin, fio, post, bin, org }` — вошёл первый руководитель медорганизации (профиль с `firstHead`) | `Вход` → `PortalHeader`, `OrgRepData`, страницы отчётности руководителя |
 | `mp-orgrep-db` | `{ v:2, forms:[id], assigns:[{ id, emp, role, forms, at }] }` — формы организации и назначения | `OrgRepData` (window.mpOrgRep) ↔ `Администрирование отчётности`, `OrgReportsNav` (событие `mp-orgrep-change`) |
 | `mp-orgrep-scn` (sessionStorage) | состояние для показа: `ok` / `loading` / `error` / `noEmp` / `saveErr` / `empty` | «Показ прототипа» на страницах отчётности руководителя |

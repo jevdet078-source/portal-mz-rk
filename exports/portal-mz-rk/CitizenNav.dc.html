@@ -33,6 +33,15 @@
   Сохранение — индикатор выполнения; успех — окно закрывается, фото в карточке обновляется.
   Хранение — localStorage `mp-avatar` (JPEG 400×400, data URL), событие window `mp-avatar-change`.
   Сценарий сохранения в прототипе — sessionStorage `mp-avatar-scn`: ok | fail (панель «Прототип» на «Услугах»).
+
+  Постановка «Подготовить дизайн профиля гражданина» (18.11.2026):
+    • без фото — аватар с инициалами (Фамилия + Имя), а не силуэт;
+    • ФИО в карточке — полное, ведёт на страницу «Профиль гражданина»;
+    • active="profile" — карточка «кто вошёл» не показывается: те же фото и ФИО крупно стоят в профиле;
+    • окно фото открывается и со страницы профиля — событие window `mp-avatar-edit`, фокус после закрытия
+      возвращается туда, откуда окно открыли.
+  ФИО — демо-гражданин; длинное ФИО для проверки переноса — sessionStorage `mp-citizen-fio` = long,
+  событие window `mp-citizen-change` (панель «Прототип» на странице профиля).
 -->
 <x-dc>
 <helmet>
@@ -51,7 +60,7 @@
   .cn-ava{position:relative;display:block;width:96px;height:96px;margin:0 auto 14px;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;font-family:inherit;}
   .cn-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 3px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .15s;}
   .cn-ava-in img{width:100%;height:100%;object-fit:cover;display:block;}
-  .cn-ava-def{font-size:78px;line-height:1;color:var(--n300);margin-bottom:-12px;}
+  .cn-ava-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--primary-lighter);color:var(--primary);font-size:32px;font-weight:600;letter-spacing:-.01em;}
   .cn-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);transition:background .15s;}
   .cn-cam{position:absolute;right:-2px;bottom:0;width:32px;height:32px;border-radius:50%;background:var(--n0);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--stroke),0 2px 6px rgba(10,13,20,.10);transition:background .15s,color .15s,transform .15s,box-shadow .15s;}
   .cn-cam i{font-size:16px;}
@@ -64,7 +73,10 @@
   .cn-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translate(-50%,4px);padding:6px 10px;border-radius:8px;background:var(--n900);color:#fff;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:2;}
   .cn-ava:hover .cn-tip,.cn-ava:focus-visible .cn-tip{opacity:1;transform:translate(-50%,0);transition-delay:.25s;}
 
-  .cn-name{font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .cn-name{display:inline;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;color:var(--n900);text-decoration:none;border-radius:6px;overflow-wrap:anywhere;transition:color .12s;}
+  .cn-name span{display:inline-block;max-width:100%;}   /* перенос между частями ФИО, не на дефисе */
+  .cn-name:hover{color:var(--primary);}
+  .cn-name:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .cn-iin{font-size:13px;line-height:18px;color:var(--n400);margin-top:2px;font-variant-numeric:tabular-nums;}
   .cn-who{min-width:0;}
   .cn-nav{position:relative;background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:0 1px 2px rgba(10,13,20,.03);display:flex;flex-direction:column;gap:2px;}
@@ -105,7 +117,7 @@
   .cn-pv{position:relative;width:176px;height:176px;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 4px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;flex:0 0 auto;touch-action:none;user-select:none;-webkit-user-select:none;transition:box-shadow .15s;}
   .cn-pv img{display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
   .cn-pv-cur{width:100%;height:100%;object-fit:cover;}
-  .cn-pv-def{font-size:142px;line-height:1;color:var(--n300);margin-bottom:-22px;}
+  .cn-pv-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--primary-lighter);color:var(--primary);font-size:56px;font-weight:600;letter-spacing:-.01em;}
   .cn-pv[data-edit="true"]{cursor:grab;box-shadow:0 0 0 4px var(--primary-light);}
   .cn-pv[data-edit="true"]:active{cursor:grabbing;}
   .cn-pv[data-edit="true"]:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 6px var(--primary);}
@@ -157,7 +169,7 @@
     .cn-card{display:flex;align-items:center;gap:14px;padding:14px 16px;text-align:left;border-radius:16px;}
     .cn-ava{width:52px;height:52px;margin:0;}
     .cn-ava-in{box-shadow:0 0 0 2px var(--primary-lighter);}
-    .cn-ava-def{font-size:42px;margin-bottom:-7px;}
+    .cn-ava-ini{font-size:18px;}
     .cn-cam{width:22px;height:22px;right:-4px;bottom:-2px;}
     .cn-cam i{font-size:12px;}
     .cn-tip{bottom:auto;top:50%;left:calc(100% + 10px);transform:translate(4px,-50%);}
@@ -178,7 +190,7 @@
     .cn-dlg-b{padding:20px;}
     .cn-dlg-f{padding:12px 20px 20px;}
     .cn-pv{width:152px;height:152px;}
-    .cn-pv-def{font-size:122px;margin-bottom:-19px;}
+    .cn-pv-ini{font-size:48px;}
     .cn-toast{left:16px;right:16px;bottom:88px;max-width:none;}
   }
   @media (hover:none){ .cn-tip,.cn-dz-or{display:none;} }
@@ -189,21 +201,23 @@
 </style>
 </helmet>
 <div class="cn" ref="{{ rootRef }}">
+  <sc-if value="{{ showCard }}" hint-placeholder-val="{{ true }}">
   <div class="cn-card">
-    <button type="button" class="cn-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-label="Изменить фото профиля" aria-haspopup="dialog" data-flash="{{ flash }}">
+    <button type="button" class="cn-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-label="{{ avaTip }}" aria-haspopup="dialog" data-flash="{{ flash }}">
       <span class="cn-ava-in">
         <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><img src="{{ photo }}" alt=""></sc-if>
-        <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><i class="ri-user-3-fill cn-ava-def" aria-hidden="true"></i></sc-if>
+        <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><span class="cn-ava-ini" aria-hidden="true">{{ initials }}</span></sc-if>
         <span class="cn-ava-ov" aria-hidden="true"></span>
       </span>
       <span class="cn-cam" aria-hidden="true"><i class="ri-camera-line"></i></span>
       <span class="cn-tip" aria-hidden="true">{{ avaTip }}</span>
     </button>
     <div class="cn-who">
-      <div class="cn-name">Аружан Сейтжанова</div>
+      <a href="Профиль гражданина.dc.html" class="cn-name" title="Перейти в профиль"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></a>
       <div class="cn-iin">ИИН 020116501540</div>
     </div>
   </div>
+  </sc-if>
   <nav ref="{{ navRef }}" class="cn-nav" aria-label="Разделы личного кабинета">
     <sc-for list="{{ items }}" as="n" hint-placeholder-count="3">
       <sc-if value="{{ n.isLink }}" hint-placeholder-val="{{ true }}">
@@ -247,7 +261,7 @@
                  onPointerDown="{{ onPvDown }}" onKeyDown="{{ onPvKey }}">
               <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}"><img src="{{ selSrc }}" alt="" style="{{ selStyle }}" draggable="false"></sc-if>
               <sc-if value="{{ showCur }}" hint-placeholder-val="{{ false }}"><img class="cn-pv-cur" src="{{ photo }}" alt="Текущее фото профиля" draggable="false"></sc-if>
-              <sc-if value="{{ showDef }}" hint-placeholder-val="{{ true }}"><i class="ri-user-3-fill cn-pv-def" aria-hidden="true"></i></sc-if>
+              <sc-if value="{{ showDef }}" hint-placeholder-val="{{ true }}"><span class="cn-pv-ini" aria-hidden="true">{{ initials }}</span></sc-if>
               <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ false }}"><span class="cn-pv-move" aria-hidden="true"><i class="ri-drag-move-2-line" style="font-size:13px;"></i>Перетащите</span></sc-if>
               <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}">
                 <div class="cn-pv-busy" role="progressbar" aria-label="Сохранение фото" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ prog }}">
@@ -349,6 +363,14 @@ const fmtMb = (b) => (b / 1048576).toFixed(1).replace('.', ',');
 const fmtSize = (b) => b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' КБ' : fmtMb(b) + ' МБ';
 const readPhoto = () => { try { return localStorage.getItem(AVA_KEY) || ''; } catch(e){ return ''; } };
 
+// Авторизованный гражданин (демо). То же в Header и «Профиле гражданина».
+// Длинное ФИО — проверка переноса: sessionStorage mp-citizen-fio = long, событие mp-citizen-change
+const ME_FIO = {
+  base: { last:'Сейтжанова', first:'Аружан', middle:'Маратовна' },
+  long: { last:'Нурмухамбетова-Сейтжанова', first:'Аружан-Айгерим', middle:'Мухамедкаримовна' },
+};
+const readMe = () => { let k = 'base'; try { if(sessionStorage.getItem('mp-citizen-fio') === 'long') k = 'long'; } catch(e){} return ME_FIO[k]; };
+
 class Component extends DCLogic {
   navRef = React.createRef();
   rootRef = React.createRef();
@@ -369,7 +391,7 @@ class Component extends DCLogic {
     this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
   };
 
-  state = { open:null, photo:readPhoto(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'' };
+  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'' };
 
   componentDidMount(){
     this.reveal();
@@ -377,11 +399,18 @@ class Component extends DCLogic {
     this._sync = () => this.setState({ photo: readPhoto() });
     window.addEventListener(AVA_EVT, this._sync);
     window.addEventListener('storage', this._sync);
+    this._syncMe = () => this.setState({ me: readMe() });
+    window.addEventListener('mp-citizen-change', this._syncMe);
+    // Окно фото со страницы профиля
+    this._edit = () => { if(!this.state.dlg){ this._ret = document.activeElement; this.open(); } };
+    window.addEventListener('mp-avatar-edit', this._edit);
   }
   componentDidUpdate(prev){ if(!prev || prev.active !== (this.props || {}).active) this.reveal(); }
   componentWillUnmount(){
     window.removeEventListener(AVA_EVT, this._sync);
     window.removeEventListener('storage', this._sync);
+    window.removeEventListener('mp-citizen-change', this._syncMe);
+    window.removeEventListener('mp-avatar-edit', this._edit);
     clearInterval(this._timer); clearTimeout(this._toastT); clearTimeout(this._flashT);
     this.dragEnd();
     this.unlock();
@@ -423,7 +452,9 @@ class Component extends DCLogic {
     this.dropSel();
     this.unlock();
     this.setState({ dlg:false, sel:null, err:null, saving:false, prog:0, drag:false });
-    setTimeout(() => { if(this.avaRef.current) this.avaRef.current.focus(); }, 0);
+    const ret = (this._ret && document.body.contains(this._ret)) ? this._ret : this.avaRef.current;
+    this._ret = null;
+    setTimeout(() => { if(ret && ret.focus) ret.focus(); }, 0);
   }
   dropSel(){ if(this.state.sel) try { URL.revokeObjectURL(this.state.sel.src); } catch(e){} }
   pick(){ if(!this.state.saving && this.fileRef.current) this.fileRef.current.click(); }
@@ -570,6 +601,9 @@ class Component extends DCLogic {
       items, navRef: this.navRef, rootRef: this.rootRef, avaRef: this.avaRef,
       onLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
 
+      showCard: active !== 'profile',
+      fioLast: s.me.last, fioFirst: s.me.first, fioMiddle: s.me.middle,
+      initials: (s.me.last[0] + s.me.first[0]).toUpperCase(),
       photo: s.photo, hasPhoto: !!s.photo, noPhoto: !s.photo,
       avaTip: s.photo ? 'Изменить фото' : 'Загрузить фото',
       flash: s.flash ? 'true' : 'false',
