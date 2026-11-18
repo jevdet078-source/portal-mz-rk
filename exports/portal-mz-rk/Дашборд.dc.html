@@ -18,14 +18,17 @@
   Референс аналитика — пример композиции, не копия.
 
   Блоки (данные — агрегаты Backend API, без ИИН, ФИО, телефонов и почты):
-    1. Четыре карточки — учётные записи users по статусам (SQL-01). Актуальное состояние базы:
-       период регистрации на них не влияет; пользователь с несколькими профилями — один раз.
+    Постановка 18.11.2026 «Доработка дизайна дашборда — статистика профилей» (docs/tz/2026-11-18-dashboard-profili.md):
+    статистика — по профилям users_profile, а не по уникальным пользователям users.
+    Всего профилей = активные + деактивированные; удалённые не учитываются и не показываются.
+    1. Профили — всего, активные, деактивированные (доля и полоса «активные / деактивированные»).
+       Актуальное состояние базы: период регистрации не влияет. Число пользователей — справочно в шапке карточки.
     ⚠ Требуют внимания — профили, деактивированные вместе с удалённой организацией
        (organization_deactivated = TRUE считаем деактивацией — вопрос постановки, согласовать).
-    2. Пользователи по профилям (SQL-02/03) — пять типов, у «Бизнеса» разбивка ИП / ЮЛ
-       по subject_type. Пользователь учитывается в каждом своём типе — сумма больше общего числа.
-       Форма — сегментная полоса «часть целого» + строки со значением и долей (читается точнее кольца).
-    3. Динамика регистрации — новые учётные записи за период, сравнение с предыдущим
+    2. Профили по типам — пять типов: всего / активные / деактивированные, у «Бизнеса» разбивка ИП / ЮЛ
+       по subject_type. Сумма по типам равна общему числу профилей; строки «Итого» нет — она дублировала бы блок 1.
+       Сверху — сегментная полоса долей типов.
+    3. Динамика регистрации — новые учётные записи (с неудалёнными профилями) за период, сравнение с предыдущим
        периодом той же длины. Шаг: ≤ 31 дня — дни, ≤ 120 — недели, ≤ 36 месяцев — месяцы, иначе кварталы.
        Незавершённый месяц / неделя — светлее.
        Ниже, на всю ширину.
@@ -36,11 +39,11 @@
   карточки и распределение); у организаций — общее число; дашборд только информирует — ссылок
   в админку (Пользователи, Организации) нет: мониторинг смотрят и те, у кого нет доступа к админке.
 
-  Фильтры: период регистрации, тип профиля, тип субъекта, статус + «Применить» / «Сбросить».
+  Фильтры: период регистрации, тип профиля, тип субъекта, статус профиля + «Применить» / «Сбросить».
   Черновик фильтров применяется кнопкой. Тип профиля и тип субъекта связаны: недопустимые
-  сочетания не предлагаются. Статус — пользователя (карточки не фильтруются, динамика)
-  или профиля (распределение, организации). В распределении выбранный профиль подсвечивается,
-  остальные приглушаются — контекст не теряется.
+  сочетания не предлагаются. Статус профиля: в блоках 1–2 выбранный статус подсвечивается,
+  другой приглушается; организации и динамику — фильтрует. В таблице типов выбранный профиль
+  подсвечивается, остальные приглушаются — контекст не теряется.
 
   Состояния: загрузка (скелетон), обновление (прежние данные приглушены), нет данных,
   сбой блока и сбой API — переключаются в панели «Прототип» слева внизу.
@@ -70,20 +73,47 @@
   /* ── раскладка: ширина контента, а не окна (меню 272 / 80 px) ── */
   .db-main{flex:1;min-width:0;container-type:inline-size;container-name:db;}
   .db-pad{padding-left:32px;padding-right:32px;}
-  .db-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;}
-  /* профили и организации — поровну, одной высоты; динамика — ниже на всю ширину */
-  .db-r2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:stretch;}
+  /* профили: всего · активные · деактивированные */
+  .db-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .db-stat{display:flex;flex-direction:column;gap:4px;min-width:0;padding:0 20px;border-left:1px solid var(--n200);transition:opacity .15s;}
+  .db-stat:first-child{padding-left:0;border-left:none;}
+  /* типы профилей (таблица) шире организаций; одной высоты; динамика — ниже на всю ширину */
+  .db-r2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,4fr);gap:16px;align-items:stretch;}
+  .ptab{width:100%;flex:1 1 auto;border-collapse:collapse;font-variant-numeric:tabular-nums;}
+  .ptab th,.ptab td{padding:10px 0 10px 20px;text-align:right;white-space:nowrap;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);}
+  .ptab th:first-child{padding-left:0;text-align:left;white-space:normal;width:100%;}
+  .ptab thead th{padding-top:0;padding-bottom:8px;font-size:12px;line-height:16px;font-weight:500;letter-spacing:0;color:var(--n500);border-bottom:1px solid var(--n200);}
+  .ptab tbody th{font-weight:400;}
+  .ptab tbody tr+tr>*{border-top:1px solid var(--n100);}
+  .ptab tbody tr:last-child>*{padding-bottom:4px;}
+  .ptab .sdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px;}
+  .ptab .hs{display:none;}
   @container db (max-width:899px){
-    .db-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
     .db-r2{grid-template-columns:minmax(0,1fr);}
   }
   @container db (max-width:599px){
     .db-pad{padding-left:16px;padding-right:16px;}
     .db-head{flex-wrap:wrap;}
+    .db-stats{grid-template-columns:minmax(0,1fr);gap:12px;}
+    .db-stat{padding:12px 0 0;border-left:none;border-top:1px solid var(--n100);}
+    .db-stat:first-child{padding-top:0;border-top:none;}
   }
   @container db (max-width:459px){
-    .db-kpis{grid-template-columns:minmax(0,1fr);}
     .db-upd{display:none;}
+    /* узко: название — строкой сверху, три числа под ним */
+    .ptab,.ptab thead,.ptab tbody{display:block;}
+    .ptab tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:12px;}
+    .ptab th,.ptab td{padding-left:0;}
+    .ptab th:first-child{grid-column:1 / -1;}
+    .ptab thead th:first-child{display:none;}
+    .ptab thead th{border-bottom:none;}
+    .ptab thead tr{border-bottom:1px solid var(--n200);}
+    .ptab tbody th{padding-bottom:4px;}
+    .ptab tbody td{padding-top:0;}
+    .ptab tbody tr+tr>*{border-top:none;}
+    .ptab tbody tr+tr{border-top:1px solid var(--n100);}
+    .ptab .hf{display:none;}
+    .ptab .hs{display:inline;}
   }
 
   /* ── кнопки и поля (как в «Пользователях» и «Организациях») ── */
@@ -131,7 +161,6 @@
   .info{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--n400);cursor:help;flex:0 0 auto;}
   .info:hover{color:var(--n600);}
   .info i{font-size:16px;}
-  .kpi{position:relative;display:flex;flex-direction:column;gap:12px;padding:16px 20px 18px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);min-width:0;}
   .org{flex:1 1 auto;display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:12px;align-items:start;align-content:center;padding:10px 20px;border-top:1px solid var(--n100);}
   .org:first-child{border-top:none;}
   .prow{transition:opacity .15s;}
@@ -253,26 +282,43 @@
           <sc-if value="{{ showData }}" hint-placeholder-val="{{ true }}">
           <div aria-busy="{{ busyA }}" style="{{ dataStyle }}">
 
-            <!-- ═══ 1. Общие показатели ═══ -->
-            <div class="db-kpis">
-              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
-                <div class="kpi" role="group" aria-label="{{ k.aria }}">
-                  <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-                    <span style="min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ k.label }}</span>
-                    <sc-if value="{{ k.hasTip }}" hint-placeholder-val="{{ false }}"><span class="info" tabIndex="0" role="img" aria-label="{{ k.tip }}" data-tip="{{ k.tip }}"><i class="ri-information-line"></i></span></sc-if>
-                    <span style="flex:1;"></span>
-                    <span aria-hidden="true" style="{{ k.icStyle }}"><i class="{{ k.icon }}" style="font-size:18px;"></i></span>
-                  </div>
-                  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span class="sk" style="width:60%;height:28px;margin:4px 0;"></span></sc-if>
-                  <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
-                    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;min-width:0;">
-                      <span style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;color:var(--n900);white-space:nowrap;">{{ k.value }}</span>
-                      <sc-if value="{{ k.hasPct }}" hint-placeholder-val="{{ true }}"><span style="{{ k.pctStyle }}">{{ k.pct }}</span></sc-if>
+            <!-- ═══ 1. Профили: всего = активные + деактивированные (удалённые не учитываются) ═══ -->
+            <section class="card" aria-labelledby="db-t-sum">
+              <div class="card-h">
+                <h2 id="db-t-sum" class="ttl">Профили</h2>
+                <span class="info" tabIndex="0" role="img" aria-label="{{ sum.tip }}" data-tip="{{ sum.tip }}"><i class="ri-information-line"></i></span>
+                <span style="flex:1;"></span>
+                <sc-if value="{{ sum.hasUsers }}" hint-placeholder-val="{{ true }}">
+                  <span tabIndex="0" role="img" aria-label="{{ sum.usersAria }}" data-tip="{{ sum.usersTip }}" style="font-size:14px;line-height:24px;color:var(--n500);white-space:nowrap;cursor:help;outline:none;"><b style="font-size:16px;font-weight:600;letter-spacing:-.011em;color:var(--n900);">{{ sum.users }}</b> {{ sum.usersWord }}</span>
+                </sc-if>
+              </div>
+              <div style="padding:12px 20px 20px;display:flex;flex-direction:column;gap:16px;">
+                <div class="db-stats">
+                  <sc-for list="{{ sum.stats }}" as="m" hint-placeholder-count="3">
+                    <div class="db-stat" role="group" aria-label="{{ m.aria }}" style="{{ m.style }}">
+                      <span style="display:flex;align-items:center;gap:8px;min-width:0;font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n500);white-space:nowrap;">
+                        <sc-if value="{{ m.hasDot }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ m.dot }}"></span></sc-if>{{ m.label }}
+                      </span>
+                      <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span class="sk" style="width:60%;height:28px;margin:4px 0;"></span></sc-if>
+                      <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;">
+                          <span style="font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;color:var(--n900);white-space:nowrap;font-variant-numeric:tabular-nums;">{{ m.value }}</span>
+                          <sc-if value="{{ m.hasPct }}" hint-placeholder-val="{{ true }}"><span style="{{ m.pctStyle }}">{{ m.pct }}</span></sc-if>
+                        </div>
+                      </sc-if>
                     </div>
-                  </sc-if>
+                  </sc-for>
                 </div>
-              </sc-for>
-            </div>
+                <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><span class="sk" style="height:8px;border-radius:4px;"></span></sc-if>
+                <sc-if value="{{ loaded }}" hint-placeholder-val="{{ true }}">
+                  <div role="img" aria-label="{{ sum.barAria }}" style="display:flex;gap:2px;height:8px;border-radius:4px;background:var(--n100);">
+                    <sc-for list="{{ sum.segs }}" as="sg" hint-placeholder-count="2">
+                      <span data-tip="{{ sg.tip }}" style="{{ sg.style }}"></span>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </section>
 
             <!-- ⚠ Требуют внимания -->
             <sc-if value="{{ attn.show }}" hint-placeholder-val="{{ true }}">
@@ -285,17 +331,16 @@
             <!-- ═══ 2. Состав: профили и организации ═══ -->
             <div class="db-r2">
 
-              <!-- Пользователи по профилям -->
+              <!-- Профили по типам -->
               <section class="card" aria-labelledby="db-t-prof">
                 <div class="card-h">
-                  <h2 id="db-t-prof" class="ttl">Пользователи по профилям</h2>
-                  <span class="info" tabIndex="0" role="img" aria-label="{{ profTip }}" data-tip="{{ profTip }}"><i class="ri-information-line"></i></span>
+                  <h2 id="db-t-prof" class="ttl">Профили по типам</h2>
                 </div>
                 <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
                   <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:18px;">
                     <span class="sk" style="height:10px;border-radius:4px;"></span>
                     <sc-for list="{{ skRows }}" as="sr" hint-placeholder-count="5">
-                      <div style="display:flex;align-items:center;gap:10px;"><span class="sk" style="width:8px;height:8px;border-radius:50%;"></span><span class="sk" style="{{ sr.w }}"></span><span style="flex:1;"></span><span class="sk" style="width:44px;height:12px;"></span><span class="sk" style="width:40px;height:12px;"></span></div>
+                      <div style="display:flex;align-items:center;gap:10px;"><span class="sk" style="width:8px;height:8px;border-radius:50%;"></span><span class="sk" style="{{ sr.w }}"></span><span style="flex:1;"></span><span class="sk" style="width:44px;height:12px;"></span><span class="sk" style="width:44px;height:12px;margin-left:12px;"></span><span class="sk" style="width:44px;height:12px;margin-left:12px;"></span></div>
                     </sc-for>
                   </div>
                 </sc-if>
@@ -307,27 +352,42 @@
                   </div>
                 </sc-if>
                 <sc-if value="{{ prof.has }}" hint-placeholder-val="{{ true }}">
-                  <div style="padding:16px 20px 12px;display:flex;flex-direction:column;gap:8px;flex:1;">
-                    <div role="img" aria-label="{{ prof.aria }}" style="display:flex;gap:2px;height:10px;margin-bottom:8px;">
+                  <div style="padding:16px 20px 12px;display:flex;flex-direction:column;gap:16px;flex:1;">
+                    <div role="img" aria-label="{{ prof.aria }}" style="display:flex;gap:2px;height:8px;">
                       <sc-for list="{{ prof.segs }}" as="sg" hint-placeholder-count="5">
                         <span onMouseEnter="{{ sg.onEnter }}" onMouseLeave="{{ sg.onLeave }}" data-tip="{{ sg.tip }}" style="{{ sg.style }}"></span>
                       </sc-for>
                     </div>
-                    <ul style="list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;">
-                      <sc-for list="{{ prof.rows }}" as="r" hint-placeholder-count="5">
-                        <li class="prow" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="{{ r.style }}">
-                          <span aria-hidden="true" style="{{ r.dot }}"></span>
-                          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-                            <span style="{{ r.labelStyle }}">{{ r.label }}</span>
-                            <sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}">
-                              <span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.sub }}</span>
-                            </sc-if>
-                          </div>
-                          <span style="{{ r.countStyle }}">{{ r.count }}</span>
-                          <span style="width:52px;flex:0 0 auto;text-align:right;font-size:13px;line-height:20px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.pct }}</span>
-                        </li>
-                      </sc-for>
-                    </ul>
+                    <table class="ptab">
+                      <thead>
+                        <tr>
+                          <th scope="col">Тип профиля</th>
+                          <th scope="col" style="{{ prof.hTotal }}">Всего</th>
+                          <th scope="col" aria-label="Активные" style="{{ prof.hAct }}"><span class="sdot" style="background:var(--green);"></span><span class="hf">Активные</span><span class="hs">Акт.</span></th>
+                          <th scope="col" aria-label="Деактивированные" style="{{ prof.hDeact }}"><span class="sdot" style="background:var(--orange);"></span><span class="hf">Деактивированные</span><span class="hs">Деакт.</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <sc-for list="{{ prof.rows }}" as="r" hint-placeholder-count="5">
+                          <tr class="prow" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="{{ r.style }}">
+                            <th scope="row">
+                              <span style="display:flex;align-items:center;gap:10px;min-width:0;">
+                                <span aria-hidden="true" style="{{ r.dot }}"></span>
+                                <span style="min-width:0;display:flex;flex-direction:column;gap:2px;">
+                                  <span style="{{ r.labelStyle }}">{{ r.label }}</span>
+                                  <sc-if value="{{ r.hasSub }}" hint-placeholder-val="{{ false }}">
+                                    <span style="font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.sub }}</span>
+                                  </sc-if>
+                                </span>
+                              </span>
+                            </th>
+                            <td style="{{ r.totalStyle }}">{{ r.total }}</td>
+                            <td style="{{ r.actStyle }}">{{ r.act }}</td>
+                            <td style="{{ r.deactStyle }}">{{ r.deact }}</td>
+                          </tr>
+                        </sc-for>
+                      </tbody>
+                    </table>
                   </div>
                 </sc-if>
               </section>
@@ -504,6 +564,7 @@ const pctOf = (v, t) => { if(!t || !v) return '0%'; const p = v / t * 100; retur
 const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
 const W_REG = ['регистрация','регистрации','регистраций'];
 const W_PROF = ['профиль','профиля','профилей'];
+const W_USER = ['пользователь','пользователя','пользователей'];
 
 // ═══ Справочники ═══
 // Цвета профилей — категориальная палитра из оттенков AlignUI, проверена валидатором
@@ -520,11 +581,11 @@ const SUBJECTS = [
   { id:'IP', label:'Индивидуальный предприниматель', short:'ИП' },
   { id:'UL', label:'Юридическое лицо', short:'ЮЛ' },
 ];
-// статус: 0 — активный, 1 — деактивированный, 2 — удалённый, 3 — прочие (только у профилей)
+// статус профиля в демо-базе: 0 — «Активен», 1 — «Деактивирован», 2 — удалён, 3 — прочие.
+// В статистике только 0 и 1: всего = активные + деактивированные; удалённые не учитываются и не показываются.
 const STATUSES = [
-  { id:'active',  label:'Активные',         c:'var(--green)',  ll:'var(--green-ll)',  d:'var(--green-d)',  icon:'ri-user-follow-line',   tab:'active' },
-  { id:'deact',   label:'Деактивированные', c:'var(--orange)', ll:'var(--orange-ll)', d:'var(--orange-d)', icon:'ri-user-unfollow-line', tab:'inactive' },
-  { id:'deleted', label:'Удалённые',        c:'var(--red)',    ll:'var(--red-ll)',    d:'var(--red-d)',    icon:'ri-delete-bin-line',    tab:'deleted' },
+  { id:'active', label:'Активные',         opt:'Активен',       c:'var(--green)',  ll:'var(--green-ll)',  d:'var(--green-d)' },
+  { id:'deact',  label:'Деактивированные', opt:'Деактивирован', c:'var(--orange)', ll:'var(--orange-ll)', d:'var(--orange-d)' },
 ];
 const PIDX = {}; PROFILES.forEach((p, i) => PIDX[p.id] = i);
 const SIDX = {}; SUBJECTS.forEach((p, i) => SIDX[p.id] = i);
@@ -623,28 +684,36 @@ const genDb = () => {
   return window.__mpDashDb;
 };
 
-// Агрегаты под выбранные тип профиля, тип субъекта и статус (период — отдельно, по дням)
+// Агрегаты под выбранные тип профиля, тип субъекта и статус профиля (период — отдельно, по дням).
+// Считаются только неудалённые профили «Активен» / «Деактивирован».
+//   prof  — [активные, деактивированные] по типу и субъекту (статус не фильтрует — подсвечивает);
+//   users — учётные записи, у которых есть такие профили (справочно);
+//   byType[t] — [активные, деактивированные] по каждому типу с учётом субъекта; bizSub — «Бизнес» по ИП / ЮЛ;
+//   orgs, days — с учётом всех фильтров, включая статус.
 const aggregate = (f, empty) => {
   const T = PROFILES.length;
-  const out = { kpi:[0,0,0,0], dist:new Array(T).fill(0), bizSub:[0,0,0], orgs:new Array(ORG_N).fill(0), attn:0, days:new Int32Array(TODAY + 1) };
+  const out = { prof:[0,0], users:0, byType:PROFILES.map(() => [0,0]), bizSub:[0,0,0], orgs:new Array(ORG_N).fill(0), attn:0, days:new Int32Array(TODAY + 1) };
   if(empty) return out;
   const db = genDb();
-  const ft = f.profile ? PIDX[f.profile] : -1, fs = f.subject ? SIDX[f.subject] : -1, fst = f.status ? STIDX[f.status] : -1;
+  const ft = f.profile ? PIDX[f.profile] : -1, fs = f.subject ? SIDX[f.subject] : -1;
+  const fst = f.status && STIDX[f.status] !== undefined ? STIDX[f.status] : -1;
   for(let u = 0; u < db.N; u++){
-    let match = ft < 0 && fs < 0;
+    let user = false, reg = false;
     const a = db.ufirst[u], b = a + db.ucount[u];
     for(let p = a; p < b; p++){
       const t = db.pt[p], s = db.ps[p], st = db.pst[p];
-      const tOk = ft < 0 || t === ft, sOk = fs < 0 || s === fs, stOk = fst < 0 || st === fst;
-      if(tOk && sOk) match = true;
-      if(!sOk) continue;
-      if(stOk){ out.dist[t]++; if(t === 1) out.bizSub[s]++; }
-      if(tOk && stOk && db.porg[p] >= 0) out.orgs[db.porg[p]]++;
-      if(tOk && db.pod[p] && st === 1 && (fst < 0 || fst === 1)) out.attn++;
+      if(st > 1) continue;                               // удалённые и прочие статусы не учитываются
+      if(fs >= 0 && s !== fs) continue;
+      out.byType[t][st]++; if(t === 1) out.bizSub[s]++;
+      if(ft >= 0 && t !== ft) continue;
+      out.prof[st]++; user = true;
+      if(fst >= 0 && st !== fst) continue;
+      reg = true;
+      if(db.porg[p] >= 0) out.orgs[db.porg[p]]++;
+      if(db.pod[p] && st === 1) out.attn++;
     }
-    if(!match) continue;
-    out.kpi[0]++; out.kpi[1 + db.ust[u]]++;
-    if(fst < 0 || db.ust[u] === fst) out.days[db.reg[u]]++;
+    if(user) out.users++;
+    if(reg) out.days[db.reg[u]]++;
   }
   return out;
 };
@@ -739,6 +808,7 @@ class Component extends DCLogic {
     try { ui = JSON.parse(sessionStorage.getItem(UI_KEY) || 'null'); } catch(e){}
     const applied = Object.assign({}, DEF, ui || {});
     if(periodErr(applied)) Object.assign(applied, { period:DEF.period, from:'', to:'' });
+    if(applied.status && STIDX[applied.status] === undefined) applied.status = '';   // «Удалённые» из прежней версии
     this.state = {
       role:'admin', applied, draft:Object.assign({}, applied),
       loading:true, busy:false, open:null, hovProf:-1, hovBar:-1,
@@ -818,8 +888,8 @@ class Component extends DCLogic {
         list: PROFILES.filter(p => !d.subject || p.subj.indexOf(d.subject) >= 0).map(p => ({ id:p.id, label:p.label, color:p.color })) },
       { key:'subject', label:'Тип субъекта', all:'Все субъекты',
         list: SUBJECTS.filter(x => !d.profile || PROFILES[PIDX[d.profile]].subj.indexOf(x.id) >= 0).map(x => ({ id:x.id, label:x.label })) },
-      { key:'status', label:'Статус', all:'Все статусы',
-        list: STATUSES.map(x => ({ id:x.id, label:x.label, color:x.c })) },
+      { key:'status', label:'Статус профиля', all:'Все статусы',
+        list: STATUSES.map(x => ({ id:x.id, label:x.opt, color:x.c })) },
     ];
     const selects = selDefs.map(fd => {
       const val = d[fd.key] || '';
@@ -904,52 +974,68 @@ class Component extends DCLogic {
     }
   }
 
-  // ——— 1. карточки ———
-  buildKpis(A){
-    const s = this.state, k = A.kpi, total = k[0];
-    const cards = [
-      { label:'Всего пользователей', icon:'ri-group-line', c:'var(--primary)', ll:'var(--primary-lighter)', v:total, tab:'',
-        tip:'Текущее состояние базы — период регистрации не учитывается. Пользователь с несколькими профилями учитывается один раз' },
-    ].concat(STATUSES.map((st, i) => ({ label:st.label, icon:st.icon, c:st.c, ll:st.ll, d:st.d, v:k[1 + i], tab:st.tab, share:true })));
-    return cards.map(c => ({
-      label:c.label, icon:c.icon, value:fmt(c.v), hasTip:!!c.tip, tip:c.tip || '',
-      hasPct: !!c.share && total > 0, pct: pctOf(c.v, total),
-      pctStyle: 'font-size:12px;line-height:16px;font-weight:500;padding:2px 6px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap;background:' + c.ll + ';color:' + c.d + ';',
-      icStyle: 'width:32px;height:32px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:' + c.ll + ';color:' + c.c + ';',
-      aria: c.label + ': ' + fmt(c.v) + (c.share && total ? ', ' + pctOf(c.v, total) : ''),
-    }));
+  // ——— 1. профили: всего = активные + деактивированные ———
+  buildSum(A){
+    const fst = this.state.applied.status ? STIDX[this.state.applied.status] : -1;   // выбранный статус подсвечен
+    const total = A.prof[0] + A.prof[1];
+    const stats = [{ label:'Всего', v:total }].concat(STATUSES.map((st, i) => ({ label:st.label, v:A.prof[i], st, i })));
+    return {
+      tip: 'Всего = активные + деактивированные. Удалённые профили не учитываются. Период регистрации на эти данные не влияет',
+      hasUsers: A.users > 0, users: fmt(A.users), usersWord: plural(A.users, W_USER),
+      usersTip: 'Учётные записи с этими профилями. У одного пользователя может быть несколько профилей',
+      usersAria: fmt(A.users) + ' ' + plural(A.users, W_USER) + '. У одного пользователя может быть несколько профилей',
+      stats: stats.map(m => ({
+        label: m.label, value: fmt(m.v), hasDot: !!m.st, hasPct: !!m.st && total > 0, pct: pctOf(m.v, total),
+        dot: m.st ? 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + m.st.c + ';' : '',
+        pctStyle: m.st ? 'font-size:12px;line-height:16px;font-weight:500;padding:2px 6px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap;background:' + m.st.ll + ';color:' + m.st.d + ';' : '',
+        style: m.st && fst >= 0 && fst !== m.i ? 'opacity:.4;' : '',
+        aria: m.label + ' профили: ' + fmt(m.v) + (m.st && total ? ', ' + pctOf(m.v, total) : ''),
+      })),
+      segs: STATUSES.map((st, i) => ({ st, i, v:A.prof[i] })).filter(x => x.v > 0).map(x => ({
+        tip: x.st.label + ' — ' + fmt(x.v) + ' (' + pctOf(x.v, total) + ')',
+        style: 'flex:' + x.v + ' 1 0;min-width:4px;height:100%;border-radius:4px;background:' + x.st.c + ';transition:opacity .15s;' + (fst >= 0 && fst !== x.i ? 'opacity:.25;' : ''),
+      })),
+      barAria: total ? STATUSES.map((st, i) => st.label + ' ' + pctOf(A.prof[i], total)).join(', ') : 'Нет профилей',
+    };
   }
 
   // ——— 2. распределение по профилям ———
   buildProf(A){
     const s = this.state, f = s.applied;
-    const sum = A.dist.reduce((a, b) => a + b, 0);
+    const fst = f.status ? STIDX[f.status] : -1;          // выбранный статус — столбец подсвечен
+    const tot = A.byType.map(x => x[0] + x[1]);
+    const sum = tot.reduce((a, b) => a + b, 0);
     const em = f.profile ? PIDX[f.profile] : -1;        // выбранный профиль подсвечен
     const hv = s.hovProf;
     const focus = hv >= 0 ? hv : em;
-    const vis = PROFILES.map((p, i) => ({ p, i, v:A.dist[i] })).filter(x => x.v > 0);
+    const vis = PROFILES.map((p, i) => ({ p, i, v:tot[i] })).filter(x => x.v > 0);
     const segs = vis.map(x => ({
       tip: x.p.label + ' — ' + fmt(x.v) + ' (' + pctOf(x.v, sum) + ')',
       onEnter: () => this.setState({ hovProf:x.i }), onLeave: () => this.setState({ hovProf:-1 }),
       style: 'flex:' + x.v + ' 1 0;min-width:4px;height:100%;border-radius:3px;background:' + x.p.color + ';transition:opacity .15s;' + (focus >= 0 && focus !== x.i ? 'opacity:.25;' : ''),
     }));
+    // числа: «Всего» — основное, статусы — тише; ноль — приглушён; невыбранный статус — бледнее
+    const num = (v, strong, off) => 'font-weight:' + (strong ? 500 : 400) + ';color:' + (!v ? 'var(--n400)' : strong ? 'var(--n900)' : 'var(--n600)') + ';transition:opacity .15s;' + (off ? 'opacity:.4;' : '');
+    const off = (i) => fst >= 0 && fst !== i;
     const rows = PROFILES.map((p, i) => {
-      const v = A.dist[i], dim = focus >= 0 && focus !== i;
+      const [va, vd] = A.byType[i], v = tot[i], dim = focus >= 0 && focus !== i;
       const subs = i === 1 ? SUBJECTS.map((x, j) => ({ x, v:A.bizSub[j] })).filter(o => o.v > 0) : [];
       return {
-        label:p.label, count:fmt(v), pct:pctOf(v, sum),
+        label:p.label, total:fmt(v), act:fmt(va), deact:fmt(vd),
         hasSub: subs.length > 1,
         sub: subs.map(o => o.x.short + ' ' + fmt(o.v)).join(' · '),
         onEnter: () => this.setState({ hovProf:i }), onLeave: () => this.setState({ hovProf:-1 }),
-        style: 'flex:1 1 auto;display:flex;align-items:center;gap:10px;padding:9px 0;border-top:' + (i ? '1px solid var(--n100)' : 'none') + ';' + (dim ? 'opacity:.45;' : ''),
+        style: dim ? 'opacity:.45;' : '',
         dot: 'width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:' + p.color + ';',
-        labelStyle: 'font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' + (focus === i ? 'font-weight:500;' : ''),
-        countStyle: 'flex:0 0 auto;font-size:14px;line-height:20px;font-weight:500;color:' + (v ? 'var(--n900)' : 'var(--n400)') + ';font-variant-numeric:tabular-nums;white-space:nowrap;',
+        labelStyle: 'font-size:14px;line-height:20px;letter-spacing:-.006em;color:var(--n900);' + (focus === i ? 'font-weight:500;' : ''),
+        totalStyle: num(v, true, false), actStyle: num(va, false, off(0)), deactStyle: num(vd, false, off(1)),
       };
     });
+    const hOff = (i) => off(i) ? 'opacity:.4;' : '';
     return {
       has: sum > 0, empty: sum === 0, segs, rows,
-      aria: 'Распределение: ' + vis.map(x => x.p.label + ' ' + pctOf(x.v, sum)).join(', '),
+      hTotal: '', hAct: hOff(0), hDeact: hOff(1),
+      aria: 'Доли типов профилей: ' + vis.map(x => x.p.label + ' ' + pctOf(x.v, sum)).join(', '),
     };
   }
 
@@ -1045,7 +1131,7 @@ class Component extends DCLogic {
       hasTotal: total > 0, total: fmt(total), totalWord: 'всего',
       totalTip: 'Всего действующих организаций с пользователями',
       totalAria: 'Всего действующих организаций с пользователями: ' + fmt(total),
-      emptyText: pl && f.profile === 'citizen' ? 'Профиль «Гражданин» не связан с организациями' : 'Нет организаций по выбранным фильтрам',
+      emptyText: this.state.demoData === 'empty' ? 'Нет данных об организациях' : pl && f.profile === 'citizen' ? 'Профиль «Гражданин» не связан с организациями' : 'Нет организаций по выбранным фильтрам',
       rows: top.map((x, i) => ({
         // в списке — форма и название в кавычках, полное наименование — в подсказке
         rank: i + 1, name: shortOrg(x.o.name), full: shortOrg(x.o.name) === x.o.name ? '' : x.o.name, count: fmt(x.v),
@@ -1098,7 +1184,7 @@ class Component extends DCLogic {
     const prof = this.buildProf(A);
     if(loading) Object.assign(prof, { has:false, empty:false });
     const orgs = this.buildOrgs(A);
-    if(loading) Object.assign(orgs, { has:false, empty:false });
+    if(loading) Object.assign(orgs, { has:false, empty:false, hasTotal:false });
     const attnN = A.attn;
     const retry = () => this.refetch();
 
@@ -1114,12 +1200,11 @@ class Component extends DCLogic {
         { label:'Заявки', icon:'ri-file-list-3-line', sel:'false', dis:'true', ti:-1, tip:'Раздел в разработке' },
         { label:'Статистическая отчётность', icon:'ri-file-chart-line', sel:'false', dis:'true', ti:-1, tip:'Раздел в разработке' },
       ],
-      kpis: this.buildKpis(A),
+      sum: Object.assign(this.buildSum(A), loading ? { hasUsers:false } : {}),
       attn: { show: !loading && attnN > 0, count: fmt(attnN) + ' ' + plural(attnN, W_PROF),
         text: plural(attnN, ['деактивирован','деактивированы','деактивированы']) + ' вместе с удалённой организацией' },
-      profTip: 'Пользователь с несколькими профилями учитывается в каждом из них, поэтому сумма больше общего числа пользователей',
       prof, dyn, orgs,
-      emptyText: s.demoData === 'empty' ? 'Нет данных о пользователях' : 'Нет пользователей по выбранным фильтрам',
+      emptyText: s.demoData === 'empty' ? 'Нет данных о профилях' : 'Нет профилей по выбранным фильтрам',
       skRows: [52, 38, 64, 70, 58].map(w => ({ w:'width:' + w + '%;height:12px;' })),
       skBars: [22, 30, 34, 40, 46, 52, 58, 64, 82, 96, 70].map(h => ({ h:'flex:1;height:' + h + '%;border-radius:4px 4px 0 0;' })),
     }, F, this.buildDemo());

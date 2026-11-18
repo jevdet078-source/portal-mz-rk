@@ -45,7 +45,7 @@ description: >-
 
 | Что | Как читать |
 |---|---|
-| `.docx` | `node .claude/skills/portal-task/scripts/docx-extract.js "<файл>" "<scratchpad>/tz/<имя>"` → прочитать `tz.md` полностью и **открыть каждую картинку** из `media/` (Read). Метка `[РИС N: …]` показывает, к какому пункту относится рисунок |
+| `.docx` | `node .claude/skills/portal-task/scripts/docx-extract.cjs "<файл>" "<scratchpad>/tz/<имя>"` → прочитать `tz.md` полностью и **открыть каждую картинку** из `media/` (Read). Метка `[РИС N: …]` показывает, к какому пункту относится рисунок |
 | `.doc` из Confluence (это MHTML) | `node .claude/skills/portal-task/scripts/doc-extract.mjs "<файл>" "<scratchpad>/tz/<имя>"` → такой же `tz.md` + `media/` |
 | `.pdf` | Read с `pages` (по 20 страниц) |
 | `.bpmn` | Read: роли (lanes), задачи, развилки (gateway) и тексты условий. Это порядок процесса и статусы |
