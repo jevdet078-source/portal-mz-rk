@@ -42,6 +42,9 @@ description: >-
   Тело PR написать через Write в scratchpad: что сделано, где смотреть, вопросы, в конце строка
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
 - Слияние: `bash .claude/skills/portal-finish/scripts/gh.sh pr merge <N> --repo jevdet078-source/portal-mz-rk --merge`.
+  Авторежим пропускает слияние, только если пользователь **в этой сессии** прямо сказал «залей
+  в main» или «смержи». Без такой фразы (18.11 слияние без неё отклонено) PR открыть и спросить
+  кнопкой «Влить в main». Слово пользователя передавать дословно.
 - Синхронизация: `git switch main && git pull --ff-only`. Проверить: `git log -1 origin/main`
   содержит коммит задачи, `git status` чистый, у `exports/portal-mz-rk.zip` свежая дата.
 - Токен на экран не выводить. Если `gh.sh` говорит «нет токена», попросить пользователя войти
