@@ -26,7 +26,7 @@
 
 | Файл | Роль |
 |---|---|
-| [Header.dc.html](../project/Header.dc.html) | Шапка: герб, переключатель ролей, язык, вход. Вариант `variant="account"`; в кабинетах `layout="app"` (+ `org`/`bin` у бизнеса, `cabinet="medical"` + `user`/`place` у медработника) |
+| [Header.dc.html](../project/Header.dc.html) | Шапка: герб, переключатель ролей, язык, вход. Вариант `variant="account"`; в кабинетах `layout="app"` (+ `org`/`bin` у бизнеса, `cabinet="medical"` + `user`/`place` у медработника); у гражданина (`layout="wide"`) — меню ФИО: «Перейти в профиль», «Выйти» |
 | [Footer.dc.html](../project/Footer.dc.html) | Подвал |
 | [Assistant.dc.html](../project/Assistant.dc.html) | Плавающий AI-помощник. Страница может поднять кнопку над своей нижней панелью: CSS-переменная `--mp-fab-bottom` на `:root` (по умолчанию 28px) |
 | [AuthAside.dc.html](../project/AuthAside.dc.html) | Бренд-панель «Входа» и «Регистрации»: заголовок и предупреждение о конфиденциальности (ст. 641 КоАП РК), `variant="login"` / `"register"` |
