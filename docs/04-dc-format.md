@@ -117,6 +117,7 @@ const tabs = data.map(t => ({
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
 | `mp-avatar` | фото профиля гражданина — data:URL JPEG 400×400; нет — инициалы | `CitizenNav` (окно «Изменение фото профиля») → `Header`, `Профиль гражданина`, `Услуги гражданина` (событие `mp-avatar-change`; открыть окно — событие `mp-avatar-edit`) |
 | `mp-avatar-scn` (sessionStorage) | сохранение фото в прототипе: `ok` / `fail` | панель «Прототип» `Услуги гражданина`, `Профиль гражданина` → `CitizenNav` |
+| `mp-home-page` | вариант главной, с которой пришёл пользователь (`Главная J - Итоговый.dc.html`, `Портал Минздрава - Главная.dc.html`…) | `PortalHeader`, `Header` на основной главной → «На главную», герб и «Выйти» в `Header` и `CitizenNav` |
 | `mp-citizen-email` | электронная почта гражданина; нет ключа — демо-адрес, пустая строка — «Не указана» | `Профиль гражданина` |
 | `mp-citizen-fio` (sessionStorage) | `long` — длинное ФИО демо-гражданина для проверки переноса | панель «Прототип» `Профиль гражданина` → `Header`, `CitizenNav` (событие `mp-citizen-change`) |
 | `mp-org-head` | `{ iin, fio, post, bin, org }` — вошёл первый руководитель медорганизации (профиль с `firstHead`) | `Вход` → `PortalHeader`, `OrgRepData`, страницы отчётности руководителя |

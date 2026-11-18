@@ -243,7 +243,7 @@
       </sc-if>
     </sc-for>
   </nav>
-  <a href="Портал Минздрава - Главная.dc.html" onClick="{{ onLogout }}" class="cn-out"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
+  <a href="{{ homeHref }}" onClick="{{ onLogout }}" class="cn-out"><i class="ri-logout-box-r-line" style="font-size:18px;"></i>Выйти</a>
 
   <!-- Изменение фото профиля -->
   <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
@@ -599,6 +599,8 @@ class Component extends DCLogic {
     const canEdit = !!sel && !s.saving;
     return {
       items, navRef: this.navRef, rootRef: this.rootRef, avaRef: this.avaRef,
+      // после выхода — на главную, с которой пришли (её запоминает PortalHeader)
+      homeHref: (() => { try { return localStorage.getItem('mp-home-page') || 'Портал Минздрава - Главная.dc.html'; } catch(e){ return 'Портал Минздрава - Главная.dc.html'; } })(),
       onLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
 
       showCard: active !== 'profile',

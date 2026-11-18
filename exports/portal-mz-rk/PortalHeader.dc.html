@@ -75,6 +75,33 @@
   .ph-glass:not(.ph-solid) .ph-login{ background:#fff; color:var(--b800); }
   .ph-glass:not(.ph-solid) .ph-login:hover{ background:var(--b50); }
 
+  /* Вошедший гражданин: кнопка ФИО с меню вместо «Войти» — та же, что в шапке кабинета гражданина (Header) */
+  .ph-me{ height:40px; max-width:260px; padding:0 8px 0 4px; display:inline-flex; align-items:center; gap:10px; border:none; border-radius:10px; background:var(--n0); box-shadow:inset 0 0 0 1px var(--n200); color:var(--n900); font:500 14px/20px 'Inter',sans-serif; cursor:pointer; transition:.15s; }
+  .ph-me:hover{ background:var(--n100); }
+  .ph-me[aria-expanded="true"]{ box-shadow:inset 0 0 0 1px var(--b400); background:var(--b50); }
+  .ph-me:focus-visible, .ph-mi:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff,0 0 0 4px var(--b200,#C6D0FF); }
+  .ph-ava{ width:32px; height:32px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--b50); color:var(--b600); font-size:12.5px; font-weight:600; letter-spacing:-.01em; }
+  .ph-me-txt{ min-width:0; display:flex; white-space:nowrap; }
+  .ph-me-last{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .ph-me-ini{ flex:none; }
+  .ph-me-chev{ font-size:18px; color:var(--n400); flex:0 0 auto; transition:transform .15s; }
+  .ph-me[aria-expanded="true"] .ph-me-chev{ transform:rotate(180deg); }
+  .ph-glass:not(.ph-solid) .ph-me{ background:rgba(255,255,255,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.22); color:#fff; }
+  .ph-glass:not(.ph-solid) .ph-me:hover{ background:rgba(255,255,255,.18); }
+  .ph-glass:not(.ph-solid) .ph-me-chev{ color:rgba(255,255,255,.8); }
+  .ph-pop.ph-me-pop{ width:320px; padding:0; overflow:hidden; text-align:left; }
+  .ph-me-who{ display:flex; align-items:flex-start; gap:12px; padding:16px; }
+  .ph-me-who .ph-ava{ width:44px; height:44px; font-size:15px; }
+  .ph-me-fio{ display:block; font-size:14px; line-height:20px; font-weight:600; color:var(--n900); }
+  .ph-me-fio span{ display:inline-block; max-width:100%; overflow-wrap:anywhere; }
+  .ph-me-role{ display:block; font-size:12.5px; line-height:18px; color:var(--n500); margin-top:2px; }
+  .ph-me-grp{ padding:8px; border-top:1px solid var(--n200); display:flex; flex-direction:column; gap:2px; }
+  .ph-mi{ width:100%; height:40px; padding:0 10px; display:flex; align-items:center; gap:10px; border:none; border-radius:10px; background:none; font:500 14px/1 'Inter',sans-serif; color:var(--n600); text-decoration:none; cursor:pointer; box-sizing:border-box; transition:background .12s,color .12s; }
+  .ph-mi i{ font-size:18px; color:var(--n400); flex:0 0 auto; }
+  .ph-mi:hover{ background:var(--n100); color:var(--n900); }
+  .ph-mi:hover i{ color:var(--n600); }
+  .ph-bar[data-fit~="cab"] .ph-me-txt{ display:none; }
+  .ph-bar[data-fit~="cab"] .ph-me{ gap:4px; padding:0 4px; }
   .ph-pop{ position:absolute; right:0; top:calc(100% + 8px); z-index:80; background:#fff; border-radius:14px; box-shadow:0 0 0 1px rgba(10,13,20,.06),0 20px 40px -16px rgba(10,13,20,.28); padding:6px; min-width:180px; animation:ph-drop .16s ease; color:var(--n900); }
   @keyframes ph-drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
   .ph-opt{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 12px; border:none; border-radius:9px; background:none; font:500 14px/1.2 'Inter',sans-serif; color:var(--n700); cursor:pointer; text-align:left; }
@@ -123,6 +150,8 @@
     .ph-util-in .ph-tel{ margin-left:0; }
   }
   @media (max-width:560px){ .ph-name{ display:none; } .ph-login .ph-t{ display:none; } .ph-login{ padding:0 12px; } .ph-util-in .opt{ display:none; } }
+  @media (max-width:860px){ .ph-me-txt{ display:none; } .ph-me{ gap:4px; padding:0 4px; } }
+  @media (max-width:640px){ .ph-pop.ph-me-pop{ position:fixed; left:16px; right:16px; top:72px; width:auto; } }
   /* Компактная шапка (.ph-c: главные G, H, I и их разделы) — шесть пунктов меню, последний «Инструкции» с выпадающей панелью.
      Место отдают подписи, а не пункты: шапка сама подбирает плотность под ширину (fit() ставит data-fit на .ph-bar), по шагам —
      icons: пункты без значков → cab: «Кабинет» вместо полного названия (оно в подсказке) → name: короткое название министерства →
@@ -263,7 +292,38 @@
             </div>
           </sc-if>
         </div>
-        <a class="ph-login" href="{{ loginHref }}" aria-label="{{ loginLabel }}" data-tip="{{ loginTip }}"><i class="{{ loginIcon }}"></i><span class="ph-t">{{ loginLabel }}</span><span class="ph-ts">{{ loginShort }}</span></a>
+        <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
+          <a class="ph-login" href="{{ loginHref }}" aria-label="{{ loginLabel }}" data-tip="{{ loginTip }}"><i class="{{ loginIcon }}"></i><span class="ph-t">{{ loginLabel }}</span><span class="ph-ts">{{ loginShort }}</span></a>
+        </sc-if>
+        <!-- Вошедший гражданин (mp-profile = citizen): ФИО → «Личный кабинет», «Перейти в профиль», «Выйти» -->
+        <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:relative;" onKeyDown="{{ meKey }}">
+            <button type="button" class="ph-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ fio }}">
+              <span class="ph-ava" aria-hidden="true" style="{{ cAvaStyle }}">{{ cIni }}</span>
+              <span class="ph-me-txt"><span class="ph-me-last">{{ fioLast }}</span><span class="ph-me-ini">&nbsp;{{ fioIni }}</span></span>
+              <i class="ri-arrow-down-s-line ph-me-chev" aria-hidden="true"></i>
+            </button>
+            <sc-if value="{{ meOpenB }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ closeMe }}" style="position:fixed;inset:0;z-index:79;"></div>
+              <div class="ph-pop ph-me-pop" ref="{{ meMenuRef }}" role="menu" aria-label="Меню пользователя">
+                <div class="ph-me-who">
+                  <span class="ph-ava" aria-hidden="true" style="{{ cAvaStyle }}">{{ cIni }}</span>
+                  <span style="min-width:0;padding-top:2px;">
+                    <span class="ph-me-fio"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></span>
+                    <span class="ph-me-role">Гражданин</span>
+                  </span>
+                </div>
+                <div class="ph-me-grp">
+                  <a href="Личный кабинет.dc.html" class="ph-mi" role="menuitem"><i class="ri-dashboard-line"></i>Личный кабинет</a>
+                  <a href="Профиль гражданина.dc.html" class="ph-mi" role="menuitem"><i class="ri-user-line"></i>Перейти в профиль</a>
+                </div>
+                <div class="ph-me-grp">
+                  <a href="#" class="ph-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
       </div>
     </div>
   </header>
@@ -285,6 +345,13 @@ const CABINET = { citizen:{ label:'Личный кабинет', icon:'ri-user-3
   medical:{ label:'Кабинет врача', icon:'ri-stethoscope-line', href:'Профиль врача.dc.html' }, gov:{ label:'Кабинет сотрудника', icon:'ri-government-line', href:'АРМ ННЦРЗ.dc.html' } };
 const HEAD_CAB = { label:'Кабинет руководителя', icon:'ri-user-star-line', href:'Администрирование отчётности.dc.html' };
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+// Вошедший гражданин (демо) — то же в Header, CitizenNav и «Профиле гражданина».
+// Длинное ФИО — sessionStorage mp-citizen-fio = long; фото — localStorage mp-avatar (событие mp-avatar-change)
+const ME_FIO = {
+  base: { last:'Сейтжанова', first:'Аружан', middle:'Маратовна' },
+  long: { last:'Нурмухамбетова-Сейтжанова', first:'Аружан-Айгерим', middle:'Мухамедкаримовна' },
+};
+const readMe = () => { let k = 'base'; try { if(sessionStorage.getItem('mp-citizen-fio') === 'long') k = 'long'; } catch(e){} return ME_FIO[k]; };
 // шаги уплотнения компактной шапки (см. комментарий у стилей .ph-c), по порядку
 const FIT = ['icons', 'cab', 'name', 'lang', 'pad', 'proto', 'brand', 'login'];
 const mq = (q) => { try { return window.matchMedia(q).matches; } catch(e){ return false; } };
@@ -303,10 +370,20 @@ class Component extends DCLogic {
     try { a = { ...a, ...JSON.parse(lsGet('mp-a11y') || '{}') }; } catch(e){}
     const r = lsGet('mp-role');
     this.state = { role: ROLES.some(x => x.id === r) ? r : 'citizens', lang: lsGet('mp-lang') || 'РУС', biz: lsGet('mp-profile') === 'business',
-      a11y:a, profile: lsGet('mp-profile'), a11yOpen:false, langOpen:false, solid:false, megaOpen:false, hcTop:72, hcAvail:700 };
+      a11y:a, profile: lsGet('mp-profile'), a11yOpen:false, langOpen:false, solid:false, megaOpen:false, hcTop:72, hcAvail:700,
+      meOpen:false, me:readMe(), cPhoto: lsGet('mp-avatar') || '' };
+    this.meBtnRef = React.createRef(); this.meMenuRef = React.createRef();
   }
+  closeMe(focus){
+    this.setState({ meOpen:false });
+    if(focus) setTimeout(() => { if(this.meBtnRef.current) this.meBtnRef.current.focus(); }, 0);
+  }
+  // вход / выход в другой вкладке, смена фото и ФИО — шапка обновляется без перезагрузки
+  syncUser(){ this.setState({ profile: lsGet('mp-profile'), biz: lsGet('mp-profile') === 'business', me: readMe(), cPhoto: lsGet('mp-avatar') || '' }); }
   compact(){ return this.props.reports === '1' || this.props.section === 'reports' || this.props.section === 'help'; }
   componentDidMount(){
+    this._syncUser = () => this.syncUser();
+    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change'].forEach(t => window.addEventListener(t, this._syncUser));
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
     this._onA11y = (e) => { if(e && e.detail) this.setState({ a11y:e.detail }); };
@@ -317,6 +394,7 @@ class Component extends DCLogic {
     this._esc = (e) => {
       if(e.key !== 'Escape') return;
       if(this.state.megaOpen){ this.closeMega(true); return; }
+      if(this.state.meOpen){ this.closeMe(true); return; }
       if(this.state.a11yOpen || this.state.langOpen) this.setState({ a11yOpen:false, langOpen:false });
     };
     window.addEventListener('keydown', this._esc);
@@ -348,6 +426,7 @@ class Component extends DCLogic {
     }
   }
   componentWillUnmount(){
+    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change'].forEach(t => window.removeEventListener(t, this._syncUser));
     window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-a11y-change', this._onA11y);
     window.removeEventListener('scroll', this._onScroll); window.removeEventListener('keydown', this._esc);
     document.removeEventListener('pointerdown', this._down, true);
@@ -438,6 +517,7 @@ class Component extends DCLogic {
     // первый руководитель медорганизации работает в разделе отчётности: кабинет и пункт ведут в журнал
     const head = !!lsGet('mp-org-head') && s.profile === 'medical';
     const cab = compact ? (head ? HEAD_CAB : CABINET[s.profile]) : s.biz ? CABINET.business : null;
+    const isCitizen = s.profile === 'citizen', me = s.me;
     const sizes = [ { id:'md', label:'A', title:'Обычный', fs:15 }, { id:'lg', label:'A+', title:'Крупный', fs:18 }, { id:'xl', label:'A++', title:'Очень крупный', fs:21 } ]
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
@@ -469,6 +549,42 @@ class Component extends DCLogic {
       langs: LANGS.map(l => ({ ...l, on: s.lang === l.code, onClick:() => { this.setState({ lang:l.code, langOpen:false }); try { localStorage.setItem('mp-lang', l.code); } catch(e){} } })),
       toggleLang: () => { this.closeMega(false); this.setState(st => ({ langOpen:!st.langOpen, a11yOpen:false })); },
       closeAll: () => this.setState({ langOpen:false, a11yOpen:false }),
+      // вошедший гражданин — кнопка ФИО с меню вместо «Войти» / «Личный кабинет»
+      showLogin: !isCitizen, isCitizen,
+      fio: [me.last, me.first, me.middle].join(' '),
+      fioLast: me.last, fioFirst: me.first, fioMiddle: me.middle,
+      fioIni: me.first[0] + '.' + (me.middle ? ' ' + me.middle[0] + '.' : ''),
+      meAria: 'Меню пользователя: ' + [me.last, me.first, me.middle].join(' '),
+      cIni: s.cPhoto ? '' : (me.last[0] + me.first[0]).toUpperCase(),
+      // фото фоном и стилем-объектом: строку стилей рантайм делит по «;», а она есть в data:-URL
+      cAvaStyle: s.cPhoto ? { background:`#EEF2FF url("${s.cPhoto}") center/cover no-repeat` } : {},
+      meOpen: s.meOpen ? 'true' : 'false', meOpenB: s.meOpen, meBtnRef: this.meBtnRef, meMenuRef: this.meMenuRef,
+      toggleMe: (e) => {
+        const open = !s.meOpen, kb = e && e.detail === 0;   // открыли с клавиатуры — фокус на первый пункт
+        this.closeMega(false);
+        this.setState({ meOpen:open, a11yOpen:false, langOpen:false }, () => {
+          if(open && kb) setTimeout(() => { const m = this.meMenuRef.current, f = m && m.querySelector('.ph-mi'); if(f) f.focus(); }, 0);
+        });
+      },
+      closeMe: () => this.closeMe(false),
+      meKey: (e) => {
+        if(!s.meOpen) return;
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+          const m = this.meMenuRef.current; if(!m) return;
+          const it = [...m.querySelectorAll('.ph-mi')], i = it.indexOf(document.activeElement);
+          e.preventDefault();
+          const n = e.key === 'ArrowDown' ? (i + 1) % it.length : (i <= 0 ? it.length - 1 : i - 1);
+          if(it[n]) it[n].focus();
+        }
+        if(e.key === 'Tab') this.setState({ meOpen:false });
+      },
+      // выход на публичной странице — остаёмся на ней, в шапке снова «Войти»
+      meLogout: (e) => {
+        if(e && e.preventDefault) e.preventDefault();
+        try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){}
+        try { window.dispatchEvent(new CustomEvent('mp-profile-change')); } catch(err){}
+        this.setState({ meOpen:false }); this.syncUser();
+      },
       loginHref: cab ? cab.href : 'Вход.dc.html',
       loginLabel: cab ? cab.label : 'Войти',
       loginShort: cab ? 'Кабинет' : 'Войти',
