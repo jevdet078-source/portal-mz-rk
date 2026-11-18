@@ -59,30 +59,30 @@
   .pf-ava{position:relative;width:112px;height:112px;flex:0 0 auto;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;font-family:inherit;}
   .pf-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--primary-lighter);box-shadow:0 0 0 4px var(--primary-lighter);display:flex;align-items:center;justify-content:center;transition:box-shadow .15s;}
   .pf-ini{font-size:38px;line-height:1;font-weight:600;letter-spacing:-.01em;color:var(--primary);}
-  .pf-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);transition:background .15s;}
-  .pf-cam{position:absolute;right:0;bottom:2px;width:34px;height:34px;border-radius:50%;background:var(--n0);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--stroke),0 2px 6px rgba(10,13,20,.10);transition:background .15s,color .15s,transform .15s,box-shadow .15s;}
-  .pf-cam i{font-size:17px;}
+  /* Наведение на фото — затемнение и значок камеры; отдельной кнопки-значка нет: действие одно — кнопка под ФИО */
+  .pf-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+  .pf-ava-ov i{opacity:0;transition:opacity .15s;}
   .pf-ava:hover .pf-ava-in{box-shadow:0 0 0 4px var(--primary-light);}
-  .pf-ava:hover .pf-ava-ov{background:rgba(10,13,20,.18);}
-  .pf-ava:hover .pf-cam,.pf-ava:focus-visible .pf-cam{background:var(--primary);color:#fff;transform:scale(1.06);box-shadow:0 0 0 2px #fff,0 4px 10px rgba(77,66,233,.35);}
+  .pf-ava:hover .pf-ava-ov,.pf-ava:focus-visible .pf-ava-ov{background:rgba(10,13,20,.38);}
+  .pf-ava:hover .pf-ava-ov i,.pf-ava:focus-visible .pf-ava-ov i{opacity:1;}
   .pf-ava:focus-visible{outline:none;}
   .pf-ava:focus-visible .pf-ava-in{box-shadow:0 0 0 2px #fff,0 0 0 6px var(--primary-light);}
   .pf-who{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
   .pf-fio{margin:0;max-width:34ch;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
   /* Перенос — между фамилией, именем и отчеством, а не на дефисе двойного имени; внутри части — только если она шире строки */
   .pf-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
-  .pf-iin{font-size:14px;line-height:20px;color:var(--n400);font-variant-numeric:tabular-nums;}
-  .pf-who .pf-btn{margin-top:10px;}
+  .pf-who .pf-btn{margin-top:12px;}
 
-  /* Строки: поле → значение → действие */
-  .pf-row{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,1fr) auto;align-items:center;gap:8px 24px;min-height:68px;padding:12px 24px;border-top:1px solid var(--stroke);transition:background .12s;}
-  .pf-row:hover{background:var(--n50);}
+  /* Строки: поле → значение → действие. Колонка значения ограничена, чтобы действие стояло рядом
+     со значением и на широком мониторе, а не у дальнего края карточки */
+  .pf-row{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,600px) auto;justify-content:start;align-items:center;gap:8px 24px;min-height:68px;padding:12px 24px;border-top:1px solid var(--stroke);transition:background .12s;}
+  .pf-row.mail:hover{background:var(--n50);}   /* ховер — только у строки, которую можно изменить */
   .pf-row.edit{align-items:start;background:#FAFAFF;padding-top:16px;padding-bottom:16px;}
   .pf-row.edit .pf-lbl{min-height:40px;}
   .pf-lbl{display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);}
   .pf-lbl i{font-size:18px;color:var(--n400);flex:0 0 auto;}
   .pf-val{min-width:0;font-size:15px;line-height:22px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
-  .pf-val.empty{color:var(--n400);font-weight:400;}
+  .pf-val.empty{color:var(--n500);font-weight:400;}
   .pf-act{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
   .pf-lock{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--n400);font-size:18px;cursor:help;transition:background .12s,color .12s;}
   .pf-lock:hover{background:var(--n100);color:var(--n600);}
@@ -159,9 +159,8 @@
     .pf-hero{gap:16px;padding:20px 16px;}
     .pf-ava{width:80px;height:80px;}
     .pf-ini{font-size:28px;}
-    .pf-cam{width:28px;height:28px;right:-2px;bottom:0;}
-    .pf-cam i{font-size:14px;}
     .pf-fio{font-size:20px;line-height:26px;}
+    .pf-wrap{padding-bottom:120px;}   /* последняя строка не прячется под кнопкой AI-помощника */
     .pf-toast{left:16px;right:16px;bottom:80px;max-width:none;}
     .pf-pp{left:16px;bottom:16px;}
   }
@@ -194,13 +193,11 @@
               <span class="pf-ava-in">
                 <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ photoBg }}"></span></sc-if>
                 <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><span class="pf-ini" aria-hidden="true">{{ initials }}</span></sc-if>
-                <span class="pf-ava-ov" aria-hidden="true"></span>
+                <span class="pf-ava-ov" aria-hidden="true"><i class="ri-camera-line"></i></span>
               </span>
-              <span class="pf-cam" aria-hidden="true"><i class="ri-camera-line"></i></span>
             </button>
             <div class="pf-who">
               <h2 class="pf-fio"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></h2>
-              <div class="pf-iin">ИИН 020116501540</div>
               <button type="button" class="pf-btn sec" onClick="{{ editPhoto }}" aria-haspopup="dialog"><i class="{{ photoIcon }}" aria-hidden="true"></i>{{ photoAct }}</button>
             </div>
           </div>
@@ -421,7 +418,7 @@ class Component extends DCLogic {
 
       lockTip: 'Только просмотр: данные получены из государственных информационных систем',
 
-      mailRowCls: 'pf-row' + (s.editing ? ' edit' : ''),
+      mailRowCls: 'pf-row mail' + (s.editing ? ' edit' : ''),
       mailView: !s.editing, mailEdit: s.editing,
       mailText: hasMail ? s.mail : 'Не указана',
       mailValCls: 'pf-val' + (hasMail ? '' : ' empty'),

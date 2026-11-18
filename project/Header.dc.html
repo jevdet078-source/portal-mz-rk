@@ -64,7 +64,10 @@
   .hdr-me:hover,.hdr-me[aria-expanded="true"]{background:var(--n100);border-color:#CDD0D5;}
   .hdr-me:focus-visible,.hdr-mi:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
   .hdr-ava{width:32px;height:32px;border-radius:50%;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:12.5px;font-weight:600;letter-spacing:-.01em;overflow:hidden;}
-  .hdr-me-txt{min-width:0;font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .hdr-me-txt{min-width:0;display:flex;font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;}
+  /* длинная фамилия обрезается, инициалы видны всегда: «Нурмухамбетова-Сейт… А. М.» */
+  .hdr-me-last{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .hdr-me-ini{flex:none;}
   .hdr-me-chev{font-size:18px;color:var(--n400);flex:0 0 auto;transition:transform .15s;}
   .hdr-me[aria-expanded="true"] .hdr-me-chev{transform:rotate(180deg);}
   .hdr-me-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:320px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:hdr-drop .15s ease;}
@@ -72,7 +75,7 @@
   .hdr-me-who .hdr-ava{width:44px;height:44px;font-size:15px;}
   .hdr-me-fio{font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
   .hdr-me-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
-  .hdr-me-role{font-size:12.5px;line-height:18px;color:var(--n400);margin-top:2px;}
+  .hdr-me-role{font-size:12.5px;line-height:18px;color:var(--n500);margin-top:2px;}
   .hdr-mi{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border:none;border-radius:10px;background:none;font-family:inherit;font-size:14px;font-weight:500;color:var(--n600);text-decoration:none;cursor:pointer;box-sizing:border-box;transition:background .12s,color .12s;}
   .hdr-mi i{font-size:18px;color:var(--n400);flex:0 0 auto;transition:color .12s;}
   .hdr-mi:hover{background:var(--n100);color:var(--n900);}
@@ -264,7 +267,7 @@
         <div style="position:relative;" onKeyDown="{{ meKey }}">
           <button type="button" class="hdr-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ fio }}">
             <span class="hdr-ava" aria-hidden="true" style="{{ cAvaStyle }}">{{ cIni }}</span>
-            <span class="hdr-me-txt">{{ fioShort }}</span>
+            <span class="hdr-me-txt"><span class="hdr-me-last">{{ fioLast }}</span><span class="hdr-me-ini">&nbsp;{{ fioIni }}</span></span>
             <i class="ri-arrow-down-s-line hdr-me-chev" aria-hidden="true"></i>
           </button>
           <sc-if value="{{ meOpen }}" hint-placeholder-val="{{ false }}">
@@ -517,7 +520,7 @@ class Component extends DCLogic {
       isCitizen: isAccount && isWide && !this.props.org && !isDoc,
       fio: [s.me.last, s.me.first, s.me.middle].join(' '),
       fioLast: s.me.last, fioFirst: s.me.first, fioMiddle: s.me.middle,
-      fioShort: s.me.last + ' ' + s.me.first[0] + '.' + (s.me.middle ? ' ' + s.me.middle[0] + '.' : ''),
+      fioIni: s.me.first[0] + '.' + (s.me.middle ? ' ' + s.me.middle[0] + '.' : ''),
       meAria: 'Меню пользователя: ' + [s.me.last, s.me.first, s.me.middle].join(' '),
       cIni: s.cPhoto ? '' : (s.me.last[0] + s.me.first[0]).toUpperCase(),
       cAvaStyle: s.cPhoto ? { background:`#EEF2FF url("${s.cPhoto}") center/cover no-repeat` } : {},
