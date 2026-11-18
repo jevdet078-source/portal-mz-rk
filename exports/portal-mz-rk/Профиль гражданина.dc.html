@@ -18,6 +18,8 @@
       и по ФИО в карточке меню кабинета (CitizenNav);
     • полное ФИО — без сокращений, длинное переносится на несколько строк;
     • номер телефона и адрес регистрации (прописки) — только просмотр (замок с подсказкой);
+      ответы аналитика (18.11): телефон — из БМГ и меняется там же; ИИН можно показывать — показан под ФИО;
+      почту удалить нельзя — должна остаться хотя бы одна («Удалить электронную почту нельзя — укажите новый адрес»);
     • электронная почта — просмотр, добавление («Не указана» → «Добавить») и изменение — прямо в строке:
       поле, «Отмена» / «Сохранить», Enter / Esc, сообщение о некорректном формате, тост об успехе;
     • фото профиля — просмотр, загрузка и замена; без фото — инициалы. Окно «Изменение фото профиля» общее
@@ -74,6 +76,7 @@
   .pf-fio{margin:0;max-width:34ch;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
   /* Перенос — между фамилией, именем и отчеством, а не на дефисе двойного имени; внутри части — только если она шире строки */
   .pf-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
+  .pf-iin{font-size:14px;line-height:20px;color:var(--n500);font-variant-numeric:tabular-nums;}
   .pf-who .pf-btn{margin-top:12px;}
 
   /* Строки: поле → значение → действие. Колонка значения ограничена, чтобы действие стояло рядом
@@ -201,6 +204,7 @@
             </button>
             <div class="pf-who">
               <h2 class="pf-fio"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></h2>
+              <div class="pf-iin">ИИН 020116501540</div>
               <button type="button" class="pf-btn sec" onClick="{{ editPhoto }}" aria-haspopup="dialog"><i class="{{ photoIcon }}" aria-hidden="true"></i>{{ photoAct }}</button>
             </div>
           </div>
@@ -209,7 +213,7 @@
           <div class="pf-row">
             <div class="pf-lbl"><i class="ri-phone-line" aria-hidden="true"></i>Номер телефона</div>
             <div class="pf-val" style="font-variant-numeric:tabular-nums;">+7 701 123 45 67</div>
-            <div class="pf-act"><span class="pf-lock" tabIndex="0" role="img" aria-label="{{ lockTip }}" data-tip="{{ lockTip }}"><i class="ri-lock-line" aria-hidden="true"></i></span></div>
+            <div class="pf-act"><span class="pf-lock" tabIndex="0" role="img" aria-label="{{ phoneTip }}" data-tip="{{ phoneTip }}"><i class="ri-lock-line" aria-hidden="true"></i></span></div>
           </div>
 
           <!-- Электронная почта — просмотр, добавление, изменение -->
@@ -299,8 +303,9 @@ const MAIL_KEY = 'mp-citizen-email', MAIL_DEMO = 'a.seitzhanova@mail.kz';
 const readMail = () => { try { const v = localStorage.getItem(MAIL_KEY); return v == null ? MAIL_DEMO : v; } catch(e){ return MAIL_DEMO; } };
 const writeMail = (v) => { try { localStorage.setItem(MAIL_KEY, v); } catch(e){} };
 const MAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
-const ERR = { empty:'Введите электронную почту', format:'Неверный формат электронной почты. Пример: name@mail.kz' };
-const checkMail = (v) => !v ? 'empty' : (!MAIL_RE.test(v) || v.length > 254 ? 'format' : '');
+const ERR = { empty:'Введите электронную почту', keep:'Удалить электронную почту нельзя — укажите новый адрес', format:'Неверный формат электронной почты. Пример: name@mail.kz' };
+// had — почта уже была: очистить поле и сохранить нельзя, у гражданина должна остаться хотя бы одна почта
+const checkMail = (v, had) => !v ? (had ? 'keep' : 'empty') : (!MAIL_RE.test(v) || v.length > 254 ? 'format' : '');
 
 // Подсказки data-tip — как на соседних страницах кабинета
 const installTips = () => {
@@ -350,7 +355,7 @@ class Component extends DCLogic {
 
   showToast(t){
     clearTimeout(this._toastT);
-    this.setState({ toast:t, live:t });
+    this.setState({ toast:t });   // у тоста role="status" — диктор прочитает его сам, без повтора в live-области
     this._toastT = setTimeout(() => this.setState({ toast:'' }), 3500);
   }
   focusLater(ref){ setTimeout(() => { if(ref.current) ref.current.focus(); }, 0); }
@@ -370,7 +375,7 @@ class Component extends DCLogic {
     const s = this.state;
     if(s.saving) return;
     const v = s.draft.trim();
-    const err = checkMail(v);
+    const err = checkMail(v, !!s.mail);
     if(err){
       this.setState({ err, tried:true });   // сообщение с role="alert" диктор читает сам
       this.focusLater(this.inputRef);
@@ -419,6 +424,7 @@ class Component extends DCLogic {
       photoIcon: s.photo ? 'ri-image-edit-line' : 'ri-upload-2-line',
       editPhoto: () => { try { window.dispatchEvent(new CustomEvent('mp-avatar-edit')); } catch(e){} },
 
+      phoneTip: 'Номер из базы мобильных граждан (БМГ). Изменить его можно только в БМГ',
       lockTip: 'Только просмотр: данные получены из государственных информационных систем',
 
       mailRowCls: 'pf-row mail' + (s.editing ? ' edit' : ''),
@@ -434,7 +440,7 @@ class Component extends DCLogic {
       saveMail: () => this.saveMail(),
       draft: s.draft,
       // после первой попытки сохранить проверяем по ходу ввода — ошибка исчезает, как только адрес исправлен
-      onDraft: (e) => { const v = e.target.value; this.setState({ draft:v, err: s.tried ? checkMail(v.trim()) : '' }); },
+      onDraft: (e) => { const v = e.target.value; this.setState({ draft:v, err: s.tried ? checkMail(v.trim(), !!s.mail) : '' }); },
       onMailKey: (e) => {
         if(e.key === 'Enter'){ e.preventDefault(); this.saveMail(); }
         else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.cancelEdit(); }
