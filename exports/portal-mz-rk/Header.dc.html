@@ -97,7 +97,7 @@
 </helmet>
 <header style="background:#fff;border-bottom:1px solid var(--stroke);font-family:'Inter',sans-serif;">
   <div class="{{ barCls }}" style="{{ barStyle }}">
-    <a href="Портал Минздрава - Главная.dc.html" onClick="{{ guardHome }}" class="hdr-lnk" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;border-radius:10px;">
+    <a href="{{ homeHref }}" onClick="{{ guardHome }}" class="hdr-lnk" style="display:flex;align-items:center;gap:12px;text-decoration:none;flex:0 0 auto;border-radius:10px;">
       <img src="uploads/images.jpg" alt="Герб Республики Казахстан" style="width:48px;height:48px;object-fit:contain;flex:0 0 auto;" />
       <div class="hdr-brand-txt" style="line-height:1.2;max-width:240px;">
         <div style="font-size:14px;font-weight:600;color:var(--n900);letter-spacing:-.01em;">Министерство здравоохранения</div>
@@ -264,6 +264,8 @@
       </sc-if>
       <!--
         Кабинет гражданина: ФИО справа вверху → меню «Перейти в профиль» / «Выйти».
+        На публичных страницах (без variant="account") — то же меню вместо «Войти», если вошёл гражданин
+        (localStorage mp-profile = citizen), плюс пункт «Личный кабинет»; «Выйти» там выходит без перехода.
         Фото — то же, что в меню кабинета (localStorage mp-avatar), без фото — инициалы.
       -->
       <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
@@ -284,17 +286,18 @@
                 </span>
               </div>
               <div style="padding:8px;border-top:1px solid var(--stroke);">
+                <sc-if value="{{ meCab }}" hint-placeholder-val="{{ false }}"><a href="Личный кабинет.dc.html" class="hdr-mi" role="menuitem"><i class="ri-dashboard-line"></i>Личный кабинет</a></sc-if>
                 <a href="Профиль гражданина.dc.html" class="hdr-mi" role="menuitem" aria-current="{{ meOnProfile }}" onClick="{{ goProfile }}"><i class="ri-user-line"></i>Перейти в профиль</a>
               </div>
               <div style="padding:8px;border-top:1px solid var(--stroke);">
-                <a href="Портал Минздрава - Главная.dc.html" class="hdr-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
+                <a href="{{ homeHref }}" class="hdr-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
               </div>
             </div>
           </sc-if>
         </div>
       </sc-if>
       <sc-if value="{{ isAccount }}" hint-placeholder-val="{{ false }}">
-        <a href="Портал Минздрава - Главная.dc.html" onClick="{{ guardHome }}" class="hdr-lnk hdr-home" title="На главную" aria-label="На главную" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;box-sizing:border-box;">
+        <a href="{{ homeHref }}" onClick="{{ guardHome }}" class="hdr-lnk hdr-home" title="На главную" aria-label="На главную" style="height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;box-sizing:border-box;">
           <i class="ri-home-4-line" style="font-size:18px;"></i><span class="hdr-home-txt">На главную</span>
         </a>
       </sc-if>
@@ -340,7 +343,14 @@ class Component extends DCLogic {
     try { const r = localStorage.getItem('mp-role'); if(r) this.setState({ role:r }); } catch(e){}
     try { const l = localStorage.getItem('mp-lang'); if(l) this.setState({ lang:l }); } catch(e){}
     // вошедшей организации вместо «Войти» — вход в кабинет (у бизнеса есть «Выйти», сбрасывающий профиль)
-    try { this.setState({ biz: localStorage.getItem('mp-profile') === 'business' }); } catch(e){}
+    this._syncProfile = () => { try { const p = localStorage.getItem('mp-profile'); this.setState({ biz: p === 'business', citizen: p === 'citizen' }); } catch(e){} };
+    this._syncProfile();
+    // основная главная тоже запоминает себя (варианты G–J это делает PortalHeader) — из кабинета вернёмся на неё
+    if(this.props.variant !== 'account'){
+      try { if(decodeURIComponent(location.pathname.split('/').pop() || '') === 'Портал Минздрава - Главная.dc.html') localStorage.setItem('mp-home-page', 'Портал Минздрава - Главная.dc.html'); } catch(e){}
+    }
+    window.addEventListener('storage', this._syncProfile);
+    window.addEventListener('mp-profile-change', this._syncProfile);
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
     // роль внутри кабинета бизнеса: заявитель / администратор организации
@@ -353,7 +363,7 @@ class Component extends DCLogic {
     this._onPhoto = (e) => this.setState({ photo: (e && typeof e.detail === 'string') ? e.detail : '' });
     window.addEventListener('mp-doc-photo-change', this._onPhoto);
   }
-  componentWillUnmount(){ window.removeEventListener('mp-citizen-change', this._syncMe); window.removeEventListener('mp-avatar-change', this._syncCPhoto); window.removeEventListener('storage', this._syncCPhoto); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-ed-notif-change', this._readEd); window.removeEventListener('storage', this._onStorage); window.removeEventListener('mp-doc-photo-change', this._onPhoto); }
+  componentWillUnmount(){ window.removeEventListener('storage', this._syncProfile); window.removeEventListener('mp-profile-change', this._syncProfile); window.removeEventListener('mp-citizen-change', this._syncMe); window.removeEventListener('mp-avatar-change', this._syncCPhoto); window.removeEventListener('storage', this._syncCPhoto); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-ed-notif-change', this._readEd); window.removeEventListener('storage', this._onStorage); window.removeEventListener('mp-doc-photo-change', this._onPhoto); }
   // Кабинет врача: из открытого ЭПЗ с активной сессией доступа не уходим молча —
   // просим меню кабинета (DoctorNav) показать подтверждение. true — переход перехвачен.
   guard(e, to){
@@ -404,6 +414,8 @@ class Component extends DCLogic {
     const langs2 = langs.map(l => ({ ...l, check: s.lang===l.code ? 'ri-check-line' : '' }));
 
     const isAccount = this.props.variant === 'account';
+    // главная, с которой пришли (вариант G–J запоминает себя в mp-home-page), иначе — основная
+    const homeHref = (() => { try { return localStorage.getItem('mp-home-page') || 'Портал Минздрава - Главная.dc.html'; } catch(e){ return 'Портал Минздрава - Главная.dc.html'; } })();
     // layout="app" — шапка кабинета на всю ширину (Page Header в Figma: слева 16, справа 32);
     // слева 16px: центр герба (48px) совпадает с центром свёрнутого меню кабинета (80px)
     const isApp = this.props.layout === 'app';
@@ -487,7 +499,8 @@ class Component extends DCLogic {
         if(onProfile){ if(e && e.preventDefault) e.preventDefault(); window.scrollTo({ top:0, behavior:'smooth' }); return; }
         this.guard(e, 'Профиль врача.dc.html');
       },
-      guardHome: (e) => { this.guard(e, 'Портал Минздрава - Главная.dc.html'); },
+      guardHome: (e) => { this.guard(e, homeHref); },
+      homeHref,
       // wide — шапка кабинета гражданина: на всю ширину, поля как у контента страницы (32 / 24 на ≤1536 / 16 на телефоне)
       barCls: isApp ? 'hdr-bar-app' : (isWide ? 'hdr-bar-wide' : 'hdr-bar-pub'),
       barStyle: isApp
@@ -496,7 +509,7 @@ class Component extends DCLogic {
         : 'max-width:1440px;margin:0 auto;padding:12px 40px;display:flex;align-items:center;gap:24px;',
       roles,
       showRoles: !isAccount,
-      showLogin: !isAccount && !s.biz,
+      showLogin: !isAccount && !s.biz && !s.citizen,
       showCabinet: !isAccount && !!s.biz,
       // кабинет бизнеса: организация, от имени которой работает пользователь, и роль в ней
       hasOrg: isAccount && !!this.props.org,
@@ -520,7 +533,8 @@ class Component extends DCLogic {
       langs: langs2,
 
       // ——— кабинет гражданина: ФИО → «Перейти в профиль» / «Выйти» ———
-      isCitizen: isAccount && isWide && !this.props.org && !isDoc,
+      isCitizen: (isAccount && isWide && !this.props.org && !isDoc) || (!isAccount && !!s.citizen),
+      meCab: !isAccount,
       fio: [s.me.last, s.me.first, s.me.middle].join(' '),
       fioLast: s.me.last, fioFirst: s.me.first, fioMiddle: s.me.middle,
       fioIni: s.me.first[0] + '.' + (s.me.middle ? ' ' + s.me.middle[0] + '.' : ''),
@@ -555,7 +569,12 @@ class Component extends DCLogic {
         let here = false; try { here = /Профиль гражданина\.dc\.html$/.test(decodeURIComponent(location.pathname)); } catch(err){}
         if(here){ if(e && e.preventDefault) e.preventDefault(); this.setState({ meOpen:false }); window.scrollTo({ top:0, behavior:'smooth' }); }
       },
-      meLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(e){} },
+      meLogout: (e) => {
+        try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){}
+        try { window.dispatchEvent(new CustomEvent('mp-profile-change')); } catch(err){}
+        // на публичной странице остаёмся на ней — в шапке снова «Войти»; из кабинета — на главную
+        if(!isAccount){ if(e && e.preventDefault) e.preventDefault(); this.setState({ meOpen:false, citizen:false }); }
+      },
     };
   }
 }
