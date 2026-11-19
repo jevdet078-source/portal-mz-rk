@@ -69,6 +69,23 @@
   .epz-narrow .epz-nav-btn{width:auto !important;flex:0 0 auto;margin:0 !important;padding:9px 12px !important;white-space:nowrap;}
   @media (min-width:641px){ .epz-narrow .epz-nav{flex-wrap:wrap;overflow:visible;} }
 
+  /* Диспансерный учёт: вкладки одной лентой (линия — внутренней тенью, чтобы подчёркивание не обрезалось прокруткой) */
+  .epz-dtabs{display:flex;gap:4px;margin-bottom:18px;box-shadow:inset 0 -1px 0 var(--stroke);overflow-x:auto;scrollbar-width:none;}
+  .epz-dtabs::-webkit-scrollbar{display:none;}
+  .epz-dtab[aria-selected="false"]:hover{color:var(--n900) !important;}
+  .epz-dtab-sep{flex:0 0 auto;align-self:flex-start;width:1px;height:16px;margin:1px 8px 0;background:var(--n300);}
+  .epz-case{transition:border-color .15s,box-shadow .15s;}
+  .epz-case[aria-pressed="false"]:hover{border-color:var(--n300) !important;box-shadow:0 6px 18px -10px rgba(14,18,27,.16) !important;}
+  .epz-case:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
+  .epz-dtab:focus-visible{outline:none;border-radius:8px;box-shadow:inset 0 0 0 2px var(--primary-light);}
+  /* Действие раздела в шапке (вкладка «Дневник наблюдения»: «Добавить измерение» / «Добавить запись») */
+  .epz-add{height:40px;padding:0 16px;border:1px solid var(--primary);border-radius:10px;background:var(--primary);color:#fff;font-family:inherit;font-size:14px;line-height:20px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex:0 0 auto;box-shadow:0 1px 2px rgba(77,66,233,.18);transition:background .15s,border-color .15s,opacity .15s;}
+  .epz-add i{font-size:18px;line-height:1;}
+  .epz-add:not([disabled]):hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .epz-add:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .epz-add[disabled]{cursor:not-allowed;opacity:.45;box-shadow:none;}
+  @media (max-width:640px){ .epz-add{width:100%;} }
+
   /* ЭПЗ · Главная: краткая карточка пациента */
   .epz-main{display:flex;flex-direction:column;gap:12px;container-type:inline-size;}
   .epz-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
@@ -422,12 +439,18 @@
         <!-- ===== Диспансерный учёт ===== -->
         <sc-if value="{{ secDispensary }}" hint-placeholder-val="{{ false }}">
           <div style="animation:mp-slidein .2s ease;">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-clipboard-line" style="font-size:24px;color:var(--primary);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Диспансерный учёт</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.</p></div></div>
+            <div class="epz-hd" style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;margin-bottom:18px;">
+              <div style="display:flex;align-items:center;gap:14px;min-width:0;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-clipboard-line" style="font-size:24px;color:var(--primary);"></i></div><div style="min-width:0;"><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Диспансерный учёт</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ dispSub }}</p></div></div>
+              <!-- Вкладка «Дневник наблюдения» (гражданин): действие раздела — справа в шапке, как у других разделов ЭПЗ -->
+              <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
+                <button type="button" class="epz-add" data-diary-add="1" onClick="{{ diaryAdd }}" disabled="{{ diaryAddOff }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ diaryAddLabel }}</button>
+              </sc-if>
+            </div>
 
             <!-- case selector -->
             <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
               <sc-for list="{{ dispCases }}" as="c">
-                <button onClick="{{ c.onClick }}" style="{{ c.style }}">
+                <button type="button" class="epz-case" aria-pressed="{{ c.pressed }}" onClick="{{ c.onClick }}" style="{{ c.style }}">
                   <div style="display:flex;align-items:center;gap:10px;"><i class="ri-focus-2-line" style="font-size:18px;color:{{ c.accent }};"></i><span style="font-size:14px;font-weight:600;">{{ c.icd }}</span><span style="{{ c.statusStyle }}">{{ c.statusText }}</span></div>
                   <div style="font-size:12.5px;color:var(--n500);margin-top:6px;text-align:left;">{{ c.name }}</div>
                   <div style="font-size:11px;color:var(--n400);margin-top:4px;text-align:left;">Д-группа {{ c.dgroup }} · с {{ c.regDate }}</div>
@@ -436,8 +459,8 @@
             </div>
 
             <!-- subsection tabs -->
-            <div style="display:flex;gap:4px;border-bottom:1px solid var(--stroke);margin-bottom:18px;flex-wrap:wrap;">
-              <sc-for list="{{ dispTabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
+            <div class="epz-dtabs" role="tablist" aria-label="Разделы диспансерного учёта">
+              <sc-for list="{{ dispTabs }}" as="t"><sc-if value="{{ t.sep }}" hint-placeholder-val="{{ false }}"><span class="epz-dtab-sep" aria-hidden="true"></span></sc-if><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
             </div>
 
             <!-- 1. Постановка -->
@@ -527,6 +550,13 @@
                   </div>
                 </div>
               </sc-if>
+            </sc-if>
+
+            <!-- 6. Дневник наблюдения — только в ЭПЗ гражданина (постановка «Перенос „Дневника наблюдения“ в ЭПЗ гражданина») -->
+            <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
+              <div role="tabpanel" aria-label="Дневник наблюдения">
+                <dc-import name="EpzDiary" hint-size="100%,1000px"></dc-import>
+              </div>
             </sc-if>
           </div>
         </sc-if>
@@ -898,12 +928,26 @@ class Component extends DCLogic {
         ] },
     };
     this.BY_IIN={}; Object.keys(this.PATIENTS).forEach(k=>{ this.BY_IIN[this.PATIENTS[k].iin]=k; });
-    const hash = (location.hash || '').slice(1);
+    const route = (props || {}).mode === 'citizen' ? this.route() : { section:'main', dispTab:'reg' };
     this.state = {
-      section: (props || {}).mode === 'citizen' && EPZ_SECTIONS.includes(hash) ? hash : 'main',
+      section: route.section,
       prophyTab:'screen', womenTab:'preg', vitalIdx:0, archOpen:false,
-      drawer:null, docFilter:'all', dispTab:'reg', dispCase:0, narrow:false,
+      drawer:null, docFilter:'all', dispTab:route.dispTab, dispCase:0, narrow:false,
+      diary:window.__mpDiary || { ready:false, sel:'glu' },
     };
+  }
+  // Активная вкладка диспансерного учёта — в видимой части ленты (на узком экране вкладки прокручиваются)
+  revealDispTab(smooth){
+    const row = document.querySelector('.epz-dtabs'), on = row && row.querySelector('[aria-selected="true"]');
+    if(!on || row.scrollWidth <= row.clientWidth) return;
+    const a = row.getBoundingClientRect(), b = on.getBoundingClientRect();
+    row.scrollTo({ left:row.scrollLeft + b.left - a.left - (a.width - b.width) / 2, behavior:smooth ? 'smooth' : 'auto' });
+  }
+  // Адрес ЭПЗ гражданина: #allergy — раздел; #dispensary/diary — вкладка «Дневник наблюдения» диспансерного учёта
+  route(){
+    const [sec, sub] = (location.hash || '').slice(1).split('/');
+    const section = EPZ_SECTIONS.includes(sec) ? sec : 'main';
+    return { section, dispTab: section === 'dispensary' && sub === 'diary' ? 'diary' : 'reg' };
   }
   // Ширина компонента → узкая раскладка. Корень ищем по классу: DOM шаблона может пересоздаваться — тогда наблюдаем новый
   root(){ return document.querySelector('.epz-root'); }
@@ -926,16 +970,22 @@ class Component extends DCLogic {
     this._onResize = () => this.checkWidth();
     window.addEventListener('resize', this._onResize);
     if((this.props || {}).mode === 'citizen'){
-      this._onHash = () => { const h = (location.hash || '').slice(1); this.setState({ section: EPZ_SECTIONS.includes(h) ? h : 'main', drawer:null }); };
+      this._onHash = () => { const r = this.route(); this.setState({ section:r.section, drawer:null, ...(r.dispTab === 'diary' || this.state.dispTab === 'diary' ? { dispTab:r.dispTab } : {}) }); };
       window.addEventListener('hashchange', this._onHash);
+      // Дневник наблюдения сообщает, готовы ли данные и какое направление выбрано: от этого — подпись и доступность кнопки в шапке
+      this._onDiary = (e) => { const d = e.detail || {}; if(d.ready !== this.state.diary.ready || d.sel !== this.state.diary.sel) this.setState({ diary:{ ready:!!d.ready, sel:d.sel || 'glu' } }); };
+      window.addEventListener('mp-diary-state', this._onDiary);
     }
   }
   componentDidUpdate(prev){
     this.watchWidth();
+    // Новая лента вкладок диспансерного учёта (открыли по адресу #dispensary/diary, вернулись в раздел) — к активной вкладке
+    const row = document.querySelector('.epz-dtabs');
+    if(row && row !== this._dtRow && row.scrollWidth > row.clientWidth){ this._dtRow = row; this.revealDispTab(false); }
     // Другой пациент — ЭПЗ открывается с «Главной»
     if(prev && prev.patient !== (this.props || {}).patient) this.setState({ section:'main', drawer:null });
   }
-  componentWillUnmount(){ if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); }
+  componentWillUnmount(){ if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); if(this._onDiary) window.removeEventListener('mp-diary-state', this._onDiary); }
 
   renderVals(){
     const s=this.state;
@@ -966,11 +1016,12 @@ class Component extends DCLogic {
     // Раздел открывается с начала: если страница прокручена ниже меню разделов — возвращаемся к его верху.
     // У гражданина раздел — в адресе (#allergy), чтобы обновление страницы и «Назад» его сохраняли
     const goSection=(id)=>this.setState({ section:id, drawer:null }, ()=>setTimeout(()=>{
-      if(citizen){ try { history.replaceState(null, '', id==='main' ? location.pathname + location.search : '#' + id); } catch(e){} }
+      if(citizen){ try { history.replaceState(null, '', id==='main' ? location.pathname + location.search : '#' + id + (id==='dispensary' && this.state.dispTab==='diary' ? '/diary' : '')); } catch(e){} }
       const root=this.root();
       if(root){ const y=root.getBoundingClientRect().top + window.scrollY - (parseInt(p.top, 10) || 161); if(window.scrollY > y) window.scrollTo({ top:Math.max(0, y), behavior:'smooth' }); }
       const nav=root&&root.querySelector('.epz-nav'), on=nav&&nav.querySelector('[aria-current="page"]');
       if(on&&nav.scrollWidth>nav.clientWidth){ const a=nav.getBoundingClientRect(), b=on.getBoundingClientRect(); nav.scrollTo({ left:nav.scrollLeft+b.left-a.left-(a.width-b.width)/2, behavior:'smooth' }); }
+      if(id==='dispensary') this.revealDispTab(false);
     }, 0));
     const navItem=(x)=>({ ...x, onClick:()=>goSection(x.id), style:navStyle(x.id), current:s.section===x.id?'page':'false' });
     const sections=secData.map(navItem);
@@ -1215,14 +1266,21 @@ class Component extends DCLogic {
     const vd=vData[s.vitalIdx].d;
 
     // ---------- DISPENSARY (case-based) ----------
+    const dispDiary = citizen && s.dispTab==='diary';
+    // Вкладка диспансерного учёта; у гражданина «Дневник наблюдения» — в адресе (#dispensary/diary), обновление страницы его сохраняет
+    const setDispTab=(id)=>{
+      if(citizen && (id==='diary' || this.state.dispTab==='diary')){ try { history.replaceState(null, '', '#dispensary' + (id==='diary' ? '/diary' : '')); } catch(e){} }
+      this.setState({ dispTab:id }, ()=>setTimeout(()=>this.revealDispTab(true), 0));
+    };
     const dispCasesData=[
       { icd:'K29.0', name:'Хронический гастрит', dgroup:'II', regDate:'12.11.2022', active:true, accent:'#4D42E9' },
       { icd:'C50.4', name:'Новообразование молочной железы', dgroup:'III', regDate:'10.03.2023', active:true, accent:'#6E3FF3' },
     ];
     const dispCases=dispCasesData.map((c,i)=>({ ...c,
       statusText:c.active?'На учёте':'Снят', statusStyle:tag(c.active?'На учёте':'Снят', c.active?T.green:T.gray),
-      onClick:()=>this.setState({ dispCase:i, dispTab:'reg' }),
-      style:`flex:1;min-width:240px;text-align:left;border:1.5px solid ${s.dispCase===i?'#4D42E9':'#E2E4E9'};border-radius:14px;padding:16px;background:${s.dispCase===i?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
+      onClick:()=>{ this.setState({ dispCase:i }); setDispTab('reg'); }, pressed:String(s.dispCase===i&&!dispDiary),
+      // Дневник наблюдения ведётся по пациенту, а не по случаю учёта: на его вкладке ни один случай не выделен
+      style:`flex:1;min-width:240px;text-align:left;border:1.5px solid ${s.dispCase===i&&!dispDiary?'#4D42E9':'#E2E4E9'};border-radius:14px;padding:16px;background:${s.dispCase===i&&!dispDiary?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
     const dc=s.dispCase;
     const dcReg = dc===0 ? [
       {k:'Дата постановки на учёт',v:'12.11.2022'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(II) — под наблюдением'},
@@ -1240,12 +1298,14 @@ class Component extends DCLogic {
       {k:'Код МКБ-10',v:'C50.4'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
       {k:'Стадия',v:'T2N0M0, II ст.'},{k:'Дата постановки диагноза',v:'05.03.2023'},{k:'Наименование',v:'ЗНО верхненаружного квадранта'},
     ];
+    // «Дневник наблюдения» — только в ЭПЗ гражданина (в кабинете врача вкладки нет)
     const dispTabsData=[
       {id:'reg',label:'Постановка'},{id:'obs',label:'История наблюдения'},{id:'std',label:'Выполнение стандарта'},{id:'rcp',label:'Рецепты'},{id:'dereg',label:'Снятие с учёта'},
-    ];
-    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, onClick:()=>this.setState({ dispTab:t.id }),
-      style:`position:relative;padding:0 14px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
-      underline:`position:absolute;left:0;right:0;bottom:-1px;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
+    ].concat(citizen?[{id:'diary',label:'Дневник наблюдения',sep:true}]:[]);
+    // Разделитель перед «Дневником наблюдения»: вкладки слева — о выбранном случае учёта, дневник — о пациенте целиком
+    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, sep:!!t.sep, onClick:()=>setDispTab(t.id), selected:String(on),
+      style:`position:relative;flex:0 0 auto;white-space:nowrap;padding:0 14px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
+      underline:`position:absolute;left:0;right:0;bottom:0;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
     const dispData = dc===0 ? [
       { mon:'МАЙ', day:'10', kind:'Плановый приём', kc:T.blue, org:'ГП №4', datetime:'10.05.2024, 09:30', nextVisit:'10.11.2024', specialist:'Терапевт Касымова Г.М.', condition:'Удовлетворительное. Жалоб нет. Ремиссия.', icd:'K29.0', icdNote:'Без изменений' },
       { mon:'НОЯ', day:'15', kind:'Контрольный осмотр', kc:T.teal, org:'ГП №4', datetime:'15.11.2023, 10:00', nextVisit:'10.05.2024', specialist:'Терапевт Касымова Г.М.', condition:'Стабильное. Соблюдает диету.', icd:'K29.0', icdNote:'Уточнён по ФГДС' },
@@ -1439,6 +1499,10 @@ class Component extends DCLogic {
       dispEvents,
       dispCases, dispTabs,
       dispIsReg:s.dispTab==='reg', dispIsObs:s.dispTab==='obs', dispIsStd:s.dispTab==='std', dispIsRcp:s.dispTab==='rcp', dispIsDereg:s.dispTab==='dereg',
+      dispIsDiary:dispDiary,
+      dispSub: dispDiary ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
+      diaryAdd:()=>window.dispatchEvent(new CustomEvent('mp-diary-add')), diaryAddOff:!s.diary.ready,
+      diaryAddLabel: s.diary.sel==='chf' ? 'Добавить запись' : 'Добавить измерение',
       dcReg, dcDx, dispStd, dispRcp, dispDereg, dispDeregActive, dispDeregDone:!dispDeregActive,
       womenTabs, womenPreg:s.womenTab==='preg', womenAnamnesis:s.womenTab==='anamnesis', womenJfv:s.womenTab==='jfv', womenContra:s.womenTab==='contra',
       pregVisits, reproSummary, outcomes, contraRows, jfvSummary, jfvRisks,
