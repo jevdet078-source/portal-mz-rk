@@ -196,6 +196,9 @@
   .dg-lbl{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);}
   .dg-lbl .req{color:var(--red);font-weight:600;margin-left:-3px;}
   .dg-lbl .hint{font-size:13px;font-weight:400;color:var(--n400);}
+  /* Давление: подсказки «Верхнее / Нижнее давление» — отдельной строкой у обоих полей, иначе одна переносится и поля встают на разную высоту */
+  .dg-row2.bp .dg-lbl{row-gap:0;}
+  .dg-row2.bp .dg-lbl .hint{flex-basis:100%;}
   .dg-in{width:100%;height:44px;padding:0 12px;border:1px solid var(--n300);border-radius:10px;background:var(--n0);font-family:inherit;font-size:15px;line-height:20px;color:var(--n900);outline:none;transition:border-color .12s,box-shadow .12s;}
   .dg-in::placeholder{color:var(--n400);}
   .dg-in:hover{border-color:var(--n400);}

@@ -70,6 +70,7 @@
   .epz-dtabs{display:flex;gap:4px;margin-bottom:18px;box-shadow:inset 0 -1px 0 var(--stroke);overflow-x:auto;scrollbar-width:none;}
   .epz-dtabs::-webkit-scrollbar{display:none;}
   .epz-dtab[aria-selected="false"]:hover{color:var(--n900) !important;}
+  .epz-dtab-sep{flex:0 0 auto;align-self:flex-start;width:1px;height:16px;margin:1px 8px 0;background:var(--n300);}
   .epz-case{transition:border-color .15s,box-shadow .15s;}
   .epz-case[aria-pressed="false"]:hover{border-color:var(--n300) !important;box-shadow:0 6px 18px -10px rgba(14,18,27,.16) !important;}
   .epz-case:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
@@ -456,7 +457,7 @@
 
             <!-- subsection tabs -->
             <div class="epz-dtabs" role="tablist" aria-label="Разделы диспансерного учёта">
-              <sc-for list="{{ dispTabs }}" as="t"><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
+              <sc-for list="{{ dispTabs }}" as="t"><sc-if value="{{ t.sep }}" hint-placeholder-val="{{ false }}"><span class="epz-dtab-sep" aria-hidden="true"></span></sc-if><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
             </div>
 
             <!-- 1. Постановка -->
@@ -1297,8 +1298,9 @@ class Component extends DCLogic {
     // «Дневник наблюдения» — только в ЭПЗ гражданина (в кабинете врача вкладки нет)
     const dispTabsData=[
       {id:'reg',label:'Постановка'},{id:'obs',label:'История наблюдения'},{id:'std',label:'Выполнение стандарта'},{id:'rcp',label:'Рецепты'},{id:'dereg',label:'Снятие с учёта'},
-    ].concat(citizen?[{id:'diary',label:'Дневник наблюдения'}]:[]);
-    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, onClick:()=>setDispTab(t.id), selected:String(on),
+    ].concat(citizen?[{id:'diary',label:'Дневник наблюдения',sep:true}]:[]);
+    // Разделитель перед «Дневником наблюдения»: вкладки слева — о выбранном случае учёта, дневник — о пациенте целиком
+    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, sep:!!t.sep, onClick:()=>setDispTab(t.id), selected:String(on),
       style:`position:relative;flex:0 0 auto;white-space:nowrap;padding:0 14px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
       underline:`position:absolute;left:0;right:0;bottom:0;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
     const dispData = dc===0 ? [
