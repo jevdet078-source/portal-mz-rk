@@ -12,12 +12,18 @@
 </head>
 <body>
 <!--
-  ЭПЗ гражданина → Диспансерный учёт → вкладка «Дневник наблюдения» (компонент EpzView подключает его
-  только в режиме citizen). Постановки: «Разработка UI/UX-дизайна раздела „Дневник наблюдения“ в кабинете
-  гражданина» (19.11.2026), п. 1–12, и «Перенос „Дневника наблюдения“ в ЭПЗ гражданина» (19.11.2026).
-  Три направления: Глюкоза, Артериальное давление, Наблюдение при ХСН. Пользователь в макете — с доступом ко всем трём (п. 1).
+  ЭПЗ → Диспансерный учёт → вкладка «Дневник наблюдения» (подключает EpzView). Постановки: «Разработка UI/UX-дизайна
+  раздела „Дневник наблюдения“ в кабинете гражданина» (19.11.2026), п. 1–12, «Перенос „Дневника наблюдения“ в ЭПЗ
+  гражданина» (19.11.2026) и ответы аналитика (19.11.2026): дневник зависит от диагнозов; у врача — вкладка только для просмотра.
+  Три направления: Глюкоза (E11), Артериальное давление (I10), Наблюдение при ХСН (I50).
 
-    <dc-import name="EpzDiary"></dc-import>
+    <dc-import name="EpzDiary" patient="seitzhanova" dirs="glu,bp,chf" sel="glu" readonly="0"></dc-import>
+
+  Пропсы:
+    patient  — ключ пациента ЭПЗ: свои демо-записи; записи, добавленные гражданином (mp-diary), — только в его дневнике
+    dirs     — направления по диагнозам на учёте («glu,bp,chf»); без пропа — все три
+    sel      — направление выбранного в ЭПЗ случая учёта; меняется — дневник переключается
+    readonly — «1» у врача: без добавления, окна и настроек сохранения в панели «Прототип»
 
   Кнопка «Добавить измерение» / «Добавить запись» (ХСН) стоит в шапке раздела ЭПЗ — так же, как действия
   других разделов ЭПЗ. Связь с EpzView — событиями window:
@@ -91,7 +97,7 @@
   .dg-card{background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);min-width:0;}
 
   /* п. 2 Карточки направлений = выбор дневника */
-  .dg-dirs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+  .dg-dirs{display:grid;grid-template-columns:repeat(var(--dg-n,3),minmax(0,1fr));gap:16px;}
   .dg-dir{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px 20px;text-align:left;font-family:inherit;color:inherit;cursor:pointer;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);transition:border-color .15s,box-shadow .15s,background .15s;min-width:0;}
   .dg-dir:hover{border-color:var(--n300);box-shadow:0 6px 18px -10px rgba(14,18,27,.16);}
   .dg-dir[aria-pressed="true"]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 6px 18px -12px rgba(77,66,233,.35);}
@@ -352,7 +358,7 @@
 
         <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
           <!-- п. 2 Карточки последнего измерения = выбор направления -->
-          <div class="dg-dirs" role="group" aria-label="Направление дневника">
+          <div class="dg-dirs" role="group" aria-label="Направление дневника" style="{{ dirsN }}">
             <sc-for list="{{ dirs }}" as="c" hint-placeholder-count="3">
               <button type="button" class="dg-dir" aria-pressed="{{ c.on }}" aria-controls="dg-panel" onClick="{{ c.pick }}">
                 <span class="dg-dir-top"><span class="dg-dir-ic" aria-hidden="true"><i class="{{ c.icon }}"></i></span><span class="dg-dir-name">{{ c.label }}</span></span>
@@ -377,7 +383,7 @@
               <div class="dg-card dg-state">
                 <span class="dg-state-ic" aria-hidden="true"><i class="{{ selIcon }}"></i></span>
                 <p class="dg-state-t">Измерения ещё не добавлены</p>
-                <button type="button" class="dg-btn pri" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ addLabel }}</button>
+                <sc-if value="{{ addShow }}" hint-placeholder-val="{{ true }}"><button type="button" class="dg-btn pri" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ addLabel }}</button></sc-if>
               </div>
             </sc-if>
 
@@ -625,6 +631,8 @@
             <button type="button" class="dg-pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.pick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
           </sc-for>
         </div>
+        <!-- У врача (только просмотр) сохранения и сброса нет -->
+        <sc-if value="{{ ppRw }}" hint-placeholder-val="{{ true }}">
         <span class="dg-pp-cap" style="font-size:10.5px;color:var(--n400);margin-top:6px;">Сохранение записи</span>
         <div role="radiogroup" aria-label="Сохранение записи" style="display:flex;gap:6px;">
           <sc-for list="{{ saves }}" as="x" hint-placeholder-count="2">
@@ -632,6 +640,7 @@
           </sc-for>
         </div>
         <button type="button" class="dg-pp-btn" style="justify-content:center;margin-top:6px;" onClick="{{ ppReset }}"><i class="ri-delete-bin-line" style="font-size:15px;" aria-hidden="true"></i>Сбросить данные</button>
+        </sc-if>
       </div>
     </sc-if>
   </div>
@@ -685,8 +694,8 @@ const ss = { get(k, d){ try { const v = sessionStorage.getItem(k); return v == n
 // ---------- Демо-записи: 45 дней до текущего момента, последние значения — как в постановке ----------
 const rnd = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 const at = (d0, h, m) => d0 + (h * 60 + m) * 60000;
-const demo = (now) => {
-  const r = rnd(20261119), out = [];
+const demo = (now, seed) => {
+  const r = rnd(seed || 20261119), out = [];
   let id = 0;
   const add = (d, ts, v, c) => { if(ts <= now) out.push({ id:'demo' + (++id), d, ts, v, c:c || '', src:'manual' }); };
   const t0 = day0(now);
@@ -737,9 +746,12 @@ class Component extends DCLogic {
   constructor(props){
     super(props);
     let view = {}; try { view = JSON.parse(ss.get(VIEW_KEY, '{}')) || {}; } catch(e){}
+    // Направление: из выбранного в ЭПЗ случая учёта (проп sel), иначе — прошлый выбор, иначе — первое доступное
+    const av = this.avail(), has = (id) => av.some(d => d.id === id);
+    const sel = has((props || {}).sel) ? props.sel : has(view.sel) ? view.sel : av[0].id;
     this.state = {
       st:'loading', scn:ss.get(SCN_KEY, 'ok'), saveScn:ss.get(SAVE_KEY, 'ok'),
-      mine:loadMine(), sel:DMAP[view.sel] ? view.sel : 'glu', per:view.per === 'month' ? 'month' : 'week', cond:CMAP[view.cond] ? view.cond : 'all',
+      mine:loadMine(), sel, per:view.per === 'month' ? 'month' : 'week', cond:CMAP[view.cond] ? view.cond : 'all',
       shown:PAGE, open:{}, hov:null, newId:null, toast:false,
       dlg:false, f:null, touched:{}, tried:false, saving:false, saveErr:false, dd:false,
       ppOpen:false,
@@ -757,7 +769,21 @@ class Component extends DCLogic {
     window.addEventListener('mp-diary-add', this._onAdd);
     this.emit();
   }
-  componentDidUpdate(){ this.draw(); this.emit(); }
+  componentDidUpdate(prev){
+    // В ЭПЗ выбрали другой случай учёта — дневник переключается на направление его диагноза
+    const p = this.props || {}, q = prev || {};
+    if(p.sel !== q.sel && p.sel !== this.state.sel && this.avail().some(d => d.id === p.sel)) this.setView({ sel:p.sel });
+    this.draw(); this.emit();
+  }
+  // Направления — по диагнозам на учёте (проп dirs: «glu,bp,chf»); без пропа — все три
+  avail(){
+    const ids = String((this.props || {}).dirs || '').split(',').filter(id => DMAP[id]);
+    return ids.length ? DIARIES.filter(d => ids.includes(d.id)) : DIARIES;
+  }
+  // У врача — только просмотр: без добавления, окна и настроек сохранения
+  ro(){ return (this.props || {}).readonly === '1'; }
+  // Записи, добавленные гражданином, — в его собственном дневнике (пациент кабинета гражданина или проп не задан)
+  own(){ const pt = (this.props || {}).patient; return !pt || pt === 'seitzhanova'; }
   componentWillUnmount(){
     window.removeEventListener('resize', this._rs); if(this._ro) this._ro.disconnect();
     window.removeEventListener('mp-diary-add', this._onAdd);
@@ -791,12 +817,13 @@ class Component extends DCLogic {
     this.setState({ ...p, shown:PAGE, open:{}, hov:null });
   }
 
-  // все записи: демо-набор по сценарию + добавленные пользователем
+  // все записи: демо-набор по сценарию (у каждого пациента свой) + добавленные гражданином в своём дневнике
   records(){
-    const now = Date.now(), scn = this.state.scn;
-    let base = scn === 'empty' ? [] : demo(now);
+    const now = Date.now(), scn = this.state.scn, pt = (this.props || {}).patient;
+    const seed = this.own() ? 0 : 20261119 + [...String(pt)].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+    let base = scn === 'empty' ? [] : demo(now, seed);
     if(scn === 'week') base = base.filter(x => x.ts < day0(now) - 6 * DAY);
-    return base.concat(this.state.mine);
+    return this.own() ? base.concat(this.state.mine) : base;
   }
 
   // ---------- График (п. 3.1) — SVG строкой в контейнер, без перерисовки React ----------
@@ -889,7 +916,7 @@ class Component extends DCLogic {
     return { d, date:isoOf(now), time:tOf(now), g:'', cond:null, sys:'', dia:'', pulse:'', w:'', dysp:null, edema:null, cm:'' };
   }
   open(){
-    if(this.state.st !== 'ok') return;
+    if(this.state.st !== 'ok' || this.ro()) return;
     this._ret = document.activeElement;
     this.setState({ dlg:true, f:this.blank(this.state.sel), touched:{}, tried:false, saving:false, saveErr:false, dd:false });
     document.body.style.overflow = 'hidden';
@@ -974,13 +1001,15 @@ class Component extends DCLogic {
   }
 
   renderVals(){
-    const s = this.state, now = Date.now(), t0 = day0(now);
+    const AV = this.avail();
+    // выбранное направление всегда из доступных (по диагнозам на учёте)
+    const s = AV.some(d => d.id === this.state.sel) ? this.state : { ...this.state, sel:AV[0].id }, now = Date.now(), t0 = day0(now);
     const all = this.records();
     const by = (d) => all.filter(x => x.d === d).sort((a, b) => b.ts - a.ts);
     const ready = s.st === 'ok';
 
     // карточки направлений
-    const dirs = DIARIES.map(d => {
+    const dirs = AV.map(d => {
       const list = by(d.id), r = list[0];
       let value = '', unit = d.unit, extra = '';
       if(r){
@@ -1053,6 +1082,7 @@ class Component extends DCLogic {
     return {
       busy:String(s.st === 'loading'),
       openAdd:() => this.open(), addLabel: s.sel === 'chf' ? 'Добавить запись' : 'Добавить измерение',
+      addShow:!this.ro(), ppRw:!this.ro(), dirsN:'--dg-n:' + AV.length + ';',
       loading:s.st === 'loading', failed:s.st === 'fail', ready, retryRef:this.retryRef, retry:() => this.boot(),
       skel3:[{ w:'width:96px;height:14px;' }, { w:'width:150px;height:14px;' }, { w:'width:130px;height:14px;' }], skel4:[1, 2, 3, 4],
 
@@ -1088,11 +1118,11 @@ class Component extends DCLogic {
       ddOpen:s.dd, fIcon:fd.icon, fLabel:fd.label,
       ddToggle:() => this.setState({ dd:!this.state.dd }),
       ddKey:(e) => {
-        const i = DIARIES.findIndex(x => x.id === (f && f.d));
-        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); const n = DIARIES[(i + (e.key === 'ArrowDown' ? 1 : DIARIES.length - 1)) % DIARIES.length]; this.pickDiary(n.id); }
+        const i = AV.findIndex(x => x.id === (f && f.d));
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); const n = AV[(i + (e.key === 'ArrowDown' ? 1 : AV.length - 1)) % AV.length]; this.pickDiary(n.id); }
         if(e.key === 'Escape' && this.state.dd){ e.preventDefault(); e.stopPropagation(); this.setState({ dd:false }); }
       },
-      ddOpts:DIARIES.map(d => ({ ...d, on:String(!!f && f.d === d.id), sel:!!f && f.d === d.id, pick:() => this.pickDiary(d.id) })),
+      ddOpts:AV.map(d => ({ ...d, on:String(!!f && f.d === d.id), sel:!!f && f.d === d.id, pick:() => this.pickDiary(d.id) })),
 
       fGlu:!!f && f.d === 'glu', fBp:!!f && f.d === 'bp', fChf:!!f && f.d === 'chf',
       today:isoOf(now),
@@ -1114,7 +1144,7 @@ class Component extends DCLogic {
       ppToggle:() => this.setState({ ppOpen:!s.ppOpen }),
       scns:SCNS.map(x => ({ ...x, on:String(s.scn === x.id), pick:() => { ss.set(SCN_KEY, x.id); this.state.scn = x.id; this.setState({ scn:x.id }); this.boot(); } })),
       saves:SAVES.map(x => ({ ...x, on:String(s.saveScn === x.id), pick:() => { ss.set(SAVE_KEY, x.id); this.setState({ saveScn:x.id }); } })),
-      ppReset:() => { try { localStorage.removeItem(LS_KEY); } catch(e){} ss.set(VIEW_KEY, '{}'); this.setState({ mine:[], sel:'glu', per:'week', cond:'all', shown:PAGE, open:{} }); },
+      ppReset:() => { try { localStorage.removeItem(LS_KEY); } catch(e){} ss.set(VIEW_KEY, '{}'); this.setState({ mine:[], sel:AV[0].id, per:'week', cond:'all', shown:PAGE, open:{} }); },
     };
   }
 }

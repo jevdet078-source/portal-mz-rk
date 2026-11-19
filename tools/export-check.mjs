@@ -98,6 +98,12 @@ await scenario('ЭПЗ гражданина → Диспансерный учё�
   const cards = await page.$$eval('.dg-dir', (l) => l.length);
   await page.evaluate(() => document.querySelectorAll('.dg-dir')[1].click()); await wait(500);
   const lines = await page.$$eval('.dg-plot svg path[stroke-width="2.2"]', (l) => l.length);
+  // дневник зависит от диагноза: давление ↔ случай I10, случай I50.0 → дневник ХСН
+  const caseOn = await page.$eval('.epz-case[aria-pressed="true"]', (e) => e.innerText.split('\n')[0].trim());
+  await page.evaluate(() => document.querySelectorAll('.epz-case')[2].click()); await wait(500);
+  const dirOn = await page.$eval('.dg-dir[aria-pressed="true"] .dg-dir-name', (e) => e.innerText);
+  if (caseOn !== 'I10' || dirOn !== 'Наблюдение при ХСН') throw new Error(`связь случая и дневника: случай «${caseOn}», направление «${dirOn}»`);
+  await page.evaluate(() => document.querySelectorAll('.epz-case')[1].click()); await wait(500);
   const before = await page.$$eval('.dg-row', (l) => l.length);
   await page.evaluate(() => document.querySelector('[data-diary-add]').click()); await wait(400);
   await page.type('#f-sys', '124'); await page.type('#f-dia', '81');
@@ -106,7 +112,7 @@ await scenario('ЭПЗ гражданина → Диспансерный учё�
   if (tab !== 'Дневник наблюдения' || cards !== 3 || lines !== 2 || r.dlg || !/Запись сохранена/.test(r.toast) || !/124/.test(r.row)) throw new Error(`вкладка «${tab}», карточек ${cards}, линий АД ${lines}, окно ${r.dlg}, тост «${r.toast}»`);
   if (errors.length) throw new Error(errors[0]);
   await page.close();
-  return `карточек ${cards}, линий АД ${lines}, записей было ${before}, новая — в истории`;
+  return `карточек ${cards}, линий АД ${lines}, давление ↔ I10, I50.0 → ХСН, записей было ${before}, новая — в истории`;
 });
 
 await scenario('Главная J на телефоне 375 px — без горизонтальной прокрутки', async () => {
