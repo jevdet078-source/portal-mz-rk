@@ -86,7 +86,7 @@
               <div role="cell" style="width:220px;flex:0 0 auto;padding:12px 12px 4px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
               <div role="cell" style="width:160px;flex:0 0 auto;padding:12px 20px 4px 12px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;" class="tnum">{{ r.at }}</div>
             </div>
-            <div role="cell" aria-label="Текст уведомления" style="padding:0 20px 12px 84px;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span></div>
+            <div role="cell" aria-label="Текст уведомления" style="max-width:1320px;padding:0 20px 12px 84px;text-wrap:pretty;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span></div>
           </div>
         </sc-for>
         <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
