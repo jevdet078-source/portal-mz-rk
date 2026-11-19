@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → Дневник наблюдения.
+  Постановка «Разработка UI/UX-дизайна раздела „Дневник наблюдения“ в кабинете гражданина» (19.11.2026), п. 1–12.
+  Три направления: Глюкоза, Артериальное давление, Наблюдение при ХСН. Пользователь в макете — с доступом ко всем трём (п. 1).
+
+  Страница:
+    • заголовок, описание, «Добавить измерение» (п. 2);
+    • три карточки последнего измерения — они же выбор направления (выбранная: рамка + значок-галочка, aria-pressed);
+      нет записей — «Измерения ещё не добавлены», отсутствующие значения — «—», не ноль (п. 2);
+    • «Динамика показателей»: «Неделя / Месяц»; глюкоза — точки с формой и цветом по условиям измерения
+      (фильтр «Все / Натощак / До еды / После еды», при одном условии — линия); АД — две линии; ХСН — масса тела.
+      Наведение / стрелки клавиатуры — дата, время, значение и единица. Пусто — «За выбранный период записей нет».
+      Без оценки нормы, заключений и рекомендаций (п. 3.1);
+    • «История записей» — столбцы по направлению, новые сверху, единицы рядом со значениями, «—» для отсутствующего,
+      длинный комментарий раскрывается по строке, тот же период и фильтр, что у графика (п. 3.2).
+  Окно «Добавить измерение» / «Добавить запись» (ХСН) — п. 4–7: «Дневник» подставляется из выбранного направления,
+  при смене меняется состав полей; дата и время — текущие; примеры значений — только подсказкой в пустом поле.
+  Одышка и отёки — без ответа по умолчанию. Ошибки «Заполните поле» / «Введите числовое значение» — под полем.
+  Сохранение — индикатор на кнопке; ошибка — окно открыто, данные сохранены, «Не удалось сохранить запись. Попробуйте ещё раз».
+  Успех — тост «Запись сохранена», запись в истории подсвечивается, график и карточка обновляются (п. 8–9).
+
+  Состав полей ХСН и их обязательность — предварительные (п. 7), пометка для согласования — здесь, а не в интерфейсе.
+
+  Хранение: добавленные записи — localStorage mp-diary; выбранное направление и период — sessionStorage mp-diary-view.
+  Панель «Прототип»: ответ сервиса mp-diary-scn (ok / week / empty / slow / down), сохранение mp-diary-save (ok / fail),
+  «Сбросить данные». Демо-записи строятся от текущей даты, последние значения — как в постановке (5,8; 120/80, 72; 72,4).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-m:#F8C9D2;--red-d:#AF1D38;
+    --teal-d:#1F87AD;--teal-l:#EBFAFF;--orange-d:#C2540A;--orange-l:#FEF3EB;
+    --stroke:#E2E4E9;--bg:#F6F8FA;
+    --sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);--sh-2xl:0 40px 96px -24px rgba(14,18,27,.24);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes dg-pop{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes dg-spin{to{transform:rotate(360deg)}}
+  @keyframes dg-sh{0%{background-position:-320px 0}100%{background-position:320px 0}}
+  @keyframes dg-new{0%,60%{background:var(--primary-lighter)}100%{background:transparent}}
+  image-slot{display:block!important;width:100%!important;height:100%!important;}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* Раскладка кабинета гражданина: на всю ширину окна, поля 32 / 24 / 16 px — как у шапки */
+  .dg-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .dg-wrap{padding:24px 24px 80px;} }
+  .dg-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .dg-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;}
+  .dg-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .dg-main{min-width:0;display:flex;flex-direction:column;gap:16px;animation:mp-fade .2s ease;}
+
+  /* п. 2 Заголовок */
+  .dg-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin-bottom:4px;}
+  .dg-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;margin:0;}
+  .dg-desc{margin:2px 0 0;font-size:14px;line-height:20px;color:var(--n500);}
+
+  /* Кнопки */
+  .dg-btn{height:40px;padding:0 16px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s,color .15s,opacity .15s,box-shadow .15s;}
+  .dg-btn i{font-size:18px;line-height:1;}
+  .dg-btn.pri{border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(77,66,233,.18);}
+  .dg-btn.pri:not([disabled]):hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .dg-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);}
+  .dg-btn.sec:not([disabled]):hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .dg-btn.ghost{height:36px;border:1px solid transparent;background:none;color:var(--primary);padding:0 12px;}
+  .dg-btn.ghost:hover{background:var(--primary-lighter);}
+  .dg-btn[disabled]{cursor:not-allowed;opacity:.45;box-shadow:none;}
+  .dg-btn.busy{cursor:progress;opacity:1;}
+  .dg-spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:dg-spin .7s linear infinite;flex:0 0 auto;}
+
+  .dg-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);min-width:0;}
+
+  /* п. 2 Карточки направлений = выбор дневника */
+  .dg-dirs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+  .dg-dir{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px 20px;text-align:left;font-family:inherit;color:inherit;cursor:pointer;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);transition:border-color .15s,box-shadow .15s,background .15s;min-width:0;}
+  .dg-dir:hover{border-color:var(--n300);box-shadow:0 6px 18px -10px rgba(14,18,27,.16);}
+  .dg-dir[aria-pressed="true"]{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary),0 6px 18px -12px rgba(77,66,233,.35);}
+  .dg-dir-top{display:flex;align-items:center;gap:12px;min-width:0;padding-right:28px;}
+  .dg-dir-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex:0 0 auto;background:var(--n100);color:var(--n500);transition:background .15s,color .15s;}
+  .dg-dir[aria-pressed="true"] .dg-dir-ic{background:var(--primary-lighter);color:var(--primary);}
+  .dg-dir-name{font-size:15px;line-height:20px;font-weight:600;color:var(--n900);min-width:0;}
+  .dg-dir-ok{position:absolute;top:16px;right:16px;font-size:22px;color:var(--primary);opacity:0;transform:scale(.7);transition:opacity .15s,transform .15s;}
+  .dg-dir[aria-pressed="true"] .dg-dir-ok{opacity:1;transform:none;}
+  .dg-val{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 6px;min-height:36px;}
+  .dg-val b{font-size:28px;line-height:36px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .dg-val > span{font-size:14px;line-height:20px;color:var(--n500);}
+  .dg-val.none{align-items:center;font-size:14px;line-height:20px;color:var(--n500);}
+  .dg-meta{display:flex;flex-direction:column;gap:2px;font-size:13px;line-height:18px;color:var(--n500);}
+  .dg-meta .k{color:var(--n900);font-weight:500;}
+
+  /* п. 3.1 Динамика */
+  .dg-sec-h{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;padding:16px 20px;}
+  .dg-h2{font-size:17px;line-height:24px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .dg-of{font-weight:500;color:var(--n500);}
+  .dg-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .dg-seg{display:inline-flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--n100);border:1px solid var(--stroke);}
+  .dg-seg button{height:30px;padding:0 12px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:13px;line-height:18px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:background .12s,color .12s,box-shadow .12s;}
+  .dg-seg button:hover{color:var(--n900);}
+  .dg-seg .dg-mk{width:8px;height:8px;}
+  .dg-seg .dg-mk.o{border-width:1.5px;}
+  .dg-seg button[aria-checked="true"]{background:var(--n0);color:var(--n900);font-weight:600;box-shadow:0 1px 2px rgba(10,13,20,.08),0 0 0 1px var(--stroke);}
+  .dg-chart-b{padding:0 20px 16px;}
+  .dg-chart{position:relative;outline:none;border-radius:10px;}
+  .dg-chart:focus-visible{box-shadow:0 0 0 2px var(--primary-light);}
+  .dg-plot{position:relative;min-height:220px;}
+  .dg-plot svg{display:block;overflow:visible;}
+  .dg-tip{position:absolute;z-index:3;pointer-events:none;min-width:148px;padding:8px 12px;border-radius:10px;background:var(--n900);color:#fff;font-size:12.5px;line-height:18px;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);white-space:nowrap;}
+  .dg-tip .t{color:#CDD0D5;font-variant-numeric:tabular-nums;}
+  .dg-tip .v{font-size:14px;line-height:20px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .dg-tip .v small{font-size:12.5px;font-weight:500;color:#CDD0D5;}
+  .dg-tip .r{display:flex;align-items:center;gap:6px;}
+  .dg-tip .dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+  .dg-legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 18px;margin-top:6px;font-size:12.5px;line-height:18px;color:var(--n500);}
+  .dg-lg{display:inline-flex;align-items:center;gap:7px;}
+  .dg-mk{display:inline-block;width:9px;height:9px;flex:0 0 auto;}
+  .dg-mk.c{border-radius:50%;}
+  .dg-mk.s{border-radius:2px;}
+  .dg-mk.d{transform:rotate(45deg) scale(.9);border-radius:1px;}
+  .dg-mk.o{border-radius:50%;background:#fff!important;border:2px solid var(--n400);}
+  .dg-mk.l{width:18px;height:0;border-top:2.5px solid;}
+  .dg-mk.l.dash{border-top-style:dashed;}
+  .dg-nodata{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:220px;text-align:center;color:var(--n500);font-size:14px;line-height:20px;border:1px dashed var(--n300);border-radius:12px;background:var(--n50);}
+  .dg-nodata-ic{width:48px;height:48px;border-radius:14px;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;font-size:24px;}
+
+  /* п. 3.2 История записей — таблица; плашка с border (фон шапки и ховер строки доходят до краёв) */
+  .dg-tbl-card{overflow:hidden;container-type:inline-size;container-name:dgt;}
+  .dg-tr{display:grid;align-items:center;column-gap:16px;padding:0 12px 0 20px;border-top:1px solid var(--stroke);}
+  .dg-th{min-height:40px;background:var(--n50);font-size:12px;line-height:16px;font-weight:600;color:var(--n500);}
+  .dg-row{min-height:52px;transition:background .12s;}
+  .dg-row.x{cursor:pointer;}
+  .dg-row.x:hover{background:var(--n50);}
+  .dg-row.new{animation:dg-new 2.8s ease;}
+  .dg-row:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
+  .dg-td{min-width:0;padding:14px 0;font-size:14px;line-height:20px;color:var(--n900);}
+  .dg-td .u{color:var(--n500);margin-left:4px;}
+  .dg-td .dash{color:var(--n400);}
+  .dg-td.when{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .dg-td.when .tm{color:var(--n500);margin-left:5px;}
+  .dg-td.val b{font-weight:600;font-variant-numeric:tabular-nums;}
+  .dg-td.cm{color:var(--n600);overflow-wrap:anywhere;}
+  .dg-td.cm.clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dg-row.open .dg-td.cm.clip{white-space:normal;overflow:visible;}
+  .dg-cl{display:none;}
+  .dg-chev{width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--n400);font-size:20px;transition:transform .15s,background .12s,color .12s;}
+  .dg-row.x:hover .dg-chev{background:var(--n100);color:var(--n600);}
+  .dg-row.open .dg-chev{transform:rotate(180deg);}
+  .dg-more{display:flex;justify-content:center;padding:10px;border-top:1px solid var(--stroke);}
+
+  /* Загрузка, ошибка, пусто */
+  .dg-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,var(--n200) 40px,var(--n100) 80px) var(--n100);background-size:640px 100%;animation:dg-sh 1.2s linear infinite;}
+  .dg-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:300px;padding:40px 24px;text-align:center;animation:mp-fade .2s ease;}
+  .dg-state-ic{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--primary-lighter);color:var(--primary);}
+  .dg-state-ic.err{background:var(--red-l);color:var(--red);}
+  .dg-state-t{margin:0;font-size:16px;line-height:22px;font-weight:600;color:var(--n900);}
+
+  /* Тост */
+  .dg-toast{position:fixed;right:28px;bottom:96px;z-index:80;display:flex;align-items:center;gap:10px;max-width:380px;padding:12px 16px 12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);font-size:14px;line-height:20px;font-weight:500;animation:mp-slidein .2s ease;}
+  .dg-toast i{font-size:22px;color:var(--green);flex:0 0 auto;}
+
+  /* ---------- Окно «Добавить измерение» (п. 4–7) ---------- */
+  .dg-ov{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(10,13,20,.48);animation:mp-fade .15s ease;}
+  .dg-dlg{width:600px;max-width:100%;max-height:min(820px,calc(100vh - 48px));display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-2xl);overflow:hidden;animation:dg-pop .2s ease;outline:none;}
+  .dg-dh{display:flex;align-items:flex-start;gap:12px;padding:20px 16px 4px 24px;}
+  .dg-dh-t{flex:1;min-width:0;}
+  .dg-dh h2{margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;}
+  .dg-dh p{margin:2px 0 0;font-size:14px;line-height:20px;color:var(--n500);}
+  .dg-x{width:36px;height:36px;border:none;border-radius:10px;background:none;color:var(--n500);display:inline-flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;flex:0 0 auto;padding:0;margin-top:-4px;transition:background .15s,color .15s;}
+  .dg-x:hover{background:var(--n100);color:var(--n900);}
+  .dg-db{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 24px 20px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin;scrollbar-color:var(--n300) transparent;}
+  .dg-df{display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;padding:14px 24px;border-top:1px solid var(--stroke);background:var(--n0);}
+  .dg-src{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--n500);}
+  .dg-src i{font-size:16px;color:var(--n400);}
+  .dg-df .dg-btn{min-width:112px;}
+  .dg-saveerr{flex:1 1 100%;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:10px;background:var(--red-l);border:1px solid var(--red-m);color:var(--red-d);font-size:13.5px;line-height:20px;font-weight:500;animation:mp-fade .15s ease;}
+  .dg-saveerr i{font-size:18px;line-height:20px;color:var(--red);flex:0 0 auto;}
+
+  .dg-f{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .dg-row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px;}
+  .dg-lbl{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);}
+  .dg-lbl .req{color:var(--red);font-weight:600;margin-left:-3px;}
+  .dg-lbl .hint{font-size:13px;font-weight:400;color:var(--n400);}
+  .dg-in{width:100%;height:44px;padding:0 12px;border:1px solid var(--n300);border-radius:10px;background:var(--n0);font-family:inherit;font-size:15px;line-height:20px;color:var(--n900);outline:none;transition:border-color .12s,box-shadow .12s;}
+  .dg-in::placeholder{color:var(--n400);}
+  .dg-in:hover{border-color:var(--n400);}
+  .dg-in:focus,.dg-in:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .dg-in[aria-invalid="true"],.dg-unit[data-inv="true"]{border-color:var(--red);}
+  .dg-in[aria-invalid="true"]:focus,.dg-unit[data-inv="true"]:focus-within{box-shadow:0 0 0 3px var(--red-l);}
+  .dg-in.num{font-variant-numeric:tabular-nums;}
+  input.dg-in[type="date"],input.dg-in[type="time"]{padding-right:8px;}
+  textarea.dg-in{height:auto;min-height:84px;padding:10px 12px;resize:vertical;line-height:22px;}
+  /* поле с единицей измерения рядом */
+  .dg-unit{display:flex;align-items:center;height:44px;border:1px solid var(--n300);border-radius:10px;background:var(--n0);transition:border-color .12s,box-shadow .12s;overflow:hidden;}
+  .dg-unit:hover{border-color:var(--n400);}
+  .dg-unit:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .dg-unit input{flex:1;min-width:0;height:100%;padding:0 12px;border:none;outline:none;background:none;font-family:inherit;font-size:15px;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .dg-unit input::placeholder{color:var(--n400);}
+  .dg-unit[data-inv="true"],.dg-unit[data-inv="true"]:hover,.dg-unit[data-inv="true"]:focus-within{border-color:var(--red);}
+  .dg-unit[data-inv="true"]:focus-within{box-shadow:0 0 0 3px var(--red-l);}
+  .dg-unit .u{flex:0 0 auto;align-self:stretch;display:flex;align-items:center;padding:0 12px;border-left:1px solid var(--stroke);background:var(--n50);font-size:14px;color:var(--n500);white-space:nowrap;}
+  .dg-err{display:flex;align-items:flex-start;gap:6px;font-size:13px;line-height:18px;color:var(--red);animation:mp-fade .15s ease;}
+  .dg-err i{font-size:16px;line-height:18px;flex:0 0 auto;}
+
+  /* выпадающий список «Дневник» */
+  .dg-dd{position:relative;}
+  .dg-ddb{display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;}
+  .dg-ddb .ic{width:28px;height:28px;border-radius:8px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto;margin-left:-4px;}
+  .dg-ddb .lb{flex:1;min-width:0;font-weight:500;}
+  .dg-ddb .ch{font-size:20px;color:var(--n400);transition:transform .15s;}
+  .dg-ddb[aria-expanded="true"] .ch{transform:rotate(180deg);}
+  .dg-ddl{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:5;padding:6px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);animation:mp-fade .12s ease;}
+  .dg-opt{width:100%;display:flex;align-items:center;gap:10px;padding:9px 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;transition:background .12s;}
+  .dg-opt:hover,.dg-opt:focus-visible{background:var(--n100);outline:none;}
+  .dg-opt .ic{width:28px;height:28px;border-radius:8px;background:var(--n100);color:var(--n500);display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto;}
+  .dg-opt[aria-selected="true"]{font-weight:600;}
+  .dg-opt[aria-selected="true"] .ic{background:var(--primary-lighter);color:var(--primary);}
+  .dg-opt .ok{margin-left:auto;font-size:18px;color:var(--primary);}
+
+  /* выбор одного варианта: условия измерения, одышка, отёки */
+  .dg-choice{display:grid;gap:8px;}
+  .dg-choice.c2{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .dg-choice.c3{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .dg-ch{min-height:44px;padding:8px 12px;border:1px solid var(--n300);border-radius:10px;background:var(--n0);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);cursor:pointer;display:flex;align-items:center;gap:10px;text-align:left;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
+  .dg-ch:hover{border-color:var(--n400);background:var(--n50);}
+  .dg-ch .rd{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--n300);background:var(--n0);flex:0 0 auto;display:flex;align-items:center;justify-content:center;transition:border-color .12s,background .12s;}
+  .dg-ch[aria-checked="true"]{border-color:var(--primary);background:var(--primary-lighter);color:var(--primary-darker);font-weight:600;}
+  .dg-ch[aria-checked="true"] .rd{border:5px solid var(--primary);}
+  .dg-choice[data-inv="true"] .dg-ch{border-color:var(--red);}
+
+  .dg-btn:focus-visible,.dg-x:focus-visible,.dg-dir:focus-visible,.dg-seg button:focus-visible,.dg-ch:focus-visible,.pp-btn:focus-visible,.dg-crumbs a:focus-visible,.dg-ddb:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .dg-dir[aria-pressed="true"]:focus-visible{box-shadow:0 0 0 1px var(--primary),0 0 0 4px var(--primary-light);}
+
+  /* Панель «Прототип» */
+  .pp{position:fixed;left:20px;bottom:20px;z-index:50;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .pp-h{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-cap{font-size:11px;line-height:14px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);}
+  .pp-b{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--stroke);max-height:calc(100vh - 120px);overflow-y:auto;}
+  .pp-btn{min-height:30px;padding:6px 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+
+  @media (max-width:1280px){
+    .dg-dir{padding:16px;}
+    .dg-val b{font-size:24px;line-height:32px;}
+  }
+  @media (max-width:1024px){
+    .dg-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:760px){
+    .dg-dirs{grid-template-columns:minmax(0,1fr);gap:10px;}
+    .dg-dir{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 12px;padding:14px 16px;}
+    .dg-dir-top{grid-column:1 / -1;padding-right:28px;}
+    .dg-dir-ok{top:14px;right:14px;}
+    .dg-dir-ic{width:36px;height:36px;font-size:18px;}
+    .dg-val{min-height:0;}
+    .dg-meta{text-align:right;}
+    .dg-val.none{grid-column:1 / -1;}
+  }
+  @media (max-width:640px){
+    .dg-wrap{padding:16px 16px 80px;}
+    .dg-crumbs{margin-bottom:16px;}
+    .dg-title{font-size:20px;line-height:28px;}
+    .dg-head .dg-btn{width:100%;}
+    .dg-sec-h{padding:14px 16px;}
+    .dg-chart-b{padding:0 12px 14px;}
+    .dg-ctl,.dg-seg{width:100%;}
+    .dg-seg{overflow-x:auto;scrollbar-width:none;}
+    .dg-seg::-webkit-scrollbar{display:none;}
+    .dg-seg button{flex:1 0 auto;justify-content:center;padding:0 10px;}
+    .dg-toast{left:16px;right:16px;bottom:80px;max-width:none;}
+    .dg-ov{padding:8px;align-items:flex-end;}
+    .dg-dlg{max-height:calc(100vh - 16px);border-radius:18px;}
+    .dg-dh{padding:16px 10px 4px 16px;}
+    .dg-dh h2{font-size:18px;line-height:26px;}
+    .dg-db{padding:14px 16px 16px;gap:16px;}
+    .dg-df{padding:12px 16px;}
+    .dg-df .dg-btn{flex:1 1 auto;min-width:0;padding:0 12px;}
+    .dg-src{flex:1 1 100%;}
+    .dg-row2.bp{grid-template-columns:minmax(0,1fr);}
+    .dg-choice.c3{grid-template-columns:minmax(0,1fr);}
+    .pp{left:16px;bottom:16px;max-width:calc(100% - 32px);}
+  }
+  @media (max-width:400px){ .dg-choice.c2{grid-template-columns:minmax(0,1fr);} }
+  /* история — карточками, когда плашке не хватает ширины на все столбцы (планшет, ноутбук 1024–1180 с меню, телефон) */
+  @container dgt (max-width:820px){
+    .dg-tr{display:flex!important;flex-wrap:wrap;column-gap:18px;row-gap:2px;padding:12px 8px 12px 16px;position:relative;}
+    .dg-td{padding:0;}
+    .dg-td.when{flex:1 1 100%;font-weight:600;padding-right:40px;}
+    .dg-td.val,.dg-td.opt{font-size:13.5px;}
+    .dg-td.cm{flex:1 1 100%;font-size:13.5px;}
+    .dg-td.cm.clip{padding-right:40px;}
+    .dg-cl{display:inline;color:var(--n500);margin-right:4px;}
+    .dg-td.ex{position:absolute;right:8px;top:8px;}
+    .dg-tr.dg-th,.dg-td.cm.empty{display:none!important;}
+  }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+
+  <div class="dg-wrap">
+    <nav class="dg-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Дневник наблюдения</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="diary" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="dg-main" aria-busy="{{ busy }}">
+        <!-- п. 2 Заголовок, описание, «Добавить измерение» -->
+        <div class="dg-head">
+          <div style="min-width:0;">
+            <h1 class="dg-title">Дневник наблюдения</h1>
+            <p class="dg-desc">Вносите показатели и отслеживайте изменения своего состояния</p>
+          </div>
+          <button type="button" class="dg-btn pri" ref="{{ addRef }}" onClick="{{ openAdd }}" disabled="{{ addOff }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>Добавить измерение</button>
+        </div>
+
+        <!-- п. 9 Загрузка раздела — скелетон карточек, графика и истории -->
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div class="dg-dirs" aria-hidden="true">
+            <sc-for list="{{ skel3 }}" as="z" hint-placeholder-count="3">
+              <div class="dg-card" style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;">
+                <span style="display:flex;align-items:center;gap:12px;"><span class="dg-sk" style="width:40px;height:40px;border-radius:12px;"></span><span class="dg-sk" style="{{ z.w }}"></span></span>
+                <span class="dg-sk" style="width:120px;height:28px;"></span>
+                <span class="dg-sk" style="width:150px;height:12px;"></span>
+              </div>
+            </sc-for>
+          </div>
+          <div class="dg-card" aria-hidden="true" style="padding:20px;display:flex;flex-direction:column;gap:18px;">
+            <span style="display:flex;justify-content:space-between;"><span class="dg-sk" style="width:200px;height:18px;"></span><span class="dg-sk" style="width:150px;height:32px;border-radius:10px;"></span></span>
+            <span class="dg-sk" style="width:100%;height:220px;border-radius:12px;"></span>
+          </div>
+          <div class="dg-card" aria-hidden="true" style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+            <span class="dg-sk" style="width:160px;height:18px;"></span>
+            <sc-for list="{{ skel4 }}" as="z" hint-placeholder-count="4"><span class="dg-sk" style="width:100%;height:14px;"></span></sc-for>
+          </div>
+          <span class="sr" role="status">Загрузка данных дневника</span>
+        </sc-if>
+
+        <!-- п. 9 Ошибка загрузки -->
+        <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}">
+          <div class="dg-card dg-state" role="alert">
+            <span class="dg-state-ic err" aria-hidden="true"><i class="ri-error-warning-line"></i></span>
+            <p class="dg-state-t">Не удалось загрузить данные</p>
+            <button type="button" class="dg-btn sec" ref="{{ retryRef }}" onClick="{{ retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+          <!-- п. 2 Карточки последнего измерения = выбор направления -->
+          <div class="dg-dirs" role="group" aria-label="Направление дневника">
+            <sc-for list="{{ dirs }}" as="c" hint-placeholder-count="3">
+              <button type="button" class="dg-dir" aria-pressed="{{ c.on }}" aria-controls="dg-panel" onClick="{{ c.pick }}">
+                <span class="dg-dir-top"><span class="dg-dir-ic" aria-hidden="true"><i class="{{ c.icon }}"></i></span><span class="dg-dir-name">{{ c.label }}</span></span>
+                <i class="ri-checkbox-circle-fill dg-dir-ok" aria-hidden="true"></i>
+                <sc-if value="{{ c.has }}" hint-placeholder-val="{{ true }}">
+                  <span class="dg-val"><b>{{ c.value }}</b><span>{{ c.unit }}</span></span>
+                  <span class="dg-meta">
+                    <sc-if value="{{ c.hasExtra }}" hint-placeholder-val="{{ true }}"><span class="k">{{ c.extra }}</span></sc-if>
+                    <span class="num">{{ c.when }}</span>
+                  </span>
+                </sc-if>
+                <sc-if value="{{ c.none }}" hint-placeholder-val="{{ false }}">
+                  <span class="dg-val none">Измерения ещё не добавлены</span>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+
+          <div id="dg-panel" style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+            <!-- п. 9 Нет записей в выбранном дневнике -->
+            <sc-if value="{{ selEmpty }}" hint-placeholder-val="{{ false }}">
+              <div class="dg-card dg-state">
+                <span class="dg-state-ic" aria-hidden="true"><i class="{{ selIcon }}"></i></span>
+                <p class="dg-state-t">Измерения ещё не добавлены</p>
+                <button type="button" class="dg-btn pri" onClick="{{ openAdd }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>Добавить измерение</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ selHas }}" hint-placeholder-val="{{ true }}">
+              <!-- п. 3.1 Динамика показателей -->
+              <section class="dg-card" aria-labelledby="dg-h-chart">
+                <div class="dg-sec-h">
+                  <h2 class="dg-h2" id="dg-h-chart">Динамика показателей<span class="dg-of"> · {{ selLabel }}</span></h2>
+                  <div class="dg-ctl">
+                    <sc-if value="{{ isGlu }}" hint-placeholder-val="{{ false }}">
+                      <div class="dg-seg" role="radiogroup" aria-label="Условия измерения">
+                        <sc-for list="{{ condTabs }}" as="t" hint-placeholder-count="4">
+                          <button type="button" role="radio" aria-checked="{{ t.on }}" onClick="{{ t.pick }}"><sc-if value="{{ t.hasMk }}" hint-placeholder-val="{{ true }}"><span class="{{ t.cls }}" style="{{ t.style }}" aria-hidden="true"></span></sc-if>{{ t.label }}</button>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                    <div class="dg-seg" role="radiogroup" aria-label="Период просмотра">
+                      <sc-for list="{{ perTabs }}" as="t" hint-placeholder-count="2">
+                        <button type="button" role="radio" aria-checked="{{ t.on }}" onClick="{{ t.pick }}">{{ t.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                </div>
+                <div class="dg-chart-b">
+                  <sc-if value="{{ perHas }}" hint-placeholder-val="{{ true }}">
+                    <div class="dg-chart" tabIndex="0" aria-label="{{ chartLabel }}" onMouseMove="{{ onChartMove }}" onMouseLeave="{{ onChartLeave }}" onKeyDown="{{ onChartKey }}" onFocus="{{ onChartFocus }}" onBlur="{{ onChartLeave }}">
+                      <div class="dg-plot" ref="{{ chartRef }}"></div>
+                    </div>
+                    <sc-if value="{{ hasLegend }}" hint-placeholder-val="{{ false }}">
+                      <div class="dg-legend" aria-hidden="true">
+                        <sc-for list="{{ legend }}" as="l" hint-placeholder-count="2">
+                          <span class="dg-lg"><span class="{{ l.cls }}" style="{{ l.style }}"></span>{{ l.label }}</span>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </sc-if>
+                  <sc-if value="{{ perEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div class="dg-nodata" role="status">
+                      <span class="dg-nodata-ic" aria-hidden="true"><i class="ri-calendar-close-line"></i></span>
+                      За выбранный период записей нет
+                    </div>
+                  </sc-if>
+                </div>
+              </section>
+
+              <!-- п. 3.2 История записей -->
+              <sc-if value="{{ perHas }}" hint-placeholder-val="{{ true }}">
+                <section class="dg-card dg-tbl-card" aria-labelledby="dg-h-hist">
+                  <div class="dg-sec-h">
+                    <h2 class="dg-h2" id="dg-h-hist">История записей<span class="dg-of"> · {{ selLabel }}</span></h2>
+                  </div>
+                  <div role="table" aria-labelledby="dg-h-hist">
+                    <div class="dg-tr dg-th" role="row" style="{{ gridCols }}">
+                      <sc-for list="{{ cols }}" as="h" hint-placeholder-count="4"><div role="columnheader">{{ h }}</div></sc-for>
+                      <div role="columnheader"><span class="sr">Раскрыть</span></div>
+                    </div>
+                    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                      <div class="{{ r.cls }}" role="row" style="{{ gridCols }}" tabIndex="{{ r.tab }}" aria-expanded="{{ r.exp }}" onClick="{{ r.toggle }}" onKeyDown="{{ r.key }}">
+                        <div class="dg-td when" role="cell">{{ r.date }},<span class="tm">{{ r.time }}</span></div>
+                        <sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="3">
+                          <div class="{{ x.cls }}" role="cell"><span class="dg-cl">{{ x.lbl }}</span><sc-if value="{{ x.has }}" hint-placeholder-val="{{ true }}"><b>{{ x.v }}</b><span class="u">{{ x.u }}</span></sc-if><sc-if value="{{ x.txt }}" hint-placeholder-val="{{ false }}">{{ x.t }}</sc-if><sc-if value="{{ x.none }}" hint-placeholder-val="{{ false }}"><span class="dash" aria-label="Нет данных">—</span></sc-if></div>
+                        </sc-for>
+                        <div class="{{ r.cmCls }}" role="cell" title="{{ r.cmTitle }}"><span class="dg-cl">Комментарий:</span><sc-if value="{{ r.hasCm }}" hint-placeholder-val="{{ true }}">{{ r.cm }}</sc-if><sc-if value="{{ r.noCm }}" hint-placeholder-val="{{ false }}"><span class="dash" aria-label="Нет комментария">—</span></sc-if></div>
+                        <div class="dg-td ex" role="cell"><sc-if value="{{ r.x }}" hint-placeholder-val="{{ false }}"><span class="dg-chev" aria-hidden="true"><i class="ri-arrow-down-s-line"></i></span></sc-if></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}">
+                    <div class="dg-more"><button type="button" class="dg-btn ghost" onClick="{{ showMore }}"><i class="ri-arrow-down-line" aria-hidden="true"></i>{{ moreLabel }}</button></div>
+                  </sc-if>
+                </section>
+              </sc-if>
+            </sc-if>
+          </div>
+        </sc-if>
+      </main>
+    </div>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="dg-toast" role="status" aria-live="polite"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>Запись сохранена</div>
+  </sc-if>
+
+  <!-- п. 4–7 Окно добавления -->
+  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
+    <div class="dg-ov" onMouseDown="{{ onBackdrop }}">
+      <div class="dg-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="dg-dlg-t" aria-describedby="{{ dlgDesc }}" tabIndex="-1" onKeyDown="{{ onDlgKey }}" onMouseDown="{{ onDlgDown }}">
+        <div class="dg-dh">
+          <div class="dg-dh-t">
+            <h2 id="dg-dlg-t">{{ dlgTitle }}</h2>
+            <sc-if value="{{ fChf }}" hint-placeholder-val="{{ false }}"><p id="dg-dlg-d">Наблюдение при хронической сердечной недостаточности</p></sc-if>
+          </div>
+          <button type="button" class="dg-x" onClick="{{ close }}" aria-label="Закрыть"><i class="ri-close-line" aria-hidden="true"></i></button>
+        </div>
+
+        <div class="dg-db">
+          <!-- Дневник -->
+          <div class="dg-f">
+            <span class="dg-lbl" id="dg-l-diary">Дневник <span class="req" aria-hidden="true">*</span></span>
+            <div class="dg-dd">
+              <button type="button" id="f-diary" class="dg-in dg-ddb" aria-haspopup="listbox" aria-expanded="{{ ddOpen }}" aria-labelledby="dg-l-diary f-diary" onClick="{{ ddToggle }}" onKeyDown="{{ ddKey }}">
+                <span class="ic" aria-hidden="true"><i class="{{ fIcon }}"></i></span><span class="lb">{{ fLabel }}</span><i class="ri-arrow-down-s-line ch" aria-hidden="true"></i>
+              </button>
+              <sc-if value="{{ ddOpen }}" hint-placeholder-val="{{ false }}">
+                <div class="dg-ddl" role="listbox" aria-labelledby="dg-l-diary">
+                  <sc-for list="{{ ddOpts }}" as="o" hint-placeholder-count="3">
+                    <button type="button" class="dg-opt" role="option" aria-selected="{{ o.on }}" onClick="{{ o.pick }}"><span class="ic" aria-hidden="true"><i class="{{ o.icon }}"></i></span>{{ o.label }}<sc-if value="{{ o.sel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line ok" aria-hidden="true"></i></sc-if></button>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- п. 5 Глюкоза -->
+          <sc-if value="{{ fGlu }}" hint-placeholder-val="{{ true }}">
+            <div class="dg-f">
+              <label class="dg-lbl" for="f-g">Уровень глюкозы <span class="req" aria-hidden="true">*</span></label>
+              <div class="dg-unit" data-inv="{{ gInv }}"><input id="f-g" inputMode="decimal" autoComplete="off" placeholder="Например, 5,8" value="{{ fG }}" onChange="{{ onG }}" onBlur="{{ blurG }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ gInv }}" aria-describedby="e-g"><span class="u">ммоль/л</span></div>
+              <sc-if value="{{ gErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-g"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ gMsg }}</span></sc-if>
+            </div>
+            <div class="dg-row2">
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-date">Дата измерения <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-date" class="dg-in num" type="date" data-native="1" value="{{ fDate }}" max="{{ today }}" onChange="{{ onDate }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ dateInv }}" aria-describedby="e-date">
+                <sc-if value="{{ dateErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-date"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-time">Время измерения <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-time" class="dg-in num" type="time" data-native="1" value="{{ fTime }}" onChange="{{ onTime }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ timeInv }}" aria-describedby="e-time">
+                <sc-if value="{{ timeErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-time"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+            </div>
+            <div class="dg-f">
+              <span class="dg-lbl" id="dg-l-cond">Условия измерения</span>
+              <div class="dg-choice c2" role="radiogroup" id="f-cond" aria-labelledby="dg-l-cond">
+                <sc-for list="{{ condOpts }}" as="o" hint-placeholder-count="4">
+                  <button type="button" class="dg-ch" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}"><span class="rd" aria-hidden="true"></span>{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- п. 6 Артериальное давление -->
+          <sc-if value="{{ fBp }}" hint-placeholder-val="{{ false }}">
+            <div class="dg-row2 bp">
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-sys">Систолическое АД <span class="req" aria-hidden="true">*</span><span class="hint">Верхнее давление</span></label>
+                <div class="dg-unit" data-inv="{{ sysInv }}"><input id="f-sys" inputMode="numeric" autoComplete="off" placeholder="Например, 120" value="{{ fSys }}" onChange="{{ onSys }}" onBlur="{{ blurSys }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ sysInv }}" aria-describedby="e-sys"><span class="u">мм рт. ст.</span></div>
+                <sc-if value="{{ sysErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-sys"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ sysMsg }}</span></sc-if>
+              </div>
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-dia">Диастолическое АД <span class="req" aria-hidden="true">*</span><span class="hint">Нижнее давление</span></label>
+                <div class="dg-unit" data-inv="{{ diaInv }}"><input id="f-dia" inputMode="numeric" autoComplete="off" placeholder="Например, 80" value="{{ fDia }}" onChange="{{ onDia }}" onBlur="{{ blurDia }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ diaInv }}" aria-describedby="e-dia"><span class="u">мм рт. ст.</span></div>
+                <sc-if value="{{ diaErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-dia"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ diaMsg }}</span></sc-if>
+              </div>
+            </div>
+            <div class="dg-f">
+              <label class="dg-lbl" for="f-pulse">Пульс</label>
+              <div class="dg-unit" data-inv="{{ pulseInv }}"><input id="f-pulse" inputMode="numeric" autoComplete="off" placeholder="Например, 72" value="{{ fPulse }}" onChange="{{ onPulse }}" onBlur="{{ blurPulse }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ pulseInv }}" aria-describedby="e-pulse"><span class="u">уд/мин</span></div>
+              <sc-if value="{{ pulseErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-pulse"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ pulseMsg }}</span></sc-if>
+            </div>
+            <div class="dg-row2">
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-date">Дата измерения <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-date" class="dg-in num" type="date" data-native="1" value="{{ fDate }}" max="{{ today }}" onChange="{{ onDate }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ dateInv }}" aria-describedby="e-date">
+                <sc-if value="{{ dateErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-date"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-time">Время измерения <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-time" class="dg-in num" type="time" data-native="1" value="{{ fTime }}" onChange="{{ onTime }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ timeInv }}" aria-describedby="e-time">
+                <sc-if value="{{ timeErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-time"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- п. 7 Наблюдение при ХСН (состав и обязательность полей — предварительные) -->
+          <sc-if value="{{ fChf }}" hint-placeholder-val="{{ false }}">
+            <div class="dg-row2">
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-date">Дата наблюдения <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-date" class="dg-in num" type="date" data-native="1" value="{{ fDate }}" max="{{ today }}" onChange="{{ onDate }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ dateInv }}" aria-describedby="e-date">
+                <sc-if value="{{ dateErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-date"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+              <div class="dg-f">
+                <label class="dg-lbl" for="f-time">Время <span class="req" aria-hidden="true">*</span></label>
+                <input id="f-time" class="dg-in num" type="time" data-native="1" value="{{ fTime }}" onChange="{{ onTime }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ timeInv }}" aria-describedby="e-time">
+                <sc-if value="{{ timeErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-time"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
+              </div>
+            </div>
+            <div class="dg-f">
+              <label class="dg-lbl" for="f-w">Масса тела</label>
+              <div class="dg-unit" data-inv="{{ wInv }}" style="max-width:calc(50% - 8px);min-width:200px;"><input id="f-w" inputMode="decimal" autoComplete="off" placeholder="Например, 72,4" value="{{ fW }}" onChange="{{ onW }}" onBlur="{{ blurW }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ wInv }}" aria-describedby="e-w"><span class="u">кг</span></div>
+              <sc-if value="{{ wErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-w"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ wMsg }}</span></sc-if>
+            </div>
+            <div class="dg-f">
+              <span class="dg-lbl" id="dg-l-dysp">Одышка</span>
+              <div class="dg-choice c3" role="radiogroup" aria-labelledby="dg-l-dysp">
+                <sc-for list="{{ dyspOpts }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="dg-ch" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}"><span class="rd" aria-hidden="true"></span>{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+            <div class="dg-f">
+              <span class="dg-lbl" id="dg-l-edema">Отёки</span>
+              <div class="dg-choice c3" role="radiogroup" aria-labelledby="dg-l-edema">
+                <sc-for list="{{ edemaOpts }}" as="o" hint-placeholder-count="3">
+                  <button type="button" class="dg-ch" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}"><span class="rd" aria-hidden="true"></span>{{ o.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Общее: комментарий -->
+          <div class="dg-f">
+            <label class="dg-lbl" for="f-cm">Самочувствие и комментарий</label>
+            <textarea id="f-cm" class="dg-in" rows="3" value="{{ fCm }}" onChange="{{ onCm }}"></textarea>
+          </div>
+        </div>
+
+        <div class="dg-df">
+          <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}">
+            <div class="dg-saveerr" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>Не удалось сохранить запись. Попробуйте ещё раз</div>
+          </sc-if>
+          <span class="dg-src"><i class="ri-edit-line" aria-hidden="true"></i>Источник: Введено вручную</span>
+          <button type="button" class="dg-btn sec" onClick="{{ close }}" disabled="{{ saving }}">Отмена</button>
+          <button type="button" class="{{ saveCls }}" onClick="{{ save }}" disabled="{{ saving }}" aria-live="polite">
+            <sc-if value="{{ saving }}" hint-placeholder-val="{{ false }}"><span class="dg-spin" aria-hidden="true"></span>Сохранение…</sc-if>
+            <sc-if value="{{ notSaving }}" hint-placeholder-val="{{ true }}">{{ saveLabel }}</sc-if>
+          </button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Панель «Прототип» -->
+  <div class="pp" style="{{ ppW }}">
+    <button type="button" class="pp-h" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span class="pp-cap" style="flex:1;">Прототип · Дневник</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div class="pp-b">
+        <span class="pp-cap" style="font-size:10.5px;color:var(--n400);">Ответ сервиса</span>
+        <div role="radiogroup" aria-label="Ответ сервиса" style="display:flex;flex-direction:column;gap:6px;">
+          <sc-for list="{{ scns }}" as="x" hint-placeholder-count="5">
+            <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.pick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+          </sc-for>
+        </div>
+        <span class="pp-cap" style="font-size:10.5px;color:var(--n400);margin-top:6px;">Сохранение записи</span>
+        <div role="radiogroup" aria-label="Сохранение записи" style="display:flex;gap:6px;">
+          <sc-for list="{{ saves }}" as="x" hint-placeholder-count="2">
+            <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" style="flex:1;justify-content:center;" onClick="{{ x.pick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+          </sc-for>
+        </div>
+        <button type="button" class="pp-btn" style="justify-content:center;margin-top:6px;" onClick="{{ ppReset }}"><i class="ri-delete-bin-line" style="font-size:15px;" aria-hidden="true"></i>Сбросить данные</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+// ---------- Справочники постановки ----------
+const DIARIES = [
+  { id:'glu', label:'Глюкоза', icon:'ri-drop-line', unit:'ммоль/л' },
+  { id:'bp', label:'Артериальное давление', icon:'ri-pulse-line', unit:'мм рт. ст.' },
+  { id:'chf', label:'Наблюдение при ХСН', icon:'ri-heart-3-line', unit:'кг' },
+];
+const DMAP = Object.fromEntries(DIARIES.map(d => [d.id, d]));
+const CONDS = [
+  { id:'fasting', label:'Натощак', color:'#4D42E9', mk:'c' },
+  { id:'before', label:'До еды', color:'#1F87AD', mk:'s' },
+  { id:'after', label:'После еды', color:'#C2540A', mk:'d' },
+  { id:'other', label:'Другое / не помню', color:'#868C98', mk:'o' },
+];
+const CMAP = Object.fromEntries(CONDS.map(c => [c.id, c]));
+const NOCOND = { id:'none', label:'', color:'#868C98', mk:'o' };   // условия не указаны
+const YN = [{ id:'no', label:'Нет' }, { id:'yes', label:'Есть' }, { id:'na', label:'Не могу оценить' }];
+const YNMAP = Object.fromEntries(YN.map(x => [x.id, x.label]));
+const PERIODS = [{ id:'week', label:'Неделя', days:7 }, { id:'month', label:'Месяц', days:30 }];
+const SBP = '#4D42E9', DBP = '#1F87AD';
+
+const LS_KEY = 'mp-diary', VIEW_KEY = 'mp-diary-view', SCN_KEY = 'mp-diary-scn', SAVE_KEY = 'mp-diary-save';
+const SCNS = [
+  { id:'ok', label:'Записи есть', icon:'ri-line-chart-line' },
+  { id:'week', label:'Нет записей за неделю', icon:'ri-calendar-close-line' },
+  { id:'empty', label:'Нет записей', icon:'ri-inbox-line' },
+  { id:'slow', label:'Долгая загрузка', icon:'ri-loader-4-line' },
+  { id:'down', label:'Ошибка загрузки', icon:'ri-error-warning-line' },
+];
+const SAVES = [{ id:'ok', label:'Успешно', icon:'ri-check-line' }, { id:'fail', label:'Ошибка', icon:'ri-close-line' }];
+const PAGE = 10, DAY = 864e5, LONG_CM = 56;
+
+// ---------- Утилиты ----------
+const pad = (n) => String(n).padStart(2, '0');
+const dOf = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); };
+const tOf = (ts) => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const isoOf = (ts) => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const day0 = (ts) => { const d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const num = (v, dg) => v == null ? '' : (dg ? v.toFixed(dg) : String(Math.round(v))).replace('.', ',');
+const NUM_RE = /^\s*\d+(?:[.,]\d+)?\s*$/;
+const parse = (s) => parseFloat(String(s).trim().replace(',', '.'));
+const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const ss = { get(k, d){ try { const v = sessionStorage.getItem(k); return v == null ? d : v; } catch(e){ return d; } }, set(k, v){ try { sessionStorage.setItem(k, v); } catch(e){} } };
+
+// ---------- Демо-записи: 45 дней до текущего момента, последние значения — как в постановке ----------
+const rnd = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+const at = (d0, h, m) => d0 + (h * 60 + m) * 60000;
+const demo = (now) => {
+  const r = rnd(20261119), out = [];
+  let id = 0;
+  const add = (d, ts, v, c) => { if(ts <= now) out.push({ id:'demo' + (++id), d, ts, v, c:c || '', src:'manual' }); };
+  const t0 = day0(now);
+  // последний день с записями: сегодня, если утренние измерения уже прошли, иначе вчера
+  const last = now >= at(t0, 8, 15) ? t0 : t0 - DAY;
+  for(let k = 44; k >= 1; k--){
+    const d = last - k * DAY;
+    // расписание предсказуемое (пропуски — редкие), значения — псевдослучайные в обычных пределах
+    if(k % 13 !== 6) add('glu', at(d, 7, 30 + Math.floor(r() * 40)), { g:+(5.2 + r() * 1).toFixed(1), cond:'fasting' });
+    if(k % 2 === 0) add('glu', at(d, 13, 40 + Math.floor(r() * 40)), { g:+(6.6 + r() * 1.7).toFixed(1), cond:'after' }, k === 4 ? 'После обеда прогулка 20 минут' : '');
+    if(k % 3 === 1) add('glu', at(d, 18, 30 + Math.floor(r() * 30)), { g:+(5 + r() * .9).toFixed(1), cond:'before' });
+    if(k % 17 === 9) add('glu', at(d, 11, Math.floor(r() * 50)), { g:+(5.8 + r() * 1.2).toFixed(1), cond:'other' });
+    if(k % 9 !== 4) add('bp', at(d, 8, 5 + Math.floor(r() * 20)), { sys:Math.round(116 + r() * 16), dia:Math.round(73 + r() * 11), pulse:k % 7 === 3 ? null : Math.round(64 + r() * 14) },
+      k === 2 ? 'Утром немного кружилась голова, после завтрака самочувствие улучшилось. Давление измерял сидя, после пяти минут отдыха, на левой руке' : '');
+    if(k % 3 === 0) add('bp', at(d, 21, Math.floor(r() * 30)), { sys:Math.round(120 + r() * 14), dia:Math.round(76 + r() * 10), pulse:k % 6 === 0 ? null : Math.round(66 + r() * 12) });
+    if(k % 4 !== 3){
+      const pick = (o) => { const x = (k + o) % 10; return x < 7 ? 'no' : x < 9 ? 'yes' : 'na'; };
+      add('chf', at(d, 7, 40 + Math.floor(r() * 15)), { w:k % 15 === 7 ? null : +(71.8 + r() * 1.1 + (44 - k) * .006).toFixed(1), dysp:k % 11 === 5 ? null : pick(3), edema:pick(6) },
+        k === 5 ? 'К вечеру отёки на голенях, утром меньше. Одышка при подъёме на третий этаж' : '');
+    }
+  }
+  add('chf', at(last, 7, 50), { w:72.4, dysp:'no', edema:'yes' });
+  add('glu', at(last, 8, 0), { g:5.8, cond:'fasting' });
+  add('bp', at(last, 8, 10), { sys:120, dia:80, pulse:72 });
+  return out;
+};
+const loadMine = () => { try { const v = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => x && DMAP[x.d] && typeof x.ts === 'number') : []; } catch(e){ return []; } };
+
+// ---------- Шкалы графика ----------
+const niceStep = (x) => { const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; };
+// minSpan — минимальный диапазон оси, чтобы небольшие колебания не выглядели резкими скачками
+const yScale = (lo, hi, minSpan) => {
+  if(hi - lo < minSpan){ const c = (lo + hi) / 2; lo = c - minSpan / 2; hi = c + minSpan / 2; }
+  const span = hi - lo, step = niceStep(span / 4);
+  const a = Math.floor((lo - span * .08) / step) * step, b = Math.ceil((hi + span * .08) / step) * step;
+  const ticks = []; for(let v = a; v <= b + step / 2; v += step) ticks.push(+v.toFixed(4));
+  return { a, b, ticks, dg: step < 1 ? 1 : 0 };
+};
+const marker = (mk, x, y, color, big) => {
+  const s = big ? 1.45 : 1, st = ' stroke="#fff" stroke-width="' + (big ? 2.5 : 1.5) + '"';
+  if(mk === 's') return '<rect x="' + (x - 4.2 * s) + '" y="' + (y - 4.2 * s) + '" width="' + 8.4 * s + '" height="' + 8.4 * s + '" rx="1.6" fill="' + color + '"' + st + '/>';
+  if(mk === 'd') return '<path d="M' + x + ' ' + (y - 6 * s) + 'L' + (x + 6 * s) + ' ' + y + 'L' + x + ' ' + (y + 6 * s) + 'L' + (x - 6 * s) + ' ' + y + 'Z" fill="' + color + '"' + st + '/>';
+  if(mk === 'o') return '<circle cx="' + x + '" cy="' + y + '" r="' + 4 * s + '" fill="#fff" stroke="' + color + '" stroke-width="2"/>';
+  return '<circle cx="' + x + '" cy="' + y + '" r="' + 4.5 * s + '" fill="' + color + '"' + st + '/>';
+};
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    let view = {}; try { view = JSON.parse(ss.get(VIEW_KEY, '{}')) || {}; } catch(e){}
+    this.state = {
+      st:'loading', scn:ss.get(SCN_KEY, 'ok'), saveScn:ss.get(SAVE_KEY, 'ok'),
+      mine:loadMine(), sel:DMAP[view.sel] ? view.sel : 'glu', per:view.per === 'month' ? 'month' : 'week', cond:CMAP[view.cond] ? view.cond : 'all',
+      shown:PAGE, open:{}, hov:null, newId:null, toast:false,
+      dlg:false, f:null, touched:{}, tried:false, saving:false, saveErr:false, dd:false,
+      ppOpen:false,
+    };
+    this.addRef = React.createRef(); this.dlgRef = React.createRef(); this.chartRef = React.createRef(); this.retryRef = React.createRef();
+  }
+
+  componentDidMount(){
+    this.boot();
+    this._rs = () => { clearTimeout(this._rsT); this._rsT = setTimeout(() => this.draw(), 60); };
+    window.addEventListener('resize', this._rs);
+    if(window.ResizeObserver){ this._ro = new ResizeObserver(this._rs); }
+  }
+  componentDidUpdate(){ this.draw(); }
+  componentWillUnmount(){
+    window.removeEventListener('resize', this._rs); if(this._ro) this._ro.disconnect();
+    clearTimeout(this._bootT); clearTimeout(this._toastT); clearTimeout(this._newT); clearTimeout(this._saveT);
+    document.body.style.overflow = '';
+  }
+
+  // п. 9 Загрузка раздела и ответ сервиса
+  boot(){
+    clearTimeout(this._bootT);
+    this.setState({ st:'loading', hov:null });
+    const scn = this.state.scn;
+    this._bootT = setTimeout(() => {
+      this.setState({ st: scn === 'down' ? 'fail' : 'ok' });
+      if(scn === 'down') setTimeout(() => this.retryRef.current && this.retryRef.current.focus(), 30);
+    }, scn === 'slow' ? 3500 : 650);
+  }
+  setView(p){
+    const v = { sel:this.state.sel, per:this.state.per, cond:this.state.cond, ...p };
+    ss.set(VIEW_KEY, JSON.stringify(v));
+    this.setState({ ...p, shown:PAGE, open:{}, hov:null });
+  }
+
+  // все записи: демо-набор по сценарию + добавленные пользователем
+  records(){
+    const now = Date.now(), scn = this.state.scn;
+    let base = scn === 'empty' ? [] : demo(now);
+    if(scn === 'week') base = base.filter(x => x.ts < day0(now) - 6 * DAY);
+    return base.concat(this.state.mine);
+  }
+
+  // ---------- График (п. 3.1) — SVG строкой в контейнер, без перерисовки React ----------
+  draw(){
+    const host = this.chartRef.current, m = this._m;
+    if(this._ro && host && host !== this._roHost){ this._ro.disconnect(); this._ro.observe(host); this._roHost = host; }
+    if(!host || !m) return;
+    const W = Math.round(host.clientWidth); if(!W) return;
+    const H = W < 560 ? 220 : 268, L = 48, R = 14, T = 22, B = 30;
+    const pw = W - L - R, ph = H - T - B;
+    const { start, end, d, pts } = m;
+    const vals = [];
+    pts.forEach(p => { if(d === 'bp'){ vals.push(p.r.v.sys, p.r.v.dia); } else vals.push(p.y); });
+    const ys = yScale(Math.min(...vals), Math.max(...vals), d === 'bp' ? 50 : d === 'glu' ? 4 : 5);
+    const X = (ts) => L + (ts - start) / (end - start) * pw;
+    const Y = (v) => T + (1 - (v - ys.a) / (ys.b - ys.a)) * ph;
+    let s = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(m.label) + '" style="font-family:Inter,sans-serif;">';
+    // сетка и подписи оси Y
+    ys.ticks.forEach(v => {
+      const y = Y(v).toFixed(1);
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="#E2E4E9" stroke-width="1"' + (v === ys.a ? '' : ' stroke-dasharray="3 4"') + '/>';
+      s += '<text x="' + (L - 10) + '" y="' + y + '" dy="4" text-anchor="end" font-size="12" fill="#525866" style="font-variant-numeric:tabular-nums">' + num(v, ys.dg) + '</text>';
+    });
+    s += '<text x="0" y="' + (T - 10) + '" font-size="12" font-weight="500" fill="#525866">' + esc(m.unit) + '</text>';
+    // подписи оси X: каждый день недели / каждые 5 дней месяца (на узком экране — реже)
+    const days = Math.round((end - start) / DAY), every = days <= 7 ? (pw < 300 ? 2 : 1) : (pw < 420 ? 7 : 5);
+    for(let i = days - 1; i >= 0; i -= every){
+      const ts = start + i * DAY + DAY / 2, x = X(ts).toFixed(1);
+      const dd = new Date(ts);
+      s += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="#525866" style="font-variant-numeric:tabular-nums">' + pad(dd.getDate()) + '.' + pad(dd.getMonth() + 1) + '</text>';
+    }
+    // серии
+    const line = (arr, key, color, dash, area) => {
+      if(!arr.length) return '';
+      const p = arr.map((q, i) => (i ? 'L' : 'M') + X(q.ts).toFixed(1) + ' ' + Y(key(q)).toFixed(1)).join('');
+      let o = '';
+      if(area && arr.length > 1) o += '<path d="' + p + 'L' + X(arr[arr.length - 1].ts).toFixed(1) + ' ' + (T + ph) + 'L' + X(arr[0].ts).toFixed(1) + ' ' + (T + ph) + 'Z" fill="' + color + '" fill-opacity=".07"/>';
+      o += '<path d="' + p + '" fill="none" stroke="' + color + '" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"' + (dash ? ' stroke-dasharray="6 5"' : '') + '/>';
+      return o;
+    };
+    const hv = this.state.hov;
+    const hp = pts.find(p => p.r.id === hv);
+    if(hp) s += '<line x1="' + X(hp.ts).toFixed(1) + '" x2="' + X(hp.ts).toFixed(1) + '" y1="' + T + '" y2="' + (T + ph) + '" stroke="#CDD0D5" stroke-width="1"/>';
+    if(d === 'bp'){
+      s += line(pts, q => q.r.v.sys, SBP, false, false) + line(pts, q => q.r.v.dia, DBP, true, false);
+      pts.forEach(q => { const on = q === hp; s += marker('c', X(q.ts), Y(q.r.v.sys), SBP, on) + marker('c', X(q.ts), Y(q.r.v.dia), DBP, on); });
+    } else if(d === 'glu' && m.cond === 'all'){
+      // все условия: точки без линии — форма и цвет по условию (п. 3.1)
+      pts.forEach(q => { const c = CMAP[q.r.v.cond] || NOCOND; s += marker(c.mk, X(q.ts), Y(q.y), c.color, q === hp); });
+    } else {
+      const c = d === 'glu' ? CMAP[m.cond] : { color:'#4D42E9', mk:'c' };
+      s += line(pts, q => q.y, c.color, false, false);
+      pts.forEach(q => { s += marker(c.mk, X(q.ts), Y(q.y), c.color, q === hp); });
+    }
+    s += '</svg>';
+    // подсказка точки: дата, время, значение и единица
+    if(hp){
+      // сбоку от направляющей, у верхнего края области графика — не закрывает точки этого измерения
+      const xp = X(hp.ts), right = xp < W * .62;
+      const pos = right ? 'left:' + (xp + 12).toFixed(1) + 'px;' : 'right:' + (W - xp + 12).toFixed(1) + 'px;';
+      let body = '';
+      if(d === 'bp') body = '<div class="r"><span class="dot" style="background:' + SBP + '"></span><span class="v">' + hp.r.v.sys + ' <small>сист.</small></span></div>'
+        + '<div class="r"><span class="dot" style="background:' + DBP + '"></span><span class="v">' + hp.r.v.dia + ' <small>диаст.</small></span></div><div class="t">мм рт. ст.</div>';
+      else if(d === 'glu') body = '<div class="v">' + num(hp.y, 1) + ' <small>ммоль/л</small></div>' + (CMAP[hp.r.v.cond] ? '<div>' + esc(CMAP[hp.r.v.cond].label) + '</div>' : '');
+      else body = '<div class="v">' + num(hp.y, 1) + ' <small>кг</small></div>';
+      s += '<div class="dg-tip" style="' + pos + 'top:' + T + 'px;"><div class="t">' + dOf(hp.ts) + ', ' + tOf(hp.ts) + '</div>' + body + '</div>';
+    }
+    if(host.__svg !== s){ host.innerHTML = s; host.__svg = s; }
+    host.style.height = H + 'px';
+    this._geo = { X, L, R, W, pts };
+  }
+  hoverAt(clientX, clientY){
+    const g = this._geo, host = this.chartRef.current; if(!g || !host || !g.pts.length) return;
+    const r = host.getBoundingClientRect(), x = clientX - r.left;
+    let best = null, bd = Infinity;
+    g.pts.forEach(p => { const dx = Math.abs(g.X(p.ts) - x); if(dx < bd){ bd = dx; best = p; } });
+    const id = best && bd < 48 ? best.r.id : null;
+    if(id !== this.state.hov) this.setState({ hov:id });
+  }
+  stepHover(dir){
+    const g = this._geo; if(!g || !g.pts.length) return;
+    const i = g.pts.findIndex(p => p.r.id === this.state.hov);
+    const n = i < 0 ? (dir > 0 ? 0 : g.pts.length - 1) : Math.max(0, Math.min(g.pts.length - 1, i + dir));
+    this.setState({ hov:g.pts[n].r.id });
+  }
+
+  // ---------- Окно добавления ----------
+  blank(d){
+    const now = Date.now();
+    return { d, date:isoOf(now), time:tOf(now), g:'', cond:null, sys:'', dia:'', pulse:'', w:'', dysp:null, edema:null, cm:'' };
+  }
+  open(){
+    if(this.state.st !== 'ok') return;
+    this._ret = document.activeElement;
+    this.setState({ dlg:true, f:this.blank(this.state.sel), touched:{}, tried:false, saving:false, saveErr:false, dd:false });
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => this.focusFirst(), 40);
+  }
+  focusFirst(){
+    const d = this.state.f && this.state.f.d;
+    const el = document.getElementById(d === 'glu' ? 'f-g' : d === 'bp' ? 'f-sys' : 'f-w');
+    if(el) el.focus(); else if(this.dlgRef.current) this.dlgRef.current.focus();
+  }
+  close(){
+    if(this.state.saving) return;
+    clearTimeout(this._saveT);
+    this.setState({ dlg:false, dd:false });
+    document.body.style.overflow = '';
+    setTimeout(() => { const r = this._ret && document.body.contains(this._ret) ? this._ret : this.addRef.current; try { r && r.focus({ preventScroll:true }); } catch(e){} }, 60);
+  }
+  dirty(){
+    const f = this.state.f; if(!f) return false;
+    return !!(f.g || f.cond || f.sys || f.dia || f.pulse || f.w || f.dysp || f.edema || f.cm.trim());
+  }
+  setF(p){ this.setState({ f:{ ...this.state.f, ...p }, saveErr:false }); }
+  errors(){
+    const f = this.state.f, e = {};
+    if(!f) return e;
+    const req = (k) => { if(!String(f[k] || '').trim()) e[k] = 'Заполните поле'; };
+    const numf = (k) => { if(String(f[k] || '').trim() && !NUM_RE.test(f[k])) e[k] = 'Введите числовое значение'; };
+    req('date'); req('time');
+    if(f.d === 'glu'){ req('g'); numf('g'); }
+    if(f.d === 'bp'){ req('sys'); req('dia'); numf('sys'); numf('dia'); numf('pulse'); }
+    if(f.d === 'chf'){ numf('w'); }
+    return e;
+  }
+  save(){
+    if(this.state.saving) return;
+    const e = this.errors(), keys = Object.keys(e);
+    if(keys.length){
+      this.setState({ tried:true, dd:false });
+      const order = ['g', 'sys', 'dia', 'pulse', 'w', 'date', 'time'];
+      const k = order.find(x => e[x]);
+      setTimeout(() => { const el = document.getElementById('f-' + k); if(el){ el.scrollIntoView({ block:'center', behavior:'smooth' }); el.focus({ preventScroll:true }); } }, 30);
+      return;
+    }
+    this.setState({ saving:true, saveErr:false, tried:true, dd:false });
+    const f = this.state.f;
+    clearTimeout(this._saveT);
+    this._saveT = setTimeout(() => {
+      if(this.state.saveScn === 'fail'){ this.setState({ saving:false, saveErr:true }); return; }
+      const [y, mo, dd] = f.date.split('-').map(Number), [hh, mm] = f.time.split(':').map(Number);
+      const ts = new Date(y, mo - 1, dd, hh, mm).getTime();
+      const v = f.d === 'glu' ? { g:parse(f.g), cond:f.cond }
+        : f.d === 'bp' ? { sys:parse(f.sys), dia:parse(f.dia), pulse:f.pulse.trim() ? parse(f.pulse) : null }
+        : { w:f.w.trim() ? parse(f.w) : null, dysp:f.dysp, edema:f.edema };
+      const rec = { id:'u' + Date.now(), d:f.d, ts, v, c:f.cm.trim(), src:'manual' };
+      const mine = this.state.mine.concat(rec);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(mine)); } catch(err){}
+      // п. 8: окно закрыто, тост, запись в истории выбранного дневника, график и карточка обновлены
+      const cond = f.d === 'glu' && this.state.cond !== 'all' && this.state.cond !== f.cond ? 'all' : this.state.cond;   // новая запись должна быть видна
+      const per = this.state.per === 'week' && ts < day0(Date.now()) - 6 * DAY && ts >= day0(Date.now()) - 29 * DAY ? 'month' : this.state.per;
+      ss.set(VIEW_KEY, JSON.stringify({ sel:f.d, per, cond }));
+      this.setState({ mine, saving:false, sel:f.d, cond, per, shown:PAGE, open:{}, newId:rec.id, toast:true });
+      this.close();
+      clearTimeout(this._toastT); this._toastT = setTimeout(() => this.setState({ toast:false }), 3500);
+      clearTimeout(this._newT); this._newT = setTimeout(() => this.setState({ newId:null }), 3000);
+      setTimeout(() => { const row = document.querySelector('.dg-row.new'); if(row){ const r = row.getBoundingClientRect(); if(r.top < 90 || r.bottom > innerHeight) row.scrollIntoView({ behavior:'smooth', block:'center' }); } }, 120);
+    }, 900);
+  }
+  trap(e){
+    if(e.key === 'Escape'){ e.preventDefault(); if(this.state.dd){ this.setState({ dd:false }); return; } this.close(); return; }
+    if(e.key !== 'Tab' || !this.dlgRef.current) return;
+    const f = [...this.dlgRef.current.querySelectorAll('button:not([disabled]),input,textarea,a[href]')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if(e.shiftKey && (document.activeElement === first || document.activeElement === this.dlgRef.current)){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  }
+  pickDiary(id){
+    const f = this.state.f; if(!f) return;
+    // при смене направления меняется состав полей; дата, время и комментарий сохраняются
+    this.setState({ f:{ ...this.blank(id), date:f.date, time:f.time, cm:f.cm }, dd:false, touched:{}, tried:false, saveErr:false });
+    setTimeout(() => { const b = document.getElementById('f-diary'); b && b.focus(); }, 20);
+  }
+
+  renderVals(){
+    const s = this.state, now = Date.now(), t0 = day0(now);
+    const all = this.records();
+    const by = (d) => all.filter(x => x.d === d).sort((a, b) => b.ts - a.ts);
+    const ready = s.st === 'ok';
+
+    // карточки направлений
+    const dirs = DIARIES.map(d => {
+      const list = by(d.id), r = list[0];
+      let value = '', unit = d.unit, extra = '';
+      if(r){
+        if(d.id === 'glu'){ value = num(r.v.g, 1); extra = (CMAP[r.v.cond] || NOCOND).label; }
+        if(d.id === 'bp'){ value = r.v.sys + '/' + r.v.dia; extra = r.v.pulse != null ? 'Пульс ' + r.v.pulse + ' уд/мин' : ''; }
+        if(d.id === 'chf'){
+          value = r.v.w != null ? num(r.v.w, 1) : '—'; unit = r.v.w != null ? 'кг' : 'масса тела';
+          const yn = (x) => x ? YNMAP[x].toLowerCase() : '—';
+          extra = 'Одышка: ' + yn(r.v.dysp) + ' · Отёки: ' + yn(r.v.edema);
+        }
+      }
+      return { ...d, has:!!r, none:!r, value, unit, extra, hasExtra:!!extra, when: r ? dOf(r.ts) + ', ' + tOf(r.ts) : '',
+        on:String(s.sel === d.id), pick: () => { if(s.sel !== d.id) this.setView({ sel:d.id }); } };
+    });
+
+    // выбранный дневник: период и фильтр условий
+    const D = DMAP[s.sel], list = by(s.sel);
+    const P = PERIODS.find(p => p.id === s.per);
+    const start = t0 - (P.days - 1) * DAY, end = t0 + DAY;
+    const isGlu = s.sel === 'glu';
+    const cond = isGlu ? s.cond : 'all';
+    const inPer = list.filter(x => x.ts >= start && x.ts < end && (cond === 'all' || x.v.cond === cond));
+    const chartPts = inPer.filter(x => s.sel === 'bp' || (s.sel === 'glu' ? x.v.g != null : x.v.w != null))
+      .slice().sort((a, b) => a.ts - b.ts)
+      .map(r => ({ r, ts:r.ts, y: s.sel === 'glu' ? r.v.g : s.sel === 'chf' ? r.v.w : r.v.sys }));
+    const perHas = ready && list.length > 0 && inPer.length > 0 && chartPts.length > 0;
+    const perLabel = s.per === 'week' ? 'за неделю' : 'за месяц';
+    this._m = perHas ? { d:s.sel, start, end, pts:chartPts, cond, unit:D.unit,
+      label:'График: ' + D.label + (isGlu && cond !== 'all' ? ', ' + CMAP[cond].label.toLowerCase() : '') + ' ' + perLabel + ', ' + chartPts.length + ' ' + plural(chartPts.length, ['запись', 'записи', 'записей']) + '. Стрелки влево и вправо — переход между точками' } : null;
+
+    // легенда — только у давления; у глюкозы маркеры условий стоят в самом фильтре (одно место, без дубля)
+    const legend = s.sel === 'bp'
+      ? [{ label:'Систолическое АД', cls:'dg-mk l', style:'border-color:' + SBP + ';' }, { label:'Диастолическое АД', cls:'dg-mk l dash', style:'border-color:' + DBP + ';' }]
+      : [];
+
+    // история записей (п. 3.2)
+    const yn = (x) => x ? { has:false, txt:true, none:false, t:YNMAP[x] } : { has:false, txt:false, none:true };
+    const val = (v, u, dg) => v == null ? { has:false, txt:false, none:true } : { has:true, txt:false, none:false, v:num(v, dg), u };
+    const colSets = {
+      glu: { cols:['Дата и время', 'Глюкоза', 'Условия измерения', 'Комментарий'], grid:'grid-template-columns:150px minmax(120px,170px) minmax(150px,200px) minmax(0,1fr) 32px;',
+        cells:(r) => [{ ...val(r.v.g, 'ммоль/л', 1), cls:'dg-td val', lbl:'Глюкоза:' }, { ...(CMAP[r.v.cond] ? { has:false, txt:true, none:false, t:CMAP[r.v.cond].label } : yn(null)), cls:'dg-td opt', lbl:'Условия:' }] },
+      bp: { cols:['Дата и время', 'Систолическое АД', 'Диастолическое АД', 'Пульс', 'Комментарий'], grid:'grid-template-columns:150px minmax(130px,160px) minmax(130px,160px) minmax(100px,130px) minmax(0,1fr) 32px;',
+        cells:(r) => [{ ...val(r.v.sys, 'мм рт. ст.'), cls:'dg-td val', lbl:'Сист.:' }, { ...val(r.v.dia, 'мм рт. ст.'), cls:'dg-td val', lbl:'Диаст.:' }, { ...val(r.v.pulse, 'уд/мин'), cls:'dg-td val', lbl:'Пульс:' }] },
+      chf: { cols:['Дата и время', 'Масса тела', 'Одышка', 'Отёки', 'Комментарий'], grid:'grid-template-columns:150px minmax(110px,140px) minmax(120px,160px) minmax(120px,160px) minmax(0,1fr) 32px;',
+        cells:(r) => [{ ...val(r.v.w, 'кг', 1), cls:'dg-td val', lbl:'Масса тела:' }, { ...yn(r.v.dysp), cls:'dg-td opt', lbl:'Одышка:' }, { ...yn(r.v.edema), cls:'dg-td opt', lbl:'Отёки:' }] },
+    };
+    const CS = colSets[s.sel];
+    const lim = inPer.length - s.shown <= 4 ? inPer.length : s.shown;   // хвост до 4 записей — сразу, без лишнего клика
+    const rows = inPer.slice(0, lim).map(r => {
+      const long = (r.c || '').length > LONG_CM, isOpen = !!s.open[r.id];
+      const toggle = () => { if(long) this.setState({ open:{ ...this.state.open, [r.id]:!isOpen } }); };
+      return { date:dOf(r.ts), time:tOf(r.ts), cells:CS.cells(r),
+        hasCm:!!r.c, noCm:!r.c, cm:r.c || '', cmTitle: long && !isOpen ? r.c : '', cmCls:'dg-td cm' + (long ? ' clip' : '') + (r.c ? '' : ' empty'),
+        x:long, exp: long ? String(isOpen) : undefined, tab: long ? '0' : undefined,
+        cls:'dg-tr dg-row' + (long ? ' x' : '') + (isOpen ? ' open' : '') + (r.id === s.newId ? ' new' : ''),
+        toggle, key:(e) => { if(long && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); toggle(); } } };
+    });
+    const left = inPer.length - lim;
+
+    // окно
+    const f = s.f;
+    const errs = s.dlg ? this.errors() : {};
+    const show = (k) => !!errs[k] && (s.tried || (s.touched[k] && errs[k] === 'Введите числовое значение'));
+    const fe = (k) => ({ [k + 'Err']:show(k), [k + 'Inv']:String(show(k)), [k + 'Msg']:errs[k] || '' });
+    const blur = (k) => () => this.setState({ touched:{ ...this.state.touched, [k]:true } });
+    const onv = (k) => (e) => this.setF({ [k]:e.target.value });
+    const fd = f ? DMAP[f.d] : DIARIES[0];
+    const opts = (k, list) => list.map(o => ({ ...o, on:String(!!f && f[k] === o.id), pick: () => this.setF({ [k]:o.id }) }));
+
+    return {
+      busy:String(s.st === 'loading'),
+      addRef:this.addRef, openAdd:() => this.open(), addOff:!ready,
+      loading:s.st === 'loading', failed:s.st === 'fail', ready, retryRef:this.retryRef, retry:() => this.boot(),
+      skel3:[{ w:'width:96px;height:14px;' }, { w:'width:150px;height:14px;' }, { w:'width:130px;height:14px;' }], skel4:[1, 2, 3, 4],
+
+      dirs,
+      selEmpty: ready && list.length === 0, selHas: ready && list.length > 0, selIcon:D.icon,
+      isGlu,
+      condTabs:[{ id:'all', label:'Все' }].concat(CONDS).map(c => ({ ...c, on:String(cond === c.id), pick:() => this.setView({ cond:c.id }),
+        hasMk:!!c.mk, cls:'dg-mk ' + (c.mk || ''), style: c.mk && c.mk !== 'o' ? 'background:' + c.color + ';' : '' })),
+      perTabs:PERIODS.map(p => ({ ...p, on:String(s.per === p.id), pick:() => this.setView({ per:p.id }) })),
+      perHas, perEmpty: ready && list.length > 0 && !perHas,
+      chartRef:this.chartRef, chartLabel: this._m ? this._m.label : '',
+      onChartMove:(e) => this.hoverAt(e.clientX, e.clientY),
+      onChartLeave:() => { if(this.state.hov) this.setState({ hov:null }); },
+      onChartFocus:() => { if(!this.state.hov){ const g = this._geo; if(g && g.pts.length) this.setState({ hov:g.pts[g.pts.length - 1].r.id }); } },
+      onChartKey:(e) => { if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){ e.preventDefault(); this.stepHover(e.key === 'ArrowLeft' ? -1 : 1); } if(e.key === 'Escape') this.setState({ hov:null }); },
+      hasLegend:legend.length > 0, legend,
+
+      selLabel:D.label,
+      cols:CS.cols, gridCols:CS.grid, rows,
+      hasMore:left > 0, moreLabel:'Показать ещё ' + Math.min(PAGE, left), showMore:() => this.setState({ shown:this.state.shown + PAGE }),
+
+      hasToast:s.toast,
+
+      dlg:s.dlg, dlgRef:this.dlgRef,
+      dlgTitle: f && f.d === 'chf' ? 'Добавить запись' : 'Добавить измерение',
+      dlgDesc: f && f.d === 'chf' ? 'dg-dlg-d' : undefined,
+      close:() => this.close(),
+      onBackdrop:() => { if(!this.dirty() && !this.state.saving) this.close(); },
+      onDlgDown:(e) => { e.stopPropagation(); if(this.state.dd && !(e.target.closest && e.target.closest('.dg-dd'))) this.setState({ dd:false }); },
+      onDlgKey:(e) => this.trap(e),
+      onEnter:(e) => { if(e.key === 'Enter'){ e.preventDefault(); this.save(); } },
+
+      ddOpen:s.dd, fIcon:fd.icon, fLabel:fd.label,
+      ddToggle:() => this.setState({ dd:!this.state.dd }),
+      ddKey:(e) => {
+        const i = DIARIES.findIndex(x => x.id === (f && f.d));
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); const n = DIARIES[(i + (e.key === 'ArrowDown' ? 1 : DIARIES.length - 1)) % DIARIES.length]; this.pickDiary(n.id); }
+        if(e.key === 'Escape' && this.state.dd){ e.preventDefault(); e.stopPropagation(); this.setState({ dd:false }); }
+      },
+      ddOpts:DIARIES.map(d => ({ ...d, on:String(!!f && f.d === d.id), sel:!!f && f.d === d.id, pick:() => this.pickDiary(d.id) })),
+
+      fGlu:!!f && f.d === 'glu', fBp:!!f && f.d === 'bp', fChf:!!f && f.d === 'chf',
+      today:isoOf(now),
+      fG:f ? f.g : '', fSys:f ? f.sys : '', fDia:f ? f.dia : '', fPulse:f ? f.pulse : '', fW:f ? f.w : '',
+      fDate:f ? f.date : '', fTime:f ? f.time : '', fCm:f ? f.cm : '',
+      onG:onv('g'), onSys:onv('sys'), onDia:onv('dia'), onPulse:onv('pulse'), onW:onv('w'), onDate:onv('date'), onTime:onv('time'), onCm:onv('cm'),
+      blurG:blur('g'), blurSys:blur('sys'), blurDia:blur('dia'), blurPulse:blur('pulse'), blurW:blur('w'),
+      ...fe('g'), ...fe('sys'), ...fe('dia'), ...fe('pulse'), ...fe('w'), ...fe('date'), ...fe('time'),
+      condOpts:opts('cond', CONDS), dyspOpts:opts('dysp', YN), edemaOpts:opts('edema', YN),
+
+      saving:s.saving, notSaving:!s.saving, saveErr:s.saveErr,
+      saveCls:'dg-btn pri' + (s.saving ? ' busy' : ''),
+      saveLabel: f && f.d === 'chf' ? 'Сохранить запись' : 'Сохранить измерение',
+      save:() => this.save(),
+
+      // панель «Прототип»
+      ppOpen:s.ppOpen, ppW:'width:' + (s.ppOpen ? 252 : 236) + 'px;',
+      ppChev:s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppToggle:() => this.setState({ ppOpen:!s.ppOpen }),
+      scns:SCNS.map(x => ({ ...x, on:String(s.scn === x.id), pick:() => { ss.set(SCN_KEY, x.id); this.state.scn = x.id; this.setState({ scn:x.id }); this.boot(); } })),
+      saves:SAVES.map(x => ({ ...x, on:String(s.saveScn === x.id), pick:() => { ss.set(SAVE_KEY, x.id); this.setState({ saveScn:x.id }); } })),
+      ppReset:() => { try { localStorage.removeItem(LS_KEY); } catch(e){} ss.set(VIEW_KEY, '{}'); this.setState({ mine:[], sel:'glu', per:'week', cond:'all', shown:PAGE, open:{} }); },
+    };
+  }
+}
+</script>
+</body>
+</html>
