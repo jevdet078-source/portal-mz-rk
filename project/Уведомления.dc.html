@@ -29,8 +29,23 @@
   body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
   @keyframes mp-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  .tnum{font-variant-numeric:tabular-nums;}
+  .nt-tab{transition:color .15s;}
+  .nt-tab:hover{color:#0A0D14 !important;}
+  .nt-tab:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);border-radius:4px;}
   .nt-row{transition:background .15s;}
   .nt-row:hover{background:var(--n100) !important;}
+  .nt-row:focus-visible,.nt-b:focus-visible,.nt-x:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
+  .nt-b{transition:background .15s,border-color .15s,color .15s;}
+  .nt-b:hover{background:var(--n50) !important;border-color:var(--n300) !important;color:var(--n900) !important;}
+  .nt-q{width:320px;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 36px 0 40px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:#fff;box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .nt-q::placeholder{color:var(--n400);}
+  .nt-q::-webkit-search-cancel-button{display:none;}
+  .nt-q:hover{border-color:var(--n300);}
+  .nt-q:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .nt-x{width:28px;height:28px;border:none;border-radius:6px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--n400);}
+  .nt-x:hover{color:var(--n600);background:var(--n100);}
+  @media (max-width:720px){ .nt-acts{width:100%;} .nt-qw{flex:1;min-width:0;} .nt-q{width:100%;} }
 </style>
 </helmet>
 
@@ -50,17 +65,27 @@
           <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
             <div style="font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Центр уведомлений</div>
           </div>
-          <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
-            <button onClick="{{ readAll }}" style="height:40px;padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);">
-              <i class="ri-check-double-line" style="font-size:18px;color:var(--n400);"></i>Отметить все прочитанными
-            </button>
-          </sc-if>
+          <div class="nt-acts" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <!-- поиск по тексту уведомления и ID заявки: найти старое уведомление -->
+            <div class="nt-qw" role="search" style="position:relative;">
+              <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;"></i>
+              <input class="nt-q tnum" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по тексту или ID заявки" aria-label="Поиск по тексту уведомления или ID заявки" autoComplete="off" spellCheck="false" enterKeyHint="search" />
+              <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                <button type="button" class="nt-x" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить" style="position:absolute;right:6px;top:6px;"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+              </sc-if>
+            </div>
+            <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
+              <button class="nt-b" onClick="{{ readAll }}" style="height:40px;padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);white-space:nowrap;">
+                <i class="ri-check-double-line" style="font-size:18px;color:var(--n400);"></i>Отметить все прочитанными
+              </button>
+            </sc-if>
+          </div>
         </div>
 
         <!-- Вкладки -->
         <div style="display:flex;gap:20px;border-bottom:1px solid var(--stroke);">
           <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
-            <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.badgeStyle }}">{{ t.count }}</span><span style="{{ t.underline }}"></span></button>
+            <button class="nt-tab" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.badgeStyle }}">{{ t.count }}</span><span style="{{ t.underline }}"></span></button>
           </sc-for>
         </div>
 
@@ -77,16 +102,20 @@
               <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
                 <div>
                   <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
-                    <a class="nt-row" href="{{ r.href }}" onClick="{{ r.onOpen }}" title="{{ r.rowTip }}" style="{{ r.rowStyle }}">
-                      <div style="{{ r.numStyle }}">
-                        <sc-if value="{{ r.unread }}" hint-placeholder-val="{{ true }}"><span title="Непрочитанное" style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 auto;"></span></sc-if>
-                        <span style="{{ r.numTextStyle }}">{{ r.n }}</span>
+                    <!-- запись: сведения строкой по столбцам, под ней — текст уведомления целиком, на всю ширину -->
+                    <a class="nt-row" href="{{ r.href }}" onClick="{{ r.onOpen }}" aria-label="{{ r.aria }}" style="{{ r.rowStyle }}">
+                      <div style="display:flex;align-items:center;">
+                        <div style="{{ r.numStyle }}">
+                          <sc-if value="{{ r.unread }}" hint-placeholder-val="{{ true }}"><span title="Непрочитанное" style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 auto;"></span></sc-if>
+                          <span style="{{ r.numTextStyle }}">{{ r.n }}</span>
+                        </div>
+                        <div class="tnum" style="width:110px;flex:0 0 auto;padding:12px 10px 4px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);"><sc-for list="{{ r.idParts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></div>
+                        <div title="{{ r.name }}" style="{{ r.nameStyle }}">{{ r.name }}</div>
+                        <div class="tnum" style="width:190px;flex:0 0 auto;padding:12px 10px 4px;font-size:14px;line-height:20px;color:var(--n900);white-space:nowrap;">{{ r.date }}</div>
+                        <div style="width:184px;flex:0 0 auto;padding:12px 10px 4px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
+                        <div style="width:160px;flex:0 0 auto;padding:12px 10px 4px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.expert }}</div>
                       </div>
-                      <div style="width:110px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;font-weight:500;color:var(--primary);">{{ r.appId }}</div>
-                      <div title="{{ r.name }}" style="{{ r.nameStyle }}">{{ r.name }}</div>
-                      <div style="width:190px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.date }}</div>
-                      <div style="width:184px;flex:0 0 auto;padding:12px 10px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
-                      <div style="width:160px;flex:0 0 auto;padding:12px 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.expert }}</div>
+                      <div style="{{ r.textStyle }}"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></div>
                     </a>
                   </sc-for>
                 </div>
@@ -99,8 +128,11 @@
                     <i class="{{ emptyIcon }}" style="font-size:40px;color:var(--n300);"></i>
                   </div>
                   <div style="text-align:center;font-size:14px;line-height:20px;color:var(--n500);max-width:320px;">{{ emptyText }}</div>
+                  <sc-if value="{{ isNotFound }}" hint-placeholder-val="{{ false }}">
+                    <button class="nt-b" onClick="{{ clearQ }}" style="height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:var(--sh-xs);"><i class="ri-close-line" style="font-size:18px;"></i>Сбросить поиск</button>
+                  </sc-if>
                   <sc-if value="{{ isFail }}" hint-placeholder-val="{{ false }}">
-                    <a href="Кабинет бизнеса.dc.html" style="height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:4px;text-decoration:none;box-shadow:var(--sh-xs);"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i>Вернуться назад</a>
+                    <a class="nt-b" href="Кабинет бизнеса.dc.html" style="height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:4px;text-decoration:none;box-shadow:var(--sh-xs);"><i class="ri-arrow-left-s-line" style="font-size:18px;"></i>Вернуться назад</a>
                   </sc-if>
                 </div>
               </sc-if>
@@ -108,7 +140,7 @@
           </div>
 
           <!-- Пагинация -->
-          <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
               <div style="font-size:14px;line-height:20px;color:var(--n500);">Страница 1 из 9</div>
               <div style="display:flex;align-items:center;gap:8px;">
@@ -145,7 +177,7 @@
 class Component extends DCLogic {
   constructor(props){
     super(props);
-    this.state = { tab:'all', read:['97','96','95','94'], fail:false, toast:'', ed:[] };
+    this.state = { tab:'all', read:['97','96','95','94'], fail:false, toast:'', ed:[], q:'' };
   }
   componentDidMount(){
     let read = null;
@@ -175,17 +207,22 @@ class Component extends DCLogic {
     this._t = setTimeout(() => this.setState({ toast:'' }), 3000);
   }
 
-  // содержимое таблицы — как в Figma (6203:227750)
+  // содержимое таблицы — как в Figma (6203:227750); текст уведомления — демо по образцу шаблонов ЕД
+  // (UC01.13.2.2, табл. 1), тот же, что в колокольчике шапки (Header.dc.html)
   data(){
     const PRICE = 'Регистрация цены производителя лекарственного средства';
     const CHANGE = 'Внесение изменений в зарегистрированную цену производителя лекарственного средства';
+    const T = (ok, change) => 'Уважаемый пользователь! По Вашей заявке №01234567 '
+      + (ok ? 'принято положительное решение о ' : 'принято решение об отказе ' + (change ? 'во ' : 'в '))
+      + (change ? 'внесении изменений в зарегистрированную цену' : 'регистрации цены')
+      + ' производителя лекарственного средства. Просим перейти в Личный кабинет для ознакомления.';
     return [
-      { n:'99', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.' },
-      { n:'98', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.' },
-      { n:'97', appId:'01234567', name:CHANGE, date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.' },
-      { n:'96', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.' },
-      { n:'95', appId:'01234567', name:CHANGE, date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.' },
-      { n:'94', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.' },
+      { n:'99', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.', text:T(true, false) },
+      { n:'98', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.', text:T(false, false) },
+      { n:'97', appId:'01234567', name:CHANGE, date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.', text:T(true, true) },
+      { n:'96', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.', text:T(false, false) },
+      { n:'95', appId:'01234567', name:CHANGE, date:'01.01.2025, 10:00', ok:true,  expert:'Иванов А.А.', text:T(true, true) },
+      { n:'94', appId:'01234567', name:PRICE,  date:'01.01.2025, 10:00', ok:false, expert:'Иванов А.А.', text:T(false, false) },
     ];
   }
 
@@ -197,7 +234,8 @@ class Component extends DCLogic {
     // ЕД: статус и текст push — из записи (UC01.13.2.2, табл. 1–2); текст — в подсказке строки
     // АЛО (UC01.14.2.2) — те же записи, наименование услуги — из записи (x.service)
     const edRows = (s.ed || []).map(x => ({ n:x.n, appId:x.num, name:x.service || ED_NAME, date:fdt(x.at), ok:x.ok, expert:'АРМ ННЦРЗ', ed:true, edRead:!!x.read,
-      edStatus: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red'), tip: x.text || '' }));
+      edStatus: x.status || (x.ok ? 'Положительное решение' : 'Мотивированный отказ'), tone: x.tone || (x.ok ? 'green' : 'red'),
+      text: x.text || (x.ok ? 'Положительное решение о включении в ЕД по заявке № ' + x.num : 'Решение об отказе по заявке № ' + x.num) }));
     const all = edRows.concat(this.data());
     const isRead = (n) => { const e = edRows.find(r => r.n === n); return e ? e.edRead : s.read.indexOf(n) !== -1; };
     const unreadCount = all.filter(r => !isRead(r.n)).length;
@@ -206,7 +244,7 @@ class Component extends DCLogic {
     const tabs = tabData.map(([id, label, count]) => { const on = s.tab === id; return { label, count,
       onClick: () => this.setState({ tab:id }),
       style:`position:relative;display:inline-flex;align-items:center;gap:6px;padding:0 2px 10px;border:none;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;color:${on ? '#0A0D14' : '#525866'};`,
-      badgeStyle:`display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:${on ? '#EEF2FF' : '#F6F8FA'};color:${on ? '#362DA6' : '#868C98'};`,
+      badgeStyle:`display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:${on ? '#EEF2FF' : '#F6F8FA'};color:${on ? '#362DA6' : '#525866'};`,
       underline:`position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:${on ? '#4D42E9' : 'transparent'};` }; });
 
     const hc = 'display:flex;align-items:center;gap:4px;padding:10px;font-size:12px;line-height:16px;color:#525866;min-height:48px;';
@@ -219,7 +257,25 @@ class Component extends DCLogic {
       { label:'Эксперт / система', sort:true, style: hc + 'width:160px;flex:0 0 auto;' },
     ].map(c => ({ ...c, icon: c.sort ? 'ri-expand-up-down-line' : '', iconStyle:'font-size:14px;color:#868C98;flex:0 0 auto;' }));
 
-    const list = all.filter(r => s.tab === 'all' || (s.tab === 'read' ? isRead(r.n) : !isRead(r.n)));
+    // поиск: по тексту уведомления и ID заявки, без учёта регистра; найденное подсвечивается
+    const q = (s.q || '').trim().toLowerCase();
+    const inTab = all.filter(r => s.tab === 'all' || (s.tab === 'read' ? isRead(r.n) : !isRead(r.n)));
+    const list = q ? inTab.filter(r => (r.text || '').toLowerCase().indexOf(q) !== -1 || String(r.appId).toLowerCase().indexOf(q) !== -1) : inTab;
+    const HL = 'background:#FBDFB1;border-radius:2px;box-shadow:0 0 0 1px #FBDFB1;';
+    const parts = (str) => {
+      str = String(str || '');
+      if(!q) return [{ t:str, style:'' }];
+      const low = str.toLowerCase(), out = [];
+      let i = 0;
+      for(;;){
+        const j = low.indexOf(q, i);
+        if(j === -1){ if(i < str.length) out.push({ t:str.slice(i), style:'' }); break; }
+        if(j > i) out.push({ t:str.slice(i, j), style:'' });
+        out.push({ t:str.slice(j, j + q.length), style:HL });
+        i = j + q.length;
+      }
+      return out;
+    };
     // открытие уведомления отмечает его прочитанным и ведёт к заявке
     const open = (n) => () => {
       if(isRead(n)) return;
@@ -230,13 +286,18 @@ class Component extends DCLogic {
       const unread = !isRead(r.n);
       return { ...r,
         unread,
-        status: r.ed ? r.edStatus : 'Завершена', rowTip: r.ed ? r.tip : '',
+        status: r.ed ? r.edStatus : 'Завершена',
         href: r.ed ? 'Карточка заявки ЕД.dc.html?n=' + r.appId : 'Мои заявки.dc.html',
         onOpen: open(r.n),
-        rowStyle:`display:flex;align-items:center;min-height:56px;border-bottom:1px solid #E2E4E9;text-decoration:none;color:inherit;background:${unread ? '#FBFCFD' : i % 2 ? '#fff' : '#FBFCFD'};`,
-        numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:12px 10px;',
+        idParts: parts(r.appId), parts: parts(r.text),
+        aria: (unread ? 'Непрочитанное. ' : '') + 'Заявка ' + r.appId + ', ' + r.date + '. ' + r.text,
+        rowStyle:`display:block;border-bottom:1px solid #E2E4E9;text-decoration:none;color:inherit;background:${unread ? '#FBFCFD' : i % 2 ? '#fff' : '#FBFCFD'};`,
+        numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:12px 10px 4px;',
         numTextStyle:`font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '600' : '400'};`,
-        nameStyle:`flex:1;min-width:0;margin:12px 10px;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;`,
+        // наименование услуги — одной строкой (полностью — в подсказке): главное в записи теперь текст
+        nameStyle:`flex:1;min-width:0;margin:12px 10px 4px;font-size:14px;line-height:20px;color:#525866;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`,
+        // текст уведомления — целиком, от столбца «ID заявки» до правого края; непрочитанное — плотнее
+        textStyle:`max-width:1320px;padding:0 10px 12px 96px;text-wrap:pretty;font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '500' : '400'};`,
         statusStyle:`display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;${{ green:'background:#CBF5E5;color:#176448;', red:'background:#FDEDF0;color:#710E21;', orange:'background:#FEF3EB;color:#6E330C;' }[r.ed ? r.tone : r.ok ? 'green' : 'red']}`,
       };
     });
@@ -247,12 +308,20 @@ class Component extends DCLogic {
     const seg = (on) => `height:28px;padding:0 10px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     const hasRows = !s.fail && rows.length > 0;
 
+    const notFound = !s.fail && !!q && rows.length === 0;
+    const clearQ = () => this.setState({ q:'' });
+
     return {
       tabs, cols, rows, pages,
-      hasRows, showEmpty: !hasRows,
-      isFail: s.fail,
-      emptyIcon: s.fail ? 'ri-wifi-off-line' : 'ri-notification-off-line',
+      hasRows, showEmpty: !hasRows, hasPager: hasRows && !q,
+      isFail: s.fail, isNotFound: notFound,
+      q: s.q, hasQ: !!s.q,
+      onQ: (e) => this.setState({ q: e.target.value }),
+      onQKey: (e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); clearQ(); } },
+      clearQ,
+      emptyIcon: s.fail ? 'ri-wifi-off-line' : notFound ? 'ri-search-line' : 'ri-notification-off-line',
       emptyText: s.fail ? 'Система недоступна, обратитесь в службу поддержки.'
+                        : notFound ? 'По запросу «' + s.q.trim() + '» уведомлений не найдено.'
                         : (s.tab === 'unread' ? 'Все уведомления прочитаны.' : 'Прочитанных уведомлений пока нет.'),
       hasUnread: unreadCount > 0 && !s.fail,
       readAll: () => { this.save(this.data().map(r => r.n)); this.saveEd(s.ed.map(x => ({ ...x, read:true }))); this.toast('Все уведомления отмечены прочитанными'); },

@@ -22,6 +22,8 @@
   Получатель — текущий сотрудник, поэтому столбец «ФИО пользователя» вынесен в подзаголовок.
   Цвет метки у текста — цвет события из табл. 2 (синий, зелёный, красный, жёлтый).
   Дата — в формате портала «дд.мм.гггг, чч:мм» (в постановке «ГГ-ММ-ДД, HH-MM»).
+  Текст уведомления — второй строкой записи на всю ширину таблицы, целиком (19.11.2026, по вопросу
+  аналитика к «Центру уведомлений» бизнеса: тот же приём в обоих реестрах). Поиск — по тексту и номеру.
 -->
 <x-dc>
 <helmet>
@@ -37,42 +39,68 @@
   .nt-pg:hover{background:#F6F8FA;color:#0A0D14;}
   .nt-pg:disabled{color:#CDD0D5;cursor:not-allowed;background:#fff;}
   .nt-pg[aria-current="page"]{background:#F6F8FA;color:#0A0D14;border-color:#CDD0D5;}
+  .nt-q{width:320px;height:40px;border:1px solid #E2E4E9;border-radius:10px;padding:0 36px 0 40px;font-family:inherit;font-size:14px;line-height:20px;color:#0A0D14;background:#fff;box-shadow:0 1px 2px rgba(10,13,20,.03);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .nt-q::placeholder{color:#868C98;}
+  .nt-q::-webkit-search-cancel-button{display:none;}
+  .nt-q:hover{border-color:#CDD0D5;}
+  .nt-q:focus{border-color:#4D42E9;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .nt-x{width:28px;height:28px;border:none;border-radius:6px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#868C98;}
+  .nt-x:hover{color:#31353F;background:#F6F8FA;}
+  .nt-x:focus-visible{outline:none;box-shadow:0 0 0 2px #C6D0FF;}
+  @media (max-width:720px){ .nt-qw{flex:1 1 100%;min-width:0;} .nt-q{width:100%;} }
 </style>
 </helmet>
 <div style="display:flex;flex-direction:column;gap:20px;font-family:'Inter',sans-serif;color:#0A0D14;">
-  <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+  <div style="display:flex;align-items:flex-start;gap:12px;">
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;">
       <h1 style="margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;">Уведомления</h1>
       <div style="font-size:14px;line-height:20px;color:#525866;">{{ who }}</div>
     </div>
+    <a class="nt-b" href="{{ closeHref }}" style="height:40px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Закрыть</a>
+  </div>
+  <!-- вкладки и поиск — над таблицей, чтобы шапка раздела не сжималась на ноутбуке -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:-4px;">
     <div role="tablist" aria-label="Фильтр уведомлений" style="display:flex;background:#F6F8FA;border:1px solid #E2E4E9;border-radius:10px;padding:3px;gap:2px;">
       <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
         <button role="tab" aria-selected="{{ t.on }}" onClick="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}<sc-if value="{{ t.hasN }}" hint-placeholder-val="{{ false }}"><span style="{{ t.nStyle }}">{{ t.n }}</span></sc-if></button>
       </sc-for>
     </div>
-    <a class="nt-b" href="{{ closeHref }}" style="height:40px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Закрыть</a>
+    <!-- поиск по тексту уведомления и номеру: найти старое уведомление -->
+    <div class="nt-qw" role="search" style="position:relative;">
+      <i class="ri-search-2-line" style="position:absolute;left:12px;top:10px;font-size:20px;color:#868C98;pointer-events:none;"></i>
+      <input class="nt-q tnum" type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="{{ qPh }}" aria-label="{{ qPh }}" autoComplete="off" spellCheck="false" enterKeyHint="search" />
+      <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+        <button type="button" class="nt-x" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить" style="position:absolute;right:6px;top:6px;"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
+      </sc-if>
+    </div>
   </div>
 
   <div style="background:#fff;border:1px solid #E2E4E9;border-radius:12px;box-shadow:0 4px 12px rgba(10,13,20,.02);overflow:hidden;">
     <div style="overflow-x:auto;">
-      <div role="table" aria-label="Уведомления" style="min-width:980px;">
+      <div role="table" aria-label="Уведомления" style="min-width:760px;">
         <div role="row" style="display:flex;background:#F6F8FA;">
-          <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
+          <sc-for list="{{ cols }}" as="c" hint-placeholder-count="5"><div role="columnheader" style="{{ c.style }}">{{ c.label }}</div></sc-for>
         </div>
+        <!-- запись: сведения строкой по столбцам, под ней — текст уведомления целиком, на всю ширину -->
         <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
-          <div role="row" tabIndex="0" class="nt-row" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="display:flex;align-items:center;min-height:56px;border-top:1px solid #E2E4E9;">
-            <div role="cell" style="width:88px;flex:0 0 auto;padding:10px 12px 10px 20px;display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px;color:#525866;" class="tnum"><span style="{{ r.dot }}"></span>{{ r.n }}</div>
-            <div role="cell" style="width:128px;flex:0 0 auto;padding:10px 12px;font-size:14px;line-height:20px;"><a class="nt-id tnum" href="{{ r.href }}" onClick="{{ r.openLink }}">{{ r.ref }}</a></div>
-            <div role="cell" style="width:200px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:18px;color:#525866;">{{ r.svc }}</div>
-            <div role="cell" style="width:220px;flex:0 0 auto;padding:10px 12px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
-            <div role="cell" style="width:148px;flex:0 0 auto;padding:10px 12px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;" class="tnum">{{ r.at }}</div>
-            <div role="cell" style="flex:1;min-width:0;padding:10px 20px 10px 12px;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}">{{ r.text }}</span></div>
+          <div role="row" tabIndex="0" class="nt-row" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" aria-label="{{ r.aria }}" style="border-top:1px solid #E2E4E9;">
+            <div style="display:flex;align-items:center;">
+              <div role="cell" style="width:88px;flex:0 0 auto;padding:12px 12px 4px 20px;display:flex;align-items:center;gap:8px;font-size:13px;line-height:20px;color:#525866;" class="tnum"><span style="{{ r.dot }}"></span>{{ r.n }}</div>
+              <div role="cell" style="width:128px;flex:0 0 auto;padding:12px 12px 4px;font-size:14px;line-height:20px;"><a class="nt-id tnum" href="{{ r.href }}" onClick="{{ r.openLink }}"><sc-for list="{{ r.refParts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></a></div>
+              <div role="cell" style="flex:1;min-width:0;padding:12px 12px 4px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ r.svc }}">{{ r.svc }}</div>
+              <div role="cell" style="width:220px;flex:0 0 auto;padding:12px 12px 4px;display:flex;align-items:center;"><span style="{{ r.badge.style }}"><span style="{{ r.badge.dot }}"></span>{{ r.badge.label }}</span></div>
+              <div role="cell" style="width:160px;flex:0 0 auto;padding:12px 20px 4px 12px;font-size:13px;line-height:20px;color:#525866;white-space:nowrap;" class="tnum">{{ r.at }}</div>
+            </div>
+            <div role="cell" aria-label="Текст уведомления" style="max-width:1320px;padding:0 20px 12px 84px;text-wrap:pretty;display:flex;align-items:flex-start;gap:8px;"><span style="{{ r.toneDot }}"></span><span style="{{ r.textStyle }}"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span></div>
           </div>
         </sc-for>
         <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}">
           <div style="padding:48px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;border-top:1px solid #E2E4E9;">
             <div style="width:56px;height:56px;border-radius:50%;background:#F6F8FA;display:flex;align-items:center;justify-content:center;"><i class="ri-notification-off-line" style="font-size:24px;color:#868C98;"></i></div>
             <div style="font-size:15px;line-height:22px;font-weight:500;">{{ emptyTitle }}</div>
+            <sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+              <button class="nt-b" onClick="{{ clearQ }}" style="margin-top:4px;height:36px;padding:0 14px;border:1px solid #E2E4E9;border-radius:10px;background:#fff;color:#31353F;font-family:inherit;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;box-shadow:0 1px 2px rgba(10,13,20,.03);"><i class="ri-close-line" style="font-size:18px;"></i>Сбросить поиск</button>
+            </sc-if>
           </div>
         </sc-if>
       </div>
@@ -92,7 +120,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1160,&quot;height&quot;:600}}">
 class Component extends DCLogic {
-  state = { tab:'all', page:1, v:0 };
+  state = { tab:'all', page:1, v:0, q:'' };
   componentDidMount(){
     this._re = () => this.setState({ v:this.state.v + 1 });
     ['mp-arm-ready','mp-arm-change'].forEach(n => window.addEventListener(n, this._re));
@@ -105,7 +133,26 @@ class Component extends DCLogic {
     const me = ready ? A.current(arm) : '';
     const all = ready ? A.notifsFor(me) : [];
     const unread = all.filter(x => !x.read).length;
-    const list = s.tab === 'unread' ? all.filter(x => !x.read) : all;
+    // поиск: по тексту уведомления и номеру заявки / комиссии, без учёта регистра; найденное подсвечивается
+    const q = (s.q || '').trim().toLowerCase();
+    const inTab = s.tab === 'unread' ? all.filter(x => !x.read) : all;
+    const list = q ? inTab.filter(x => String(x.text || '').toLowerCase().indexOf(q) !== -1 || String(x.label || '').toLowerCase().indexOf(q) !== -1) : inTab;
+    const HL = 'background:#FBDFB1;border-radius:2px;box-shadow:0 0 0 1px #FBDFB1;';
+    const parts = (str) => {
+      str = String(str || '');
+      if(!q) return [{ t:str, style:'' }];
+      const low = str.toLowerCase(), out = [];
+      let i = 0;
+      for(;;){
+        const j = low.indexOf(q, i);
+        if(j === -1){ if(i < str.length) out.push({ t:str.slice(i), style:'' }); break; }
+        if(j > i) out.push({ t:str.slice(i, j), style:'' });
+        out.push({ t:str.slice(j, j + q.length), style:HL });
+        i = j + q.length;
+      }
+      return out;
+    };
+    const clearQ = () => this.setState({ q:'', page:1 });
     const per = 10, pages = Math.max(1, Math.ceil(list.length / per)), page = Math.min(s.page, pages);
     const TONE = { blue:'#4D42E9', green:'#38C793', red:'#DF1C41', yellow:'#F17B2C' };
     const badge = (x) => {
@@ -117,7 +164,7 @@ class Component extends DCLogic {
       const go = () => { A.readNotif(x.id); location.href = href; };
       const app = x.kind === 'fk' ? null : ED.get(x.ref);
       return { n:String(x.n), ref:x.label, href, svc: x.kind === 'fk' ? 'Формулярная комиссия · ' + A.fkSvc(A.fkGet(x.ref)).short : 'Включение ЛС / МИ в перечень ' + ED.svcOf(app).listShort,
-        badge: badge(x), at: ED.fmtD(x.at) + ', ' + ED.fmtT(x.at), text:x.text, aria:(x.read ? '' : 'Непрочитанное. ') + x.text,
+        badge: badge(x), at: ED.fmtD(x.at) + ', ' + ED.fmtT(x.at), text:x.text, parts: parts(x.text), refParts: parts(x.label), aria:(x.read ? '' : 'Непрочитанное. ') + x.text,
         open: go, key: (e) => { if(e.key === 'Enter'){ e.preventDefault(); go(); } },
         openLink: (e) => { if(e){ e.preventDefault(); e.stopPropagation(); } go(); },
         dot:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${x.read ? 'transparent' : '#4D42E9'};`,
@@ -132,8 +179,14 @@ class Component extends DCLogic {
         nStyle:`min-width:18px;height:18px;padding:0 5px;border-radius:999px;font-size:11px;line-height:18px;font-weight:600;text-align:center;${s.tab === id ? 'background:#4D42E9;color:#fff;' : 'background:#E2E4E9;color:#525866;'}`,
         pick: () => this.setState({ tab:id, page:1 }), style: tabStyle(s.tab === id) })),
       closeHref: arm === 'fk' ? 'АРМ ФК.dc.html#active' : 'АРМ ННЦРЗ.dc.html#registry',
-      cols: [ ['№', 88, 20], ['ID заявки', 128], ['Наименование услуги', 200], ['Статус', 220], ['Дата действия', 148], ['Текст уведомления', 0] ].map(([label, w, pl]) => ({ label: arm === 'fk' && label === 'ID заявки' ? '№ комиссии' : label, style: hc + (w ? `width:${w}px;flex:0 0 auto;` : 'flex:1;min-width:0;') + (pl ? `padding-left:${pl}px;` : '') })),
-      rows, empty: ready && rows.length === 0, emptyTitle: s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Уведомлений пока нет',
+      // текст уведомления — второй строкой записи на всю ширину (в узком столбце он резался на 4–5 строк)
+      cols: [ ['№', 88, 20], ['ID заявки', 128], ['Наименование услуги', 0], ['Статус', 220], ['Дата действия', 160, 0, 20] ].map(([label, w, pl, pr]) => ({ label: arm === 'fk' && label === 'ID заявки' ? '№ комиссии' : label, style: hc + (w ? `width:${w}px;flex:0 0 auto;` : 'flex:1;min-width:0;') + (pl ? `padding-left:${pl}px;` : '') + (pr ? `padding-right:${pr}px;` : '') })),
+      rows, empty: ready && rows.length === 0, notFound: ready && !!q && rows.length === 0,
+      emptyTitle: q ? 'По запросу «' + s.q.trim() + '» уведомлений не найдено' : s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Уведомлений пока нет',
+      q: s.q, hasQ: !!s.q, clearQ,
+      qPh: arm === 'fk' ? 'Поиск по тексту или № комиссии' : 'Поиск по тексту или ID заявки',
+      onQ: (e) => this.setState({ q: e.target.value, page:1 }),
+      onQKey: (e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); clearQ(); } },
       hasPager: list.length > per, range: ((page - 1) * per + 1) + '–' + Math.min(page * per, list.length) + ' из ' + list.length,
       pages: Array.from({ length:pages }, (_, i) => ({ n:String(i + 1), cur: i + 1 === page ? 'page' : 'false', aria:'Страница ' + (i + 1), go: () => this.setState({ page:i + 1 }) })),
       noPrev: page <= 1, noNext: page >= pages,
