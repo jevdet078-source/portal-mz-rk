@@ -91,18 +91,19 @@ await scenario('Здоровье на каждом этапе жизни: нап
   return `карточек ${cards}, подразделов «Рост и развитие» ${subs}, в статье таблиц ${art.t}`;
 });
 
-await scenario('Дневник наблюдения: давление → график → добавить измерение → запись в истории', async () => {
-  const { page, errors } = await open('Дневник наблюдения.dc.html');
+await scenario('ЭПЗ гражданина → Диспансерный учёт → «Дневник наблюдения»: давление → график → добавить измерение → запись в истории', async () => {
+  const { page, errors } = await open('Просмотр ЭПЗ.dc.html', { hash: '#dispensary/diary' });
   await page.waitForSelector('.dg-dir', { timeout: 30000 });
+  const tab = await page.$eval('.epz-dtab[aria-selected="true"]', (e) => e.innerText);
   const cards = await page.$$eval('.dg-dir', (l) => l.length);
   await page.evaluate(() => document.querySelectorAll('.dg-dir')[1].click()); await wait(500);
   const lines = await page.$$eval('.dg-plot svg path[stroke-width="2.2"]', (l) => l.length);
   const before = await page.$$eval('.dg-row', (l) => l.length);
-  await page.evaluate(() => document.querySelector('.dg-head .dg-btn').click()); await wait(400);
+  await page.evaluate(() => document.querySelector('[data-diary-add]').click()); await wait(400);
   await page.type('#f-sys', '124'); await page.type('#f-dia', '81');
   await page.evaluate(() => [...document.querySelectorAll('.dg-df .dg-btn')].pop().click()); await wait(1500);
   const r = await page.evaluate(() => ({ dlg: !!document.querySelector('.dg-dlg'), toast: (document.querySelector('.dg-toast') || {}).innerText || '', row: (document.querySelector('.dg-row.new') || {}).innerText || '' }));
-  if (cards !== 3 || lines !== 2 || r.dlg || !/Запись сохранена/.test(r.toast) || !/124/.test(r.row)) throw new Error(`карточек ${cards}, линий АД ${lines}, окно ${r.dlg}, тост «${r.toast}»`);
+  if (tab !== 'Дневник наблюдения' || cards !== 3 || lines !== 2 || r.dlg || !/Запись сохранена/.test(r.toast) || !/124/.test(r.row)) throw new Error(`вкладка «${tab}», карточек ${cards}, линий АД ${lines}, окно ${r.dlg}, тост «${r.toast}»`);
   if (errors.length) throw new Error(errors[0]);
   await page.close();
   return `карточек ${cards}, линий АД ${lines}, записей было ${before}, новая — в истории`;
