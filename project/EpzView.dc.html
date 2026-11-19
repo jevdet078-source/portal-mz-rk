@@ -1347,7 +1347,7 @@ class Component extends DCLogic {
             { name:'Лизиноприл', dose:'5 мг', days:'30', period:'05.11.2026 – 04.12.2026' },
             { name:'Амлодипин', dose:'5 мг', days:'30', period:'05.11.2026 – 04.12.2026' } ] },
         ] },
-      { icd:'I50.0', name:'Застойная сердечная недостаточность', dgroup:'III', regDate:'01.12.2023', active:true, accent:'#F17B2C', diary:'chf',
+      { icd:'I50.0', name:'Застойная сердечная недостаточность', dgroup:'III', regDate:'01.12.2023', active:true, accent:'#35B9E9', diary:'chf',
         reg:[
           {k:'Дата постановки на учёт',v:'01.12.2023'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(III) — хроническое заболевание'},
           {k:'Группа диспансерного учёта',v:'III'},{k:'Способ выявления',v:'При госпитализации'},{k:'Причина наблюдения',v:'Заболевание системы кровообращения'},
@@ -1381,7 +1381,8 @@ class Component extends DCLogic {
       statusText:c.active?'На учёте':'Снят', statusStyle:tag(c.active?'На учёте':'Снят', c.active?T.green:T.gray),
       // На вкладке «Дневник наблюдения» случай с дневником переключает его направление, не уходя с вкладки
       onClick:()=>{ this.setState({ dispCase:i }); if(!(this.state.dispTab==='diary' && c.active && c.diary)) setDispTab('reg'); }, pressed:String(s.dispCase===i),
-      style:`flex:1;min-width:200px;text-align:left;border:1.5px solid ${s.dispCase===i?'#4D42E9':'#E2E4E9'};border-radius:14px;padding:16px;background:${s.dispCase===i?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
+      // выбранный случай — как выбранная карточка направления дневника: рамка в два пикселя
+      style:`flex:1;min-width:200px;text-align:left;border:1.5px solid ${s.dispCase===i?"#4D42E9":"#E2E4E9"};border-radius:14px;padding:16px;background:${s.dispCase===i?"#FBFCFD":"#fff"};cursor:pointer;font-family:inherit;box-shadow:${s.dispCase===i?"0 0 0 1px #4D42E9":"var(--sh-xs)"};` }));
     const dc=Math.min(s.dispCase, DCASES.length-1), DC=DCASES[dc];
     const dcReg=DC.reg, dcDx=DC.dx;
     // Направление дневника — выбранного случая; у случая без дневника — первое доступное
@@ -1563,7 +1564,7 @@ class Component extends DCLogic {
       dispIsDiary:dispDiary, diaryAddShow:dispDiary && citizen,
       // Дневник: направления — по диагнозам на учёте, выбранное — по выбранному случаю; у врача — только просмотр
       diaryPatient:p.patient || 'ivanova', diaryDirs:diaryCases.map(x=>x.c.diary).join(','), diarySel, diaryRO:citizen ? '0' : '1',
-      dispSub: dispDiary ? (citizen ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Показатели, внесённые пациентом · режим просмотра') : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
+      dispSub: dispDiary ? (citizen ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Показатели, внесённые пациентом') : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
       diaryAdd:()=>window.dispatchEvent(new CustomEvent('mp-diary-add')), diaryAddOff:!s.diary.ready,
       diaryAddLabel: s.diary.sel==='chf' ? 'Добавить запись' : 'Добавить измерение',
       dcReg, dcDx, dispStd, dispRcp, dispDereg, dispDeregActive, dispDeregDone:!dispDeregActive,
