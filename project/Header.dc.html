@@ -419,12 +419,15 @@ class Component extends DCLogic {
     const isWide = this.props.layout === 'wide';
 
     // Уведомления (Figma 6406:104361) — последние три, полный список на отдельной странице
-    const PRICE = 'Регистрация цены производителя лекарственного средства';
-    const CHANGE = 'Внесение изменений в зарегистрированную цену производителя лекарственного средства';
+    // текст уведомления — тот же, что в «Центре уведомлений» (Уведомления.dc.html, data())
+    const NT = (ok, change) => 'Уважаемый пользователь! По Вашей заявке №01234567 '
+      + (ok ? 'принято положительное решение о ' : 'принято решение об отказе ' + (change ? 'во ' : 'в '))
+      + (change ? 'внесении изменений в зарегистрированную цену' : 'регистрации цены')
+      + ' производителя лекарственного средства. Просим перейти в Личный кабинет для ознакомления.';
     const noteData = [
-      { n:'99', meta:'ID 123456 · 2 минуты назад', title:PRICE, ok:true },
-      { n:'98', meta:'ID 123456 · 01.01.2025, 10:00', title:PRICE, ok:false },
-      { n:'97', meta:'ID 123456 · 01.01.2025, 10:00', title:CHANGE, ok:true },
+      { n:'99', meta:'ID 01234567 · 01.01.2025, 10:00', title:NT(true, false), ok:true },
+      { n:'98', meta:'ID 01234567 · 01.01.2025, 10:00', title:NT(false, false), ok:false },
+      { n:'97', meta:'ID 01234567 · 01.01.2025, 10:00', title:NT(true, true), ok:true },
     ];
     const isDoc = isAccount && this.props.cabinet === 'medical';
     const pad = (x) => String(x).padStart(2, '0');
@@ -438,11 +441,11 @@ class Component extends DCLogic {
     const allNotes = edNotes.concat(noteData);
     const unread = isDoc ? 0 : allNotes.filter(isNewNote).length;
     const notes = allNotes.slice(0, 4).map(n => { const isNew = isNewNote(n); return {
-      meta:n.meta, title:n.title, expert: n.ed ? 'АРМ ННЦРЗ' : 'Иванов. И.И.', status: n.ed ? n.status : 'Завершена',
+      meta:n.meta, title:n.title, expert: n.ed ? 'АРМ ННЦРЗ' : 'Иванов А.А.', status: n.ed ? n.status : 'Завершена',
       href: n.ed ? 'Карточка заявки ЕД.dc.html?n=' + n.num : 'Уведомления.dc.html',
       dotStyle:`width:6px;height:6px;margin-top:6px;border-radius:50%;flex:0 0 auto;background:${isNew ? '#4D42E9' : 'transparent'};`,
       expertLabel: n.ed ? 'Система' : 'Эксперт',
-      titleStyle:`font-size:${n.ed ? 13 : 14}px;line-height:${n.ed ? 18 : 20}px;font-weight:${isNew ? '600' : n.ed ? '400' : '500'};color:#0A0D14;`,
+      titleStyle:`font-size:13px;line-height:18px;font-weight:${isNew ? '600' : '400'};color:#0A0D14;`,
       statusStyle:`align-self:flex-start;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;${{ green:'background:#CBF5E5;color:#176448;', red:'background:#FDEDF0;color:#710E21;', orange:'background:#FEF3EB;color:#6E330C;' }[n.ed ? n.tone : n.ok ? 'green' : 'red']}` }; });
 
     // ——— кабинет медработника ———
