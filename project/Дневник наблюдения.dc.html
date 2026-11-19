@@ -111,7 +111,7 @@
   /* п. 3.1 Динамика */
   .dg-sec-h{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 16px;padding:16px 20px;}
   .dg-h2{font-size:17px;line-height:24px;font-weight:600;margin:0;letter-spacing:-.01em;}
-  .dg-sub{font-size:13px;line-height:18px;color:var(--n400);font-weight:500;}
+  .dg-of{font-weight:500;color:var(--n500);}
   .dg-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .dg-seg{display:inline-flex;align-items:center;gap:2px;padding:2px;border-radius:10px;background:var(--n100);border:1px solid var(--stroke);}
   .dg-seg button{height:30px;padding:0 12px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:13px;line-height:18px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;transition:background .12s,color .12s,box-shadow .12s;}
@@ -155,7 +155,7 @@
   .dg-td .u{color:var(--n500);margin-left:4px;}
   .dg-td .dash{color:var(--n400);}
   .dg-td.when{white-space:nowrap;font-variant-numeric:tabular-nums;}
-  .dg-td.when .tm{color:var(--n500);margin-left:6px;}
+  .dg-td.when .tm{color:var(--n500);margin-left:5px;}
   .dg-td.val b{font-weight:600;font-variant-numeric:tabular-nums;}
   .dg-td.cm{color:var(--n600);overflow-wrap:anywhere;}
   .dg-td.cm.clip{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -408,7 +408,7 @@
               <!-- п. 3.1 Динамика показателей -->
               <section class="dg-card" aria-labelledby="dg-h-chart">
                 <div class="dg-sec-h">
-                  <h2 class="dg-h2" id="dg-h-chart">Динамика показателей</h2>
+                  <h2 class="dg-h2" id="dg-h-chart">Динамика показателей<span class="dg-of"> · {{ selLabel }}</span></h2>
                   <div class="dg-ctl">
                     <sc-if value="{{ isGlu }}" hint-placeholder-val="{{ false }}">
                       <div class="dg-seg" role="radiogroup" aria-label="Условия измерения">
@@ -450,8 +450,7 @@
               <sc-if value="{{ perHas }}" hint-placeholder-val="{{ true }}">
                 <section class="dg-card dg-tbl-card" aria-labelledby="dg-h-hist">
                   <div class="dg-sec-h">
-                    <h2 class="dg-h2" id="dg-h-hist">История записей</h2>
-                    <span class="dg-sub">{{ histSub }}</span>
+                    <h2 class="dg-h2" id="dg-h-hist">История записей<span class="dg-of"> · {{ selLabel }}</span></h2>
                   </div>
                   <div role="table" aria-labelledby="dg-h-hist">
                     <div class="dg-tr dg-th" role="row" style="{{ gridCols }}">
@@ -460,7 +459,7 @@
                     </div>
                     <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
                       <div class="{{ r.cls }}" role="row" style="{{ gridCols }}" tabIndex="{{ r.tab }}" aria-expanded="{{ r.exp }}" onClick="{{ r.toggle }}" onKeyDown="{{ r.key }}">
-                        <div class="dg-td when" role="cell">{{ r.date }}<span class="tm">{{ r.time }}</span></div>
+                        <div class="dg-td when" role="cell">{{ r.date }},<span class="tm">{{ r.time }}</span></div>
                         <sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="3">
                           <div class="{{ x.cls }}" role="cell"><span class="dg-cl">{{ x.lbl }}</span><sc-if value="{{ x.has }}" hint-placeholder-val="{{ true }}"><b>{{ x.v }}</b><span class="u">{{ x.u }}</span></sc-if><sc-if value="{{ x.txt }}" hint-placeholder-val="{{ false }}">{{ x.t }}</sc-if><sc-if value="{{ x.none }}" hint-placeholder-val="{{ false }}"><span class="dash" aria-label="Нет данных">—</span></sc-if></div>
                         </sc-for>
@@ -521,7 +520,7 @@
           <sc-if value="{{ fGlu }}" hint-placeholder-val="{{ true }}">
             <div class="dg-f">
               <label class="dg-lbl" for="f-g">Уровень глюкозы <span class="req" aria-hidden="true">*</span></label>
-              <div class="dg-unit" data-inv="{{ gInv }}"><input id="f-g" inputMode="decimal" autoComplete="off" placeholder="5,8" value="{{ fG }}" onChange="{{ onG }}" onBlur="{{ blurG }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ gInv }}" aria-describedby="e-g"><span class="u">ммоль/л</span></div>
+              <div class="dg-unit" data-inv="{{ gInv }}"><input id="f-g" inputMode="decimal" autoComplete="off" placeholder="Например, 5,8" value="{{ fG }}" onChange="{{ onG }}" onBlur="{{ blurG }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ gInv }}" aria-describedby="e-g"><span class="u">ммоль/л</span></div>
               <sc-if value="{{ gErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-g"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ gMsg }}</span></sc-if>
             </div>
             <div class="dg-row2">
@@ -537,13 +536,12 @@
               </div>
             </div>
             <div class="dg-f">
-              <span class="dg-lbl" id="dg-l-cond">Условия измерения <span class="req" aria-hidden="true">*</span></span>
-              <div class="dg-choice c2" role="radiogroup" id="f-cond" aria-labelledby="dg-l-cond" aria-required="true" data-inv="{{ condInv }}" aria-describedby="e-cond">
+              <span class="dg-lbl" id="dg-l-cond">Условия измерения</span>
+              <div class="dg-choice c2" role="radiogroup" id="f-cond" aria-labelledby="dg-l-cond">
                 <sc-for list="{{ condOpts }}" as="o" hint-placeholder-count="4">
                   <button type="button" class="dg-ch" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.pick }}"><span class="rd" aria-hidden="true"></span>{{ o.label }}</button>
                 </sc-for>
               </div>
-              <sc-if value="{{ condErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-cond"><i class="ri-error-warning-fill" aria-hidden="true"></i>Заполните поле</span></sc-if>
             </div>
           </sc-if>
 
@@ -552,18 +550,18 @@
             <div class="dg-row2 bp">
               <div class="dg-f">
                 <label class="dg-lbl" for="f-sys">Систолическое АД <span class="req" aria-hidden="true">*</span><span class="hint">Верхнее давление</span></label>
-                <div class="dg-unit" data-inv="{{ sysInv }}"><input id="f-sys" inputMode="numeric" autoComplete="off" placeholder="120" value="{{ fSys }}" onChange="{{ onSys }}" onBlur="{{ blurSys }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ sysInv }}" aria-describedby="e-sys"><span class="u">мм рт. ст.</span></div>
+                <div class="dg-unit" data-inv="{{ sysInv }}"><input id="f-sys" inputMode="numeric" autoComplete="off" placeholder="Например, 120" value="{{ fSys }}" onChange="{{ onSys }}" onBlur="{{ blurSys }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ sysInv }}" aria-describedby="e-sys"><span class="u">мм рт. ст.</span></div>
                 <sc-if value="{{ sysErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-sys"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ sysMsg }}</span></sc-if>
               </div>
               <div class="dg-f">
                 <label class="dg-lbl" for="f-dia">Диастолическое АД <span class="req" aria-hidden="true">*</span><span class="hint">Нижнее давление</span></label>
-                <div class="dg-unit" data-inv="{{ diaInv }}"><input id="f-dia" inputMode="numeric" autoComplete="off" placeholder="80" value="{{ fDia }}" onChange="{{ onDia }}" onBlur="{{ blurDia }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ diaInv }}" aria-describedby="e-dia"><span class="u">мм рт. ст.</span></div>
+                <div class="dg-unit" data-inv="{{ diaInv }}"><input id="f-dia" inputMode="numeric" autoComplete="off" placeholder="Например, 80" value="{{ fDia }}" onChange="{{ onDia }}" onBlur="{{ blurDia }}" onKeyDown="{{ onEnter }}" aria-required="true" aria-invalid="{{ diaInv }}" aria-describedby="e-dia"><span class="u">мм рт. ст.</span></div>
                 <sc-if value="{{ diaErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-dia"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ diaMsg }}</span></sc-if>
               </div>
             </div>
             <div class="dg-f">
               <label class="dg-lbl" for="f-pulse">Пульс</label>
-              <div class="dg-unit" data-inv="{{ pulseInv }}"><input id="f-pulse" inputMode="numeric" autoComplete="off" placeholder="72" value="{{ fPulse }}" onChange="{{ onPulse }}" onBlur="{{ blurPulse }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ pulseInv }}" aria-describedby="e-pulse"><span class="u">уд/мин</span></div>
+              <div class="dg-unit" data-inv="{{ pulseInv }}"><input id="f-pulse" inputMode="numeric" autoComplete="off" placeholder="Например, 72" value="{{ fPulse }}" onChange="{{ onPulse }}" onBlur="{{ blurPulse }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ pulseInv }}" aria-describedby="e-pulse"><span class="u">уд/мин</span></div>
               <sc-if value="{{ pulseErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-pulse"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ pulseMsg }}</span></sc-if>
             </div>
             <div class="dg-row2">
@@ -596,7 +594,7 @@
             </div>
             <div class="dg-f">
               <label class="dg-lbl" for="f-w">Масса тела</label>
-              <div class="dg-unit" data-inv="{{ wInv }}" style="max-width:calc(50% - 8px);min-width:200px;"><input id="f-w" inputMode="decimal" autoComplete="off" placeholder="72,4" value="{{ fW }}" onChange="{{ onW }}" onBlur="{{ blurW }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ wInv }}" aria-describedby="e-w"><span class="u">кг</span></div>
+              <div class="dg-unit" data-inv="{{ wInv }}" style="max-width:calc(50% - 8px);min-width:200px;"><input id="f-w" inputMode="decimal" autoComplete="off" placeholder="Например, 72,4" value="{{ fW }}" onChange="{{ onW }}" onBlur="{{ blurW }}" onKeyDown="{{ onEnter }}" aria-invalid="{{ wInv }}" aria-describedby="e-w"><span class="u">кг</span></div>
               <sc-if value="{{ wErr }}" hint-placeholder-val="{{ false }}"><span class="dg-err" id="e-w"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ wMsg }}</span></sc-if>
             </div>
             <div class="dg-f">
@@ -681,6 +679,7 @@ const CONDS = [
   { id:'other', label:'Другое / не помню', color:'#868C98', mk:'o' },
 ];
 const CMAP = Object.fromEntries(CONDS.map(c => [c.id, c]));
+const NOCOND = { id:'none', label:'', color:'#868C98', mk:'o' };   // условия не указаны
 const YN = [{ id:'no', label:'Нет' }, { id:'yes', label:'Есть' }, { id:'na', label:'Не могу оценить' }];
 const YNMAP = Object.fromEntries(YN.map(x => [x.id, x.label]));
 const PERIODS = [{ id:'week', label:'Неделя', days:7 }, { id:'month', label:'Месяц', days:30 }];
@@ -818,7 +817,7 @@ class Component extends DCLogic {
     if(this._ro && host && host !== this._roHost){ this._ro.disconnect(); this._ro.observe(host); this._roHost = host; }
     if(!host || !m) return;
     const W = Math.round(host.clientWidth); if(!W) return;
-    const H = W < 560 ? 220 : 268, L = 44, R = 14, T = 22, B = 30;
+    const H = W < 560 ? 220 : 268, L = 48, R = 14, T = 22, B = 30;
     const pw = W - L - R, ph = H - T - B;
     const { start, end, d, pts } = m;
     const vals = [];
@@ -831,15 +830,15 @@ class Component extends DCLogic {
     ys.ticks.forEach(v => {
       const y = Y(v).toFixed(1);
       s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '" stroke="#E2E4E9" stroke-width="1"' + (v === ys.a ? '' : ' stroke-dasharray="3 4"') + '/>';
-      s += '<text x="' + (L - 10) + '" y="' + y + '" dy="4" text-anchor="end" font-size="11" fill="#868C98" style="font-variant-numeric:tabular-nums">' + num(v, ys.dg) + '</text>';
+      s += '<text x="' + (L - 10) + '" y="' + y + '" dy="4" text-anchor="end" font-size="12" fill="#525866" style="font-variant-numeric:tabular-nums">' + num(v, ys.dg) + '</text>';
     });
-    s += '<text x="0" y="' + (T - 10) + '" font-size="11" font-weight="500" fill="#868C98">' + esc(m.unit) + '</text>';
+    s += '<text x="0" y="' + (T - 10) + '" font-size="12" font-weight="500" fill="#525866">' + esc(m.unit) + '</text>';
     // подписи оси X: каждый день недели / каждые 5 дней месяца (на узком экране — реже)
     const days = Math.round((end - start) / DAY), every = days <= 7 ? (pw < 300 ? 2 : 1) : (pw < 420 ? 7 : 5);
     for(let i = days - 1; i >= 0; i -= every){
       const ts = start + i * DAY + DAY / 2, x = X(ts).toFixed(1);
       const dd = new Date(ts);
-      s += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="11" fill="#868C98" style="font-variant-numeric:tabular-nums">' + pad(dd.getDate()) + '.' + pad(dd.getMonth() + 1) + '</text>';
+      s += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" fill="#525866" style="font-variant-numeric:tabular-nums">' + pad(dd.getDate()) + '.' + pad(dd.getMonth() + 1) + '</text>';
     }
     // серии
     const line = (arr, key, color, dash, area) => {
@@ -858,10 +857,10 @@ class Component extends DCLogic {
       pts.forEach(q => { const on = q === hp; s += marker('c', X(q.ts), Y(q.r.v.sys), SBP, on) + marker('c', X(q.ts), Y(q.r.v.dia), DBP, on); });
     } else if(d === 'glu' && m.cond === 'all'){
       // все условия: точки без линии — форма и цвет по условию (п. 3.1)
-      pts.forEach(q => { const c = CMAP[q.r.v.cond] || CMAP.other; s += marker(c.mk, X(q.ts), Y(q.y), c.color, q === hp); });
+      pts.forEach(q => { const c = CMAP[q.r.v.cond] || NOCOND; s += marker(c.mk, X(q.ts), Y(q.y), c.color, q === hp); });
     } else {
       const c = d === 'glu' ? CMAP[m.cond] : { color:'#4D42E9', mk:'c' };
-      s += line(pts, q => q.y, c.color, false, true);
+      s += line(pts, q => q.y, c.color, false, false);
       pts.forEach(q => { s += marker(c.mk, X(q.ts), Y(q.y), c.color, q === hp); });
     }
     s += '</svg>';
@@ -873,7 +872,7 @@ class Component extends DCLogic {
       let body = '';
       if(d === 'bp') body = '<div class="r"><span class="dot" style="background:' + SBP + '"></span><span class="v">' + hp.r.v.sys + ' <small>сист.</small></span></div>'
         + '<div class="r"><span class="dot" style="background:' + DBP + '"></span><span class="v">' + hp.r.v.dia + ' <small>диаст.</small></span></div><div class="t">мм рт. ст.</div>';
-      else if(d === 'glu') body = '<div class="v">' + num(hp.y, 1) + ' <small>ммоль/л</small></div><div>' + esc((CMAP[hp.r.v.cond] || CMAP.other).label) + '</div>';
+      else if(d === 'glu') body = '<div class="v">' + num(hp.y, 1) + ' <small>ммоль/л</small></div>' + (CMAP[hp.r.v.cond] ? '<div>' + esc(CMAP[hp.r.v.cond].label) + '</div>' : '');
       else body = '<div class="v">' + num(hp.y, 1) + ' <small>кг</small></div>';
       s += '<div class="dg-tip" style="' + pos + 'top:' + T + 'px;"><div class="t">' + dOf(hp.ts) + ', ' + tOf(hp.ts) + '</div>' + body + '</div>';
     }
@@ -931,7 +930,7 @@ class Component extends DCLogic {
     const req = (k) => { if(!String(f[k] || '').trim()) e[k] = 'Заполните поле'; };
     const numf = (k) => { if(String(f[k] || '').trim() && !NUM_RE.test(f[k])) e[k] = 'Введите числовое значение'; };
     req('date'); req('time');
-    if(f.d === 'glu'){ req('g'); numf('g'); if(!f.cond) e.cond = 'Заполните поле'; }
+    if(f.d === 'glu'){ req('g'); numf('g'); }
     if(f.d === 'bp'){ req('sys'); req('dia'); numf('sys'); numf('dia'); numf('pulse'); }
     if(f.d === 'chf'){ numf('w'); }
     return e;
@@ -941,9 +940,9 @@ class Component extends DCLogic {
     const e = this.errors(), keys = Object.keys(e);
     if(keys.length){
       this.setState({ tried:true, dd:false });
-      const order = ['g', 'sys', 'dia', 'pulse', 'w', 'date', 'time', 'cond'];
+      const order = ['g', 'sys', 'dia', 'pulse', 'w', 'date', 'time'];
       const k = order.find(x => e[x]);
-      setTimeout(() => { const el = document.getElementById('f-' + k); if(el){ el.scrollIntoView({ block:'center', behavior:'smooth' }); const b = k === 'cond' ? el.querySelector('button') : el; b && b.focus({ preventScroll:true }); } }, 30);
+      setTimeout(() => { const el = document.getElementById('f-' + k); if(el){ el.scrollIntoView({ block:'center', behavior:'smooth' }); el.focus({ preventScroll:true }); } }, 30);
       return;
     }
     this.setState({ saving:true, saveErr:false, tried:true, dd:false });
@@ -960,7 +959,7 @@ class Component extends DCLogic {
       const mine = this.state.mine.concat(rec);
       try { localStorage.setItem(LS_KEY, JSON.stringify(mine)); } catch(err){}
       // п. 8: окно закрыто, тост, запись в истории выбранного дневника, график и карточка обновлены
-      const cond = f.d === 'glu' && this.state.cond !== 'all' && this.state.cond !== f.cond ? 'all' : this.state.cond;
+      const cond = f.d === 'glu' && this.state.cond !== 'all' && this.state.cond !== f.cond ? 'all' : this.state.cond;   // новая запись должна быть видна
       const per = this.state.per === 'week' && ts < day0(Date.now()) - 6 * DAY && ts >= day0(Date.now()) - 29 * DAY ? 'month' : this.state.per;
       ss.set(VIEW_KEY, JSON.stringify({ sel:f.d, per, cond }));
       this.setState({ mine, saving:false, sel:f.d, cond, per, shown:PAGE, open:{}, newId:rec.id, toast:true });
@@ -997,7 +996,7 @@ class Component extends DCLogic {
       const list = by(d.id), r = list[0];
       let value = '', unit = d.unit, extra = '';
       if(r){
-        if(d.id === 'glu'){ value = num(r.v.g, 1); extra = (CMAP[r.v.cond] || CMAP.other).label; }
+        if(d.id === 'glu'){ value = num(r.v.g, 1); extra = (CMAP[r.v.cond] || NOCOND).label; }
         if(d.id === 'bp'){ value = r.v.sys + '/' + r.v.dia; extra = r.v.pulse != null ? 'Пульс ' + r.v.pulse + ' уд/мин' : ''; }
         if(d.id === 'chf'){
           value = r.v.w != null ? num(r.v.w, 1) : '—'; unit = r.v.w != null ? 'кг' : 'масса тела';
@@ -1034,14 +1033,15 @@ class Component extends DCLogic {
     const val = (v, u, dg) => v == null ? { has:false, txt:false, none:true } : { has:true, txt:false, none:false, v:num(v, dg), u };
     const colSets = {
       glu: { cols:['Дата и время', 'Глюкоза', 'Условия измерения', 'Комментарий'], grid:'grid-template-columns:150px minmax(120px,170px) minmax(150px,200px) minmax(0,1fr) 32px;',
-        cells:(r) => [{ ...val(r.v.g, 'ммоль/л', 1), cls:'dg-td val', lbl:'Глюкоза:' }, { ...(r.v.cond ? { has:false, txt:true, none:false, t:CMAP[r.v.cond].label } : yn(null)), cls:'dg-td opt', lbl:'Условия:' }] },
+        cells:(r) => [{ ...val(r.v.g, 'ммоль/л', 1), cls:'dg-td val', lbl:'Глюкоза:' }, { ...(CMAP[r.v.cond] ? { has:false, txt:true, none:false, t:CMAP[r.v.cond].label } : yn(null)), cls:'dg-td opt', lbl:'Условия:' }] },
       bp: { cols:['Дата и время', 'Систолическое АД', 'Диастолическое АД', 'Пульс', 'Комментарий'], grid:'grid-template-columns:150px minmax(130px,160px) minmax(130px,160px) minmax(100px,130px) minmax(0,1fr) 32px;',
         cells:(r) => [{ ...val(r.v.sys, 'мм рт. ст.'), cls:'dg-td val', lbl:'Сист.:' }, { ...val(r.v.dia, 'мм рт. ст.'), cls:'dg-td val', lbl:'Диаст.:' }, { ...val(r.v.pulse, 'уд/мин'), cls:'dg-td val', lbl:'Пульс:' }] },
       chf: { cols:['Дата и время', 'Масса тела', 'Одышка', 'Отёки', 'Комментарий'], grid:'grid-template-columns:150px minmax(110px,140px) minmax(120px,160px) minmax(120px,160px) minmax(0,1fr) 32px;',
         cells:(r) => [{ ...val(r.v.w, 'кг', 1), cls:'dg-td val', lbl:'Масса тела:' }, { ...yn(r.v.dysp), cls:'dg-td opt', lbl:'Одышка:' }, { ...yn(r.v.edema), cls:'dg-td opt', lbl:'Отёки:' }] },
     };
     const CS = colSets[s.sel];
-    const rows = inPer.slice(0, s.shown).map(r => {
+    const lim = inPer.length - s.shown <= 4 ? inPer.length : s.shown;   // хвост до 4 записей — сразу, без лишнего клика
+    const rows = inPer.slice(0, lim).map(r => {
       const long = (r.c || '').length > LONG_CM, isOpen = !!s.open[r.id];
       const toggle = () => { if(long) this.setState({ open:{ ...this.state.open, [r.id]:!isOpen } }); };
       return { date:dOf(r.ts), time:tOf(r.ts), cells:CS.cells(r),
@@ -1050,8 +1050,7 @@ class Component extends DCLogic {
         cls:'dg-tr dg-row' + (long ? ' x' : '') + (isOpen ? ' open' : '') + (r.id === s.newId ? ' new' : ''),
         toggle, key:(e) => { if(long && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); toggle(); } } };
     });
-    const left = inPer.length - s.shown;
-    const condSub = isGlu && cond !== 'all' ? CMAP[cond].label + ' · ' : '';
+    const left = inPer.length - lim;
 
     // окно
     const f = s.f;
@@ -1083,7 +1082,7 @@ class Component extends DCLogic {
       onChartKey:(e) => { if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){ e.preventDefault(); this.stepHover(e.key === 'ArrowLeft' ? -1 : 1); } if(e.key === 'Escape') this.setState({ hov:null }); },
       hasLegend:legend.length > 0, legend,
 
-      histSub: condSub + inPer.length + ' ' + plural(inPer.length, ['запись', 'записи', 'записей']) + ' ' + perLabel,
+      selLabel:D.label,
       cols:CS.cols, gridCols:CS.grid, rows,
       hasMore:left > 0, moreLabel:'Показать ещё ' + Math.min(PAGE, left), showMore:() => this.setState({ shown:this.state.shown + PAGE }),
 
@@ -1113,7 +1112,7 @@ class Component extends DCLogic {
       fDate:f ? f.date : '', fTime:f ? f.time : '', fCm:f ? f.cm : '',
       onG:onv('g'), onSys:onv('sys'), onDia:onv('dia'), onPulse:onv('pulse'), onW:onv('w'), onDate:onv('date'), onTime:onv('time'), onCm:onv('cm'),
       blurG:blur('g'), blurSys:blur('sys'), blurDia:blur('dia'), blurPulse:blur('pulse'), blurW:blur('w'),
-      ...fe('g'), ...fe('sys'), ...fe('dia'), ...fe('pulse'), ...fe('w'), ...fe('date'), ...fe('time'), ...fe('cond'),
+      ...fe('g'), ...fe('sys'), ...fe('dia'), ...fe('pulse'), ...fe('w'), ...fe('date'), ...fe('time'),
       condOpts:opts('cond', CONDS), dyspOpts:opts('dysp', YN), edemaOpts:opts('edema', YN),
 
       saving:s.saving, notSaving:!s.saving, saveErr:s.saveErr,
