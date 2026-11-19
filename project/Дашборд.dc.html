@@ -20,7 +20,7 @@
        Актуальное состояние базы: период регистрации не влияет. Число пользователей — справочно в шапке карточки.
     ⚠ Требуют внимания — профили, деактивированные вместе с удалённой организацией
        (organization_deactivated = TRUE считаем деактивацией — вопрос постановки, согласовать).
-    2. Профили по типам — пять типов: всего / активные / деактивированные, у «Бизнеса» разбивка ИП / ЮЛ
+    2. Профили по типам — четыре типа (ответ аналитика 19.11.2026): всего / активные / деактивированные, у «Бизнеса» разбивка ИП / ЮЛ
        по subject_type. Сумма по типам равна общему числу профилей; строки «Итого» нет — она дублировала бы блок 1.
        Сверху — сегментная полоса долей типов.
     3. Динамика регистрации — новые учётные записи (с неудалёнными профилями) за период, сравнение с предыдущим
@@ -336,7 +336,7 @@
                 <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
                   <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:18px;">
                     <span class="sk" style="height:10px;border-radius:4px;"></span>
-                    <sc-for list="{{ skRows }}" as="sr" hint-placeholder-count="5">
+                    <sc-for list="{{ skProf }}" as="sr" hint-placeholder-count="4">
                       <div style="display:flex;align-items:center;gap:10px;"><span class="sk" style="width:8px;height:8px;border-radius:50%;"></span><span class="sk" style="{{ sr.w }}"></span><span style="flex:1;"></span><span class="sk" style="width:44px;height:12px;"></span><span class="sk" style="width:44px;height:12px;margin-left:12px;"></span><span class="sk" style="width:44px;height:12px;margin-left:12px;"></span></div>
                     </sc-for>
                   </div>
@@ -351,7 +351,7 @@
                 <sc-if value="{{ prof.has }}" hint-placeholder-val="{{ true }}">
                   <div style="padding:16px 20px 12px;display:flex;flex-direction:column;gap:16px;flex:1;">
                     <div role="img" aria-label="{{ prof.aria }}" style="display:flex;gap:2px;height:8px;">
-                      <sc-for list="{{ prof.segs }}" as="sg" hint-placeholder-count="5">
+                      <sc-for list="{{ prof.segs }}" as="sg" hint-placeholder-count="4">
                         <span onMouseEnter="{{ sg.onEnter }}" onMouseLeave="{{ sg.onLeave }}" data-tip="{{ sg.tip }}" style="{{ sg.style }}"></span>
                       </sc-for>
                     </div>
@@ -365,7 +365,7 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <sc-for list="{{ prof.rows }}" as="r" hint-placeholder-count="5">
+                        <sc-for list="{{ prof.rows }}" as="r" hint-placeholder-count="4">
                           <tr class="prow" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" style="{{ r.style }}">
                             <th scope="row">
                               <span style="display:flex;align-items:center;gap:10px;min-width:0;">
@@ -570,9 +570,10 @@ const PROFILES = [
   { id:'citizen',  label:'Гражданин',               color:'#4D42E9', subj:['FL'] },
   { id:'business', label:'Бизнес',                  color:'#1F87AD', subj:['IP','UL'] },
   { id:'medic',    label:'Медицинский персонал',    color:'#E255F2', subj:['UL'] },   // название — ответ аналитика 12.11.2026
-  { id:'medorg',   label:'Медицинская организация', color:'#B47818', subj:['UL'] },
   { id:'gov',      label:'Государственный орган',   color:'#9C23A9', subj:['UL'] },
 ];
+// Типов профиля четыре — как в nsi.user_profiles «Пользователей» (ответ аналитика 19.11.2026:
+// «Медицинской организации» как типа профиля нет).
 const SUBJECTS = [
   { id:'FL', label:'Физическое лицо', short:'ФЛ' },
   { id:'IP', label:'Индивидуальный предприниматель', short:'ИП' },
@@ -671,8 +672,8 @@ const genDb = () => {
     } else {
       if(prim === 1){ const ip = R() < 0.44; add(i, 1, ip ? 1 : 2, ip ? -1 : orgFor('biz', 0.30)); }
       if(prim === 2) add(i, 2, 2, orgFor('med', 0.22));
-      if(prim === 3) add(i, 3, 2, orgFor('med', 0.30));
-      if(prim === 4) add(i, 4, 2, orgFor('gov', 0.90));
+      if(prim === 3) add(i, 1, 2, orgFor('med', 0.30));   // сотрудники медорганизаций — профиль «Бизнес», ЮЛ
+      if(prim === 4) add(i, 3, 2, orgFor('gov', 0.90));
       if(R() < [0, 0.35, 0.55, 0.25, 0.40][prim]) add(i, 0, 0, -1);
     }
     ucount[i] = pt.length - ufirst[i];
@@ -806,6 +807,7 @@ class Component extends DCLogic {
     const applied = Object.assign({}, DEF, ui || {});
     if(periodErr(applied)) Object.assign(applied, { period:DEF.period, from:'', to:'' });
     if(applied.status && STIDX[applied.status] === undefined) applied.status = '';   // «Удалённые» из прежней версии
+    if(applied.profile && PIDX[applied.profile] === undefined) applied.profile = ''; // «Медицинская организация» из прежней версии
     this.state = {
       role:'admin', applied, draft:Object.assign({}, applied),
       loading:true, busy:false, open:null, hovProf:-1, hovBar:-1,
@@ -1203,6 +1205,7 @@ class Component extends DCLogic {
       prof, dyn, orgs,
       emptyText: s.demoData === 'empty' ? 'Нет данных о профилях' : 'Нет профилей по выбранным фильтрам',
       skRows: [52, 38, 64, 70, 58].map(w => ({ w:'width:' + w + '%;height:12px;' })),
+      skProf: [52, 38, 64, 70].map(w => ({ w:'width:' + w + '%;height:12px;' })),
       skBars: [22, 30, 34, 40, 46, 52, 58, 64, 82, 96, 70].map(h => ({ h:'flex:1;height:' + h + '%;border-radius:4px 4px 0 0;' })),
     }, F, this.buildDemo());
   }
