@@ -70,7 +70,6 @@
   .epz-dtabs{display:flex;gap:4px;margin-bottom:18px;box-shadow:inset 0 -1px 0 var(--stroke);overflow-x:auto;scrollbar-width:none;}
   .epz-dtabs::-webkit-scrollbar{display:none;}
   .epz-dtab[aria-selected="false"]:hover{color:var(--n900) !important;}
-  .epz-dtab-sep{flex:0 0 auto;align-self:flex-start;width:1px;height:16px;margin:1px 8px 0;background:var(--n300);}
   .epz-case{transition:border-color .15s,box-shadow .15s;}
   .epz-case[aria-pressed="false"]:hover{border-color:var(--n300) !important;box-shadow:0 6px 18px -10px rgba(14,18,27,.16) !important;}
   .epz-case:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light) !important;}
@@ -438,8 +437,8 @@
           <div style="animation:mp-slidein .2s ease;">
             <div class="epz-hd" style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;margin-bottom:18px;">
               <div style="display:flex;align-items:center;gap:14px;min-width:0;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-clipboard-line" style="font-size:24px;color:var(--primary);"></i></div><div style="min-width:0;"><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Диспансерный учёт</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ dispSub }}</p></div></div>
-              <!-- Вкладка «Дневник наблюдения» (гражданин): действие раздела — справа в шапке, как у других разделов ЭПЗ -->
-              <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
+              <!-- Вкладка «Дневник наблюдения» (только гражданин, у врача — просмотр): действие раздела — справа в шапке, как у других разделов ЭПЗ -->
+              <sc-if value="{{ diaryAddShow }}" hint-placeholder-val="{{ false }}">
                 <button type="button" class="epz-add" data-diary-add="1" onClick="{{ diaryAdd }}" disabled="{{ diaryAddOff }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ diaryAddLabel }}</button>
               </sc-if>
             </div>
@@ -457,7 +456,7 @@
 
             <!-- subsection tabs -->
             <div class="epz-dtabs" role="tablist" aria-label="Разделы диспансерного учёта">
-              <sc-for list="{{ dispTabs }}" as="t"><sc-if value="{{ t.sep }}" hint-placeholder-val="{{ false }}"><span class="epz-dtab-sep" aria-hidden="true"></span></sc-if><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
+              <sc-for list="{{ dispTabs }}" as="t"><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
             </div>
 
             <!-- 1. Постановка -->
@@ -549,10 +548,10 @@
               </sc-if>
             </sc-if>
 
-            <!-- 6. Дневник наблюдения — только в ЭПЗ гражданина (постановка «Перенос „Дневника наблюдения“ в ЭПЗ гражданина») -->
+            <!-- 6. Дневник наблюдения (постановка «Перенос „Дневника наблюдения“ в ЭПЗ гражданина» и ответы аналитика 19.11.2026): направления — по диагнозам на учёте, у врача — только просмотр -->
             <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
               <div role="tabpanel" aria-label="Дневник наблюдения">
-                <dc-import name="EpzDiary" hint-size="100%,1000px"></dc-import>
+                <dc-import name="EpzDiary" patient="{{ diaryPatient }}" dirs="{{ diaryDirs }}" sel="{{ diarySel }}" readonly="{{ diaryRO }}" hint-size="100%,1000px"></dc-import>
               </div>
             </sc-if>
           </div>
@@ -707,7 +706,7 @@
                     <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
                       <div><span style="color:var(--n400);">Перенесённые заболевания: </span>ОРВИ, ветряная оспа (детство)</div>
                       <div><span style="color:var(--n400);">Перенесённые операции: </span>Аппендэктомия (2015)</div>
-                      <div><span style="color:var(--n400);">Диспансерное наблюдение: </span>Да (гастрит)</div>
+                      <div><span style="color:var(--n400);">Диспансерное наблюдение: </span>Да (сахарный диабет, гипертензия, сердечная недостаточность)</div>
                       <div><span style="color:var(--n400);">Переливание крови: </span>Не проводилось</div>
                     </div>
                   </div>
@@ -940,6 +939,20 @@ class Component extends DCLogic {
     const a = row.getBoundingClientRect(), b = on.getBoundingClientRect();
     row.scrollTo({ left:row.scrollLeft + b.left - a.left - (a.width - b.width) / 2, behavior:smooth ? 'smooth' : 'auto' });
   }
+  // Новая лента (открыли по адресу, вернулись в раздел): раскладка и шрифты доезжают не сразу —
+  // несколько раз за ~3 с возвращаем активную вкладку в видимую часть, пока она не встанет на место
+  ensureDispTab(){
+    clearInterval(this._dtT); let n = 0, ok = 0;
+    this._dtT = setInterval(() => {
+      n++;
+      const row = document.querySelector('.epz-dtabs'), on = row && row.querySelector('[aria-selected="true"]');
+      if(row && on){
+        const a = row.getBoundingClientRect(), b = on.getBoundingClientRect();
+        if(b.left >= a.left - 1 && b.right <= a.right + 1) ok++; else { ok = 0; this.revealDispTab(false); }
+      }
+      if(ok >= 4 || n >= 20) clearInterval(this._dtT);
+    }, 150);
+  }
   // Адрес ЭПЗ гражданина: #allergy — раздел; #dispensary/diary — вкладка «Дневник наблюдения» диспансерного учёта
   route(){
     const [sec, sub] = (location.hash || '').slice(1).split('/');
@@ -969,20 +982,26 @@ class Component extends DCLogic {
     if((this.props || {}).mode === 'citizen'){
       this._onHash = () => { const r = this.route(); this.setState({ section:r.section, drawer:null, ...(r.dispTab === 'diary' || this.state.dispTab === 'diary' ? { dispTab:r.dispTab } : {}) }); };
       window.addEventListener('hashchange', this._onHash);
-      // Дневник наблюдения сообщает, готовы ли данные и какое направление выбрано: от этого — подпись и доступность кнопки в шапке
-      this._onDiary = (e) => { const d = e.detail || {}; if(d.ready !== this.state.diary.ready || d.sel !== this.state.diary.sel) this.setState({ diary:{ ready:!!d.ready, sel:d.sel || 'glu' } }); };
-      window.addEventListener('mp-diary-state', this._onDiary);
     }
+    // Дневник наблюдения сообщает, готовы ли данные и какое направление выбрано: от этого — подпись и доступность кнопки
+    // в шапке (у гражданина) и выбранный случай учёта (направление дневника следует из диагноза случая)
+    this._onDiary = (e) => {
+      const d = e.detail || {}, st = this.state, upd = {};
+      if(d.ready !== st.diary.ready || d.sel !== st.diary.sel) upd.diary = { ready:!!d.ready, sel:d.sel || 'glu' };
+      if(st.dispTab === 'diary' && this._caseOf){ const i = this._caseOf(d.sel); if(i >= 0 && i !== st.dispCase) upd.dispCase = i; }
+      if(Object.keys(upd).length) this.setState(upd);
+    };
+    window.addEventListener('mp-diary-state', this._onDiary);
   }
   componentDidUpdate(prev){
     this.watchWidth();
     // Новая лента вкладок диспансерного учёта (открыли по адресу #dispensary/diary, вернулись в раздел) — к активной вкладке
     const row = document.querySelector('.epz-dtabs');
-    if(row && row !== this._dtRow && row.scrollWidth > row.clientWidth){ this._dtRow = row; this.revealDispTab(false); }
+    if(row && row !== this._dtRow){ this._dtRow = row; this.ensureDispTab(); }
     // Другой пациент — ЭПЗ открывается с «Главной»
     if(prev && prev.patient !== (this.props || {}).patient) this.setState({ section:'main', drawer:null });
   }
-  componentWillUnmount(){ if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); if(this._onDiary) window.removeEventListener('mp-diary-state', this._onDiary); }
+  componentWillUnmount(){ clearInterval(this._dtT); if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); if(this._onDiary) window.removeEventListener('mp-diary-state', this._onDiary); }
 
   renderVals(){
     const s=this.state;
@@ -1068,6 +1087,11 @@ class Component extends DCLogic {
             {h:'Амбулаторные приёмы по диагнозу',ic:'ri-stethoscope-line',c:T.teal,list:[['ri-user-line','28.10.2023 — терапевт Александров И.С.','#525866'],['ri-user-line','25.10.2023 — кардиолог Васильева Е.П.','#525866']]},
             {h:'Назначенная лекарственная терапия',ic:'ri-capsule-line',c:T.green,list:[['ri-medicine-bottle-line','Лизиноприл 5 мг — 1 таб. утром','#176448'],['ri-medicine-bottle-line','Амлодипин 5 мг — 1 таб. вечером','#176448']]},
           ] },
+        { d:'24.11.2023', mkb:'I50.0', name:'Застойная сердечная недостаточность', typ:'Основной', kind:'Клинический', char:['Хроническое',T.orangeD], st:['Подтверждён',T.green], org:'ГКБ №1',
+          extra:[
+            {h:'Госпитализации по диагнозу',ic:'ri-hotel-bed-line',c:T.blue,list:[['ri-calendar-line','20.11.2023 — ГКБ №1, кардиологическое отделение','#525866']]},
+            {h:'Назначенная лекарственная терапия',ic:'ri-capsule-line',c:T.green,list:[['ri-medicine-bottle-line','Бисопролол 5 мг — 1 таб. утром','#176448'],['ri-medicine-bottle-line','Торасемид 10 мг — 1 таб. утром','#176448']]},
+          ] },
         { d:'22.11.2023', mkb:'J06.9', name:'ОРВИ верхних дыхательных путей', typ:'Сопутствующий', kind:'Клинический', char:['Острое',T.green], st:['Закрыт',T.gray], org:'Клиника Здоровья',
           extra:[ {h:'Амбулаторные приёмы по диагнозу',ic:'ri-stethoscope-line',c:T.teal,list:[['ri-user-line','22.10.2023 — терапевт Дмитриев О.В.','#525866']]} ] },
         { d:'05.10.2023', mkb:'E11.9', name:'Инсулиннезависимый сахарный диабет', typ:'Основной', kind:'Клинический', char:['Хроническое',T.orangeD], st:['Подтверждён',T.green], org:'ГКБ им. Боткина',
@@ -1083,7 +1107,7 @@ class Component extends DCLogic {
           sections:z.extra.map(e=>({ heading:e.h, icon:e.ic, c:e.c, list:e.list })),
         } }),
         cells:[ cellT(z.d,td('left',true)), cellT(z.mkb,td('left',true,'#4D42E9')), cellT(z.name,td()), cellT(z.typ,td()), cellTag(z.char[0],z.char[1],td('left')), cellT(z.org,td('left',false,'#525866')) ] }));
-      listCount='Показано 1–6 из 24 записей';
+      listCount='Показано 1–7 из 25 записей';
     } else if(s.section==='hospital'){
       listTitle='История госпитализаций'; listSubtitle='Случаи стационарного лечения и записи медицинских учреждений.';
       listFilters=[ {label:'Период',icon:'ri-calendar-line',value:'дд.мм.гггг',chev:false},{label:'Мед. организация',icon:'ri-hospital-line',value:'Все организации',chev:true},{label:'Тип госпитализации',icon:'ri-hotel-bed-line',value:'Все',chev:true},{label:'Диагноз (МКБ-10)',icon:'ri-hashtag',value:'Код или название',chev:false} ];
@@ -1263,55 +1287,114 @@ class Component extends DCLogic {
     const vd=vData[s.vitalIdx].d;
 
     // ---------- DISPENSARY (case-based) ----------
-    const dispDiary = citizen && s.dispTab==='diary';
+    const dispDiary = s.dispTab==='diary';
     // Вкладка диспансерного учёта; у гражданина «Дневник наблюдения» — в адресе (#dispensary/diary), обновление страницы его сохраняет
     const setDispTab=(id)=>{
       if(citizen && (id==='diary' || this.state.dispTab==='diary')){ try { history.replaceState(null, '', '#dispensary' + (id==='diary' ? '/diary' : '')); } catch(e){} }
       this.setState({ dispTab:id }, ()=>setTimeout(()=>this.revealDispTab(true), 0));
     };
-    const dispCasesData=[
-      { icd:'K29.0', name:'Хронический гастрит', dgroup:'II', regDate:'12.11.2022', active:true, accent:'#4D42E9' },
-      { icd:'C50.4', name:'Новообразование молочной железы', dgroup:'III', regDate:'10.03.2023', active:true, accent:'#6E3FF3' },
+    // Случаи учёта. Диагноз определяет направление «Дневника наблюдения» (diary): E11 — глюкоза, I10 — давление, I50 — ХСН
+    // (ответы аналитика 19.11.2026: дневник зависит от диагнозов). Даты и терапия согласованы с разделом «Заболевания».
+    const DCASES=[
+      { icd:'E11.9', name:'Инсулиннезависимый сахарный диабет', dgroup:'III', regDate:'10.10.2023', active:true, accent:'#4D42E9', diary:'glu',
+        reg:[
+          {k:'Дата постановки на учёт',v:'10.10.2023'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(III) — хроническое заболевание'},
+          {k:'Группа диспансерного учёта',v:'III'},{k:'Способ выявления',v:'Скрининг (глюкоза крови)'},{k:'Причина наблюдения',v:'Эндокринное заболевание'},
+          {k:'Врач, поставивший на учёт',v:'Эндокринолог Нурланова А.Б.'},{k:'ИИН врача',v:'790214400612'},{k:'Мед. организация',v:'ГП №4'},
+        ],
+        dx:[
+          {k:'Код МКБ-10',v:'E11.9'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
+          {k:'Стадия',v:'Компенсация'},{k:'Дата постановки диагноза',v:'05.10.2023'},{k:'Наименование',v:'Инсулиннезависимый сахарный диабет без осложнений'},
+        ],
+        obs:[
+          { mon:'ОКТ', day:'15', kind:'Плановый приём', kc:T.blue, org:'ГП №4', datetime:'15.10.2026, 09:30', nextVisit:'15.01.2027', specialist:'Эндокринолог Нурланова А.Б.', condition:'Удовлетворительное. Ведёт дневник глюкозы.', icd:'E11.9', icdNote:'Без изменений' },
+          { mon:'ИЮЛ', day:'08', kind:'Контрольный осмотр', kc:T.teal, org:'ГП №4', datetime:'08.07.2026, 10:00', nextVisit:'15.10.2026', specialist:'Эндокринолог Нурланова А.Б.', condition:'Стабильное. Соблюдает диету.', icd:'E11.9', icdNote:'Уточнён по гликированному гемоглобину' },
+          { mon:'ОКТ', day:'10', kind:'Постановка на учёт', kc:T.purple, org:'ГП №4', datetime:'10.10.2023, 11:20', nextVisit:'10.01.2024', specialist:'Эндокринолог Нурланова А.Б.', condition:'Впервые выявленная гипергликемия.', icd:'E11.9', icdNote:'Первичная диагностика' },
+        ],
+        std:[
+          ['Гликированный гемоглобин (HbA1c)','08.07.2026','08.07.2026',['Выполнено',T.green]],
+          ['Консультация офтальмолога','01.09.2026','—',['Просрочено',T.orangeD]],
+          ['Биохимический анализ крови','15.01.2027','—',['Запланировано',T.blue]],
+          ['Обучение в школе диабета','20.10.2023','20.10.2023',['Выполнено',T.green]],
+        ],
+        rcp:[
+          { num:'№ RX-2026-5120', type:'Электронный', created:'10.11.2026', exp:'10.12.2026', meds:[
+            { name:'Метформин', dose:'1000 мг', days:'30', period:'10.11.2026 – 09.12.2026' } ] },
+        ] },
+      { icd:'I10', name:'Эссенциальная [первичная] гипертензия', dgroup:'III', regDate:'14.12.2023', active:true, accent:'#6E3FF3', diary:'bp',
+        reg:[
+          {k:'Дата постановки на учёт',v:'14.12.2023'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(III) — хроническое заболевание'},
+          {k:'Группа диспансерного учёта',v:'III'},{k:'Способ выявления',v:'При обращении'},{k:'Причина наблюдения',v:'Заболевание системы кровообращения'},
+          {k:'Врач, поставивший на учёт',v:'Терапевт Касымова Г.М.'},{k:'ИИН врача',v:'800101300456'},{k:'Мед. организация',v:'ГП №4'},
+        ],
+        dx:[
+          {k:'Код МКБ-10',v:'I10'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
+          {k:'Стадия',v:'II стадия, риск 2'},{k:'Дата постановки диагноза',v:'14.12.2023'},{k:'Наименование',v:'Эссенциальная [первичная] гипертензия'},
+        ],
+        obs:[
+          { mon:'НОЯ', day:'05', kind:'Плановый приём', kc:T.blue, org:'ГП №4', datetime:'05.11.2026, 09:00', nextVisit:'05.02.2027', specialist:'Терапевт Касымова Г.М.', condition:'Удовлетворительное. Жалоб нет.', icd:'I10', icdNote:'Без изменений' },
+          { mon:'АВГ', day:'12', kind:'Корректировка наблюдения', kc:T.purple, org:'КДЦ №4', datetime:'12.08.2026, 14:30', nextVisit:'05.11.2026', specialist:'Кардиолог Ермеков Д.С.', condition:'Повышение давления по утрам. Скорректирована терапия.', icd:'I10', icdNote:'Без изменений' },
+          { mon:'ДЕК', day:'14', kind:'Постановка на учёт', kc:T.teal, org:'ГП №4', datetime:'14.12.2023, 10:40', nextVisit:'14.03.2024', specialist:'Терапевт Касымова Г.М.', condition:'Состояние после госпитализации, давление стабилизировано.', icd:'I10', icdNote:'Первичная диагностика' },
+        ],
+        std:[
+          ['Электрокардиография','05.11.2026','05.11.2026',['Выполнено',T.green]],
+          ['Липидный спектр','05.11.2026','05.11.2026',['Выполнено',T.green]],
+          ['Суточное мониторирование АД','12.09.2026','—',['Просрочено',T.orangeD]],
+          ['Консультация кардиолога','05.02.2027','—',['Запланировано',T.blue]],
+        ],
+        rcp:[
+          { num:'№ RX-2026-6233', type:'Электронный', created:'05.11.2026', exp:'05.12.2026', meds:[
+            { name:'Лизиноприл', dose:'5 мг', days:'30', period:'05.11.2026 – 04.12.2026' },
+            { name:'Амлодипин', dose:'5 мг', days:'30', period:'05.11.2026 – 04.12.2026' } ] },
+        ] },
+      { icd:'I50.0', name:'Застойная сердечная недостаточность', dgroup:'III', regDate:'01.12.2023', active:true, accent:'#F17B2C', diary:'chf',
+        reg:[
+          {k:'Дата постановки на учёт',v:'01.12.2023'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(III) — хроническое заболевание'},
+          {k:'Группа диспансерного учёта',v:'III'},{k:'Способ выявления',v:'При госпитализации'},{k:'Причина наблюдения',v:'Заболевание системы кровообращения'},
+          {k:'Врач, поставивший на учёт',v:'Кардиолог Ермеков Д.С.'},{k:'ИИН врача',v:'770412300945'},{k:'Мед. организация',v:'КДЦ №4'},
+        ],
+        dx:[
+          {k:'Код МКБ-10',v:'I50.0'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
+          {k:'Стадия',v:'ХСН IIА, ФК II (NYHA)'},{k:'Дата постановки диагноза',v:'24.11.2023'},{k:'Наименование',v:'Застойная сердечная недостаточность'},
+        ],
+        obs:[
+          { mon:'ОКТ', day:'28', kind:'Плановый приём', kc:T.blue, org:'КДЦ №4', datetime:'28.10.2026, 11:00', nextVisit:'28.01.2027', specialist:'Кардиолог Ермеков Д.С.', condition:'Стабильное. Отёки голеней к вечеру.', icd:'I50.0', icdNote:'Без изменений' },
+          { mon:'ИЮЛ', day:'22', kind:'Контрольный осмотр', kc:T.teal, org:'КДЦ №4', datetime:'22.07.2026, 10:20', nextVisit:'28.10.2026', specialist:'Кардиолог Ермеков Д.С.', condition:'Одышка при умеренной нагрузке.', icd:'I50.0', icdNote:'Уточнён по эхокардиографии' },
+          { mon:'ДЕК', day:'01', kind:'Постановка на учёт', kc:T.purple, org:'КДЦ №4', datetime:'01.12.2023, 09:40', nextVisit:'01.03.2024', specialist:'Кардиолог Ермеков Д.С.', condition:'Состояние после выписки из кардиологического отделения.', icd:'I50.0', icdNote:'Уточнён при выписке' },
+        ],
+        std:[
+          ['Эхокардиография','22.07.2026','22.07.2026',['Выполнено',T.green]],
+          ['NT-proBNP','28.10.2026','28.10.2026',['Выполнено',T.green]],
+          ['Общий анализ крови','28.10.2026','—',['Просрочено',T.orangeD]],
+          ['Консультация кардиолога','28.01.2027','—',['Запланировано',T.blue]],
+        ],
+        rcp:[
+          { num:'№ RX-2026-6011', type:'Электронный', created:'28.10.2026', exp:'28.11.2026', meds:[
+            { name:'Бисопролол', dose:'5 мг', days:'30', period:'28.10.2026 – 26.11.2026' },
+            { name:'Торасемид', dose:'10 мг', days:'30', period:'28.10.2026 – 26.11.2026' } ] },
+        ] },
     ];
-    const dispCases=dispCasesData.map((c,i)=>({ ...c,
+    const dispCasesData=DCASES;
+    // Направления дневника — по диагнозам, которые сейчас на учёте
+    const diaryCases=DCASES.map((c,i)=>({ c, i })).filter(x=>x.c.active&&x.c.diary);
+    const dispCases=DCASES.map((c,i)=>({ ...c,
       statusText:c.active?'На учёте':'Снят', statusStyle:tag(c.active?'На учёте':'Снят', c.active?T.green:T.gray),
-      onClick:()=>{ this.setState({ dispCase:i }); setDispTab('reg'); }, pressed:String(s.dispCase===i&&!dispDiary),
-      // Дневник наблюдения ведётся по пациенту, а не по случаю учёта: на его вкладке ни один случай не выделен
-      style:`flex:1;min-width:240px;text-align:left;border:1.5px solid ${s.dispCase===i&&!dispDiary?'#4D42E9':'#E2E4E9'};border-radius:14px;padding:16px;background:${s.dispCase===i&&!dispDiary?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
-    const dc=s.dispCase;
-    const dcReg = dc===0 ? [
-      {k:'Дата постановки на учёт',v:'12.11.2022'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'Д(II) — под наблюдением'},
-      {k:'Группа диспансерного учёта',v:'II'},{k:'Способ выявления',v:'При обращении'},{k:'Причина наблюдения',v:'Хроническое заболевание ЖКТ'},
-      {k:'Врач, поставивший на учёт',v:'Терапевт Касымова Г.М.'},{k:'ИИН врача',v:'800101300456'},{k:'Мед. организация',v:'ГП №4'},
-    ] : [
-      {k:'Дата постановки на учёт',v:'10.03.2023'},{k:'Вид постановки',v:'Первичная'},{k:'Клиническая группа',v:'III — ремиссия'},
-      {k:'Группа диспансерного учёта',v:'III'},{k:'Способ выявления',v:'Скрининг (маммография)'},{k:'Причина наблюдения',v:'Онкологическое заболевание'},
-      {k:'Врач, поставивший на учёт',v:'Онколог Петров П.П.'},{k:'ИИН врача',v:'750505300789'},{k:'Мед. организация',v:'ГБ №12'},
-    ];
-    const dcDx = dc===0 ? [
-      {k:'Код МКБ-10',v:'K29.0'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
-      {k:'Стадия',v:'Ремиссия'},{k:'Дата постановки диагноза',v:'12.11.2022'},{k:'Наименование',v:'Хронический гастрит'},
-    ] : [
-      {k:'Код МКБ-10',v:'C50.4'},{k:'Тип заболевания',v:'Основное'},{k:'Характер',v:'Хроническое'},
-      {k:'Стадия',v:'T2N0M0, II ст.'},{k:'Дата постановки диагноза',v:'05.03.2023'},{k:'Наименование',v:'ЗНО верхненаружного квадранта'},
-    ];
-    // «Дневник наблюдения» — только в ЭПЗ гражданина (в кабинете врача вкладки нет)
+      // На вкладке «Дневник наблюдения» случай с дневником переключает его направление, не уходя с вкладки
+      onClick:()=>{ this.setState({ dispCase:i }); if(!(this.state.dispTab==='diary' && c.active && c.diary)) setDispTab('reg'); }, pressed:String(s.dispCase===i),
+      style:`flex:1;min-width:200px;text-align:left;border:1.5px solid ${s.dispCase===i?'#4D42E9':'#E2E4E9'};border-radius:14px;padding:16px;background:${s.dispCase===i?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
+    const dc=Math.min(s.dispCase, DCASES.length-1), DC=DCASES[dc];
+    const dcReg=DC.reg, dcDx=DC.dx;
+    // Направление дневника — выбранного случая; у случая без дневника — первое доступное
+    const diarySel=DC.active&&DC.diary ? DC.diary : (diaryCases[0] ? diaryCases[0].c.diary : '');
+    this._caseOf=(sel)=>{ const x=diaryCases.find(y=>y.c.diary===sel); return x ? x.i : -1; };
+    // «Дневник наблюдения»: у гражданина — с добавлением записей, у врача — только просмотр
     const dispTabsData=[
-      {id:'reg',label:'Постановка'},{id:'obs',label:'История наблюдения'},{id:'std',label:'Выполнение стандарта'},{id:'rcp',label:'Рецепты'},{id:'dereg',label:'Снятие с учёта'},
-    ].concat(citizen?[{id:'diary',label:'Дневник наблюдения',sep:true}]:[]);
-    // Разделитель перед «Дневником наблюдения»: вкладки слева — о выбранном случае учёта, дневник — о пациенте целиком
-    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, sep:!!t.sep, onClick:()=>setDispTab(t.id), selected:String(on),
+      {id:'reg',label:'Постановка'},{id:'obs',label:'История наблюдения'},{id:'std',label:'Выполнение стандарта'},{id:'rcp',label:'Рецепты'},{id:'dereg',label:'Снятие с учёта'},{id:'diary',label:'Дневник наблюдения'},
+    ];
+    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, onClick:()=>setDispTab(t.id), selected:String(on),
       style:`position:relative;flex:0 0 auto;white-space:nowrap;padding:0 14px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
       underline:`position:absolute;left:0;right:0;bottom:0;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
-    const dispData = dc===0 ? [
-      { mon:'МАЙ', day:'10', kind:'Плановый приём', kc:T.blue, org:'ГП №4', datetime:'10.05.2024, 09:30', nextVisit:'10.11.2024', specialist:'Терапевт Касымова Г.М.', condition:'Удовлетворительное. Жалоб нет. Ремиссия.', icd:'K29.0', icdNote:'Без изменений' },
-      { mon:'НОЯ', day:'15', kind:'Контрольный осмотр', kc:T.teal, org:'ГП №4', datetime:'15.11.2023, 10:00', nextVisit:'10.05.2024', specialist:'Терапевт Касымова Г.М.', condition:'Стабильное. Соблюдает диету.', icd:'K29.0', icdNote:'Уточнён по ФГДС' },
-      { mon:'НОЯ', day:'12', kind:'Постановка на учёт', kc:T.purple, org:'ГП №4', datetime:'12.11.2022, 11:20', nextVisit:'15.11.2023', specialist:'Терапевт Касымова Г.М.', condition:'Обострение купировано.', icd:'K29.0', icdNote:'Первичная диагностика' },
-    ] : [
-      { mon:'СЕН', day:'14', kind:'Плановый приём', kc:T.blue, org:'ГБ №12', datetime:'14.09.2023, 10:15', nextVisit:'15.12.2023', specialist:'Онколог Петров П.П.', condition:'Удовлетворительное. Стабилизация без динамики.', icd:'C50.4', icdNote:'Ремиссия' },
-      { mon:'ИЮН', day:'02', kind:'Корректировка наблюдения', kc:T.purple, org:'КДЦ №4', datetime:'02.06.2023, 15:40', nextVisit:'14.09.2023', specialist:'Медсестра Сидорова Е.М.', condition:'Слабость. Частичная регрессия.', icd:'C50.4', icdNote:'Без изменений' },
-      { mon:'МАР', day:'10', kind:'Контрольный осмотр', kc:T.teal, org:'ГБ №12', datetime:'10.03.2023, 09:00', nextVisit:'02.06.2023', specialist:'Онколог Петров П.П.', condition:'Состояние после операции. Динамика положительная.', icd:'C50.4', icdNote:'Уточнён после гистологии' },
-    ];
+    const dispData = DC.obs;
     const dispEvents=dispData.map((d,i,arr)=>({ ...d, kindStyle:tag(d.kind,d.kc), lineStyle:`width:2px;flex:1;background:${i===arr.length-1?'transparent':'#E2E4E9'};min-height:8px;`,
       onClick:()=>openDrawer({ icon:'ri-clipboard-line', iconC:d.kc, title:d.kind, subtitle:d.datetime+' · '+d.org,
         status:['Диспансерное наблюдение', d.condition, T.green],
@@ -1321,28 +1404,9 @@ class Component extends DCLogic {
           { heading:'Уточнение клинического диагноза', icon:'ri-file-text-line', c:T.orange, text:d.icd+' — '+d.icdNote+'.' },
           { heading:'План дальнейшего наблюдения', icon:'ri-calendar-event-line', c:T.blue, list:[['ri-calendar-check-line','Следующая явка: '+d.nextVisit,'#4D42E9'],['ri-user-heart-line','Наблюдающий специалист: '+d.specialist,'#525866']] },
         ] }) }));
-    const dispStdData = dc===0 ? [
-      ['Общий анализ крови','10.05.2024','10.05.2024',['Выполнено',T.green]],
-      ['ФГДС (контроль)','10.11.2024','—',['Запланировано',T.blue]],
-      ['Консультация гастроэнтеролога','01.06.2024','—',['Просрочено',T.orangeD]],
-      ['Диетологическое консультирование','15.11.2023','15.11.2023',['Выполнено',T.green]],
-    ] : [
-      ['Онкомаркёры (CA 15-3)','14.09.2023','14.09.2023',['Выполнено',T.green]],
-      ['УЗИ молочных желёз','15.12.2023','—',['Запланировано',T.blue]],
-      ['Маммография (контроль)','05.03.2024','—',['Запланировано',T.blue]],
-      ['Консультация онколога','14.09.2023','14.09.2023',['Выполнено',T.green]],
-    ];
+    const dispStdData = DC.std;
     const dispStd=dispStdData.map(a=>({ name:a[0], plan:a[1], fact:a[2], statusText:a[3][0], statusStyle:tag(a[3][0],a[3][1]) }));
-    const dispRcp = dc===0 ? [
-      { num:'№ RX-2024-4471', type:'Бумажный', created:'10.05.2024', exp:'10.06.2024', meds:[
-        { name:'Омепразол', dose:'20 мг', days:'28', period:'10.05.2024 – 06.06.2024' },
-        { name:'Де-Нол', dose:'120 мг', days:'28', period:'10.05.2024 – 06.06.2024' } ] },
-      { num:'№ RX-2023-8890', type:'Электронный', created:'15.11.2023', exp:'15.12.2023', meds:[
-        { name:'Ребамипид', dose:'100 мг', days:'21', period:'15.11.2023 – 05.12.2023' } ] },
-    ] : [
-      { num:'№ RX-2023-9921', type:'Электронный', created:'14.09.2023', exp:'14.10.2023', meds:[
-        { name:'Тамоксифен', dose:'20 мг', days:'90', period:'14.09.2023 – 12.12.2023' } ] },
-    ];
+    const dispRcp = DC.rcp;
     const dispDeregActive = dispCasesData[dc].active;
     const dispDereg = [
       {k:'Дата снятия с учёта',v:'—'},{k:'Причина снятия',v:'—'},{k:'Врач, снявший с учёта',v:'—'},{k:'ИИН врача',v:'—'},
@@ -1496,8 +1560,10 @@ class Component extends DCLogic {
       dispEvents,
       dispCases, dispTabs,
       dispIsReg:s.dispTab==='reg', dispIsObs:s.dispTab==='obs', dispIsStd:s.dispTab==='std', dispIsRcp:s.dispTab==='rcp', dispIsDereg:s.dispTab==='dereg',
-      dispIsDiary:dispDiary,
-      dispSub: dispDiary ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
+      dispIsDiary:dispDiary, diaryAddShow:dispDiary && citizen,
+      // Дневник: направления — по диагнозам на учёте, выбранное — по выбранному случаю; у врача — только просмотр
+      diaryPatient:p.patient || 'ivanova', diaryDirs:diaryCases.map(x=>x.c.diary).join(','), diarySel, diaryRO:citizen ? '0' : '1',
+      dispSub: dispDiary ? (citizen ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Показатели, внесённые пациентом · режим просмотра') : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
       diaryAdd:()=>window.dispatchEvent(new CustomEvent('mp-diary-add')), diaryAddOff:!s.diary.ready,
       diaryAddLabel: s.diary.sel==='chf' ? 'Добавить запись' : 'Добавить измерение',
       dcReg, dcDx, dispStd, dispRcp, dispDereg, dispDeregActive, dispDeregDone:!dispDeregActive,
