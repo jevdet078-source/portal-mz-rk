@@ -34,15 +34,17 @@
   .nt-tab:hover{color:#0A0D14 !important;}
   .nt-tab:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);border-radius:4px;}
   /* запись центра уведомлений: строка сведений + текст в подложке; записи разделены линией и воздухом */
-  .nt-row{display:block;padding:14px 0;border-bottom:1px solid var(--stroke);text-decoration:none;color:inherit;background:#fff;transition:background .15s;}
+  .nt-row{display:block;padding:12px 0;border-bottom:1px solid var(--stroke);text-decoration:none;color:inherit;background:#fff;transition:background .15s;}
   .nt-row:last-child{border-bottom:none;}
   .nt-row:hover{background:var(--n50);}
   .nt-id{color:var(--primary);border-radius:4px;}
   .nt-row:hover .nt-id{color:var(--primary-dark);text-decoration:underline;text-underline-offset:3px;}
-  .nt-msg{margin:10px 10px 0 84px;padding:10px 14px 10px 12px;border-radius:10px;font-size:14px;line-height:20px;text-wrap:pretty;transition:background .15s,box-shadow .15s;}
+  .nt-msg{margin:8px 10px 0 84px;padding:8px 14px 8px 12px;border-radius:10px;font-size:14px;line-height:20px;text-wrap:pretty;transition:background .15s,box-shadow .15s;}
+  .nt-msg-t{max-width:1220px;}
+  @media (min-width:1600px){ .nt-msg-t{text-wrap:balance;} }
   .nt-msg-new{background:var(--primary-lighter);box-shadow:inset 3px 0 0 var(--primary);color:var(--n900);}
-  .nt-msg-read{background:var(--n100);color:var(--n600);}
-  .nt-row:hover .nt-msg-read{box-shadow:inset 0 0 0 1px var(--stroke);}
+  .nt-msg-read{background:var(--n50);box-shadow:inset 0 0 0 1px var(--stroke);color:var(--n600);}
+  .nt-row:hover .nt-msg-read{background:var(--n100);box-shadow:inset 0 0 0 1px var(--n300);}
   .nt-row:hover .nt-msg-new{box-shadow:inset 3px 0 0 var(--primary),inset 0 0 0 1px var(--primary-light);}
   .nt-row:focus-visible,.nt-b:focus-visible,.nt-x:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
   .nt-b{transition:background .15s,border-color .15s,color .15s;}
@@ -116,16 +118,16 @@
                     <a class="nt-row" href="{{ r.href }}" onClick="{{ r.onOpen }}" aria-label="{{ r.aria }}">
                       <div style="display:flex;align-items:center;min-height:24px;">
                         <div style="{{ r.numStyle }}">
-                          <sc-if value="{{ r.unread }}" hint-placeholder-val="{{ true }}"><span title="Непрочитанное" style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 auto;"></span></sc-if>
+                          <span title="{{ r.dotTip }}" style="{{ r.dotStyle }}"></span>
                           <span style="{{ r.numTextStyle }}">{{ r.n }}</span>
                         </div>
                         <div class="tnum" style="width:110px;flex:0 0 auto;padding:0 10px;font-size:14px;line-height:20px;font-weight:500;"><span class="nt-id"><sc-for list="{{ r.idParts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></span></div>
                         <div title="{{ r.name }}" style="{{ r.nameStyle }}">{{ r.name }}</div>
-                        <div class="tnum" style="width:190px;flex:0 0 auto;padding:0 10px;font-size:14px;line-height:20px;color:var(--n900);white-space:nowrap;">{{ r.date }}</div>
+                        <div class="tnum" style="width:232px;flex:0 0 auto;padding:0 10px;font-size:14px;line-height:20px;color:var(--n900);white-space:nowrap;">{{ r.date }}</div>
                         <div style="width:184px;flex:0 0 auto;padding:0 10px;display:flex;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
-                        <div style="width:160px;flex:0 0 auto;padding:0 10px;font-size:14px;line-height:20px;color:var(--n900);">{{ r.expert }}</div>
+                        <div style="width:160px;flex:0 0 auto;padding:0 10px;font-size:14px;line-height:20px;color:var(--n600);">{{ r.expert }}</div>
                       </div>
-                      <div class="{{ r.msgClass }}"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></div>
+                      <div class="{{ r.msgClass }}"><div class="nt-msg-t"><sc-for list="{{ r.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.style }}">{{ p.t }}</span></sc-for></div></div>
                     </a>
                   </sc-for>
                 </div>
@@ -262,7 +264,7 @@ class Component extends DCLogic {
       { label:'№', sort:true, style: hc + 'width:86px;flex:0 0 auto;' },
       { label:'ID заявки', sort:true, style: hc + 'width:110px;flex:0 0 auto;' },
       { label:'Наименование услуги', sort:true, style: hc + 'flex:1;min-width:0;' },
-      { label:'Дата вынесения решения, и время', sort:true, style: hc + 'width:190px;flex:0 0 auto;' },
+      { label:'Дата вынесения решения, и время', sort:true, style: hc + 'width:232px;flex:0 0 auto;white-space:nowrap;' },
       { label:'Статус', sort:true, style: hc + 'width:184px;flex:0 0 auto;' },
       { label:'Эксперт / система', sort:true, style: hc + 'width:160px;flex:0 0 auto;' },
     ].map(c => ({ ...c, icon: c.sort ? 'ri-expand-up-down-line' : '', iconStyle:'font-size:14px;color:#868C98;flex:0 0 auto;' }));
@@ -302,6 +304,8 @@ class Component extends DCLogic {
         idParts: parts(r.appId), parts: parts(r.text),
         aria: (unread ? 'Непрочитанное. ' : '') + 'Заявка ' + r.appId + ', ' + r.date + '. ' + r.text,
         numStyle:'width:86px;flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:0 10px;',
+        dotTip: unread ? 'Непрочитанное' : '',
+        dotStyle:`width:6px;height:6px;border-radius:50%;flex:0 0 auto;background:${unread ? '#4D42E9' : 'transparent'};`,
         numTextStyle:`font-size:14px;line-height:20px;color:#0A0D14;font-weight:${unread ? '600' : '400'};`,
         // наименование услуги — одной строкой (полностью — в подсказке): главное в записи — текст
         nameStyle:`flex:1;min-width:0;margin:0 10px;font-size:14px;line-height:20px;color:#525866;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`,
