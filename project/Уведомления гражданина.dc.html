@@ -42,7 +42,7 @@
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
   @keyframes nt-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
   @keyframes nt-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-  @keyframes nt-fresh{0%,40%{background:var(--primary-lighter)}100%{background:var(--n0)}}
+  @keyframes nt-fresh{0%,40%{background:var(--n100)}100%{background:var(--n0)}}
 
   /* Раскладка кабинета гражданина — как у «Моих заявок»: на всю ширину, поля 32 / 24 / 16 px */
   .nt-wrap{padding:28px 32px 80px;}
@@ -177,6 +177,13 @@
   @container ntmain (max-width:520px){
     .nt-tools{flex-wrap:wrap;}
     .nt-tools .nt-btn{flex:1;}
+    .nt-tabs{gap:16px;}
+    .nt-tab:not(.un) .nt-cnt{display:none;}
+    .nt-rec{grid-template-areas:"num st" "svc svc" "dt dt" "msg msg";row-gap:6px;}
+    .nt-c-dt{padding-left:18px;margin-top:-4px;}
+    .nt-msg{margin-top:6px;}
+    .nt-c-st{padding-left:0;justify-content:flex-end;}
+    .nt-c-dt{font-size:13px;}
     .nt-msg{margin-left:0;}
   }
   @media (max-width:1024px){
@@ -217,13 +224,13 @@
       <main class="nt-main">
         <h1 class="nt-h1">Уведомления</h1>
 
-        <section class="nt-card" aria-label="Уведомления об изменении статусов заявок">
+        <section class="nt-card" id="nt-panel" aria-label="Уведомления об изменении статусов заявок">
           <!-- Вкладки, поиск, «Отметить все прочитанными» -->
           <sc-if value="{{ hasBar }}" hint-placeholder-val="{{ true }}">
             <div class="nt-bar">
               <div class="nt-tabs" role="tablist" aria-label="Уведомления">
                 <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
-                  <button type="button" role="tab" class="{{ t.cls }}" aria-selected="{{ t.on }}" onClick="{{ t.onClick }}">{{ t.label }}<span class="nt-cnt" aria-label="{{ t.aria }}">{{ t.n }}</span></button>
+                  <button type="button" role="tab" class="{{ t.cls }}" aria-selected="{{ t.on }}" aria-controls="nt-panel" tabIndex="{{ t.ti }}" onClick="{{ t.onClick }}" onKeyDown="{{ t.onKey }}">{{ t.label }}<span class="nt-cnt" aria-label="{{ t.aria }}">{{ t.n }}</span></button>
                 </sc-for>
               </div>
               <div class="nt-tools">
@@ -235,7 +242,7 @@
                   </sc-if>
                 </div>
                 <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
-                  <button type="button" class="nt-btn" onClick="{{ readAll }}"><i class="ri-check-double-line" aria-hidden="true"></i>Отметить все прочитанными</button>
+                  <button type="button" class="nt-btn" onClick="{{ readAll }}"><i class="ri-check-double-line" aria-hidden="true"></i>{{ readAllLabel }}</button>
                 </sc-if>
               </div>
             </div>
@@ -261,7 +268,7 @@
                 <li>
                   <div class="{{ r.cls }}" onClick="{{ r.open }}">
                     <div class="nt-c-num">
-                      <span class="nt-dot" data-tip="{{ r.dotTip }}"></span>
+                      <span class="nt-dot" aria-hidden="true"></span>
                       <a class="nt-num" href="{{ r.href }}" onClick="{{ r.mark }}" aria-label="{{ r.aria }}"><sc-for list="{{ r.numParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></a>
                     </div>
                     <div class="nt-c-svc"><sc-for list="{{ r.svcParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></div>
@@ -283,7 +290,10 @@
               <div class="nt-empty-ic" aria-hidden="true"><i class="ri-search-line"></i></div>
               <div class="nt-empty-t">{{ noMatchT }}</div>
               <p class="nt-empty-s">Проверьте номер заявки или название услуги</p>
-              <button type="button" class="nt-btn" onClick="{{ clearQ }}"><i class="ri-close-line" aria-hidden="true"></i>Сбросить поиск</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+                <sc-if value="{{ inOther }}" hint-placeholder-val="{{ false }}"><button type="button" class="nt-btn pri" onClick="{{ toAll }}"><i class="ri-search-line" aria-hidden="true"></i>{{ inOtherLabel }}</button></sc-if>
+                <button type="button" class="nt-btn" onClick="{{ clearQ }}"><i class="ri-close-line" aria-hidden="true"></i>Сбросить поиск</button>
+              </div>
             </div>
           </sc-if>
 
@@ -470,10 +480,14 @@ class Component extends DCLogic {
     // Поиск: цифры — по части номера заявки («№» и пробелы не мешают), иначе — по названию услуги
     const raw = (s.q || '').trim();
     const ql = raw.toLowerCase();
-    const digits = ql.replace(/[\s№#]/g, '');
-    const byNum = /^\d+$/.test(digits);
     const svc = A ? A.SERVICE : '';
-    const match = (x) => !raw || (byNum ? x.num.indexOf(digits) !== -1 : (svc.toLowerCase().indexOf(ql) !== -1));
+    const svcL = svc.toLowerCase();
+    const words = ql.replace(/[№#]/g, ' ').split(/\s+/).filter(Boolean);
+    const numW = words.filter(w => /^\d+$/.test(w)), txtW = words.filter(w => !/^\d+$/.test(w));
+    const digits = numW.join('');
+    const byNum = numW.length > 0;
+    const svcQ = txtW.join(' ');
+    const match = (x) => !raw || (numW.every(w => x.num.indexOf(w) !== -1) && (!svcQ || svcL.indexOf(svcQ) !== -1));
     const found = all.filter(match);
     const inTab = (x, t) => t === 'all' || (t === 'unread' ? !x.read : x.read);
     const unreadAll = all.filter(x => !x.read).length;
@@ -483,7 +497,16 @@ class Component extends DCLogic {
       return { label, n, on: on ? 'true' : 'false',
         cls: 'nt-tab' + (id === 'unread' && n > 0 && !raw ? ' un' : ''),
         aria: id === 'unread' ? n + ' ' + plural(n, ['непрочитанное', 'непрочитанных', 'непрочитанных']) : String(n),
-        onClick: () => this.setState({ tab:id, shown:PAGE }) };
+        ti: on ? '0' : '-1',
+        onClick: () => this.setState({ tab:id, shown:PAGE }),
+        onKey: (e) => {
+          const i = TABS.findIndex(t => t[0] === id), k = e.key;
+          const j = k === 'ArrowRight' ? (i + 1) % TABS.length : k === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : k === 'Home' ? 0 : k === 'End' ? TABS.length - 1 : -1;
+          if(j < 0) return;
+          e.preventDefault();
+          this.setState({ tab:TABS[j][0], shown:PAGE });
+          const bar = e.currentTarget.parentNode; setTimeout(() => { const b = bar && bar.querySelectorAll('[role="tab"]')[j]; if(b) b.focus(); }, 0);
+        } };
     });
 
     const list = found.filter(x => inTab(x, s.tab));
@@ -497,12 +520,11 @@ class Component extends DCLogic {
       return {
         cls: 'nt-rec' + (unread ? ' un' : '') + (s.fresh.indexOf(x.id) !== -1 ? ' fresh' : ''),
         href, mark,
-        open: (e) => { if(e.target && e.target.closest && e.target.closest('a')) return; mark(); location.href = href; },
-        numParts: hlParts(x.num, byNum ? digits : ''),
-        svcParts: hlParts(svc, byNum ? '' : ql),
+        open: (e) => { if(e.target && e.target.closest && e.target.closest('a')) return; const sel = window.getSelection && String(window.getSelection()); if(sel) return; mark(); location.href = href; },
+        numParts: hlParts(x.num, numW.length === 1 ? digits : ''),
+        svcParts: hlParts(svc, svcQ),
         st: st.label, stCls: 'nt-st ' + st.tone,
         dt: A.fmtDT(x.at),
-        dotTip: unread ? 'Непрочитанное' : '',
         pre: text.slice(0, cut), post: text.slice(cut + 'Мои заявки'.length),
         aria: (unread ? 'Непрочитанное. ' : '') + 'Заявка № ' + x.num + ', ' + svc + ', статус «' + st.label + '», ' + A.fmtDT(x.at),
       };
@@ -528,9 +550,16 @@ class Component extends DCLogic {
       onQ: (e) => this.setState({ q: e.target.value, shown:PAGE }),
       onQKey: (e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); clearQ(); } },
       clearQ, qRef: this.qRef,
-      hasUnread: hasAny && unreadAll > 0,
+      hasUnread: hasAny && (raw ? found.some(x => !x.read) : unreadAll > 0),
+      readAllLabel: raw ? 'Отметить найденные прочитанными' : 'Отметить все прочитанными',
       readAll: () => {
         if(!A2) return;
+        if(raw){
+          const ids = found.filter(x => !x.read).map(x => x.id);
+          A2.ntRead(ids);
+          this.toast(ids.length === 1 ? 'Уведомление отмечено прочитанным' : 'Найденные уведомления отмечены прочитанными', ids);
+          return;
+        }
         const was = A2.ntReadAll();
         this.toast(was.length === 1 ? 'Уведомление отмечено прочитанным' : 'Все уведомления отмечены прочитанными', was);
       },
@@ -546,6 +575,8 @@ class Component extends DCLogic {
 
       noMatch: hasAny && !!raw && list.length === 0,
       noMatchT: (s.tab === 'all' ? 'По запросу' : 'Во вкладке «' + (TABS.find(t => t[0] === s.tab) || TABS[0])[1] + '» по запросу') + ' «' + raw + '» ничего не найдено',
+      inOther: s.tab !== 'all' && found.length > 0,
+      inOtherLabel: 'Показать во всех · ' + found.length,
       tabEmpty: hasAny && !raw && list.length === 0,
       tabEmptyIc: s.tab === 'unread' ? 'ri-check-double-line' : 'ri-mail-open-line',
       tabEmptyT: s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Прочитанных уведомлений пока нет',
