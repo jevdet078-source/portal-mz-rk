@@ -22,7 +22,8 @@
 
   Разделы: Обзор, Личная медицинская карта, Электронный паспорт здоровья (ЭПЗ) — группа из двух
   подразделов («Просмотр ЭПЗ», «Управление доступами к ЭПЗ»), Моя семья (и «ЭПЗ ребёнка»), Услуги, Мои заявки
-  (постановка «Прикрепление к поликлинике», 09.11.2026), Уведомления.
+  (постановка «Прикрепление к поликлинике», 09.11.2026), Уведомления (отдельная страница «Уведомления гражданина»,
+  постановка 24.11.2026; бейдж — число непрочитанных из AttachData, скрыт при нуле).
   Группа раскрыта, когда открыт её подраздел; иначе раскрывается по клику (без перехода).
   На ≤1024px группа в ленте не нужна — подразделы идут отдельными пунктами.
   «Выйти» сбрасывает mp-profile и mp-iin.
@@ -328,6 +329,8 @@
     <div class="cn-toast" role="status"><i class="ri-checkbox-circle-fill" style="font-size:20px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>{{ toast }}</div>
   </sc-if>
   <span class="cn-sr" aria-live="polite">{{ live }}</span>
+  <!-- счётчик непрочитанных уведомлений — из AttachData (mp-attach-notifs) -->
+  <div style="display:none;"><dc-import name="AttachData" hint-size="0px,0px"></dc-import></div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:560},&quot;active&quot;:&quot;overview&quot;}">
@@ -343,8 +346,10 @@ const CN_ITEMS = [
   { id:'family', label:'Моя семья', icon:'ri-parent-line', href:'Моя семья.dc.html' },
   { id:'services', label:'Услуги', icon:'ri-government-line', href:'Услуги гражданина.dc.html' },
   { id:'requests', label:'Мои заявки', icon:'ri-draft-line', href:'Мои заявки гражданина.dc.html' },
-  { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:LK + '#notif', badge:'3', badgeLabel:'3 непрочитанных' },
+  { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:'Уведомления гражданина.dc.html', unreadBadge:true },
 ];
+
+const ntPlural = (n) => { const a = n % 100, b = n % 10; return (a > 10 && a < 20) || b !== 1 ? 'непрочитанных' : 'непрочитанное'; };
 
 // Фото профиля
 const AVA_KEY = 'mp-avatar', AVA_EVT = 'mp-avatar-change', SCN_KEY = 'mp-avatar-scn';
@@ -391,10 +396,17 @@ class Component extends DCLogic {
     this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
   };
 
-  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'' };
+  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'', ntUnread:0 };
 
   componentDidMount(){
     this.reveal();
+    // Непрочитанные уведомления (постановка 24.11.2026): AttachData, событие mp-attach-notif-change
+    this._nt = () => { const A = window.mpAttach; if(A && A.unread) this.setState({ ntUnread: A.unread() }); };
+    this._nt();
+    window.addEventListener('mp-attach-ready', this._nt);
+    window.addEventListener('mp-attach-notif-change', this._nt);
+    this._ntSt = (e) => { if(!e.key || e.key === 'mp-attach-notifs') this._nt(); };
+    window.addEventListener('storage', this._ntSt);
     // Фото меняется в другом экземпляре меню / вкладке — обновляем карточку
     this._sync = () => this.setState({ photo: readPhoto() });
     window.addEventListener(AVA_EVT, this._sync);
@@ -411,6 +423,9 @@ class Component extends DCLogic {
     window.removeEventListener('storage', this._sync);
     window.removeEventListener('mp-citizen-change', this._syncMe);
     window.removeEventListener('mp-avatar-edit', this._edit);
+    window.removeEventListener('mp-attach-ready', this._nt);
+    window.removeEventListener('mp-attach-notif-change', this._nt);
+    window.removeEventListener('storage', this._ntSt);
     clearInterval(this._timer); clearTimeout(this._toastT); clearTimeout(this._flashT);
     this.dragEnd();
     this.unlock();
@@ -586,7 +601,9 @@ class Component extends DCLogic {
       return { ...n, isLink:true, isGroup:false,
         cls: on ? 'cn-it on' : 'cn-it',
         current: on ? 'page' : undefined,
-        hasBadge: !!n.badge, badge: n.badge || '', badgeLabel: n.badgeLabel || '',
+        hasBadge: n.unreadBadge ? s.ntUnread > 0 : !!n.badge,
+        badge: n.unreadBadge ? (s.ntUnread > 99 ? '99+' : String(s.ntUnread)) : (n.badge || ''),
+        badgeLabel: n.unreadBadge ? s.ntUnread + ' ' + ntPlural(s.ntUnread) : (n.badgeLabel || ''),
       };
     });
 

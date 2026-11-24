@@ -20,6 +20,9 @@
       медработники и участки организации, справочник причин прикрепления.
   Заявки — localStorage `mp-attach-db`: { v, seq, list:[…] } (демо-набор + поданные из мастера).
   Статусы обработки: IN_PROGRESS · APPROVED · REJECTED · ERROR.
+  Уведомления об изменении статуса (постановка 24.11.2026) — localStorage `mp-attach-notifs`, событие
+  `mp-attach-notif-change`: подача заявки и смена статуса добавляют непрочитанное уведомление
+  (страница «Уведомления гражданина», счётчик в CitizenNav).
   Сценарий «дети и подопечные» — sessionStorage `mp-attach-kids`: auto | none (панель «Прототип» в мастере).
 -->
 <x-dc><div></div></x-dc>
@@ -158,6 +161,23 @@ const STATUS = {
     text:'При обработке запроса произошла техническая ошибка. Попробуйте проверить статус позднее.' },
 };
 const ORDER = ['IN_PROGRESS', 'APPROVED', 'REJECTED', 'ERROR'];
+const SERVICE = 'Прикрепление к поликлинике';
+
+// ---------- Уведомления об изменении статуса ----------
+// localStorage `mp-attach-notifs`: { v, list:[{ id, num, status, at, read }] }, событие `mp-attach-notif-change`.
+// Демо-набор строится из заявок: «В обработке» при подаче + итоговый статус. Непрочитанные — три последних события.
+const NT_KEY = 'mp-attach-notifs', NT_EVT = 'mp-attach-notif-change', NT_V = 1;
+const NT_UNREAD = ['0000152:IN_PROGRESS', '0000139:APPROVED', '0000131:REJECTED'];
+function ntSeed(list){
+  const out = [];
+  list.forEach(a => {
+    const ev = [['IN_PROGRESS', a.at]];
+    if(a.status !== 'IN_PROGRESS') ev.push([a.status, a.done || a.upd]);
+    ev.forEach(([st, at]) => out.push({ id:a.num + ':' + st + ':' + at, num:a.num, status:st, at,
+      read: Number(a.num) <= 152 && NT_UNREAD.indexOf(a.num + ':' + st) === -1 }));
+  });
+  return out;
+}
 
 // ---------- Утилиты ----------
 const pad = n => String(n).padStart(2, '0');
@@ -246,8 +266,35 @@ const A = {
     a.status = status; a.upd = now; a.done = (status === 'APPROVED' || status === 'REJECTED') ? now : null;
     A.save(d);
   },
-  reset: () => { try { localStorage.removeItem(DB_KEY); } catch(e){} A.db(); A.save(A.db()); },
+  reset: () => { try { localStorage.removeItem(DB_KEY); localStorage.removeItem(NT_KEY); } catch(e){} A.db(); A.save(A.db()); A.ntSave(A.ntDb()); },
+
+  // --- Уведомления об изменении статуса (постановка 24.11.2026) ---
+  // Запись: { id, num, status, at, read }. Текст — единый шаблон A.ntText(); статус и тон — из STATUS.
+  SERVICE,
+  ntText: (num, status) => 'По вашей заявке №' + num + ' на услугу «' + SERVICE + '» статус изменён на «' + ((STATUS[status] || {}).label || status) + '». Подробности доступны в разделе «Мои заявки».',
+  ntDb: () => {
+    try { const d = JSON.parse(localStorage.getItem(NT_KEY) || 'null'); if(d && d.v === NT_V && Array.isArray(d.list)) return d; } catch(e){}
+    const d = { v:NT_V, list:ntSeed(A.db().list) };
+    try { localStorage.setItem(NT_KEY, JSON.stringify(d)); } catch(e){}
+    return d;
+  },
+  ntSave: d => {
+    try { localStorage.setItem(NT_KEY, JSON.stringify(d)); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent(NT_EVT)); } catch(e){}
+  },
+  notifs: () => A.ntDb().list.slice().sort((a, b) => b.at - a.at),
+  // в демо-состояниях «Нет уведомлений» и «Сервис недоступен» (панель «Прототип» страницы уведомлений) счётчик пуст
+  unread: () => { let scn = 'ok'; try { scn = sessionStorage.getItem('mp-cit-notif-scn') || 'ok'; } catch(e){} return scn === 'ok' ? A.ntDb().list.filter(x => !x.read).length : 0; },
+  ntRead: ids => { const d = A.ntDb(), set = new Set([].concat(ids)); let ch = false; d.list.forEach(x => { if(set.has(x.id) && !x.read){ x.read = true; ch = true; } }); if(ch) A.ntSave(d); },
+  ntReadAll: () => { const d = A.ntDb(), was = d.list.filter(x => !x.read).map(x => x.id); d.list.forEach(x => { x.read = true; }); A.ntSave(d); return was; },
+  ntUnread: ids => { const d = A.ntDb(), set = new Set(ids); d.list.forEach(x => { if(set.has(x.id)) x.read = false; }); A.ntSave(d); },
+  ntPush: (num, status, at) => { const d = A.ntDb(); d.list.push({ id:num + ':' + status + ':' + at, num, status, at, read:false }); A.ntSave(d); },
 };
+
+// Новая заявка и смена статуса присылают уведомление
+const _create = A.create, _setStatus = A.setStatus;
+A.create = (x) => { const app = _create(x); A.ntPush(app.num, app.status, app.at); return app; };
+A.setStatus = (n, status) => { const was = A.get(n); _setStatus(n, status); const a = A.get(n); if(a && was && was.status !== status) A.ntPush(n, status, a.upd); };
 
 class Component extends DCLogic {
   constructor(props){ super(props); window.mpAttach = A; }
