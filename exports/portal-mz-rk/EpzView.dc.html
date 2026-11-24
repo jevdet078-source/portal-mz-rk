@@ -20,8 +20,13 @@
 
   Пропсы:
     patient — ключ пациента в PATIENTS (ivanova | kasymov | smagulov | akhmetova | seitzhanova)
-    mode    — doctor | citizen. У гражданина нет полосы «пациент · режим просмотра» над разделами:
-              ФИО и ИИН уже в карточке меню кабинета; раздел хранится в адресе (#allergy и т. п.)
+    mode    — doctor | citizen. У гражданина нет полосы «пациент · режим просмотра» над разделами и меню разделов
+              на странице: ФИО и ИИН — в карточке меню кабинета, разделы ЭПЗ — в меню кабинета (CitizenNav);
+              раздел хранится в адресе (#allergy и т. п.), смена раздела без перехода — событие window mp-epz-nav.
+              На «Главной» гражданина — синхронизация с ЕГИС ЗРК и «Разделы ЭПЗ» (быстрый доступ с числом записей).
+  Единый каркас подразделов (замечания после показа министру, 24.11.2026): шапка (значок, H1, бейдж количества,
+  «Экспорт отчёта») → реестр (поиск и фильтры работают, таблица с «глазом», «Показано 1–N из M») → окно ez-dlg
+  по центру (статус, «поле — значение», хронология, блоки-аккордеоны, «Распечатать» / «Скачать PDF» / «Закрыть»).
     top     — отступ липкого меню разделов от верха окна, px (под шапкой страницы)
   Меню разделов становится лентой, когда сам компонент уже 1440 px: иначе разделам остаётся меньше 1175 px
   и таблица амбулаторных приёмов (11 столбцов) не помещается без прокрутки. Лента на ширине > 640 px — в несколько строк.
@@ -70,7 +75,7 @@
   @media (min-width:641px){ .epz-narrow .epz-nav{flex-wrap:wrap;overflow:visible;} }
 
   /* Диспансерный учёт: вкладки одной лентой (линия — внутренней тенью, чтобы подчёркивание не обрезалось прокруткой) */
-  .epz-dtabs{display:flex;gap:4px;margin-bottom:18px;box-shadow:inset 0 -1px 0 var(--stroke);overflow-x:auto;scrollbar-width:none;}
+  .epz-dtabs{scrollbar-width:none;}
   .epz-dtabs::-webkit-scrollbar{display:none;}
   .epz-dtab[aria-selected="false"]:hover{color:var(--n900) !important;}
   .epz-case{transition:border-color .15s,box-shadow .15s;}
@@ -84,6 +89,210 @@
   .epz-add:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .epz-add[disabled]{cursor:not-allowed;opacity:.45;box-shadow:none;}
   @media (max-width:640px){ .epz-add{width:100%;} }
+
+  /* ===== Единый каркас подразделов ЭПЗ (замечания после показа министру, 24.11.2026) =====
+     Шапка: значок, H1, количество записей бейджем, действие справа → плашка: поиск и фильтры, таблица с «глазом»,
+     «Показано 1–N из M» + страницы → подробности записи — окно по центру (ez-dlg) с блоками-аккордеонами.
+     Визуальный язык — как у «Амбулаторной помощи» (EpzAmbulatory). */
+  .epz-cit .epz-layout{grid-template-columns:minmax(0,1fr);}
+  .epz-cit .epz-nav{display:none;}
+  .ez{display:flex;flex-direction:column;gap:12px;animation:mp-slidein .2s ease;}
+  .ez button{font-family:inherit;}
+  .ez-head{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin-bottom:4px;}
+  .ez-title{display:flex;align-items:center;gap:12px;min-width:0;}
+  .ez-ico{width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:21px;}
+  .ez-h1{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;color:var(--n900);}
+  .ez-cnt{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--primary-lighter);color:var(--primary);font-size:12.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .ez-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;flex:0 0 auto;transition:background .12s,border-color .12s,color .12s;box-shadow:var(--sh-xs);text-decoration:none;}
+  .ez-btn:hover{background:var(--n100);}
+  .ez-btn i{font-size:18px;color:var(--n500);}
+  .ez-btn.pri{border-color:var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .ez-btn.pri i{color:#fff;}
+  .ez-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
+  .ez-btn.soft{border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .ez-btn.soft i{color:var(--primary);}
+  .ez-btn.soft:hover{background:#E3E8FF;}
+  .ez-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);overflow:hidden;}
+  .ez-cardp{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);padding:18px 20px;}
+  .ez-cap{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:14.5px;line-height:20px;font-weight:600;color:var(--n900);}
+  .ez-cap i{font-size:18px;color:var(--primary);}
+  /* Поиск и фильтры — верх плашки с таблицей */
+  .ez-tools{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
+  .ez-search{flex:1 1 240px;min-width:200px;position:relative;display:flex;align-items:center;height:40px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);padding:0 6px 0 38px;transition:border-color .12s,box-shadow .12s;}
+  .ez-search:focus-within{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .ez-search>i{position:absolute;left:12px;font-size:18px;color:var(--n400);pointer-events:none;}
+  .ez-search input{flex:1;min-width:0;height:100%;border:none;outline:none;background:none;font-family:inherit;font-size:14px;color:var(--n900);}
+  .ez-search input::placeholder{color:var(--n400);}
+  .ez-x{width:28px;height:28px;border:none;border-radius:7px;background:none;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .ez-x:hover{background:var(--n100);color:var(--n600);}
+  .ez-dd{position:relative;flex:0 0 auto;}
+  .ez-dd-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s;}
+  .ez-dd-btn:hover{background:var(--n100);}
+  .ez-dd-btn>i:first-child{font-size:17px;color:var(--n400);}
+  .ez-chev{font-size:18px;color:var(--n400);transition:transform .15s;}
+  .ez-dd-btn[aria-expanded="true"] .ez-chev{transform:rotate(180deg);}
+  .ez-dd-btn.is-set{border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .ez-dd-btn.is-set>i{color:var(--primary);}
+  .ez-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:100%;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-md);padding:6px;animation:mp-slidein .14s ease;}
+  .ez-menu.r{left:auto;right:0;}
+  .ez-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:7px 10px;border:none;border-radius:8px;background:none;color:var(--n700);font-size:14px;text-align:left;cursor:pointer;white-space:nowrap;}
+  .ez-opt:hover{background:var(--n100);}
+  .ez-opt[aria-selected="true"]{color:var(--primary-darker);font-weight:500;}
+  .ez-opt i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .ez-reset{border:none;background:none;padding:6px 4px;border-radius:6px;color:var(--primary);font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .ez-reset:hover{color:var(--primary-dark);text-decoration:underline;text-underline-offset:3px;}
+  /* Вкладки внутри раздела (Профилактика, Женское здоровье) — подчёркивание у активной */
+  .ez-tabs{display:flex;gap:4px;padding:0 12px;border-bottom:1px solid var(--stroke);overflow-x:auto;scrollbar-width:none;}
+  .ez-tabs::-webkit-scrollbar{display:none;}
+  .ez-tab{position:relative;display:inline-flex;align-items:center;gap:8px;flex:0 0 auto;height:48px;padding:0 10px;border:none;background:none;color:var(--n500);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;}
+  .ez-tab:hover{color:var(--n900);}
+  .ez-tab[aria-selected="true"]{color:var(--primary);font-weight:600;}
+  .ez-tab[aria-selected="true"]::after{content:'';position:absolute;left:6px;right:6px;bottom:-1px;height:2px;border-radius:2px;background:var(--primary);}
+  .ez-tab i{font-size:18px;}
+  .ez-tab-n{min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--n100);color:var(--n600);font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;}
+  .ez-tab[aria-selected="true"] .ez-tab-n{background:var(--primary-lighter);color:var(--primary);}
+  /* Таблица: сетка задаётся разделом (--cols); «Действие» — последний столбец с «глазом» */
+  .ez-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
+  .ez-tr{display:grid;grid-template-columns:var(--cols);min-width:var(--minw,0);}
+  .ez-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
+  .ez-th{display:flex;align-items:center;min-height:40px;padding:10px 10px;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .ez-row{border-top:1px solid var(--stroke);cursor:pointer;transition:background .1s;}
+  .ez-tbody .ez-row:first-child{border-top:none;}
+  .ez-row:hover{background:var(--n100);}
+  .ez-row.is-sel{background:var(--primary-lighter);}
+  .ez-row:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
+  .ez-td{padding:12px 10px;font-size:13.5px;line-height:19px;color:var(--n600);min-width:0;overflow-wrap:normal;word-break:normal;display:flex;flex-direction:column;justify-content:center;}
+  .ez-th:first-child,.ez-td:first-child{padding-left:16px;}
+  .ez-th:last-child,.ez-td:last-child{padding-right:14px;}
+  .ez-strong{font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .ez-sub{font-size:12.5px;line-height:17px;color:var(--n400);margin-top:1px;}
+  .ez-code{display:inline-block;align-self:flex-start;padding:0 6px;border-radius:6px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12.5px;font-weight:600;line-height:20px;font-variant-numeric:tabular-nums;}
+  .ez-pill{display:inline-flex;align-items:center;align-self:flex-start;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;}
+  .ez-act{align-items:flex-end;}
+  .ez-th.ez-act{align-items:center;justify-content:flex-end;}
+  .ez-eye{width:34px;height:34px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);color:var(--n500);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s,border-color .12s;}
+  .ez-eye i{font-size:18px;}
+  .ez-row:hover .ez-eye,.ez-eye:hover{border-color:var(--primary-light);color:var(--primary);}
+  .ez-row.is-sel .ez-eye{border-color:var(--primary);background:var(--primary);color:#fff;}
+  .ez-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--stroke);flex-wrap:wrap;}
+  .ez-count{font-size:13px;line-height:18px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .ez-count b{font-weight:600;color:var(--n900);}
+  .ez-pages{display:flex;align-items:center;gap:4px;}
+  .ez-pg{min-width:32px;height:32px;padding:0 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .ez-pg[aria-current="page"]{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
+  .ez-pg[disabled]{opacity:.45;cursor:not-allowed;}
+  .ez-pg i{font-size:18px;}
+  .ez-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 24px;}
+  .ez-empty-ico{width:48px;height:48px;border-radius:12px;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px;}
+  .ez-empty-t{font-size:15px;font-weight:600;line-height:20px;color:var(--n900);}
+  .ez-empty-s{margin-top:4px;font-size:13.5px;line-height:20px;color:var(--n500);}
+  /* Сетка «поле — значение» (карточки и окна) */
+  .ez-kv{display:grid;grid-template-columns:repeat(var(--kv,3),minmax(0,1fr));gap:14px 20px;}
+  .ez-k{font-size:12.5px;line-height:16px;color:var(--n500);}
+  .ez-v{margin-top:3px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:break-word;}
+  .ez-v .ez-pill{vertical-align:1px;white-space:normal;height:auto;min-height:22px;padding:2px 8px;}
+  /* Окно подробностей записи: по центру, шапка и подвал закреплены, прокрутка внутри */
+  .ez-ov{position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.48);display:flex;align-items:center;justify-content:center;padding:24px;animation:mp-fade .18s ease;font-family:'Inter',sans-serif;color:var(--n900);}
+  .ez-dlg{width:100%;max-width:var(--dw,720px);max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);overflow:hidden;outline:none;animation:mp-pop .22s ease;}
+  .ez-dlg button{font-family:inherit;}
+  .ez-dlg-head{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:16px 16px 16px 24px;border-bottom:1px solid var(--stroke);}
+  .ez-dlg-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:22px;}
+  .ez-dlg-t{margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
+  .ez-dlg-s{margin:2px 0 0;font-size:13px;line-height:18px;color:var(--n500);}
+  .ez-close{width:40px;height:40px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-left:auto;align-self:flex-start;}
+  .ez-close:hover{background:var(--n100);color:var(--n600);}
+  .ez-close i{font-size:22px;}
+  .ez-dlg-body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding:20px 24px;display:flex;flex-direction:column;gap:12px;background:var(--n50);scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
+  .ez-status{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid;}
+  .ez-status i{font-size:22px;flex:0 0 auto;}
+  .ez-status-t{font-size:14px;line-height:20px;font-weight:600;}
+  .ez-status-s{font-size:13px;line-height:18px;color:var(--n600);}
+  .ez-box{background:var(--n0);border:1px solid var(--stroke);border-radius:14px;}
+  .ez-box-p{padding:16px 18px;}
+  .ez-sec-h{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:10px 14px 10px 16px;border:none;border-radius:14px;background:none;text-align:left;cursor:pointer;transition:background .1s;}
+  .ez-sec-h:hover{background:var(--n50);}
+  .ez-sec-h[aria-expanded="true"]{border-radius:14px 14px 0 0;box-shadow:0 1px 0 var(--stroke);}
+  .ez-sec-ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:17px;}
+  .ez-sec-t{font-size:14.5px;line-height:20px;font-weight:600;color:var(--n900);}
+  .ez-badge{min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--n100);box-shadow:inset 0 0 0 1px var(--stroke);color:var(--n600);font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+  .ez-sec-chev{margin-left:auto;font-size:20px;color:var(--n400);transition:transform .18s;flex:0 0 auto;}
+  .ez-sec-h[aria-expanded="true"] .ez-sec-chev{transform:rotate(180deg);color:var(--n600);}
+  .ez-sec-b{padding:14px 18px 16px;animation:mp-slidein .16s ease;}
+  .ez-p{margin:0;font-size:14px;line-height:22px;color:var(--n700);white-space:pre-line;}
+  .ez-li{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--stroke);font-size:14px;line-height:20px;color:var(--n700);}
+  .ez-li:first-child{border-top:none;padding-top:0;}
+  .ez-li:last-child{padding-bottom:0;}
+  .ez-li>i{font-size:17px;line-height:20px;flex:0 0 auto;color:var(--n400);}
+  .ez-nd{font-size:13.5px;line-height:20px;color:var(--n400);}
+  .ez-dlg-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:14px 24px;border-top:1px solid var(--stroke);background:var(--n0);flex-wrap:wrap;}
+  .ez-sign{display:inline-flex;align-items:center;gap:6px;margin-right:auto;font-size:12.5px;line-height:16px;color:var(--n500);}
+  .ez-sign i{font-size:16px;color:var(--green);}
+  .ez-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:10px;padding:12px 16px 12px 14px;background:var(--n900);color:#fff;border-radius:12px;box-shadow:var(--sh-lg);font-size:14px;line-height:20px;font-weight:500;animation:mp-slidein .2s ease;}
+  .ez-toast i{font-size:20px;color:var(--green);}
+  .ez-eye:focus-visible,.ez-btn:focus-visible,.ez-dd-btn:focus-visible,.ez-opt:focus-visible,.ez-tab:focus-visible,.ez-close:focus-visible,.ez-sec-h:focus-visible,.ez-x:focus-visible,.ez-reset:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  @media (max-width:1100px){ .ez-kv{--kv:2 !important;} }
+  @media (max-width:640px){
+    .ez-title{flex-wrap:wrap;row-gap:6px;}
+    .ez-h1{font-size:20px;line-height:26px;}
+    .epz-sync .ez-btn{width:100%;}
+    .epz-vt .ez-pill{white-space:normal;height:auto;padding:2px 8px;align-self:flex-start;}
+    .ez-head .ez-btn{width:100%;}
+    .ez-search{flex-basis:100%;}
+    .ez-dd{flex:1 1 auto;}
+    .ez-dd-btn{width:100%;}
+    .ez-ov{padding:0;align-items:stretch;}
+    .ez-dlg{max-width:none;max-height:none;height:100%;border-radius:0;}
+    .ez-dlg-head{padding:12px 8px 12px 16px;}
+    .ez-dlg-body{padding:14px 16px;}
+    .ez-dlg-foot{padding:12px 16px;}
+    .ez-sign{flex-basis:100%;}
+    .ez-dlg-foot .ez-btn{flex:1 1 0;padding:0 10px;}
+    .ez-dlg-foot .ez-btn:last-child{display:none;}
+    .ez-kv{--kv:1 !important;}
+  }
+
+  /* Главная ЭПЗ гражданина: заголовок с синхронизацией, быстрый доступ к разделам */
+  .epz-sync{display:flex;align-items:center;gap:14px;padding:16px 20px;flex-wrap:wrap;}
+  .epz-sync-s{display:flex;align-items:center;gap:8px;margin-top:2px;font-size:13px;line-height:18px;color:var(--n500);}
+  .epz-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px var(--green-l);flex:0 0 auto;}
+  .epz-sync .ez-btn[disabled]{opacity:.6;cursor:progress;}
+  .epz-spin{display:inline-block;animation:mp-spin .9s linear infinite;}
+  .epz-qh{margin:8px 0 0;font-size:16px;line-height:22px;font-weight:600;color:var(--n900);}
+  .epz-q{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
+  @media (max-width:1180px){ .epz-q{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .epz-qt{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px 16px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;text-decoration:none;color:inherit;box-shadow:var(--sh-xs);transition:border-color .12s,box-shadow .12s;}
+  .epz-qt:hover{border-color:var(--primary-light);box-shadow:var(--sh-md);}
+  .epz-qt:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .epz-qt-t{display:block;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;hyphens:auto;}
+  /* Измерения: плитки показателей выбранного измерения */
+  .epz-vg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start;}
+  @media (max-width:900px){ .epz-vg{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .epz-vt{border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .epz-vv{font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.01em;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .epz-vv small{margin-left:4px;font-size:12.5px;font-weight:500;color:var(--n400);letter-spacing:0;}
+  /* Диспансерный учёт: диагнозы слева, вкладки и содержимое справа */
+  .epz-dl{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start;animation:mp-slidein .2s ease;}
+  .epz-dr{display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .epz-dr .ez-tabs{border-bottom:none;}
+  .epz-dcases{display:flex;flex-direction:column;gap:8px;}
+  .epz-dcases-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;font-size:14px;font-weight:600;box-shadow:var(--sh-xs);}
+  .epz-case{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;padding:12px 14px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);text-align:left;cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);transition:border-color .15s,box-shadow .15s,background .15s;}
+  .epz-case[aria-pressed="true"]{border-color:var(--primary);background:var(--n50);box-shadow:0 0 0 1px var(--primary);}
+  .epz-case-r{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;}
+  .epz-case-code{font-size:15px;line-height:20px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums;}
+  .epz-case-n{font-size:13.5px;line-height:19px;font-weight:500;color:var(--n900);}
+  @media (max-width:1500px){
+    .epz-dl{grid-template-columns:minmax(0,1fr);}
+    .epz-dcases{flex-direction:row;flex-wrap:wrap;}
+    .epz-dcases-h{display:none;}
+    .epz-case{flex:1 1 220px;width:auto;}
+  }
+  /* Окно вызова скорой: хронология — приём, передача бригаде, выезд, прибытие */
+  .epz-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));position:relative;}
+  .epz-steps li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;}
+  .epz-steps li+li::before{content:'';position:absolute;top:15px;right:calc(50% + 20px);left:calc(-50% + 20px);height:2px;background:var(--primary-light);}
+  .epz-step-dot{width:32px;height:32px;border-radius:50%;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:4px;}
+  .epz-step-t{font-size:15px;line-height:20px;font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;}
 
   /* ЭПЗ · Главная: краткая карточка пациента */
   .epz-main{display:flex;flex-direction:column;gap:12px;container-type:inline-size;}
@@ -222,11 +431,108 @@
         </div>
         </sc-if>
 
+        <!-- ===== Шапка подраздела — одна на все разделы, кроме «Главной» и «Амбулаторной помощи» (у неё своя такая же) ===== -->
+        <sc-if value="{{ hdShow }}" hint-placeholder-val="{{ false }}">
+          <div class="ez-head" style="margin-bottom:12px;">
+            <div class="ez-title">
+              <span class="ez-ico" aria-hidden="true"><i class="{{ hdIcon }}"></i></span>
+              <h1 class="ez-h1">{{ hdTitle }}</h1>
+              <sc-if value="{{ hdHasCount }}" hint-placeholder-val="{{ true }}"><span class="ez-cnt">{{ hdCount }}</span></sc-if>
+            </div>
+            <sc-if value="{{ hdExport }}" hint-placeholder-val="{{ true }}">
+              <button type="button" class="ez-btn" onClick="{{ doExport }}"><i class="ri-download-2-line" aria-hidden="true"></i>Экспорт отчёта</button>
+            </sc-if>
+            <!-- Вкладка «Дневник наблюдения» (только гражданин, у врача — просмотр): действие раздела — справа в шапке -->
+            <sc-if value="{{ diaryAddShow }}" hint-placeholder-val="{{ false }}">
+              <button type="button" class="epz-add" data-diary-add="1" onClick="{{ diaryAdd }}" disabled="{{ diaryAddOff }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ diaryAddLabel }}</button>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <!-- ===== Реестр подраздела (Заболевания, Аллергоанамнез, Госпитализация, Профилактика, Вызовы скорой, Больничные и справки):
+             вкладки (если есть) → поиск и фильтры → таблица с «глазом» → «Показано 1–N из M» ===== -->
+        <sc-if value="{{ tbShow }}" hint-placeholder-val="{{ false }}">
+          <div class="ez">
+            <div class="ez-card" style="overflow:visible;">
+              <sc-if value="{{ tbHasTabs }}" hint-placeholder-val="{{ false }}">
+                <div class="ez-tabs" role="tablist" aria-label="{{ hdTitle }}">
+                  <sc-for list="{{ tbTabs }}" as="t"><button type="button" role="tab" class="ez-tab" aria-selected="{{ t.sel }}" onClick="{{ t.onClick }}"><i class="{{ t.icon }}" aria-hidden="true"></i>{{ t.label }}<span class="ez-tab-n">{{ t.n }}</span></button></sc-for>
+                </div>
+              </sc-if>
+              <div class="ez-tools">
+                <label class="ez-search">
+                  <i class="ri-search-line" aria-hidden="true"></i>
+                  <input type="search" value="{{ tbQ }}" onInput="{{ tbOnQ }}" placeholder="{{ tbPh }}" aria-label="{{ tbPh }}">
+                  <sc-if value="{{ tbHasQ }}" hint-placeholder-val="{{ false }}"><button type="button" class="ez-x" onClick="{{ tbClearQ }}" aria-label="Очистить поиск"><i class="ri-close-line" style="font-size:18px;"></i></button></sc-if>
+                </label>
+                <sc-for list="{{ tbDds }}" as="d">
+                  <div class="ez-dd">
+                    <button type="button" class="{{ d.cls }}" aria-haspopup="listbox" aria-expanded="{{ d.open }}" onClick="{{ d.onToggle }}"><i class="{{ d.icon }}" aria-hidden="true"></i><span>{{ d.text }}</span><i class="ri-arrow-down-s-line ez-chev" aria-hidden="true"></i></button>
+                    <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+                      <div class="{{ d.menuCls }}" role="listbox" aria-label="{{ d.label }}">
+                        <sc-for list="{{ d.opts }}" as="o"><button type="button" class="ez-opt" role="option" aria-selected="{{ o.sel }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if></button></sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ tbHasFilter }}" hint-placeholder-val="{{ false }}"><button type="button" class="ez-reset" onClick="{{ tbReset }}">Сбросить</button></sc-if>
+              </div>
+              <sc-if value="{{ tbHasRows }}" hint-placeholder-val="{{ true }}">
+                <div class="ez-scroll" style="{{ tbVars }}">
+                  <div class="ez-tr ez-thead">
+                    <sc-for list="{{ tbCols }}" as="c"><div class="ez-th">{{ c }}</div></sc-for>
+                    <div class="ez-th ez-act">Действие</div>
+                  </div>
+                  <div class="ez-tbody">
+                    <sc-for list="{{ tbRows }}" as="r">
+                      <div class="ez-tr ez-row" onClick="{{ r.onOpen }}">
+                        <sc-for list="{{ r.cells }}" as="c">
+                          <div class="ez-td">
+                            <sc-if value="{{ c.isCode }}" hint-placeholder-val="{{ false }}"><span class="ez-code">{{ c.code }}</span></sc-if>
+                            <sc-if value="{{ c.isPill }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ c.pill }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.isTxt }}" hint-placeholder-val="{{ true }}"><span style="{{ c.aStyle }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.hasB }}" hint-placeholder-val="{{ false }}"><span class="ez-sub">{{ c.b }}</span></sc-if>
+                          </div>
+                        </sc-for>
+                        <div class="ez-td ez-act"><button type="button" class="ez-eye" aria-label="{{ r.aria }}" title="Просмотр"><i class="ri-eye-line" aria-hidden="true"></i></button></div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div class="ez-foot">
+                  <span class="ez-count">Показано <b>{{ tbShown }}</b> из <b>{{ tbTotal }}</b></span>
+                  <div class="ez-pages" aria-label="Страницы"><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button><span class="ez-pg" aria-current="page">1</span><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button></div>
+                </div>
+              </sc-if>
+              <sc-if value="{{ tbNoRows }}" hint-placeholder-val="{{ false }}">
+                <div class="ez-empty">
+                  <span class="ez-empty-ico" aria-hidden="true"><i class="{{ tbEmptyIcon }}"></i></span>
+                  <div class="ez-empty-t">{{ tbEmptyT }}</div>
+                  <sc-if value="{{ tbEmptyHasS }}" hint-placeholder-val="{{ false }}"><div class="ez-empty-s">{{ tbEmptyS }}</div></sc-if>
+                  <sc-if value="{{ tbHasFilter }}" hint-placeholder-val="{{ false }}"><button type="button" class="ez-btn" style="margin-top:14px;" onClick="{{ tbReset }}">Сбросить фильтры</button></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
         <!-- ===== Главная: краткая карточка пациента, 4 блока по постановке ===== -->
         <sc-if value="{{ secMain }}" hint-placeholder-val="{{ true }}">
           <div class="epz-main" style="animation:mp-slidein .2s ease;">
 
-            <!-- Блок 1. Персональные данные -->
+            <!-- Гражданин: ФИО и ИИН уже в меню кабинета — вместо них заголовок ЭПЗ, синхронизация с ЕГИС ЗРК и обновление (24.11) -->
+            <sc-if value="{{ citizenMain }}" hint-placeholder-val="{{ false }}">
+              <div class="epz-card epz-sync">
+                <span class="ez-ico" aria-hidden="true"><i class="{{ syncIcon }}"></i></span>
+                <div style="min-width:0;flex:1;">
+                  <h1 class="ez-h1">Электронный паспорт здоровья</h1>
+                  <div class="epz-sync-s"><span class="epz-dot" aria-hidden="true"></span>{{ syncText }}</div>
+                </div>
+                <button type="button" class="ez-btn" onClick="{{ doSync }}" disabled="{{ syncBusy }}"><i class="ri-refresh-line" aria-hidden="true"></i>{{ syncLabel }}</button>
+              </div>
+            </sc-if>
+            <!-- Блок 1. Персональные данные (кабинет врача) -->
+            <sc-if value="{{ doctorMain }}" hint-placeholder-val="{{ true }}">
             <div class="epz-card epz-person">
               <div class="epz-avatar" style="background:{{ pAvBg }};color:{{ pAvColor }};" aria-hidden="true">{{ pInitials }}</div>
               <div style="min-width:0;">
@@ -239,6 +545,7 @@
                 </div>
               </div>
             </div>
+            </sc-if>
 
             <!-- Блок 2. Основные медицинские показатели -->
             <div class="{{ metricsCls }}">
@@ -275,37 +582,17 @@
                 </div>
               </sc-for>
             </div>
-          </div>
-        </sc-if>
 
-        <!-- ===== Аллергологический анамнез ===== -->
-        <sc-if value="{{ secAllergy }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-alert-line" style="font-size:24px;color:var(--primary);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Аллергологический анамнез</h1><sc-if value="{{ hasAllergyRows }}" hint-placeholder-val="{{ true }}"><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ allergyCountText }}</p></sc-if></div></div>
-            <sc-if value="{{ hasAllergyRows }}" hint-placeholder-val="{{ true }}">
-              <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-                <div class="xtable epz-at" style="min-width:640px;">
-                  <div class="xthead"><div class="xtr" style="background:var(--n50);">
-                    <div class="xth epz-th">Аллерген</div><div class="xth epz-th">Тип</div><div class="xth epz-th">Характер реакции</div><div class="xth epz-th">Тяжесть</div><div class="xth epz-th" style="text-align:right;">Год регистрации</div>
-                  </div></div>
-                  <div class="xtbody">
-                    <sc-for list="{{ allergyRows }}" as="a" hint-placeholder-count="2">
-                      <div class="xtr" style="border-top:1px solid var(--stroke);">
-                        <div class="xtd epz-td" style="font-weight:600;color:var(--n900);">{{ a.allergen }}</div>
-                        <div class="xtd epz-td">{{ a.type }}</div>
-                        <div class="xtd epz-td">{{ a.reaction }}</div>
-                        <div class="xtd epz-td"><span style="{{ a.sevStyle }}">{{ a.severity }}</span></div>
-                        <div class="xtd epz-td" style="text-align:right;font-variant-numeric:tabular-nums;color:{{ a.yearColor }};">{{ a.year }}</div>
-                      </div>
-                    </sc-for>
-                  </div>
-                </div>
-              </div>
-            </sc-if>
-            <sc-if value="{{ noAllergyRows }}" hint-placeholder-val="{{ false }}">
-              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);padding:24px;display:flex;align-items:flex-start;gap:14px;">
-                <span style="width:40px;height:40px;border-radius:10px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-information-line" style="font-size:20px;color:var(--n500);"></i></span>
-                <div><div style="font-size:15px;font-weight:600;">Аллергические реакции не зарегистрированы</div><div style="font-size:13.5px;color:var(--n500);margin-top:3px;line-height:1.45;">Отсутствие записей не подтверждает отсутствие аллергии.</div></div>
+            <!-- Быстрый доступ к подразделам ЭПЗ (Р1, Stitch 3): значок, название, число записей -->
+            <sc-if value="{{ citizenMain }}" hint-placeholder-val="{{ false }}">
+              <h2 class="epz-qh">Разделы ЭПЗ</h2>
+              <div class="epz-q">
+                <sc-for list="{{ quick }}" as="q">
+                  <a href="{{ q.href }}" class="epz-qt" onClick="{{ q.onClick }}">
+                    <span class="ez-ico" aria-hidden="true"><i class="{{ q.icon }}"></i></span>
+                    <span style="min-width:0;"><span class="epz-qt-t">{{ q.label }}</span><span class="ez-sub" style="display:block;">{{ q.n }}</span></span>
+                  </a>
+                </sc-for>
               </div>
             </sc-if>
           </div>
@@ -316,258 +603,138 @@
           <dc-import name="EpzAmbulatory" patient="{{ pName }}" iin="{{ pIin }}" hint-size="100%,1000px"></dc-import>
         </sc-if>
 
-        <!-- ===== LIST sections ===== -->
-        <sc-if value="{{ secList }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div class="epz-hd" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;">
-              <div style="display:flex;align-items:center;gap:14px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ listIcon }}" style="font-size:24px;color:var(--primary);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">{{ listTitle }}</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ listSubtitle }}</p></div></div>
-              <button style="height:42px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;flex:0 0 auto;"><i class="ri-download-2-line" style="font-size:18px;"></i>Экспорт отчёта</button>
-            </div>
-            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--sh-xs);">
-              <div style="display:flex;gap:14px;flex-wrap:wrap;">
-                <sc-for list="{{ listFilters }}" as="f">
-                  <div style="flex:1;min-width:160px;"><div style="font-size:12px;color:var(--n500);font-weight:500;margin-bottom:6px;">{{ f.label }}</div><div style="height:42px;border:1px solid var(--stroke);border-radius:10px;background:var(--n50);display:flex;align-items:center;gap:8px;padding:0 12px;"><i class="{{ f.icon }}" style="font-size:17px;color:var(--n400);"></i><span style="font-size:13.5px;color:var(--n500);">{{ f.value }}</span><sc-if value="{{ f.chev }}" hint-placeholder-val="{{ false }}"><i class="ri-arrow-down-s-line" style="font-size:18px;color:var(--n400);margin-left:auto;"></i></sc-if></div></div>
+        <!-- ===== Измерения: сверху — выбранное измерение во всю ширину, ниже — история таблицей (выбор строкой или «глазом») ===== -->
+        <sc-if value="{{ secVitals }}" hint-placeholder-val="{{ false }}">
+          <div class="ez">
+            <div class="ez-cardp epz-vd" id="epz-vd">
+              <div class="ez-cap" style="justify-content:space-between;flex-wrap:wrap;gap:6px 12px;"><span style="display:inline-flex;align-items:center;gap:8px;"><i class="ri-heart-pulse-line" aria-hidden="true"></i>Измерение от {{ vDate }}</span><span class="ez-sub" style="margin:0;font-weight:400;">{{ vWho }}</span></div>
+              <div class="epz-vg">
+                <sc-for list="{{ vTiles }}" as="t">
+                  <div class="epz-vt" style="{{ t.box }}">
+                    <div class="ez-k">{{ t.k }}</div>
+                    <div class="epz-vv" style="{{ t.vStyle }}">{{ t.v }}<sc-if value="{{ t.hasU }}" hint-placeholder-val="{{ true }}"><small>{{ t.u }}</small></sc-if></div>
+                    <sc-if value="{{ t.hasNote }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ t.noteStyle }}">{{ t.note }}</span></sc-if>
+                  </div>
                 </sc-for>
               </div>
-              <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;">
-                <span style="font-size:12.5px;color:var(--n400);">Активные фильтры:</span>
-                <sc-for list="{{ listChips }}" as="c"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;color:var(--n600);background:var(--n100);border:1px solid var(--stroke);border-radius:999px;padding:5px 10px;">{{ c }}<i class="ri-close-line" style="font-size:15px;color:var(--n400);cursor:pointer;"></i></span></sc-for>
-                <button style="margin-left:auto;background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">Сбросить всё</button>
-              </div>
             </div>
-            <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-              <div class="xtable" style="width:100%;border-collapse:collapse;">
-                <div class="xthead"><div class="xtr" style="background:var(--n50);">
-                  <sc-for list="{{ listCols }}" as="col"><div class="xth" style="{{ col.style }}">{{ col.label }}</div></sc-for>
-                </div></div>
-                <div class="xtbody">
-                  <sc-for list="{{ listRows }}" as="row">
-                    <div class="xtr dc-row" style="border-top:1px solid var(--stroke);cursor:pointer;" onClick="{{ row.onClick }}">
-                      <sc-for list="{{ row.cells }}" as="cell"><div class="xtd" style="{{ cell.style }}"><sc-if value="{{ cell.isTag }}" hint-placeholder-val="{{ false }}"><span style="{{ cell.tagStyle }}">{{ cell.text }}</span></sc-if><sc-if value="{{ cell.plain }}" hint-placeholder-val="{{ true }}">{{ cell.text }}</sc-if></div></sc-for>
+            <div class="ez-card">
+              <div class="ez-scroll" style="--cols:minmax(130px,1.3fr) repeat(3,minmax(74px,.7fr)) minmax(96px,.8fr) minmax(84px,.7fr) minmax(104px,.9fr) 74px;">
+                <div class="ez-tr ez-thead"><div class="ez-th">Дата и время</div><div class="ez-th">Рост</div><div class="ez-th">Вес</div><div class="ez-th">ИМТ</div><div class="ez-th">Температура</div><div class="ez-th">Пульс</div><div class="ez-th">АД (лев./прав.)</div><div class="ez-th ez-act">Действие</div></div>
+                <div class="ez-tbody">
+                  <sc-for list="{{ vRows }}" as="v">
+                    <div class="{{ v.cls }}" onClick="{{ v.onClick }}">
+                      <div class="ez-td"><span class="ez-strong">{{ v.date }}</span></div>
+                      <div class="ez-td">{{ v.height }}</div>
+                      <div class="ez-td">{{ v.weight }}</div>
+                      <div class="ez-td"><span class="ez-pill" style="{{ v.bmiStyle }}">{{ v.bmi }}</span></div>
+                      <div class="ez-td">{{ v.temp }}</div>
+                      <div class="ez-td">{{ v.pulse }}</div>
+                      <div class="ez-td">{{ v.bp }}</div>
+                      <div class="ez-td ez-act"><button type="button" class="ez-eye" aria-label="{{ v.aria }}" aria-pressed="{{ v.pressed }}" title="Просмотр"><i class="ri-eye-line" aria-hidden="true"></i></button></div>
                     </div>
                   </sc-for>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--stroke);"><span style="font-size:13px;color:var(--n400);">{{ listCount }}</span><div style="display:flex;gap:6px;"><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--primary);color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">1</button><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-family:inherit;cursor:pointer;">2</button><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-family:inherit;cursor:pointer;">3</button></div></div>
+              <div class="ez-foot">
+                <span class="ez-count">Показано <b>{{ vShown }}</b> из <b>{{ vTotal }}</b></span>
+                <div class="ez-pages" aria-label="Страницы"><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button><span class="ez-pg" aria-current="page">1</span><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button></div>
+              </div>
             </div>
           </div>
         </sc-if>
 
-        <!-- ===== Профилактика ===== -->
-        <sc-if value="{{ secProphy }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-shield-check-line" style="font-size:24px;color:var(--green);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Профилактика</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">Скрининги, вакцинация и профилактические мероприятия. Нажмите на запись для подробностей.</p></div></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px;">
-              <sc-for list="{{ prophyTabs }}" as="t">
-                <button onClick="{{ t.onClick }}" style="{{ t.cardStyle }}">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;"><div style="width:46px;height:46px;border-radius:12px;background:{{ t.bg }};display:flex;align-items:center;justify-content:center;"><i class="{{ t.icon }}" style="font-size:24px;color:{{ t.color }};"></i></div><span style="font-size:11px;font-weight:600;color:{{ t.color }};background:{{ t.bg }};padding:4px 10px;border-radius:999px;">{{ t.badge }}</span></div>
-                  <div style="font-size:16px;font-weight:600;text-align:left;">{{ t.label }}</div>
-                  <div style="font-size:12.5px;color:var(--n500);text-align:left;margin-top:4px;line-height:1.4;">{{ t.desc }}</div>
+        <!-- ===== Диспансерный учёт: диагнозы на учёте — колонкой слева, справа вкладки в плашке и содержимое (24.11) ===== -->
+        <sc-if value="{{ secDispensary }}" hint-placeholder-val="{{ false }}">
+          <div class="epz-dl">
+            <aside class="epz-dcases" aria-label="Диагнозы на учёте">
+              <div class="epz-dcases-h"><span>Диагнозы на учёте</span><span class="ez-badge">{{ dispCaseN }}</span></div>
+              <sc-for list="{{ dispCases }}" as="c">
+                <button type="button" class="epz-case" aria-pressed="{{ c.pressed }}" onClick="{{ c.onClick }}">
+                  <span class="epz-case-r"><span class="epz-case-code">{{ c.icd }}</span><span class="ez-pill" style="{{ c.statusStyle }}">{{ c.statusText }}</span></span>
+                  <span class="epz-case-n">{{ c.name }}</span>
+                  <span class="ez-sub">Д-группа {{ c.dgroup }} · с {{ c.regDate }}</span>
                 </button>
               </sc-for>
-            </div>
-            <div class="epz-g4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;">
-              <sc-for list="{{ prophyStats }}" as="a">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;box-shadow:var(--sh-xs);"><div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--n400);margin-bottom:10px;"><i class="{{ a.icon }}" style="font-size:15px;color:{{ a.color }};"></i>{{ a.label }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.01em;color:{{ a.color }};">{{ a.value }}</div></div>
-              </sc-for>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:12px;">
-              <sc-for list="{{ prophyList }}" as="p">
-                <div onClick="{{ p.onClick }}" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px 18px;box-shadow:var(--sh-xs);cursor:pointer;display:flex;align-items:center;gap:16px;transition:border-color .12s,box-shadow .12s;" style-hover="border-color:var(--primary-light);box-shadow:var(--sh-md);">
-                  <div style="width:46px;height:46px;border-radius:12px;background:{{ p.iconBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ p.icon }}" style="font-size:24px;color:{{ p.iconColor }};"></i></div>
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-size:15px;font-weight:600;">{{ p.name }}</div>
-                    <div style="display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap;">
-                      <span style="font-size:12.5px;color:var(--n400);display:flex;align-items:center;gap:5px;"><i class="ri-calendar-line" style="font-size:14px;"></i>{{ p.date }}</span>
-                      <span style="font-size:12.5px;color:var(--n400);display:flex;align-items:center;gap:5px;"><i class="ri-hospital-line" style="font-size:14px;"></i>{{ p.org }}</span>
-                    </div>
-                  </div>
-                  <sc-if value="{{ prophyIsScreen }}" hint-placeholder-val="{{ true }}">
-                    <div style="text-align:right;flex:0 0 auto;"><span style="{{ p.groupStyle }}">{{ p.groupText }}</span><div style="font-size:13px;font-weight:600;color:{{ p.resultColor }};margin-top:6px;">{{ p.result }}</div></div>
-                  </sc-if>
-                  <sc-if value="{{ p.series }}" hint-placeholder-val="{{ false }}">
-                    <div style="text-align:right;flex:0 0 auto;"><span style="{{ p.statusStyle }}">{{ p.statusText }}</span><div style="font-size:12px;color:var(--n400);margin-top:6px;">{{ p.series }}</div></div>
-                  </sc-if>
-                  <i class="ri-arrow-right-s-line" style="font-size:22px;color:var(--n400);flex:0 0 auto;"></i>
-                </div>
-              </sc-for>
-            </div>
-          </div>
-        </sc-if>
+            </aside>
+            <div class="epz-dr">
+              <div class="ez-card"><div class="ez-tabs epz-dtabs" role="tablist" aria-label="Разделы диспансерного учёта">
+                <sc-for list="{{ dispTabs }}" as="t"><button type="button" role="tab" class="ez-tab epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}">{{ t.label }}</button></sc-for>
+              </div></div>
 
-        <!-- ===== Измерения ===== -->
-        <sc-if value="{{ secVitals }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-heart-pulse-line" style="font-size:24px;color:var(--teal);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Измерения</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">История физиологических показателей. Выберите дату для деталей.</p></div></div>
-            <div class="epz-g2" style="display:grid;grid-template-columns:1.3fr 1fr;gap:18px;align-items:start;">
-              <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-                <div class="xtable" style="width:100%;border-collapse:collapse;">
-                  <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:11px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Дата</div><div class="xth" style="text-align:left;padding:11px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Рост</div><div class="xth" style="text-align:left;padding:11px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Вес</div><div class="xth" style="text-align:left;padding:11px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">ИМТ</div><div class="xth" style="text-align:left;padding:11px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">t°</div></div></div>
-                  <div class="xtbody">
-                    <sc-for list="{{ vitalsRows }}" as="v">
-                      <div class="xtr dc-row" onClick="{{ v.onClick }}" style="border-top:1px solid var(--stroke);cursor:pointer;{{ v.activeBg }}"><div class="xtd" style="padding:14px 16px;font-size:13px;font-weight:600;white-space:nowrap;">{{ v.date }}</div><div class="xtd" style="padding:14px 12px;font-size:13.5px;color:var(--n500);">{{ v.height }}</div><div class="xtd" style="padding:14px 12px;font-size:13.5px;color:var(--n500);">{{ v.weight }}</div><div class="xtd" style="padding:14px 12px;"><span style="{{ v.bmiStyle }}">{{ v.bmi }}</span></div><div class="xtd" style="padding:14px 16px;font-size:13.5px;color:var(--n500);">{{ v.temp }}</div></div>
+              <!-- 1. Постановка -->
+              <sc-if value="{{ dispIsReg }}" hint-placeholder-val="{{ true }}">
+                <div class="ez-cardp" style="display:flex;flex-direction:column;gap:18px;">
+                  <div><div class="ez-cap"><i class="ri-information-line" aria-hidden="true"></i>Общая информация</div><div class="ez-kv">
+                    <sc-for list="{{ dcReg }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for>
+                  </div></div>
+                  <div style="border-top:1px solid var(--stroke);padding-top:18px;"><div class="ez-cap"><i class="ri-shield-cross-line" aria-hidden="true"></i>Диагноз</div><div class="ez-kv">
+                    <sc-for list="{{ dcDx }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for>
+                  </div></div>
+                </div>
+              </sc-if>
+
+              <!-- 2. История наблюдения · 4. Рецепты — таблица с «глазом» → окно -->
+              <sc-if value="{{ dispIsTbl }}" hint-placeholder-val="{{ false }}"><div class="ez-card">
+                <div class="ez-scroll" style="{{ dtVars }}">
+                  <div class="ez-tr ez-thead"><sc-for list="{{ dtCols }}" as="c"><div class="ez-th">{{ c }}</div></sc-for><div class="ez-th ez-act">Действие</div></div>
+                  <div class="ez-tbody">
+                    <sc-for list="{{ dtRows }}" as="r">
+                      <div class="ez-tr ez-row" onClick="{{ r.onOpen }}">
+                        <sc-for list="{{ r.cells }}" as="c">
+                          <div class="ez-td">
+                            <sc-if value="{{ c.isCode }}" hint-placeholder-val="{{ false }}"><span class="ez-code">{{ c.code }}</span></sc-if>
+                            <sc-if value="{{ c.isPill }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ c.pill }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.isTxt }}" hint-placeholder-val="{{ true }}"><span style="{{ c.aStyle }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.hasB }}" hint-placeholder-val="{{ false }}"><span class="ez-sub">{{ c.b }}</span></sc-if>
+                          </div>
+                        </sc-for>
+                        <div class="ez-td ez-act"><button type="button" class="ez-eye" aria-label="{{ r.aria }}" title="Просмотр"><i class="ri-eye-line" aria-hidden="true"></i></button></div>
+                      </div>
                     </sc-for>
                   </div>
                 </div>
-              </div>
-              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                <div style="font-size:15px;font-weight:600;margin-bottom:18px;">Детали измерения · {{ vitalDate }}</div>
-                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:10px;">Антропометрия</div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;">
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;"><div style="font-size:11px;color:var(--n400);">Рост</div><div style="font-size:18px;font-weight:700;">{{ vd.height }}<span style="font-size:12px;font-weight:500;color:var(--n400);"> см</span></div></div>
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;"><div style="font-size:11px;color:var(--n400);">Вес</div><div style="font-size:18px;font-weight:700;">{{ vd.weight }}<span style="font-size:12px;font-weight:500;color:var(--n400);"> кг</span></div></div>
-                  <div style="border:1px solid var(--orange-l);background:var(--orange-l);border-radius:12px;padding:12px;"><div style="font-size:11px;color:var(--orange-d);">ИМТ</div><div style="font-size:18px;font-weight:700;color:var(--orange-d);">{{ vd.bmi }}</div></div>
-                </div>
-                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:10px;">Основные показатели</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;"><i class="ri-temp-hot-line" style="font-size:20px;color:var(--red);"></i><div><div style="font-size:11px;color:var(--n400);">Температура</div><div style="font-size:15px;font-weight:600;">{{ vd.temp }} °C</div></div></div>
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;"><i class="ri-heart-pulse-line" style="font-size:20px;color:var(--primary);"></i><div><div style="font-size:11px;color:var(--n400);">Пульс (ЧСС)</div><div style="font-size:15px;font-weight:600;">{{ vd.pulse }} уд/мин</div></div></div>
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;"><i class="ri-lungs-line" style="font-size:20px;color:var(--teal);"></i><div><div style="font-size:11px;color:var(--n400);">Сатурация</div><div style="font-size:15px;font-weight:600;">{{ vd.spo2 }}%</div></div></div>
-                  <div style="border:1px solid var(--stroke);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;"><i class="ri-mental-health-line" style="font-size:20px;color:var(--green);"></i><div><div style="font-size:11px;color:var(--n400);">Общее сост.</div><div style="font-size:15px;font-weight:600;">{{ vd.cond }}</div></div></div>
-                </div>
-                <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:10px;">Артериальное давление</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <div style="border:1px solid var(--primary-light);background:var(--primary-lighter);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n500);">Левая рука</div><div style="font-size:22px;font-weight:700;color:var(--primary-darker);">{{ vd.bpL }}</div><div style="font-size:11px;color:var(--green-d);margin-top:2px;"><i class="ri-checkbox-circle-fill"></i> Оптимальное</div></div>
-                  <div style="border:1px solid var(--teal-l);background:var(--teal-l);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n500);">Правая рука</div><div style="font-size:22px;font-weight:700;color:var(--teal-d);">{{ vd.bpR }}</div><div style="font-size:11px;color:var(--green-d);margin-top:2px;"><i class="ri-checkbox-circle-fill"></i> Оптимальное</div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </sc-if>
+                <div class="ez-foot"><span class="ez-count">Показано <b>{{ dtShown }}</b> из <b>{{ dtTotal }}</b></span><div class="ez-pages" aria-label="Страницы"><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button><span class="ez-pg" aria-current="page">1</span><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button></div></div>
+              </div></sc-if>
 
-        <!-- ===== Диспансерный учёт ===== -->
-        <sc-if value="{{ secDispensary }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div class="epz-hd" style="display:flex;align-items:center;justify-content:space-between;gap:12px 16px;margin-bottom:18px;">
-              <div style="display:flex;align-items:center;gap:14px;min-width:0;"><div style="width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-clipboard-line" style="font-size:24px;color:var(--primary);"></i></div><div style="min-width:0;"><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Диспансерный учёт</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">{{ dispSub }}</p></div></div>
-              <!-- Вкладка «Дневник наблюдения» (только гражданин, у врача — просмотр): действие раздела — справа в шапке, как у других разделов ЭПЗ -->
-              <sc-if value="{{ diaryAddShow }}" hint-placeholder-val="{{ false }}">
-                <button type="button" class="epz-add" data-diary-add="1" onClick="{{ diaryAdd }}" disabled="{{ diaryAddOff }}" aria-haspopup="dialog"><i class="ri-add-line" aria-hidden="true"></i>{{ diaryAddLabel }}</button>
-              </sc-if>
-            </div>
-
-            <!-- case selector -->
-            <div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-              <sc-for list="{{ dispCases }}" as="c">
-                <button type="button" class="epz-case" aria-pressed="{{ c.pressed }}" onClick="{{ c.onClick }}" style="{{ c.style }}">
-                  <div style="display:flex;align-items:center;gap:10px;"><i class="ri-focus-2-line" style="font-size:18px;color:{{ c.accent }};"></i><span style="font-size:14px;font-weight:600;">{{ c.icd }}</span><span style="{{ c.statusStyle }}">{{ c.statusText }}</span></div>
-                  <div style="font-size:12.5px;color:var(--n500);margin-top:6px;text-align:left;">{{ c.name }}</div>
-                  <div style="font-size:11px;color:var(--n400);margin-top:4px;text-align:left;">Д-группа {{ c.dgroup }} · с {{ c.regDate }}</div>
-                </button>
-              </sc-for>
-            </div>
-
-            <!-- subsection tabs -->
-            <div class="epz-dtabs" role="tablist" aria-label="Разделы диспансерного учёта">
-              <sc-for list="{{ dispTabs }}" as="t"><button type="button" role="tab" class="epz-dtab" aria-selected="{{ t.selected }}" onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
-            </div>
-
-            <!-- 1. Постановка -->
-            <sc-if value="{{ dispIsReg }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--primary);"><i class="ri-information-line" style="font-size:18px;"></i>Общая информация</div>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-                    <sc-for list="{{ dcReg }}" as="m"><div><div style="font-size:11px;color:var(--n400);">{{ m.k }}</div><div style="font-size:13.5px;font-weight:600;margin-top:3px;">{{ m.v }}</div></div></sc-for>
+              <!-- 3. Выполнение стандарта — подробностей у мероприятия нет, поэтому без «глаза» -->
+              <sc-if value="{{ dispIsStd }}" hint-placeholder-val="{{ false }}"><div class="ez-card">
+                <div class="ez-scroll" style="--cols:minmax(220px,2fr) minmax(110px,1fr) minmax(110px,1fr) minmax(120px,1fr);">
+                  <div class="ez-tr ez-thead"><div class="ez-th">Мероприятие</div><div class="ez-th">Плановая дата</div><div class="ez-th">Фактическая дата</div><div class="ez-th">Статус</div></div>
+                  <div class="ez-tbody">
+                    <sc-for list="{{ dispStd }}" as="a"><div class="ez-tr" style="border-top:1px solid var(--stroke);"><div class="ez-td"><span class="ez-strong">{{ a.name }}</span></div><div class="ez-td">{{ a.plan }}</div><div class="ez-td">{{ a.fact }}</div><div class="ez-td"><span class="ez-pill" style="{{ a.statusStyle }}">{{ a.statusText }}</span></div></div></sc-for>
                   </div>
                 </div>
-                <div style="background:linear-gradient(135deg,var(--primary-lighter),#fff);border:1px solid var(--primary-light);border-radius:16px;padding:20px;">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--primary-darker);"><i class="ri-shield-cross-line" style="font-size:18px;"></i>Диагноз</div>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-                    <sc-for list="{{ dcDx }}" as="m"><div><div style="font-size:11px;color:var(--n400);">{{ m.k }}</div><div style="font-size:13.5px;font-weight:600;margin-top:3px;">{{ m.v }}</div></div></sc-for>
-                  </div>
-                </div>
-              </div>
-            </sc-if>
+              </div></sc-if>
 
-            <!-- 2. История наблюдения -->
-            <sc-if value="{{ dispIsObs }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:0;">
-                <sc-for list="{{ dispEvents }}" as="d">
-                  <div style="display:flex;gap:16px;">
-                    <div style="display:flex;flex-direction:column;align-items:center;flex:0 0 auto;">
-                      <div style="width:46px;height:46px;border-radius:11px;background:var(--primary);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;"><span style="font-size:10px;text-transform:uppercase;line-height:1;">{{ d.mon }}</span><span style="font-size:17px;font-weight:700;line-height:1.1;">{{ d.day }}</span></div>
-                      <div style="{{ d.lineStyle }}"></div>
-                    </div>
-                    <div onClick="{{ d.onClick }}" style="flex:1;min-width:0;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;margin-bottom:16px;box-shadow:var(--sh-xs);cursor:pointer;transition:border-color .12s,box-shadow .12s;" style-hover="border-color:var(--primary-light);box-shadow:var(--sh-md);">
-                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;"><span style="{{ d.kindStyle }}">{{ d.kind }}</span><span style="font-size:13px;color:var(--n500);display:flex;align-items:center;gap:5px;"><i class="ri-hospital-line" style="font-size:15px;color:var(--n400);"></i>{{ d.org }}</span><span style="margin-left:auto;font-size:12.5px;color:var(--primary);font-weight:600;display:flex;align-items:center;gap:3px;">Подробнее<i class="ri-arrow-right-s-line" style="font-size:16px;"></i></span></div>
-                      <div class="epz-g2" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-                        <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--primary);margin-bottom:8px;">Общая информация</div><div style="font-size:11px;color:var(--n400);">Следующая явка</div><div style="font-size:13.5px;font-weight:600;color:var(--red-d);">{{ d.nextVisit }}</div><div style="font-size:11px;color:var(--n400);margin-top:8px;">Специалист</div><div style="font-size:13px;font-weight:600;color:var(--primary);">{{ d.specialist }}</div></div>
-                        <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--green-d);margin-bottom:8px;">Состояние пациента</div><div style="font-size:13px;font-weight:500;line-height:1.4;">{{ d.condition }}</div></div>
-                        <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--orange-d);margin-bottom:8px;">Уточнение диагноза</div><div style="font-size:13.5px;font-weight:600;">{{ d.icd }}</div><div style="font-size:12px;color:var(--n500);margin-top:4px;line-height:1.4;">{{ d.icdNote }}</div></div>
-                      </div>
-                    </div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- 3. Выполнение стандарта -->
-            <sc-if value="{{ dispIsStd }}" hint-placeholder-val="{{ false }}">
-              <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-                <div class="xtable" style="width:100%;border-collapse:collapse;">
-                  <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Мероприятие</div><div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Плановая дата</div><div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Факт. дата</div><div class="xth" style="text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Статус</div></div></div>
-                  <div class="xtbody">
-                    <sc-for list="{{ dispStd }}" as="a"><div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:13px 16px;font-size:13.5px;font-weight:600;">{{ a.name }}</div><div class="xtd" style="padding:13px 14px;font-size:13px;color:var(--n500);">{{ a.plan }}</div><div class="xtd" style="padding:13px 14px;font-size:13px;color:var(--n500);">{{ a.fact }}</div><div class="xtd" style="padding:13px 16px;"><span style="{{ a.statusStyle }}">{{ a.statusText }}</span></div></div></sc-for>
-                  </div>
-                </div>
-              </div>
-            </sc-if>
-
-            <!-- 4. Рецепты -->
-            <sc-if value="{{ dispIsRcp }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <sc-for list="{{ dispRcp }}" as="r">
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;box-shadow:var(--sh-xs);">
-                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;"><div style="width:38px;height:38px;border-radius:10px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-file-list-2-line" style="font-size:20px;color:var(--green);"></i></div><div style="flex:1;"><div style="font-size:14px;font-weight:600;">Рецепт {{ r.num }}</div><div style="font-size:12px;color:var(--n400);">{{ r.type }} · выписан {{ r.created }} · действителен до {{ r.exp }}</div></div></div>
-                    <div class="dc-scroll" style="border:1px solid var(--stroke);border-radius:11px;overflow-x:auto;">
-                      <div class="xtable" style="width:100%;border-collapse:collapse;">
-                        <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Препарат</div><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Дозировка</div><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Курс</div><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Период</div></div></div>
-                        <div class="xtbody">
-                          <sc-for list="{{ r.meds }}" as="m"><div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:11px 12px;font-size:13px;font-weight:600;">{{ m.name }}</div><div class="xtd" style="padding:11px 12px;font-size:13px;color:var(--n500);">{{ m.dose }}</div><div class="xtd" style="padding:11px 12px;font-size:13px;color:var(--n500);">{{ m.days }} дн.</div><div class="xtd" style="padding:11px 12px;font-size:12.5px;color:var(--n500);">{{ m.period }}</div></div></sc-for>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </sc-for>
-              </div>
-            </sc-if>
-
-            <!-- 5. Снятие -->
-            <sc-if value="{{ dispIsDereg }}" hint-placeholder-val="{{ false }}">
-              <sc-if value="{{ dispDeregActive }}" hint-placeholder-val="{{ true }}">
-                <div style="background:var(--green-l);border:1px solid #BBE9D5;border-radius:14px;padding:20px;display:flex;align-items:center;gap:14px;">
-                  <i class="ri-shield-check-fill" style="font-size:24px;color:var(--green);"></i>
-                  <div><div style="font-size:14px;font-weight:600;color:var(--green-d);">Пациент состоит на диспансерном учёте</div><div style="font-size:12.5px;color:var(--n500);margin-top:2px;">Запись о снятии с учёта по данному случаю отсутствует.</div></div>
+              <!-- 5. Снятие с учёта -->
+              <sc-if value="{{ dispIsDereg }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <sc-if value="{{ dispDeregActive }}" hint-placeholder-val="{{ true }}">
+                    <div class="ez-status" style="background:var(--green-l);border-color:rgba(56,199,147,.3);"><i class="ri-shield-check-fill" style="color:var(--green);" aria-hidden="true"></i><div><div class="ez-status-t" style="color:var(--green-d);">Состоит на диспансерном учёте</div><div class="ez-status-s">Запись о снятии с учёта по этому диагнозу отсутствует</div></div></div>
+                  </sc-if>
+                  <sc-if value="{{ dispDeregDone }}" hint-placeholder-val="{{ false }}">
+                    <div class="ez-cardp"><div class="ez-kv" style="--kv:2;"><sc-for list="{{ dispDereg }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div></div>
+                  </sc-if>
                 </div>
               </sc-if>
-              <sc-if value="{{ dispDeregDone }}" hint-placeholder-val="{{ false }}">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--n500);"><i class="ri-logout-circle-line" style="font-size:18px;"></i>Снятие с диспансерного учёта</div>
-                  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
-                    <sc-for list="{{ dispDereg }}" as="m"><div><div style="font-size:11px;color:var(--n400);">{{ m.k }}</div><div style="font-size:13.5px;font-weight:600;margin-top:3px;">{{ m.v }}</div></div></sc-for>
-                  </div>
+
+              <!-- 6. Дневник наблюдения (постановка «Перенос „Дневника наблюдения“ в ЭПЗ гражданина» и ответы аналитика 19.11.2026): направления — по диагнозам на учёте, у врача — только просмотр -->
+              <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
+                <div role="tabpanel" aria-label="Дневник наблюдения">
+                  <dc-import name="EpzDiary" patient="{{ diaryPatient }}" dirs="{{ diaryDirs }}" sel="{{ diarySel }}" readonly="{{ diaryRO }}" hint-size="100%,1000px"></dc-import>
                 </div>
               </sc-if>
-            </sc-if>
-
-            <!-- 6. Дневник наблюдения (постановка «Перенос „Дневника наблюдения“ в ЭПЗ гражданина» и ответы аналитика 19.11.2026): направления — по диагнозам на учёте, у врача — только просмотр -->
-            <sc-if value="{{ dispIsDiary }}" hint-placeholder-val="{{ false }}">
-              <div role="tabpanel" aria-label="Дневник наблюдения">
-                <dc-import name="EpzDiary" patient="{{ diaryPatient }}" dirs="{{ diaryDirs }}" sel="{{ diarySel }}" readonly="{{ diaryRO }}" hint-size="100%,1000px"></dc-import>
-              </div>
-            </sc-if>
+            </div>
           </div>
         </sc-if>
 
         <!-- ===== Женское здоровье ===== -->
         <sc-if value="{{ secWomen }}" hint-placeholder-val="{{ false }}">
           <div style="animation:mp-slidein .2s ease;">
-            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;">Женское здоровье</h1>
-            <p style="font-size:14px;color:var(--n500);margin:0 0 16px;">Модуль ведения беременности и гинекологического профиля. Источник: ЕХМД.</p>
-            <div class="epz-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--stroke);margin-bottom:18px;">
-              <sc-for list="{{ womenTabs }}" as="t"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}<span style="{{ t.underline }}"></span></button></sc-for>
-            </div>
+            <div class="ez-card" style="margin-bottom:16px;"><div class="ez-tabs" role="tablist" aria-label="Женское здоровье">
+              <sc-for list="{{ womenTabs }}" as="t"><button type="button" role="tab" class="ez-tab" aria-selected="{{ t.sel }}" onClick="{{ t.onClick }}">{{ t.label }}</button></sc-for>
+            </div></div>
 
             <sc-if value="{{ womenPreg }}" hint-placeholder-val="{{ true }}">
               <div style="display:flex;flex-direction:column;gap:14px;">
@@ -756,131 +923,65 @@
           </div>
         </sc-if>
 
-        <!-- ===== Вызовы скорой ===== -->
-        <sc-if value="{{ secAmbulance }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div class="epz-hd" style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;">
-              <div style="display:flex;align-items:center;gap:14px;"><div style="width:46px;height:46px;border-radius:12px;background:var(--red-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-first-aid-kit-line" style="font-size:24px;color:var(--red);"></i></div><div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Вызовы скорой медицинской помощи</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">История вызовов СМП: причина, срочность, исход и состав бригады. Нажмите на запись для деталей.</p></div></div>
-              <button style="height:42px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;flex:0 0 auto;"><i class="ri-download-2-line" style="font-size:18px;"></i>Экспорт</button>
-            </div>
-            <!-- summary mini cards -->
-            <div class="epz-g4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;">
-              <sc-for list="{{ ambStats }}" as="a">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;box-shadow:var(--sh-xs);"><div style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--n400);margin-bottom:10px;"><i class="{{ a.icon }}" style="font-size:15px;color:{{ a.color }};"></i>{{ a.label }}</div><div style="font-size:22px;font-weight:700;letter-spacing:-.01em;color:{{ a.valColor }};">{{ a.value }}</div></div>
-              </sc-for>
-            </div>
-            <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-              <div class="xtable" style="width:100%;border-collapse:collapse;">
-                <div class="xthead"><div class="xtr" style="background:var(--n50);">
-                  <div class="xth" style="text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Дата и время</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Причина вызова</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Профиль</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Срочность</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Результат</div>
-                  <div class="xth" style="text-align:right;padding:12px 16px;"></div>
-                </div></div>
-                <div class="xtbody">
-                  <sc-for list="{{ ambRows }}" as="r">
-                    <div class="xtr dc-row" style="border-top:1px solid var(--stroke);cursor:pointer;" onClick="{{ r.onClick }}">
-                      <div class="xtd" style="padding:15px 16px;font-size:13px;font-weight:600;white-space:nowrap;">{{ r.date }}</div>
-                      <div class="xtd" style="padding:15px 14px;font-size:13.5px;font-weight:600;color:var(--red-d);">{{ r.reason }}</div>
-                      <div class="xtd" style="padding:15px 14px;"><span style="{{ r.profStyle }}">{{ r.profile }}</span></div>
-                      <div class="xtd" style="padding:15px 14px;"><span style="{{ r.urgStyle }}">{{ r.urgency }}</span></div>
-                      <div class="xtd" style="padding:15px 14px;font-size:13px;color:var(--n600);">{{ r.result }}</div>
-                      <div class="xtd" style="padding:15px 16px;text-align:right;"><i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n400);"></i></div>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--stroke);"><span style="font-size:13px;color:var(--n400);">Показано 1–4 из 12 записей</span><div style="display:flex;gap:6px;"><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--primary);color:#fff;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;">1</button><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-family:inherit;cursor:pointer;">2</button><button style="width:32px;height:32px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-family:inherit;cursor:pointer;">3</button></div></div>
-            </div>
-          </div>
-        </sc-if>
-
-        <!-- ===== Больничные и справки ===== -->
-        <sc-if value="{{ secDocs }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
-              <div style="width:46px;height:46px;border-radius:12px;background:var(--teal-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-file-list-3-line" style="font-size:24px;color:var(--teal);"></i></div>
-              <div><h1 style="font-size:22px;font-weight:600;letter-spacing:-.02em;margin:0;">Больничные и справки</h1><p style="font-size:13.5px;color:var(--n500);margin:3px 0 0;">Электронные листы нетрудоспособности и медицинские справки.</p></div>
-            </div>
-            <!-- filter -->
-            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:var(--sh-xs);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-              <div style="flex:1;min-width:200px;position:relative;display:flex;align-items:center;"><i class="ri-search-line" style="position:absolute;left:13px;font-size:18px;color:var(--n400);"></i><div style="width:100%;height:42px;border:1px solid var(--stroke);border-radius:10px;background:var(--n50);display:flex;align-items:center;padding:0 12px 0 40px;font-size:13.5px;color:var(--n400);">Поиск по номеру или диагнозу…</div></div>
-              <div style="display:flex;gap:6px;background:var(--n100);border:1px solid var(--stroke);border-radius:10px;padding:3px;">
-                <sc-for list="{{ docFilters }}" as="f"><button onClick="{{ f.onClick }}" style="{{ f.style }}">{{ f.label }}</button></sc-for>
-              </div>
-            </div>
-            <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-              <div class="xtable" style="width:100%;border-collapse:collapse;">
-                <div class="xthead"><div class="xtr" style="background:var(--n50);">
-                  <div class="xth" style="text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">№ документа</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Тип</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Дата выдачи</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Диагноз (МКБ-10)</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Мед. организация</div>
-                  <div class="xth" style="text-align:left;padding:12px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Статус</div>
-                  <div class="xth" style="text-align:right;padding:12px 16px;"></div>
-                </div></div>
-                <div class="xtbody">
-                  <sc-for list="{{ docRows }}" as="r">
-                    <div class="xtr dc-row" style="border-top:1px solid var(--stroke);cursor:pointer;" onClick="{{ r.onClick }}">
-                      <div class="xtd" style="padding:15px 16px;font-size:13.5px;font-weight:600;color:var(--primary-darker);white-space:nowrap;">{{ r.num }}</div>
-                      <div class="xtd" style="padding:15px 14px;"><div style="display:flex;align-items:center;gap:8px;"><div style="width:30px;height:30px;border-radius:8px;background:{{ r.typeBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ r.typeIcon }}" style="font-size:16px;color:{{ r.typeColor }};"></i></div><span style="font-size:13px;font-weight:500;">{{ r.type }}</span></div></div>
-                      <div class="xtd" style="padding:15px 14px;font-size:13px;color:var(--n500);white-space:nowrap;">{{ r.date }}</div>
-                      <div class="xtd" style="padding:15px 14px;"><span style="font-size:12.5px;font-weight:600;color:var(--primary);">{{ r.icd }}</span><div style="font-size:12px;color:var(--n500);margin-top:2px;">{{ r.icdName }}</div></div>
-                      <div class="xtd" style="padding:15px 14px;font-size:13px;color:var(--n500);">{{ r.org }}</div>
-                      <div class="xtd" style="padding:15px 14px;"><span style="{{ r.statusStyle }}">{{ r.status }}</span></div>
-                      <div class="xtd" style="padding:15px 16px;text-align:right;"><i class="ri-arrow-right-s-line" style="font-size:20px;color:var(--n400);"></i></div>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-              <div style="padding:14px 20px;border-top:1px solid var(--stroke);font-size:13px;color:var(--n400);">Показано 3 из 12 документов</div>
-            </div>
-          </div>
-        </sc-if>
-
       </section>
     </div>
 
-  <!-- ============ GENERIC DETAIL DRAWER (профилактика, диспансер) ============ -->
+  <!-- ============ Окно подробностей записи ЭПЗ — по центру экрана (24.11: вместо боковой панели) ============
+       Шапка (значок, заголовок, подзаголовок, ×) · статус · «поле — значение» · хронология · блоки-аккордеоны с количеством ·
+       подвал (ЭЦП, «Распечатать», «Скачать PDF», «Закрыть»). Прокрутка внутри, Esc и клик по фону закрывают. -->
   <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:76;background:rgba(10,13,20,.5);display:flex;justify-content:flex-end;animation:mp-fade .2s ease;">
-      <div onClick="{{ stop }}" class="dc-scroll" style="width:560px;max-width:100%;height:100%;overflow-y:auto;background:var(--bg);box-shadow:var(--sh-modal);animation:mp-drawer .25s ease;">
-        <div style="position:sticky;top:0;z-index:2;background:var(--n0);border-bottom:1px solid var(--stroke);padding:18px 22px;display:flex;align-items:center;gap:14px;">
-          <div style="width:44px;height:44px;border-radius:11px;background:{{ drawerIconBg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ drawerIcon }}" style="font-size:23px;color:{{ drawerIconColor }};"></i></div>
-          <div style="flex:1;min-width:0;"><div style="font-size:16px;font-weight:600;line-height:1.3;">{{ drawerTitle }}</div><div style="font-size:12.5px;color:var(--n400);margin-top:2px;">{{ drawerSubtitle }}</div></div>
-          <button onClick="{{ closeDrawer }}" style="width:36px;height:36px;border:1px solid var(--stroke);border-radius:9px;background:var(--n0);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
+    <div class="ez-ov" onClick="{{ closeDrawer }}">
+      <div class="ez-dlg" role="dialog" aria-modal="true" aria-labelledby="ez-dlg-t" tabIndex="-1" style="--dw:{{ drawerW }};" onClick="{{ stop }}">
+        <div class="ez-dlg-head">
+          <span class="ez-dlg-ico" style="background:{{ drawerIconBg }};color:{{ drawerIconColor }};" aria-hidden="true"><i class="{{ drawerIcon }}"></i></span>
+          <div style="min-width:0;"><h2 id="ez-dlg-t" class="ez-dlg-t">{{ drawerTitle }}</h2><sc-if value="{{ drawerHasSub }}" hint-placeholder-val="{{ true }}"><p class="ez-dlg-s">{{ drawerSubtitle }}</p></sc-if></div>
+          <button type="button" class="ez-close" onClick="{{ closeDrawer }}" aria-label="Закрыть"><i class="ri-close-line"></i></button>
         </div>
-        <div style="padding:22px;display:flex;flex-direction:column;gap:16px;">
+        <div class="ez-dlg-body">
           <sc-if value="{{ drawerHasStatus }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;align-items:center;gap:10px;background:{{ drawerStatusBg }};border-radius:12px;padding:14px 16px;"><i class="{{ drawerStatusIcon }}" style="font-size:22px;color:{{ drawerStatusColor }};"></i><div><div style="font-size:14px;font-weight:600;color:{{ drawerStatusColor }};">{{ drawerStatusText }}</div><div style="font-size:12px;color:var(--n500);">{{ drawerStatusSub }}</div></div></div>
+            <div class="ez-status" style="{{ drawerStatusBox }}"><i class="{{ drawerStatusIcon }}" style="color:{{ drawerStatusColor }};" aria-hidden="true"></i><div><div class="ez-status-t" style="color:{{ drawerStatusColor }};">{{ drawerStatusText }}</div><sc-if value="{{ drawerHasStatusSub }}" hint-placeholder-val="{{ true }}"><div class="ez-status-s">{{ drawerStatusSub }}</div></sc-if></div></div>
           </sc-if>
-          <!-- meta grid -->
-          <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;box-shadow:var(--sh-xs);">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-              <sc-for list="{{ drawerMeta }}" as="m"><div><div style="font-size:11px;color:var(--n400);">{{ m.label }}</div><div style="font-size:14px;font-weight:600;margin-top:3px;color:{{ m.color }};">{{ m.value }}</div></div></sc-for>
+          <sc-if value="{{ drawerHasMeta }}" hint-placeholder-val="{{ true }}">
+            <div class="ez-box ez-box-p"><div class="ez-kv" style="--kv:{{ drawerKv }};">
+              <sc-for list="{{ drawerMeta }}" as="m"><div><div class="ez-k">{{ m.label }}</div><div class="ez-v"><sc-if value="{{ m.isPill }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ m.pill }}">{{ m.value }}</span></sc-if><sc-if value="{{ m.isTxt }}" hint-placeholder-val="{{ true }}"><span style="color:{{ m.color }};">{{ m.value }}</span></sc-if></div></div></sc-for>
+            </div></div>
+          </sc-if>
+          <sc-if value="{{ drawerHasSteps }}" hint-placeholder-val="{{ false }}">
+            <div class="ez-box ez-box-p">
+              <div class="ez-cap" style="margin-bottom:12px;"><i class="ri-time-line" aria-hidden="true"></i>Хронология вызова</div>
+              <ol class="epz-steps"><sc-for list="{{ drawerSteps }}" as="t"><li><span class="epz-step-dot" aria-hidden="true"><i class="{{ t.icon }}"></i></span><span class="epz-step-t">{{ t.time }}</span><span class="ez-sub">{{ t.label }}</span></li></sc-for></ol>
             </div>
-          </div>
-          <!-- sections -->
+          </sc-if>
           <sc-for list="{{ drawerSections }}" as="sec">
-            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;box-shadow:var(--sh-xs);">
-              <div style="font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:{{ sec.color }};"><i class="{{ sec.icon }}" style="font-size:18px;"></i>{{ sec.heading }}</div>
-              <sc-if value="{{ sec.isText }}" hint-placeholder-val="{{ true }}">
-                <p style="font-size:13.5px;line-height:1.6;color:var(--n600);margin:0;white-space:pre-line;">{{ sec.text }}</p>
-              </sc-if>
-              <sc-if value="{{ sec.isList }}" hint-placeholder-val="{{ false }}">
-                <div style="display:flex;flex-direction:column;gap:9px;">
-                  <sc-for list="{{ sec.items }}" as="it"><div style="display:flex;align-items:flex-start;gap:9px;font-size:13.5px;line-height:1.5;color:var(--n600);"><i class="{{ it.icon }}" style="font-size:17px;color:{{ it.color }};flex:0 0 auto;margin-top:1px;"></i>{{ it.text }}</div></sc-for>
+            <div class="ez-box">
+              <button type="button" class="ez-sec-h" aria-expanded="{{ sec.open }}" onClick="{{ sec.onToggle }}">
+                <span class="ez-sec-ico" style="background:{{ sec.bg }};color:{{ sec.color }};" aria-hidden="true"><i class="{{ sec.icon }}"></i></span>
+                <span class="ez-sec-t">{{ sec.heading }}</span>
+                <sc-if value="{{ sec.hasN }}" hint-placeholder-val="{{ false }}"><span class="ez-badge">{{ sec.n }}</span></sc-if>
+                <i class="ri-arrow-down-s-line ez-sec-chev" aria-hidden="true"></i>
+              </button>
+              <sc-if value="{{ sec.open }}" hint-placeholder-val="{{ true }}">
+                <div class="ez-sec-b">
+                  <sc-if value="{{ sec.isText }}" hint-placeholder-val="{{ true }}"><p class="ez-p">{{ sec.text }}</p></sc-if>
+                  <sc-if value="{{ sec.isList }}" hint-placeholder-val="{{ false }}">
+                    <div><sc-for list="{{ sec.items }}" as="it"><div class="ez-li"><i class="{{ it.icon }}" style="color:{{ it.color }};" aria-hidden="true"></i><span style="flex:1;min-width:0;"><sc-if value="{{ it.hasCode }}" hint-placeholder-val="{{ false }}"><span class="ez-code" style="margin-right:8px;">{{ it.code }}</span></sc-if>{{ it.text }}</span><sc-if value="{{ it.hasTag }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ it.tag }}">{{ it.tagText }}</span></sc-if></div></sc-for></div>
+                  </sc-if>
+                  <sc-if value="{{ sec.isEmpty }}" hint-placeholder-val="{{ false }}"><div class="ez-nd">Нет данных</div></sc-if>
                 </div>
               </sc-if>
             </div>
           </sc-for>
         </div>
+        <div class="ez-dlg-foot">
+          <span class="ez-sign"><i class="ri-shield-check-fill" aria-hidden="true"></i>{{ drawerSign }}</span>
+          <button type="button" class="ez-btn" onClick="{{ doPrint }}"><i class="ri-printer-line" aria-hidden="true"></i>Распечатать</button>
+          <button type="button" class="ez-btn soft" onClick="{{ doPdf }}"><i class="ri-download-2-line" aria-hidden="true"></i>Скачать PDF</button>
+          <button type="button" class="ez-btn" onClick="{{ closeDrawer }}">Закрыть</button>
+        </div>
       </div>
     </div>
   </sc-if>
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div class="ez-toast" role="status"><i class="ri-checkbox-circle-fill" aria-hidden="true"></i>{{ toast }}</div></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:900},&quot;patient&quot;:&quot;ivanova&quot;,&quot;mode&quot;:&quot;doctor&quot;}">
@@ -932,6 +1033,8 @@ class Component extends DCLogic {
       section: route.section,
       prophyTab:'screen', womenTab:'preg', vitalIdx:0, archOpen:false,
       drawer:null, docFilter:'all', dispTab:route.dispTab, dispCase:0, narrow:false,
+      // фильтры реестров по разделам { [раздел]: { q, [фильтр]: значение } }, открытый список, свёрнутые блоки окна, тост, синхронизация
+      flt:{}, ddOpen:null, dlgClosed:{}, toast:'', syncAt:'сегодня, 10:42', syncBusy:false,
       diary:window.__mpDiary || { ready:false, sel:'glu' },
     };
   }
@@ -995,16 +1098,40 @@ class Component extends DCLogic {
       if(Object.keys(upd).length) this.setState(upd);
     };
     window.addEventListener('mp-diary-state', this._onDiary);
+    // Фильтры: клик мимо списка закрывает его. Окно: Esc закрывает (и открытый список фильтра)
+    this._onDown = (e) => { if(this.state.ddOpen && !(e.target.closest && e.target.closest('.ez-dd'))) this.setState({ ddOpen:null }); };
+    document.addEventListener('mousedown', this._onDown);
+    this._onKey = (e) => {
+      if(e.key !== 'Escape') return;
+      if(this.state.ddOpen) this.setState({ ddOpen:null });
+      else if(this.state.drawer){ e.preventDefault(); this.setState({ drawer:null }); }
+    };
+    document.addEventListener('keydown', this._onKey);
+  }
+  // Окно подробностей: страница под ним не прокручивается, фокус — в окно, после закрытия — туда, откуда открыли
+  syncDialog(){
+    const open = !!this.state.drawer;
+    if(open === !!this._dlgOpen) return;
+    this._dlgOpen = open;
+    if(open){
+      this._ret = document.activeElement;
+      this._ovf = document.body.style.overflow; document.body.style.overflow = 'hidden';
+      setTimeout(() => { const d = document.querySelector('.ez-dlg'); if(d) d.focus(); }, 0);
+    } else {
+      document.body.style.overflow = this._ovf || '';
+      if(this._ret && this._ret.focus && document.contains(this._ret)) this._ret.focus();
+    }
   }
   componentDidUpdate(prev){
     this.watchWidth();
+    this.syncDialog();
     // Новая лента вкладок диспансерного учёта (открыли по адресу #dispensary/diary, вернулись в раздел) — к активной вкладке
     const row = document.querySelector('.epz-dtabs');
     if(row && row !== this._dtRow){ this._dtRow = row; this.ensureDispTab(); }
     // Другой пациент — ЭПЗ открывается с «Главной»
     if(prev && prev.patient !== (this.props || {}).patient) this.setState({ section:'main', drawer:null });
   }
-  componentWillUnmount(){ clearInterval(this._dtT); if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); if(this._onDiary) window.removeEventListener('mp-diary-state', this._onDiary); }
+  componentWillUnmount(){ clearInterval(this._dtT); clearTimeout(this._toastT); clearTimeout(this._syncT); document.removeEventListener('mousedown', this._onDown); document.removeEventListener('keydown', this._onKey); if(this._dlgOpen) document.body.style.overflow = this._ovf || ''; if(this._ro) this._ro.disconnect(); window.removeEventListener('resize', this._onResize); if(this._onHash) window.removeEventListener('hashchange', this._onHash); if(this._onDiary) window.removeEventListener('mp-diary-state', this._onDiary); }
 
   renderVals(){
     const s=this.state;
@@ -1035,7 +1162,7 @@ class Component extends DCLogic {
     // Раздел открывается с начала: если страница прокручена ниже меню разделов — возвращаемся к его верху.
     // У гражданина раздел — в адресе (#allergy), чтобы обновление страницы и «Назад» его сохраняли
     const goSection=(id)=>this.setState({ section:id, drawer:null }, ()=>setTimeout(()=>{
-      if(citizen){ try { history.replaceState(null, '', id==='main' ? location.pathname + location.search : '#' + id + (id==='dispensary' && this.state.dispTab==='diary' ? '/diary' : '')); } catch(e){} }
+      if(citizen){ try { history.replaceState(null, '', id==='main' ? location.pathname + location.search : '#' + id + (id==='dispensary' && this.state.dispTab==='diary' ? '/diary' : '')); } catch(e){} window.dispatchEvent(new Event('mp-epz-nav')); }
       const root=this.root();
       if(root){ const y=root.getBoundingClientRect().top + window.scrollY - (parseInt(p.top, 10) || 161); if(window.scrollY > y) window.scrollTo({ top:Math.max(0, y), behavior:'smooth' }); }
       const nav=root&&root.querySelector('.epz-nav'), on=nav&&nav.querySelector('[aria-current="page"]');
@@ -1075,14 +1202,18 @@ class Component extends DCLogic {
     const alNote=drugAllergy ? ' — '+drugAllergy.reaction.toLowerCase()+(drugAllergy.year?' ('+drugAllergy.year+')':'') : '';
     const allergyRows=allAllergies.map(a=>({ ...a, severity:SEV[a.severity][0], sevStyle:tag('',SEV[a.severity][1]), year:a.year||'—', yearColor:a.year?'var(--n600)':'var(--n400)' }));
 
+    // ---------- Ячейки реестров (единый каркас подразделов, 24.11) ----------
+    // ct — текст (strong: тёмный полужирный; color: цвет; b: вторая строка), cp — метка-статус, cc — код МКБ над названием
+    const ct=(a,o={})=>({ isTxt:true, isCode:false, isPill:false, a:a==null||a===''?'—':a, aStyle:o.strong?'font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;':(o.color?`font-weight:600;color:${o.color};`:''), hasB:!!o.b, b:o.b||'', code:'', pill:'' });
+    // Текст метки на светлом фоне — тёмным оттенком того же цвета (контраст не ниже 4.5:1)
+    const DARK={ '#F17B2C':'#6E330C', '#DF1C41':'#710E21', '#38C793':'#176448', '#35B9E9':'#164564' };
+    const cp=(a,c,o={})=>({ isTxt:false, isCode:false, isPill:true, a, pill:`background:${c[0]};color:${DARK[c[1]]||c[1]};`, hasB:!!o.b, b:o.b||'', aStyle:'', code:'' });
+    const cc=(code,a)=>({ isTxt:true, isCode:true, isPill:false, code, a, aStyle:'color:var(--n900);margin-top:3px;', hasB:false, b:'', pill:'' });
+    const splitDx=(x)=>{ const i=String(x).indexOf(' '); return i>0?[x.slice(0,i),x.slice(i+1)]:[x,'']; };
+    let tbCfg=null;
+
     // ---------- LIST ----------
-    let listTitle='',listSubtitle='',listFilters=[],listChips=[],listCols=[],listRows=[],listCount='';
-    const listIcon = s.section==='ambulatory'?'ri-stethoscope-line':(s.section==='diseases'?'ri-virus-line':'ri-hotel-bed-line');
     if(s.section==='diseases'){
-      listTitle='Заболевания'; listSubtitle='Реестр установленных диагнозов и история клинических случаев.';
-      listFilters=[ {label:'Период',icon:'ri-calendar-line',value:'01.01.2023 – 31.12.2023',chev:false},{label:'Код МКБ-10',icon:'ri-hashtag',value:'Напр. J06.9',chev:false},{label:'Мед. организация',icon:'ri-hospital-line',value:'Все организации',chev:true},{label:'Характер',icon:'ri-pulse-line',value:'Все типы',chev:true} ];
-      listChips=['Период: 2023','Характер: Хроническое'];
-      listCols=[cellH('Дата уст.'),cellH('Код МКБ-10'),cellH('Наименование диагноза'),cellH('Тип'),cellH('Характер'),cellH('Мед. организация')];
       const dz=[
         { d:'14.12.2023', mkb:'I10', name:'Эссенциальная [первичная] гипертензия', typ:'Основной', kind:'Клинический', char:['Хроническое',T.orangeD], st:['Подтверждён',T.green], org:'ГП №218',
           extra:[
@@ -1104,18 +1235,17 @@ class Component extends DCLogic {
         { d:'12.08.2023', mkb:'M54.5', name:'Боли внизу спины', typ:'Осложнение', kind:'Клинический', char:['Острое',T.green], st:['Закрыт',T.gray], org:'КДЦ НМХЦ Пирогова', extra:[] },
         { d:'30.06.2023', mkb:'H52.1', name:'Миопия', typ:'Основной', kind:'Клинический', char:['Хроническое',T.orangeD], st:['Подтверждён',T.green], org:'ГП №124', extra:[] },
       ];
-      listRows=dz.map(z=>({ onClick:()=>this.setState({ drawer:{
-          icon:'ri-virus-line', iconC:T.orange, title:z.name, subtitle:'МКБ-10: '+z.mkb+' · установлен '+z.d,
-          meta:[['Код МКБ-10',z.mkb,'#4D42E9'],['Дата установления',z.d],['Тип диагноза',z.typ],['Вид диагноза',z.kind],['Характер',z.char[0],z.char[1]],['Статус',z.st[0],z.st[1]],['Мед. организация',z.org]],
-          sections:z.extra.map(e=>({ heading:e.h, icon:e.ic, c:e.c, list:e.list })),
-        } }),
-        cells:[ cellT(z.d,td('left',true)), cellT(z.mkb,td('left',true,'#4D42E9')), cellT(z.name,td()), cellT(z.typ,td()), cellTag(z.char[0],z.char[1],td('left')), cellT(z.org,td('left',false,'#525866')) ] }));
-      listCount='Показано 1–7 из 25 записей';
+      tbCfg={ rows:dz, ph:'Поиск по коду МКБ-10 или названию',
+        cols:['Дата','Диагноз','Тип','Характер','Статус','Мед. организация'],
+        vars:'--cols:minmax(104px,.8fr) minmax(220px,2.2fr) minmax(128px,.9fr) minmax(116px,.8fr) minmax(136px,.9fr) minmax(130px,1.1fr) 74px;',
+        dds:[ {id:'char',label:'Характер',all:'Любой характер',icon:'ri-pulse-line',get:z=>z.char[0]}, {id:'st',label:'Статус',all:'Любой статус',icon:'ri-checkbox-circle-line',get:z=>z.st[0]}, {id:'org',label:'Мед. организация',all:'Все организации',icon:'ri-hospital-line',get:z=>z.org} ],
+        text:z=>z.mkb+' '+z.name+' '+z.org,
+        cells:z=>[ ct(z.d,{strong:true}), cc(z.mkb,z.name), ct(z.typ), cp(z.char[0],z.char[1]), cp(z.st[0],z.st[1]), ct(z.org) ],
+        aria:z=>'Просмотр: '+z.mkb+' '+z.name,
+        open:z=>({ w:'820px', icon:'ri-virus-line', iconC:T.orange, title:z.name, subtitle:'МКБ-10: '+z.mkb+' · установлен '+z.d, kv:4,
+          meta:[['Код МКБ-10',z.mkb,'#4D42E9'],['Дата установления',z.d],['Тип диагноза',z.typ],['Вид диагноза',z.kind],['Характер',z.char[0],z.char[1],true],['Статус',z.st[0],z.st[1],true],['Мед. организация',z.org]],
+          sections:z.extra.map(e=>({ heading:e.h, icon:e.ic, c:e.c, list:e.list })) }) };
     } else if(s.section==='hospital'){
-      listTitle='История госпитализаций'; listSubtitle='Случаи стационарного лечения и записи медицинских учреждений.';
-      listFilters=[ {label:'Период',icon:'ri-calendar-line',value:'дд.мм.гггг',chev:false},{label:'Мед. организация',icon:'ri-hospital-line',value:'Все организации',chev:true},{label:'Тип госпитализации',icon:'ri-hotel-bed-line',value:'Все',chev:true},{label:'Диагноз (МКБ-10)',icon:'ri-hashtag',value:'Код или название',chev:false} ];
-      listChips=['Все организации'];
-      listCols=[cellH('Дата'),cellH('Мед. организация'),cellH('Тип'),cellH('Отделение'),cellH('Основной диагноз')];
       const hz=[
         { d:'15.05.2024 10:30', org:'ГКБ №1', typ:['Плановая',T.blue], dept:'Терапевтическое', dx:'J18.0 Бронхопневмония', refusal:false,
           htype:'Круглосуточный', card:'12345/24', planned:'25.05.2024',
@@ -1148,38 +1278,39 @@ class Component extends DCLogic {
         { d:'15.04.2023 11:20', org:'ГКБ №1', typ:['Плановая',T.blue], dept:'Офтальмологическое', dx:'H25.0 Начальная катаракта', refusal:true,
           refDate:'15.04.2023', refReason:'Отказ пациента от плановой операции (личное решение, оформлен письменный отказ).' },
       ];
-      listRows=hz.map(h=>({ onClick:()=>this.setState({ drawer: h.refusal ? {
+      // Исход: у отказа — «Отказ», у выписанных — исход из выписки
+      const hOut=(h)=>h.refusal?['Отказ',T.red]:(h.discharge?h.discharge.out:['В стационаре',T.blue]);
+      tbCfg={ rows:hz, ph:'Поиск по организации, отделению или диагнозу',
+        cols:['Дата поступления','Мед. организация','Тип','Отделение','Основной диагноз','Исход'],
+        vars:'--cols:minmax(116px,.8fr) minmax(130px,1fr) minmax(108px,.7fr) minmax(150px,1fr) minmax(190px,1.8fr) minmax(118px,.8fr) 74px;',
+        dds:[ {id:'typ',label:'Тип госпитализации',all:'Любой тип',icon:'ri-hotel-bed-line',get:h=>h.typ[0]}, {id:'org',label:'Мед. организация',all:'Все организации',icon:'ri-hospital-line',get:h=>h.org} ],
+        text:h=>h.org+' '+h.dept+' '+h.dx,
+        cells:h=>{ const dx=splitDx(h.dx), dt=h.d.split(' '); return [ ct(dt[0],{strong:true,b:dt[1]}), ct(h.org), cp(h.typ[0],h.typ[1]), ct(h.dept), cc(dx[0],dx[1]), cp(hOut(h)[0],hOut(h)[1]) ]; },
+        aria:h=>'Просмотр госпитализации '+h.d,
+        open:h=> h.refusal ? {
             icon:'ri-close-circle-line', iconC:T.red, title:'Отказ от госпитализации', subtitle:h.d+' · '+h.org,
             status:['Госпитализация не состоялась','Зарегистрирован отказ',T.red],
-            meta:[['Дата отказа',h.refDate],['Мед. организация',h.org],['Отделение',h.dept],['Диагноз',h.dx,'#4D42E9']],
+            meta:[['Дата отказа',h.refDate],['Мед. организация',h.org],['Отделение',h.dept],['Диагноз',h.dx,'#4D42E9']], kv:2,
             sections:[{heading:'Причина отказа',icon:'ri-information-line',c:T.red,text:h.refReason}],
           } : {
-            icon:'ri-hotel-bed-line', iconC:T.blue, title:'Госпитализация · '+h.dept, subtitle:h.d+' · '+h.org,
-            status:[h.discharge?'Лечение завершено':'Пациент в стационаре', h.discharge?('Исход: '+h.discharge.out[0]):'Выписка не оформлена', h.discharge?h.discharge.out[1]:T.blue],
-            meta:[['Дата госпитализации',h.d],['Мед. организация',h.org],['Тип',h.typ[0],h.typ[1]],['Тип стационара',h.htype],['Отделение',h.dept],['№ истории болезни',h.card],['Плановая выписка',h.planned]],
+            w:'880px', icon:'ri-hotel-bed-line', iconC:T.blue, title:'Госпитализация · '+h.dept, subtitle:h.d+' · '+h.org,
+            status:[h.discharge?'Лечение завершено':'Пациент в стационаре', h.discharge?('Исход: '+h.discharge.out[0]+' · выписан '+h.discharge.date):'Выписка не оформлена', h.discharge?h.discharge.out[1]:T.blue],
+            meta:[['Дата поступления',h.d],['Мед. организация',h.org],['Тип',h.typ[0],h.typ[1],true],['Тип стационара',h.htype],['Отделение',h.dept],['№ истории болезни',h.card],['Плановая выписка',h.planned],...(h.discharge?[['Койко-дней',h.discharge.bedDays]]:[])], kv:4,
             sections:[
-              {heading:'Диагнозы',icon:'ri-stethoscope-line',c:T.blue,list:h.diags.map(d=>['ri-hashtag',d[0]+' ('+d[1]+')','#4D42E9'])},
-              ...(h.ops.length?[{heading:'Операции',icon:'ri-syringe-line',c:T.purple,list:h.ops.map(o=>['ri-scalpel-line',o[0]+' — '+o[1]+' · '+o[2]+' · '+o[3],'#6E3FF3'])}]:[]),
-              ...(h.discharge?[{heading:'Выписной эпикриз',icon:'ri-file-text-line',c:T.green,text:'Койко-дней: '+h.discharge.bedDays+' · Дата выписки: '+h.discharge.date+'\n\n'+h.discharge.epicrisis}]:[]),
+              {heading:'Диагнозы',icon:'ri-stethoscope-line',c:T.blue,list:h.diags.map(d=>{ const k=d[0].split(' — '); return { code:k[0], text:k[1]||'', tag:d[1], tagC:d[1]==='Основной'?T.blue:T.gray }; })},
+              {heading:'Операции и процедуры',icon:'ri-syringe-line',c:T.purple,list:h.ops.map(o=>['ri-scalpel-line',o[0]+' — '+o[1]+' · '+o[2].toLowerCase(),'#6E3FF3',o[3]])},
+              ...(h.discharge?[{heading:'Выписной эпикриз',icon:'ri-file-text-line',c:T.green,text:h.discharge.epicrisis}]:[]),
               ...(h.discharge?[{heading:'Рекомендации при выписке',icon:'ri-lightbulb-line',c:T.orange,list:h.discharge.recs.map(r=>['ri-checkbox-circle-line',r,'#F17B2C'])}]:[]),
             ],
-          } }),
-        cells:[ cellT(h.d,td('left',true)), cellT(h.org,td()), cellTag(h.typ[0],h.typ[1],td('left')), cellT(h.dept,td()), cellT(h.dx,td('left',true,'#4D42E9')) ] }));
-      listCount='Показано 1–5 из 28 записей';
+          } };
     }
 
     // ---------- PROPHYLAXIS ----------
-    const openDrawer=(d)=>this.setState({ drawer:d });
-    const prophyTabs=[
-      { id:'screen', label:'Скрининги', desc:'Контроль хронических заболеваний и раннее выявление патологий', icon:'ri-shield-check-line', badge:'Активно', c:T.blue },
-      { id:'vacc', label:'Вакцинация', desc:'План прививок, сертификаты и иммунный статус', icon:'ri-syringe-line', badge:'12 записей', c:T.greenB },
-    ].map(t=>({ ...t, color:t.c[1], bg:t.c[0], onClick:()=>this.setState({ prophyTab:t.id }),
-      cardStyle:`text-align:left;border:1.5px solid ${s.prophyTab===t.id?'#4D42E9':'#E2E4E9'};border-radius:16px;padding:18px;background:${s.prophyTab===t.id?'#FBFCFD':'#fff'};cursor:pointer;font-family:inherit;box-shadow:var(--sh-xs);` }));
-
-    let prophyCols=[],prophyRows=[],prophyStats=[],prophyList=[];
-    if(s.prophyTab==='screen'){
-      prophyCols=[cellH('Дата'),cellH('Вид скрининга'),cellH('Группа здоровья'),cellH('Результат'),cellH('Мед. организация')];
-      const sd=[
+    const openDrawer=(d)=>this.setState({ drawer:d, dlgClosed:{}, ddOpen:null });
+    // Профилактика (Р6): скрининги и вакцинация — отдельными вкладками с количеством, без плиток-счётчиков
+    let sd=[], vx=[];
+    {
+      sd=[
         { date:'12.10.2023', name:'Скрининг на онкопатологию (маммография)', group:['Группа I',T.green], result:'Патологий не выявлено', org:'ГБ №4',
           detail:{ icon:'ri-shield-check-line', iconC:T.blue, status:['Завершён','Патологий не выявлено',T.green],
             meta:[['Дата прохождения','12.10.2023'],['Вид','Маммография (2 проекции)'],['Группа здоровья','I — здоров'],['Врач','Рентгенолог Нурпеисова А.К.'],['Организация','Городская больница №4'],['Периодичность','1 раз в 2 года']],
@@ -1210,23 +1341,9 @@ class Component extends DCLogic {
               { heading:'Рекомендации', icon:'ri-lightbulb-line', c:T.blue, list:[['ri-calendar-check-line','Контроль липидного профиля через 12 месяцев','#4D42E9']] },
             ] } },
       ];
-      prophyRows=sd.map(r=>({ onClick:()=>openDrawer(r.detail), cells:[ cellT(r.date,td('left',true)), cellT(r.name,td('left',true,'#4D42E9')), cellTag(r.group[0],r.group[1],td('left')), cellT(r.result,td()), cellT(r.org,td('left',false,'#525866')) ] }));
-      prophyStats=[
-        { label:'Пройдено скринингов', value:'4', icon:'ri-shield-check-line', c:T.green },
-        { label:'Группа здоровья', value:'II', icon:'ri-user-heart-line', c:T.orange },
-        { label:'Требуют контроля', value:'1', icon:'ri-error-warning-line', c:T.orange },
-        { label:'Следующий', value:'15.06.25', icon:'ri-calendar-line', c:T.blue },
-      ].map(a=>({ ...a, color:a.c[1] }));
-      prophyList=sd.map(r=>{
-        const ok=r.group[0]==='Группа I';
-        return { onClick:()=>openDrawer(r.detail), date:r.date, name:r.name, org:r.org, result:r.result,
-          groupText:r.group[0], groupStyle:tag(r.group[0],r.group[1]),
-          icon: ok?'ri-checkbox-circle-fill':'ri-error-warning-fill', iconColor: ok?'#38C793':'#F17B2C', iconBg: ok?'#EFFAF6':'#FEF3EB',
-          resultColor: ok?'#176448':'#6E330C' };
-      });
-    } else {
-      prophyCols=[cellH('Дата'),cellH('Наименование вакцины'),cellH('Статус'),cellH('Мед. организация')];
-      const vd=[
+    }
+    {
+      vx=[
         { date:'12.05.2023', name:'Гам-КОВИД-Вак (Спутник V) · серия 485932104', status:['Завершено',T.green], org:'ГП №1',
           detail:{ icon:'ri-syringe-line', iconC:T.green, status:['Курс завершён','Иммунизация выполнена в полном объёме',T.green],
             meta:[['Дата вакцинации','12.05.2023'],['Вакцина','Гам-КОВИД-Вак'],['Компонент','II (бустер)'],['Серия','485932104'],['Способ введения','В/м, дельтовидная мышца'],['Врач','Терапевт Оразова Б.С.']],
@@ -1260,34 +1377,52 @@ class Component extends DCLogic {
               { heading:'Рекомендации', icon:'ri-lightbulb-line', c:T.blue, list:[['ri-calendar-check-line','Следующая ревакцинация — 2031 год','#4D42E9']] },
             ] } },
       ];
-      prophyRows=vd.map(r=>({ onClick:()=>openDrawer(r.detail), cells:[ cellT(r.date,td('left',true)), cellT(r.name,td('left',true,'#4D42E9')), cellTag(r.status[0],r.status[1],td('left')), cellT(r.org,td('left',false,'#525866')) ] }));
-      prophyStats=[
-        { label:'Всего вакцин', value:'12', icon:'ri-syringe-line', c:T.green },
-        { label:'Актуальны', value:'9', icon:'ri-shield-check-line', c:T.green },
-        { label:'Требуют ревакц.', value:'2', icon:'ri-refresh-line', c:T.orange },
-        { label:'COVID-19', value:'Привит', icon:'ri-virus-line', c:T.teal },
-      ].map(a=>({ ...a, color:a.c[1] }));
-      prophyList=vd.map(r=>{
-        const done=r.status[0]==='Завершено';
-        const nm=r.name.split(' · ');
-        return { onClick:()=>openDrawer(r.detail), date:r.date, name:nm[0], series:nm[1]||'', org:r.org,
-          statusText:r.status[0], statusStyle:tag(r.status[0],r.status[1]),
-          icon:'ri-syringe-fill', iconColor: done?'#38C793':(r.status[0]==='Архив'?'#F2AE40':'#4D42E9'), iconBg: done?'#EFFAF6':(r.status[0]==='Архив'?'#FEF7EC':'#EEF2FF') };
-      });
+    }
+    const prophyTabs=[ ['screen','Скрининги','ri-shield-check-line',sd.length], ['vacc','Вакцинация','ri-syringe-line',vx.length] ]
+      .map(([id,label,icon,n])=>({ id, label, icon, n, sel:s.prophyTab===id, onClick:()=>this.setState({ prophyTab:id, ddOpen:null }) }));
+    if(s.section==='prophy'){
+      // Заголовок записи — название; для окна берём его, если в подробностях нет своего
+      const withTitle=(r,name)=>({ ...r.detail, title:r.detail.title||name, subtitle:r.detail.subtitle||(r.date+' · '+r.org), kv:3 });
+      tbCfg = s.prophyTab==='screen' ? { key:'prophy-screen', rows:sd, ph:'Поиск по виду скрининга или организации',
+          cols:['Дата','Вид скрининга','Группа здоровья','Результат','Мед. организация'],
+          vars:'--cols:minmax(100px,.7fr) minmax(220px,2fr) minmax(130px,.8fr) minmax(170px,1.3fr) minmax(130px,1fr) 74px;',
+          dds:[ {id:'grp',label:'Группа здоровья',all:'Любая группа',icon:'ri-user-heart-line',get:r=>r.group[0]} ],
+          text:r=>r.name+' '+r.org+' '+r.result,
+          cells:r=>[ ct(r.date,{strong:true}), ct(r.name,{strong:true}), cp(r.group[0],r.group[1]), ct(r.result), ct(r.org) ],
+          aria:r=>'Просмотр: '+r.name, open:r=>withTitle(r,r.name) }
+        : { key:'prophy-vacc', rows:vx, ph:'Поиск по вакцине или организации',
+          cols:['Дата','Вакцина','Статус','Мед. организация'],
+          vars:'--cols:minmax(100px,.7fr) minmax(260px,2.4fr) minmax(120px,.8fr) minmax(140px,1.1fr) 74px;',
+          dds:[ {id:'st',label:'Статус',all:'Любой статус',icon:'ri-checkbox-circle-line',get:r=>r.status[0]} ],
+          text:r=>r.name+' '+r.org,
+          cells:r=>{ const nm=r.name.split(' · '); return [ ct(r.date,{strong:true}), ct(nm[0],{strong:true,b:nm[1]||''}), cp(r.status[0],r.status[1]), ct(r.org) ]; },
+          aria:r=>'Просмотр: '+r.name, open:r=>withTitle(r,r.name.split(' · ')[0]) };
     }
 
     // ---------- VITALS ----------
     const vData=[
-      { date:'24.10.2023 10:00', height:'180 см', weight:'85 кг', bmi:'26.2', temp:'36.6 °C', d:{height:'180',weight:'85',bmi:'26.2',temp:'36.6',pulse:'72',spo2:'98',cond:'Удовлетвор.',bpL:'120/80',bpR:'122/82'} },
-      { date:'20.10.2023 09:15', height:'180 см', weight:'86 кг', bmi:'26.5', temp:'36.8 °C', d:{height:'180',weight:'86',bmi:'26.5',temp:'36.8',pulse:'76',spo2:'97',cond:'Удовлетвор.',bpL:'124/82',bpR:'126/84'} },
-      { date:'15.10.2023 11:30', height:'180 см', weight:'84.5 кг', bmi:'26.1', temp:'37.2 °C', d:{height:'180',weight:'84.5',bmi:'26.1',temp:'37.2',pulse:'84',spo2:'96',cond:'Средней тяж.',bpL:'130/85',bpR:'132/86'} },
-      { date:'10.10.2023 08:45', height:'—', weight:'85 кг', bmi:'н/д', temp:'36.5 °C', d:{height:'180',weight:'85',bmi:'н/д',temp:'36.5',pulse:'70',spo2:'98',cond:'Удовлетвор.',bpL:'118/78',bpR:'120/80'} },
+      { date:'24.10.2023 10:00', height:'180 см', weight:'85 кг', bmi:'26.2', temp:'36.6 °C', d:{height:'180',weight:'85',bmi:'26.2',temp:'36.6',pulse:'72',spo2:'98',cond:'Удовлетворительное',bpL:'120/80',bpR:'122/82'} },
+      { date:'20.10.2023 09:15', height:'180 см', weight:'86 кг', bmi:'26.5', temp:'36.8 °C', d:{height:'180',weight:'86',bmi:'26.5',temp:'36.8',pulse:'76',spo2:'97',cond:'Удовлетворительное',bpL:'124/82',bpR:'126/84'} },
+      { date:'15.10.2023 11:30', height:'180 см', weight:'84.5 кг', bmi:'26.1', temp:'37.2 °C', d:{height:'180',weight:'84.5',bmi:'26.1',temp:'37.2',pulse:'84',spo2:'96',cond:'Средней тяжести',bpL:'130/85',bpR:'132/86'} },
+      { date:'10.10.2023 08:45', height:'—', weight:'85 кг', bmi:'н/д', temp:'36.5 °C', d:{height:'180',weight:'85',bmi:'н/д',temp:'36.5',pulse:'70',spo2:'98',cond:'Удовлетворительное',bpL:'118/78',bpR:'120/80'} },
     ];
-    const vitalsRows=vData.map((v,i)=>({ date:v.date, height:v.height, weight:v.weight, bmi:v.bmi, temp:v.temp,
-      onClick:()=>this.setState({ vitalIdx:i }), activeBg: s.vitalIdx===i?'background:#FBFCFD;':'',
-      bmiStyle: v.bmi==='н/д'?'font-size:12px;color:#DF1C41;':`display:inline-block;font-size:12.5px;font-weight:600;padding:3px 9px;border-radius:8px;background:#FEF3EB;color:#6E330C;` }));
-    const vitalDate=vData[s.vitalIdx].date.split(' ')[0];
+    // Измерения (Р7): сверху — выбранное измерение, ниже — история; категории ИМТ и АД — по ВОЗ / ESH
+    const bmiCat=(b)=>{ const x=parseFloat(b); if(!x) return null; return x<18.5?['Дефицит массы тела',T.orangeD]:x<25?['Норма',T.green]:x<30?['Избыточная масса тела',T.orangeD]:['Ожирение',T.red]; };
+    const bpCat=(bp)=>{ const [a,b]=String(bp).split('/').map(Number); if(!a) return null; return (a<120&&b<80)?['Оптимальное',T.green]:(a<130&&b<85)?['Нормальное',T.green]:(a<140&&b<90)?['Высокое нормальное',T.orangeD]:['Повышенное',T.red]; };
+    const vRows=vData.map((v,i)=>{ const on=s.vitalIdx===i, bc=bmiCat(v.bmi); return { date:v.date, height:v.height, weight:v.weight.replace('.',','), temp:v.temp.replace('.',','),
+      pulse:v.d.pulse+' уд/мин', bp:v.d.bpL+' / '+v.d.bpR, bmi:v.bmi==='н/д'?'Нет данных':v.bmi.replace('.',','),
+      bmiStyle: bc?`background:${bc[1][0]};color:${bc[1][1]};`:'background:var(--n100);color:var(--n500);',
+      cls:'ez-tr ez-row'+(on?' is-sel':''), pressed:String(on), aria:'Показать измерение от '+v.date,
+      onClick:()=>this.setState({ vitalIdx:i }, ()=>setTimeout(()=>{ const el=document.getElementById('epz-vd'); if(el && el.getBoundingClientRect().top<0) el.scrollIntoView({ behavior:'smooth', block:'start' }); },0)) }; });
     const vd=vData[s.vitalIdx].d;
+    const num=(x)=>String(x).replace('.',',');
+    const vTiles=[
+      { k:'Рост', v:vd.height, u:'см' }, { k:'Вес', v:num(vd.weight), u:'кг' },
+      { k:'ИМТ', v:vd.bmi==='н/д'?'Нет данных':num(vd.bmi), u:vd.bmi==='н/д'?'':'кг/м²', note:bmiCat(vd.bmi) },
+      { k:'Температура', v:num(vd.temp), u:'°C' }, { k:'Пульс (ЧСС)', v:vd.pulse, u:'уд/мин' }, { k:'Сатурация (SpO₂)', v:vd.spo2, u:'%' },
+      { k:'АД, левая рука', v:vd.bpL, u:'мм рт. ст.', note:bpCat(vd.bpL) }, { k:'АД, правая рука', v:vd.bpR, u:'мм рт. ст.', note:bpCat(vd.bpR) },
+    ].map(t=>({ ...t, hasU:!!t.u, hasNote:!!t.note, note:t.note?t.note[0]:'', noteStyle:t.note?`background:${t.note[1][0]};color:${t.note[1][1]};margin-top:2px;`:'',
+      vStyle: t.v==='Нет данных'||t.k==='Общее состояние'?'font-size:15px;':'', box:'' }));
 
     // ---------- DISPENSARY (case-based) ----------
     const dispDiary = s.dispTab==='diary';
@@ -1383,11 +1518,11 @@ class Component extends DCLogic {
     const dispCases=DCASES.map((c,i)=>({ ...c,
       statusText:c.active?'На учёте':'Снят', statusStyle:tag(c.active?'На учёте':'Снят', c.active?T.green:T.gray),
       // На вкладке «Дневник наблюдения» случай с дневником переключает его направление, не уходя с вкладки
-      onClick:()=>{ this.setState({ dispCase:i }); if(!(this.state.dispTab==='diary' && c.active && c.diary)) setDispTab('reg'); }, pressed:String(s.dispCase===i),
-      // выбранный случай — как выбранная карточка направления дневника: рамка в два пикселя
-      style:`flex:1;min-width:200px;text-align:left;border:1.5px solid ${s.dispCase===i?"#4D42E9":"#E2E4E9"};border-radius:14px;padding:16px;background:${s.dispCase===i?"#FBFCFD":"#fff"};cursor:pointer;font-family:inherit;box-shadow:${s.dispCase===i?"0 0 0 1px #4D42E9":"var(--sh-xs)"};` }));
+      // Другой диагноз — та же вкладка (24.11: вкладки не сбрасываются, удобно сравнивать диагнозы)
+      onClick:()=>{ this.setState({ dispCase:i }); if(this.state.dispTab==='diary' && !(c.active && c.diary)) setDispTab('reg'); }, pressed:String(s.dispCase===i),
+      statusStyle:`background:${(c.active?T.green:T.gray)[0]};color:${(c.active?T.green:T.gray)[1]};` }));
     const dc=Math.min(s.dispCase, DCASES.length-1), DC=DCASES[dc];
-    const dcReg=DC.reg, dcDx=DC.dx;
+    const dcReg=DC.reg, dcDx=DC.dx.filter(m=>m.k!=='Код МКБ-10' && m.k!=='Наименование');
     // Направление дневника — выбранного случая; у случая без дневника — первое доступное
     const diarySel=DC.active&&DC.diary ? DC.diary : (diaryCases[0] ? diaryCases[0].c.diary : '');
     this._caseOf=(sel)=>{ const x=diaryCases.find(y=>y.c.diary===sel); return x ? x.i : -1; };
@@ -1395,19 +1530,34 @@ class Component extends DCLogic {
     const dispTabsData=[
       {id:'reg',label:'Постановка'},{id:'obs',label:'История наблюдения'},{id:'std',label:'Выполнение стандарта'},{id:'rcp',label:'Рецепты'},{id:'dereg',label:'Снятие с учёта'},{id:'diary',label:'Дневник наблюдения'},
     ];
-    const dispTabs=dispTabsData.map(t=>{ const on=s.dispTab===t.id; return { ...t, onClick:()=>setDispTab(t.id), selected:String(on),
-      style:`position:relative;flex:0 0 auto;white-space:nowrap;padding:0 14px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
-      underline:`position:absolute;left:0;right:0;bottom:0;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
-    const dispData = DC.obs;
-    const dispEvents=dispData.map((d,i,arr)=>({ ...d, kindStyle:tag(d.kind,d.kc), lineStyle:`width:2px;flex:1;background:${i===arr.length-1?'transparent':'#E2E4E9'};min-height:8px;`,
-      onClick:()=>openDrawer({ icon:'ri-clipboard-line', iconC:d.kc, title:d.kind, subtitle:d.datetime+' · '+d.org,
-        status:['Диспансерное наблюдение', d.condition, T.green],
-        meta:[['Дата наблюдения',d.datetime],['Вид наблюдения',d.kind],['Специалист',d.specialist],['Организация',d.org],['Следующая явка',d.nextVisit,'#710E21'],['Диагноз',d.icd,'#4D42E9']],
-        sections:[
-          { heading:'Состояние пациента', icon:'ri-line-chart-line', c:T.green, text:d.condition },
-          { heading:'Уточнение клинического диагноза', icon:'ri-file-text-line', c:T.orange, text:d.icd+' — '+d.icdNote+'.' },
-          { heading:'План дальнейшего наблюдения', icon:'ri-calendar-event-line', c:T.blue, list:[['ri-calendar-check-line','Следующая явка: '+d.nextVisit,'#4D42E9'],['ri-user-heart-line','Наблюдающий специалист: '+d.specialist,'#525866']] },
-        ] }) }));
+    const dispTabs=dispTabsData.map(t=>({ ...t, onClick:()=>setDispTab(t.id), selected:String(s.dispTab===t.id) }));
+    // История наблюдения (Р8) — таблица с «глазом» → окно приёма; Рецепты (Р9) — таблица → окно с препаратами
+    let dtCols=[], dtRows=[], dtVars='';
+    if(s.dispTab==='obs'){
+      dtCols=['Дата','Вид приёма','Врач / специалист','Диагноз','Следующая явка'];
+      dtVars='--cols:minmax(104px,.7fr) minmax(170px,1fr) minmax(200px,1.6fr) minmax(90px,.5fr) minmax(136px,.8fr) 74px;';
+      dtRows=DC.obs.map(d=>{ const dt=d.datetime.split(', '); return {
+        aria:'Просмотр: '+d.kind+' '+dt[0],
+        cells:[ ct(dt[0],{strong:true,b:dt[1]}), cp(d.kind,d.kc), ct(d.specialist,{b:d.org}), ct(d.icd,{color:'var(--primary)'}), ct(d.nextVisit,{color:'var(--red)'}) ],
+        onOpen:()=>openDrawer({ icon:'ri-file-text-line', iconC:T.blue, title:d.kind, subtitle:d.datetime+' · '+d.org, kv:3,
+          meta:[['Дата наблюдения',d.datetime],['Диагноз',d.icd,'#4D42E9'],['Специалист',d.specialist],['Организация',d.org],['Следующая явка',d.nextVisit,T.red,true]],
+          sections:[
+            { heading:'Состояние пациента', icon:'ri-line-chart-line', c:T.green, text:d.condition },
+            { heading:'Уточнение клинического диагноза', icon:'ri-file-text-line', c:T.orange, text:d.icd+' — '+d.icdNote+'.' },
+          ] }) }; });
+    } else if(s.dispTab==='rcp'){
+      // Статус рецепта — по сроку действия относительно сегодняшней даты прототипа (24.11.2026)
+      const today=new Date(2026,10,24), dOf=(x)=>{ const [a,b,c]=x.split('.').map(Number); return new Date(c,b-1,a); };
+      dtCols=['№ рецепта','Вид','Выписан','Действителен до','Препараты','Статус'];
+      dtVars='--cols:minmax(132px,1fr) minmax(104px,.7fr) minmax(96px,.7fr) minmax(112px,.8fr) minmax(170px,1.4fr) minmax(120px,.8fr) 74px;';
+      dtRows=DC.rcp.map(r=>{ const ok=dOf(r.exp)>=today, st=ok?['Действителен',T.green]:['Истёк',T.gray], doc=(DC.reg.find(x=>x.k==='Врач, поставивший на учёт')||{}).v||'';
+        return { aria:'Просмотр рецепта '+r.num,
+          cells:[ ct(r.num.replace('№ ',''),{strong:true}), ct(r.type), ct(r.created), ct(r.exp), ct(r.meds.map(m=>m.name).join(', ')), cp(st[0],st[1]) ],
+          onOpen:()=>openDrawer({ icon:'ri-file-list-2-line', iconC:T.green, title:'Рецепт '+r.num, subtitle:r.type+' · выписан '+r.created, kv:3,
+            status:ok?['Действителен','до '+r.exp,T.green]:['Срок действия истёк',r.exp,T.gray],
+            meta:[['Вид рецепта',r.type],['Дата выписки',r.created],['Действителен до',r.exp],['Диагноз',DC.icd+' — '+DC.name,'#4D42E9'],['Врач',doc]],
+            sections:[ { heading:'Препараты', icon:'ri-capsule-line', c:T.green, list:r.meds.map(m=>['ri-medicine-bottle-line',m.name+' '+m.dose+' · курс '+m.days+' дн. · '+m.period,'#176448']) } ] }) }; });
+    }
     const dispStdData = DC.std;
     const dispStd=dispStdData.map(a=>({ name:a[0], plan:a[1], fact:a[2], statusText:a[3][0], statusStyle:tag(a[3][0],a[3][1]) }));
     const dispRcp = DC.rcp;
@@ -1419,9 +1569,7 @@ class Component extends DCLogic {
 
     // ---------- WOMEN ----------
     const womenTabs=[ {id:'preg',label:'Беременность'},{id:'anamnesis',label:'Акушерско-гинекологический анамнез'},{id:'jfv',label:'ЖФВ'},{id:'contra',label:'Контрацепция'} ]
-      .map(t=>{ const on=s.womenTab===t.id; return { ...t, onClick:()=>this.setState({ womenTab:t.id }),
-        style:`position:relative;padding:0 16px 12px;border:none;background:none;font-family:inherit;font-size:13.5px;font-weight:${on?'600':'500'};color:${on?'#4D42E9':'#525866'};cursor:pointer;`,
-        underline:`position:absolute;left:0;right:0;bottom:-1px;height:2.5px;border-radius:2px;background:${on?'#4D42E9':'transparent'};` }; });
+      .map(t=>({ ...t, sel:String(s.womenTab===t.id), onClick:()=>this.setState({ womenTab:t.id }) }));
     const pregVisits=[
       { date:'15.02.2024', goal:'Первичный осмотр', status:'Завершено', sc:T.green, doctor:'Касымова Г.М.' },
       { date:'12.03.2024', goal:'Плановое УЗИ (I триместр)', status:'Завершено', sc:T.green, doctor:'Петрова А.К.' },
@@ -1449,12 +1597,6 @@ class Component extends DCLogic {
     const jfvRisks=['Отягощённый акушерский анамнез','Возраст старше 30 лет','Хронический гастрит'];
 
     // ---------- AMBULANCE ----------
-    const ambStats=[
-      { label:'Всего вызовов', value:'12', icon:'ri-first-aid-kit-line', c:T.red },
-      { label:'Экстренных', value:'5', icon:'ri-alarm-warning-line', c:T.red },
-      { label:'Госпитализаций', value:'4', icon:'ri-hotel-bed-line', c:T.blue },
-      { label:'За 12 мес', value:'3', icon:'ri-calendar-line', c:T.teal },
-    ].map(a=>({ ...a, color:a.c[1], valColor:a.c[1] }));
     const ambData=[
       { date:'24.05.2024 14:30', reason:'Боль в груди', profile:['Кардиологический',T.red], urgency:['1 категория · экстренная',T.red], result:'Госпитализирован',
         detail:{ icon:'ri-first-aid-kit-line', iconC:T.red, status:['Вызов завершён · госпитализация','Пациент доставлен в стационар',T.blue],
@@ -1489,31 +1631,37 @@ class Component extends DCLogic {
             { heading:'Состав выездной бригады', icon:'ri-team-line', c:T.green, list:[['ri-user-star-line','Врач СМП: Махамбетова Д.А. (старший)','#176448'],['ri-user-line','Фельдшер: Тоқтаров Е.','#176448'],['ri-steering-2-line','Водитель: Ан В.С.','#525866']] },
           ] } },
     ];
-    const ambRows=ambData.map(r=>({ date:r.date, reason:r.reason, result:r.result,
-      profile:r.profile[0], profStyle:tag(r.profile[0],r.profile[1]),
-      urgency:r.urgency[0], urgStyle:tag(r.urgency[0],r.urgency[1]),
-      onClick:()=>openDrawer(r.detail) }));
+    // Вызовы скорой (Р10): без плиток-счётчиков; в окне — хронология вызова вместо четырёх отдельных полей времени
+    if(s.section==='ambulance') tbCfg={ rows:ambData, ph:'Поиск по причине вызова',
+      cols:['Дата и время','Причина вызова','Профиль','Срочность','Результат'],
+      vars:'--cols:minmax(110px,.8fr) minmax(160px,1.3fr) minmax(150px,1fr) minmax(190px,1.2fr) minmax(170px,1.2fr) 74px;',
+      dds:[ {id:'urg',label:'Срочность',all:'Любая срочность',icon:'ri-alarm-warning-line',get:r=>r.urgency[0].split(' · ')[0]}, {id:'res',label:'Результат',all:'Любой результат',icon:'ri-checkbox-circle-line',get:r=>r.result} ],
+      text:r=>r.reason+' '+r.profile[0]+' '+r.result,
+      cells:r=>{ const dt=r.date.split(' '); return [ ct(dt[0],{strong:true,b:dt[1]}), ct(r.reason,{strong:true}), cp(r.profile[0],r.profile[1]), cp(r.urgency[0],r.urgency[1]), ct(r.result) ]; },
+      aria:r=>'Просмотр вызова '+r.date,
+      open:r=>{ const m=Object.fromEntries(r.detail.meta);
+        const secs=r.detail.sections.map(x=>x.list?{ ...x, list:x.list.filter(it=>!/^(Профиль вызова|Категория срочности)/.test(it[1])) }:x);
+        return { ...r.detail, sections:secs, w:'760px', title:'Вызов скорой · '+r.reason, subtitle:r.date,
+          meta:[['Дата и время вызова',m['Дата и время вызова']],['Тип вызова',m['Тип вызова']],['Профиль',r.profile[0]],['Срочность',r.urgency[0],r.urgency[1],true]], kv:4,
+          steps:[['ri-phone-line',r.date.split(' ')[1],'Приём вызова'],['ri-send-plane-line',m['Передан бригаде'],'Передан бригаде'],['ri-truck-line',m['Выезд бригады'],'Выезд бригады'],['ri-map-pin-line',m['Прибытие'],'Прибытие на место']] }; } };
 
     // ---------- DOCS (sick leave / certificates) ----------
-    const docFilters=[ {id:'all',label:'Все'},{id:'open',label:'Открытые'},{id:'closed',label:'Закрытые'} ]
-      .map(f=>({ ...f, onClick:()=>this.setState({ docFilter:f.id }),
-        style:`height:34px;padding:0 14px;border:none;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:${s.docFilter===f.id?'600':'500'};cursor:pointer;${s.docFilter===f.id?'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);':'background:transparent;color:#525866;'}` }));
     const docData=[
-      { num:'№ ELN-2024-8832', type:'Больничный лист', typeIcon:'ri-government-line', tc:T.blue, date:'14 окт 2024', icd:'J06.9', icdName:'ОРВИ верхних дых. путей', org:'ГКБ №1', status:['Закрыт',T.gray], filt:'closed',
+      { num:'№ ELN-2024-8832', type:'Больничный лист', typeIcon:'ri-government-line', tc:T.blue, date:'12.10.2024', icd:'J06.9', icdName:'ОРВИ верхних дых. путей', org:'ГКБ №1', status:['Закрыт',T.gray], filt:'closed',
         detail:{ icon:'ri-government-line', iconC:T.blue, status:['Закрыт','Период нетрудоспособности завершён',T.gray],
-          meta:[['Статус','Закрыт'],['Номер документа','910 234 556 712'],['Тип','Электронный лист нетрудоспособности'],['Дата выдачи','12.10.2024'],['Освобождение с','12.10.2024'],['Освобождение по','21.10.2024'],['Приступить к работе','22.10.2024'],['Режим','Амбулаторный']],
+          meta:[['Статус','Закрыт'],['Номер документа','ELN-2024-8832'],['Тип','Электронный лист нетрудоспособности'],['Дата выдачи','12.10.2024'],['Освобождение с','12.10.2024'],['Освобождение по','21.10.2024'],['Приступить к работе','22.10.2024'],['Режим','Амбулаторный']],
           sections:[
             { heading:'Медицинские сведения', icon:'ri-stethoscope-line', c:T.blue, list:[['ri-hashtag','Диагноз (МКБ-10): J06.9 — ОРВИ верхних дыхательных путей','#4D42E9'],['ri-pulse-line','Стадия: острая фаза, средней степени тяжести','#525866'],['ri-error-warning-line','Причина нетрудоспособности: (01) Заболевание','#525866'],['ri-capsule-line','Дополнительно: назначена симптоматическая терапия','#38C793']] },
-            { heading:'Лечащий врач', icon:'ri-user-line', c:T.green, text:'Александров Пётр Сергеевич — врач-терапевт высшей категии.\nГКБ №1. Документ подписан ЭЦП.' },
+            { heading:'Лечащий врач', icon:'ri-user-line', c:T.green, text:'Александров Пётр Сергеевич — врач-терапевт высшей категории.\nГКБ №1. Документ подписан ЭЦП.' },
           ] } },
-      { num:'№ CERT-2024-1102', type:'Справка 086/у', typeIcon:'ri-file-text-line', tc:T.teal, date:'02 окт 2024', icd:'Z00.0', icdName:'Общий мед. осмотр', org:'Центр им. Сеченова', status:['Закрыт',T.gray], filt:'closed',
+      { num:'№ CERT-2024-1102', type:'Справка 086/у', typeIcon:'ri-file-text-line', tc:T.teal, date:'02.10.2024', icd:'Z00.0', icdName:'Общий мед. осмотр', org:'Центр им. Сеченова', status:['Закрыт',T.gray], filt:'closed',
         detail:{ icon:'ri-file-text-line', iconC:T.teal, status:['Выдана','Справка оформлена',T.green],
           meta:[['Статус','Выдана'],['Номер документа','CERT-2024-1102'],['Тип','Медицинская справка (форма 086/у)'],['Дата выдачи','02.10.2024'],['Цель','Поступление / трудоустройство'],['Действительна до','02.10.2025']],
           sections:[
             { heading:'Медицинские сведения', icon:'ri-stethoscope-line', c:T.teal, list:[['ri-hashtag','Код: Z00.0 — общий медицинский осмотр','#35B9E9'],['ri-checkbox-circle-line','Заключение: годен, противопоказаний не выявлено','#176448']] },
             { heading:'Лечащий врач', icon:'ri-user-line', c:T.green, text:'Председатель ВК: Сеитова А.Б. Документ подписан ЭЦП.' },
           ] } },
-      { num:'№ ELN-2024-9014', type:'Больничный лист', typeIcon:'ri-government-line', tc:T.blue, date:'24 ноя 2024', icd:'M54.5', icdName:'Боль внизу спины', org:'ГКБ №1', status:['Открыт',T.yellow], filt:'open',
+      { num:'№ ELN-2024-9014', type:'Больничный лист', typeIcon:'ri-government-line', tc:T.blue, date:'24.11.2024', icd:'M54.5', icdName:'Боль внизу спины', org:'ГКБ №1', status:['Открыт',T.yellow], filt:'open',
         detail:{ icon:'ri-government-line', iconC:T.orange, status:['Действующий','Лист открыт, пациент нетрудоспособен',T.orangeD],
           meta:[['Статус','Действующий'],['Номер документа','ELN-2024-9014'],['Тип','Электронный лист нетрудоспособности'],['Дата выдачи','24.11.2024'],['Освобождение с','24.11.2024'],['Освобождение по','03.12.2024'],['Приступить к работе','04.12.2024'],['Режим','Амбулаторный']],
           sections:[
@@ -1521,27 +1669,109 @@ class Component extends DCLogic {
             { heading:'Лечащий врач', icon:'ri-user-line', c:T.green, text:'Касымова Гульнара Маратовна — врач-невролог.\nГКБ №1. Документ подписан ЭЦП.' },
           ] } },
     ];
-    const docShown=docData.filter(d=> s.docFilter==='all' || d.filt===s.docFilter);
-    const docRows=docShown.map(r=>({ num:r.num, type:r.type, typeIcon:r.typeIcon, typeBg:r.tc[0], typeColor:r.tc[1],
-      date:r.date, icd:r.icd, icdName:r.icdName, org:r.org, status:r.status[0], statusStyle:tag(r.status[0],r.status[1]),
-      onClick:()=>openDrawer(r.detail) }));
+    // Больничные и справки (Р11): поиск + тип + статус вместо сегмента; даты — дд.мм.гггг
+    if(s.section==='docs') tbCfg={ rows:docData, ph:'Поиск по номеру или диагнозу',
+      cols:['№ документа','Тип','Дата выдачи','Диагноз','Мед. организация','Статус'],
+      vars:'--cols:minmax(150px,1fr) minmax(170px,1.1fr) minmax(100px,.6fr) minmax(190px,1.4fr) minmax(130px,.9fr) minmax(96px,.6fr) 74px;',
+      dds:[ {id:'type',label:'Тип документа',all:'Все типы',icon:'ri-file-list-3-line',get:r=>r.type}, {id:'st',label:'Статус',all:'Любой статус',icon:'ri-checkbox-circle-line',get:r=>r.status[0]} ],
+      text:r=>r.num+' '+r.icd+' '+r.icdName+' '+r.type,
+      cells:r=>[ ct(r.num.replace('№ ',''),{color:'var(--primary-darker)'}), ct(r.type), ct(r.date,{strong:true}), cc(r.icd,r.icdName), ct(r.org), cp(r.status[0],r.status[1]) ],
+      aria:r=>'Просмотр документа '+r.num,
+      open:r=>({ ...r.detail, icon:'ri-file-text-line', title:r.type+' '+r.num.replace('№ ',''), subtitle:'Выдан '+r.date+' · '+r.org, kv:3,
+        meta:r.detail.meta.filter(m=>m[0]!=='Статус') }) };
 
-    // ---------- generic drawer render ----------
+    // Аллергологический анамнез (Р4): без дублей сведений о гражданине, фильтр и количество; подробности — в окне
+    const SEVC={ 'Тяжёлая':T.red, 'Средняя':T.orangeD, 'Лёгкая':T.yellow };
+    if(s.section==='allergy') tbCfg={ rows:allergyRows, ph:'Поиск по аллергену или реакции',
+      cols:['Аллерген','Тип','Характер реакции','Тяжесть','Год регистрации'],
+      vars:'--cols:minmax(150px,1fr) minmax(130px,.8fr) minmax(220px,1.8fr) minmax(110px,.6fr) minmax(130px,.6fr) 74px;',
+      dds:[ {id:'type',label:'Тип аллергии',all:'Все типы',icon:'ri-alert-line',get:a=>a.type}, {id:'sev',label:'Тяжесть',all:'Любая тяжесть',icon:'ri-pulse-line',get:a=>a.severity} ],
+      text:a=>a.allergen+' '+a.reaction+' '+a.type,
+      cells:a=>[ ct(a.allergen,{strong:true}), ct(a.type), ct(a.reaction), cp(a.severity,SEVC[a.severity]||T.gray), ct(a.year) ],
+      aria:a=>'Просмотр: '+a.allergen,
+      empty:{ icon:'ri-alert-line', t:'Аллергические реакции не зарегистрированы', s:'Отсутствие записей не подтверждает отсутствие аллергии' },
+      open:a=>({ w:'640px', icon:'ri-alert-line', iconC:a.severity==='Тяжёлая'?T.red:T.orange, title:a.allergen, subtitle:a.type+' аллергия'+(a.year!=='—'?' · зарегистрирована в '+a.year+' г.':''), kv:2,
+        status:a.severity==='Тяжёлая'?['Тяжёлая реакция','Сообщайте об аллергии при каждом обращении к врачу',T.red]:null,
+        meta:[['Аллерген',a.allergen],['Тип аллергии',a.type],['Характер реакции',a.reaction],['Тяжесть',a.severity,SEVC[a.severity]||T.gray,true],['Год регистрации',a.year],['Мед. организация',P.org]],
+        sections:[] }) };
+
+    // ---------- Реестр раздела: поиск и фильтры работают на данных раздела ----------
+    let tb={};
+    if(tbCfg){
+      const key=tbCfg.key||s.section, F=s.flt[key]||{}, q=(F.q||'').trim().toLowerCase();
+      const setF=(patch)=>this.setState(st=>({ flt:{ ...st.flt, [key]:{ ...(st.flt[key]||{}), ...patch } }, ddOpen:null }));
+      const shown=tbCfg.rows.filter(r=>(!q || tbCfg.text(r).toLowerCase().includes(q)) && tbCfg.dds.every(d=>!F[d.id] || d.get(r)===F[d.id]));
+      const hasFilter=!!q || tbCfg.dds.some(d=>!!F[d.id]);
+      const empty=tbCfg.empty||{ icon:'ri-file-search-line', t:'Записей нет', s:'' };
+      tb={
+        tbShow:true, tbCols:tbCfg.cols, tbVars:tbCfg.vars, tbPh:tbCfg.ph, tbQ:F.q||'', tbHasQ:!!F.q,
+        tbOnQ:(e)=>setF({ q:e.target.value }), tbClearQ:()=>setF({ q:'' }),
+        tbDds:tbCfg.dds.map((d,i,arr)=>{ const v=F[d.id]||'', open=s.ddOpen===key+':'+d.id;
+          const vals=[...new Set(tbCfg.rows.map(d.get))].filter(Boolean);
+          return { label:d.label, icon:d.icon, open, text:v||d.all, cls:'ez-dd-btn'+(v?' is-set':''), menuCls:'ez-menu'+(i===arr.length-1&&arr.length>1?' r':''),
+            onToggle:()=>this.setState({ ddOpen: open?null:key+':'+d.id }),
+            opts:[['',d.all]].concat(vals.map(x=>[x,x])).map(([val,label])=>({ label, sel:String(v===val), isSel:v===val, onClick:()=>setF({ [d.id]:val }) })) }; }),
+        tbHasFilter:hasFilter, tbReset:()=>this.setState(st=>({ flt:{ ...st.flt, [key]:{} }, ddOpen:null })),
+        tbRows:shown.map(r=>({ cells:tbCfg.cells(r), aria:tbCfg.aria(r), onOpen:()=>openDrawer(tbCfg.open(r)) })),
+        tbHasRows:shown.length>0, tbNoRows:shown.length===0,
+        tbShown:shown.length?'1–'+shown.length:'0', tbTotal:String(tbCfg.rows.length),
+        tbEmptyIcon:hasFilter?'ri-search-line':empty.icon, tbEmptyT:hasFilter?'Ничего не найдено':empty.t,
+        tbEmptyS:hasFilter?'Измените условия поиска или сбросьте фильтры':empty.s, tbEmptyHasS:hasFilter||!!empty.s,
+      };
+    }
+
+    // ---------- Шапка подраздела: значок, название, количество записей (Р3, О6) ----------
+    const zap=(n)=>plural(n,'запись','записи','записей');
+    const COUNTS={ ambulatory:18, diseases:7, allergy:allAllergies.length, hospital:5, prophy:sd.length+vx.length, vitals:vData.length, dispensary:DCASES.length, ambulance:ambData.length, docs:docData.length };
+    const HD={ diseases:['Заболевания','ri-virus-line'], allergy:['Аллергологический анамнез','ri-alert-line'], hospital:['Госпитализация','ri-hotel-bed-line'],
+      prophy:['Профилактика','ri-shield-check-line'], vitals:['Измерения','ri-heart-pulse-line'], dispensary:['Диспансерный учёт','ri-clipboard-line'],
+      women:['Женское здоровье','ri-women-line'], ambulance:['Вызовы скорой медицинской помощи','ri-first-aid-kit-line'], docs:['Больничные и справки','ri-file-list-3-line'] };
+    const hdCount = s.section==='dispensary' ? plural(DCASES.length,'диагноз','диагноза','диагнозов') + ' на учёте'
+      : (s.section==='allergy' ? plural(allAllergies.length,'аллерген','аллергена','аллергенов') : (COUNTS[s.section]!=null ? zap(COUNTS[s.section]) : ''));
+
+    // Быстрый доступ к разделам на «Главной» гражданина (Р1)
+    const quick=[['ambulatory','Амбулаторная помощь','ri-stethoscope-line'],['diseases','Заболевания','ri-virus-line'],['allergy','Аллергологический анамнез','ri-alert-line'],
+      ['hospital','Госпитализация','ri-hotel-bed-line'],['prophy','Профилактика','ri-shield-check-line'],['vitals','Измерения','ri-heart-pulse-line'],
+      ['dispensary','Диспансерный учёт','ri-clipboard-line']].concat(P.pregnant?[['women','Женское здоровье','ri-women-line']]:[])
+      .concat([['ambulance','Вызовы скорой','ri-first-aid-kit-line'],['docs','Больничные и справки','ri-file-list-3-line']])
+      .map(([id,label,icon])=>({ label, icon, href:'#'+id,
+        n: id==='women' ? (P.preg?'Беременность, '+P.preg.weeks+' нед.':'') : (id==='dispensary' ? plural(DCASES.length,'диагноз','диагноза','диагнозов')+' на учёте' : (id==='allergy' ? (allAllergies.length?[...new Set(allAllergies.map(a=>a.type.toLowerCase()))].join(', ').replace(/^./,c=>c.toUpperCase()):'Не зарегистрированы') : zap(COUNTS[id]))),
+        onClick:(e)=>{ if(e){ e.preventDefault(); } goSection(id); } }));
+
+    // ---------- Окно подробностей записи ----------
     const dr=s.drawer;
-    const drawerSections=(dr&&dr.sections||[]).map(sec=>({
-      heading:sec.heading, icon:sec.icon, color:sec.c?sec.c[1]:'#525866',
-      isText:!sec.list, isList:!!sec.list, text:sec.text||'',
-      items:(sec.list||[]).map(it=>({ icon:it[0], text:it[1], color:it[2] })),
-    }));
-    const drawerMeta=(dr&&dr.meta||[]).map(m=>({ label:m[0], value:m[1], color:m[2]||'#0A0D14' }));
+    const pillOf=(c)=>`background:${c[0]};color:${DARK[c[1]]||c[1]};`;
+    const drawerSections=(dr&&dr.sections||[]).map((sec,i)=>{
+      const items=(sec.list||[]).map(it=> Array.isArray(it)
+        ? { icon:it[0], text:it[1], color:it[2], hasCode:false, code:'', hasTag:!!it[3], tagText:it[3]||'', tag:it[3]?pillOf(T.green):'' }
+        : { icon:'ri-hashtag', text:it.text, color:'var(--n400)', hasCode:true, code:it.code, hasTag:!!it.tag, tagText:it.tag||'', tag:it.tag?pillOf(it.tagC||T.gray):'' });
+      const isList=!!sec.list, open=!s.dlgClosed[i];
+      return { heading:sec.heading, icon:sec.icon, color:sec.c?sec.c[1]:'#525866', bg:sec.c?sec.c[0]:'#F6F8FA',
+        open, onToggle:()=>this.setState(st=>({ dlgClosed:{ ...st.dlgClosed, [i]:open } })),
+        hasN:isList && items.length>0, n:String(items.length),
+        isText:!isList && !!sec.text, isList:isList && items.length>0, isEmpty:(isList && !items.length) || (!isList && !sec.text), text:sec.text||'', items };
+    });
+    const drawerMeta=(dr&&dr.meta||[]).map(m=>{ const pill=!!m[3] && Array.isArray(m[2]);
+      return { label:m[0], value:m[1]==null||m[1]===''?'—':m[1], isPill:pill, isTxt:!pill, pill:pill?pillOf(m[2]):'', color:(!pill && typeof m[2]==='string')?m[2]:'var(--n900)' }; });
+    const toast=(t)=>{ clearTimeout(this._toastT); this.setState({ toast:t }); this._toastT=setTimeout(()=>this.setState({ toast:'' }), 3200); };
+    const fileName=(dr&&dr.title||'Запись ЭПЗ').replace(/[«»"№]/g,'').replace(/\s+/g,' ').trim();
 
     return {
-      rootCls: 'epz-root' + (s.narrow ? ' epz-narrow' : ''), topPx:(parseInt(p.top, 10) || 161) + 'px',
+      rootCls: 'epz-root' + (s.narrow ? ' epz-narrow' : '') + (citizen ? ' epz-cit' : ''), topPx:(parseInt(p.top, 10) || 161) + 'px',
       sections, sectionsExtra,
-      secMain:s.section==='main', secAmb:s.section==='ambulatory', secList:(s.section==='diseases'||s.section==='hospital'),
+      secMain:s.section==='main', secAmb:s.section==='ambulatory',
+      ...tb, tbHasTabs:s.section==='prophy', tbTabs:prophyTabs,
+      hdShow:s.section!=='main' && s.section!=='ambulatory', hdTitle:(HD[s.section]||['',''])[0], hdIcon:(HD[s.section]||['',''])[1],
+      hdCount, hdHasCount:!!hdCount, hdExport:!!tbCfg || s.section==='vitals' || (s.section==='dispensary' && !dispDiary),
+      doExport:()=>toast('Отчёт сформирован: '+(HD[s.section]||[''])[0]+'.pdf'),
+      citizenMain:citizen, doctorMain:!citizen, quick,
+      syncIcon:s.syncBusy?'ri-loader-4-line epz-spin':'ri-refresh-line', syncBusy:s.syncBusy, syncLabel:s.syncBusy?'Обновление…':'Обновить данные',
+      syncText:'Синхронизировано с ЕГИС ЗРК · '+s.syncAt,
+      doSync:()=>{ this.setState({ syncBusy:true }); clearTimeout(this._syncT); this._syncT=setTimeout(()=>{ const d=new Date(); this.setState({ syncBusy:false, syncAt:'сегодня, '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0') }); toast('Данные ЭПЗ обновлены'); }, 1200); },
+      vDate:vData[s.vitalIdx].date, vWho:'Общее состояние: '+vd.cond.toLowerCase()+' · '+P.org, vTiles, vRows, vShown:'1–'+vData.length, vTotal:String(vData.length), pgOff:true,
+      dispCaseN:String(DCASES.length), dispIsTbl:s.dispTab==='obs'||s.dispTab==='rcp', dtCols, dtRows, dtVars, dtShown:'1–'+dtRows.length, dtTotal:String(dtRows.length),
       secProphy:s.section==='prophy', secVitals:s.section==='vitals', secDispensary:s.section==='dispensary', secWomen:s.section==='women',
       secAmbulance:s.section==='ambulance', secDocs:s.section==='docs',
-      ambStats, ambRows, docFilters, docRows,
       // active patient identity
       pName:P.name, pInitials:P.initials, pAvBg:P.av[0], pAvColor:P.av[1],
       pMeta:'ИИН '+P.iin+' · '+P.sex+' · '+P.age,
@@ -1558,16 +1788,11 @@ class Component extends DCLogic {
       // «Аллергологический анамнез»
       secAllergy:s.section==='allergy', allergyRows, hasAllergyRows:allergyRows.length>0, noAllergyRows:allergyRows.length===0,
       allergyCountText:'Зарегистрировано: '+allergyTotal,
-      listTitle, listSubtitle, listIcon, listFilters, listChips, listCols, listRows, listCount,
-      prophyTabs, prophyCols, prophyRows, prophyStats, prophyList, prophyIsScreen:s.prophyTab==='screen',
-      vitalsRows, vitalDate, vd,
-      dispEvents,
       dispCases, dispTabs,
-      dispIsReg:s.dispTab==='reg', dispIsObs:s.dispTab==='obs', dispIsStd:s.dispTab==='std', dispIsRcp:s.dispTab==='rcp', dispIsDereg:s.dispTab==='dereg',
+      dispIsReg:s.dispTab==='reg', dispIsStd:s.dispTab==='std', dispIsRcp:s.dispTab==='rcp', dispIsDereg:s.dispTab==='dereg',
       dispIsDiary:dispDiary, diaryAddShow:dispDiary && citizen,
       // Дневник: направления — по диагнозам на учёте, выбранное — по выбранному случаю; у врача — только просмотр
       diaryPatient:p.patient || 'ivanova', diaryDirs:diaryCases.map(x=>x.c.diary).join(','), diarySel, diaryRO:citizen ? '0' : '1',
-      dispSub: dispDiary ? (citizen ? 'Вносите показатели и отслеживайте изменения своего состояния' : 'Показатели, внесённые пациентом') : 'Случаи диспансерного наблюдения. Источник: ЕХМД · режим просмотра.',
       diaryAdd:()=>window.dispatchEvent(new CustomEvent('mp-diary-add')), diaryAddOff:!s.diary.ready,
       diaryAddLabel: s.diary.sel==='chf' ? 'Добавить запись' : 'Добавить измерение',
       dcReg, dcDx, dispStd, dispRcp, dispDereg, dispDeregActive, dispDeregDone:!dispDeregActive,
@@ -1575,11 +1800,15 @@ class Component extends DCLogic {
       pregVisits, reproSummary, outcomes, contraRows, jfvSummary, jfvRisks,
       archOpen:s.archOpen, toggleArch:()=>this.setState(st=>({ archOpen:!st.archOpen })), archChevron: s.archOpen?'ri-arrow-up-s-line':'ri-arrow-down-s-line',
       stop:(e)=>e.stopPropagation(),
-      drawerOpen:!!dr, closeDrawer:()=>this.setState({ drawer:null }),
+      drawerOpen:!!dr, closeDrawer:()=>this.setState({ drawer:null }), drawerW:(dr&&dr.w)||'720px', drawerKv:String((dr&&dr.kv)||3),
+      drawerHasSub:!!(dr&&dr.subtitle), drawerHasMeta:drawerMeta.length>0, drawerSign:'Подписано ЭЦП врача',
+      drawerHasSteps:!!(dr&&dr.steps), drawerSteps:(dr&&dr.steps||[]).map(x=>({ icon:x[0], time:x[1], label:x[2] })),
+      doPrint:()=>toast('Документ отправлен на печать'), doPdf:()=>toast('Сохранено: '+fileName+'.pdf'), hasToast:!!s.toast, toast:s.toast,
       drawerIcon: dr?dr.icon:'', drawerIconBg: dr&&dr.iconC?dr.iconC[0]:'#EEF2FF', drawerIconColor: dr&&dr.iconC?dr.iconC[1]:'#4D42E9',
       drawerTitle: dr&&dr.title?dr.title:(dr&&dr.meta&&dr.meta[1]?dr.meta[1][1]:'Подробности'), drawerSubtitle: dr&&dr.subtitle?dr.subtitle:(dr&&dr.meta&&dr.meta[0]?dr.meta[0][1]:''),
-      drawerHasStatus: !!(dr&&dr.status), drawerStatusText: dr&&dr.status?dr.status[0]:'', drawerStatusSub: dr&&dr.status?dr.status[1]:'',
-      drawerStatusColor: dr&&dr.status?dr.status[2][1]:'#176448', drawerStatusBg: dr&&dr.status?dr.status[2][0]:'#EFFAF6', drawerStatusIcon:'ri-checkbox-circle-fill',
+      drawerHasStatus: !!(dr&&dr.status), drawerStatusText: dr&&dr.status?dr.status[0]:'', drawerStatusSub: dr&&dr.status?dr.status[1]:'', drawerHasStatusSub:!!(dr&&dr.status&&dr.status[1]),
+      drawerStatusColor: dr&&dr.status?dr.status[2][1]:'#176448', drawerStatusBox: dr&&dr.status?`background:${dr.status[2][0]};border-color:${dr.status[2][1]}33;`:'',
+      drawerStatusIcon: (()=>{ const c=dr&&dr.status?dr.status[2][1]:''; return (c===T.red[1]||c===T.orangeD[1])?'ri-error-warning-fill':(c===T.gray[1]?'ri-indeterminate-circle-fill':'ri-checkbox-circle-fill'); })(),
       drawerMeta, drawerSections,
     };
   }

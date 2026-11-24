@@ -20,12 +20,14 @@
   Пропсы:
     active — overview | lmk | epz-view | epz-access | family | services | requests | notif
 
-  Разделы: Обзор, Личная медицинская карта, Электронный паспорт здоровья (ЭПЗ) — группа из двух
-  подразделов («Просмотр ЭПЗ», «Управление доступами к ЭПЗ»), Моя семья (и «ЭПЗ ребёнка»), Услуги, Мои заявки
+  Разделы: Обзор, Личная медицинская карта, Электронный паспорт здоровья — заголовок группы ведёт на сводку ЭПЗ,
+  шеврон раскрывает подразделы ЭПЗ (Амбулаторная помощь … Больничные и справки → «Просмотр ЭПЗ.dc.html#<раздел>»;
+  замечания после показа министру 24.11.2026: одно меню вместо двух), Управление доступами к ЭПЗ, Моя семья (и «ЭПЗ ребёнка»), Услуги, Мои заявки
   (постановка «Прикрепление к поликлинике», 09.11.2026), Уведомления (отдельная страница «Уведомления гражданина»,
   постановка 24.11.2026; бейдж — число непрочитанных из AttachData, скрыт при нуле).
-  Группа раскрыта, когда открыт её подраздел; иначе раскрывается по клику (без перехода).
-  На ≤1024px группа в ленте не нужна — подразделы идут отдельными пунктами.
+  Группа раскрыта на страницах ЭПЗ; на других — по шеврону. Активный раздел — из адреса (hashchange, mp-epz-nav).
+  Карточка «кто вошёл» — компактной строкой; меню «липкое», только пока помещается в окно (иначе прокручивается со страницей).
+  На ≤1024px — лента: на страницах ЭПЗ подразделы идут отдельными пунктами.
   «Выйти» сбрасывает mp-profile и mp-iin.
 
   Фото профиля (постановка «Раздел „Услуги“ в ЛК гражданина», п. 5): клик по фото или значку камеры →
@@ -55,47 +57,54 @@
   @keyframes cn-toast{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
   .cn{display:flex;flex-direction:column;gap:16px;font-family:'Inter',sans-serif;color:var(--n900);}
-  .cn-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:24px;text-align:center;box-shadow:0 1px 2px rgba(10,13,20,.03);}
+  /* Карточка «кто вошёл» — компактной строкой (24.11: меню с разделами ЭПЗ помещается на ноутбуке) */
+  .cn-card{display:flex;align-items:center;gap:12px;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:14px 16px;text-align:left;box-shadow:0 1px 2px rgba(10,13,20,.03);}
 
   /* Фото профиля: круг, значок камеры справа внизу; наведение — затемнение и выделение камеры */
-  .cn-ava{position:relative;display:block;width:96px;height:96px;margin:0 auto 14px;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;font-family:inherit;}
-  .cn-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 3px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .15s;}
+  .cn-ava{position:relative;display:block;width:48px;height:48px;margin:0;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;flex:0 0 auto;font-family:inherit;}
+  .cn-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 2px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;transition:box-shadow .15s;}
   .cn-ava-in img{width:100%;height:100%;object-fit:cover;display:block;}
-  .cn-ava-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--primary-lighter);color:var(--primary);font-size:32px;font-weight:600;letter-spacing:-.01em;}
+  .cn-ava-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--primary-lighter);color:var(--primary);font-size:16px;font-weight:600;letter-spacing:-.01em;}
   .cn-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);transition:background .15s;}
-  .cn-cam{position:absolute;right:-2px;bottom:0;width:32px;height:32px;border-radius:50%;background:var(--n0);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--stroke),0 2px 6px rgba(10,13,20,.10);transition:background .15s,color .15s,transform .15s,box-shadow .15s;}
-  .cn-cam i{font-size:16px;}
+  .cn-cam{position:absolute;right:-4px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:var(--n0);color:var(--primary);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px var(--stroke),0 2px 6px rgba(10,13,20,.10);transition:background .15s,color .15s,transform .15s,box-shadow .15s;}
+  .cn-cam i{font-size:12px;}
   .cn-ava:hover .cn-ava-in{box-shadow:0 0 0 3px var(--primary-light);}
   .cn-ava:hover .cn-ava-ov{background:rgba(10,13,20,.22);}
   .cn-ava:hover .cn-cam,.cn-ava:focus-visible .cn-cam{background:var(--primary);color:#fff;transform:scale(1.08);box-shadow:0 0 0 2px #fff,0 4px 10px rgba(77,66,233,.35);}
   .cn-ava:focus-visible{outline:none;}
   .cn-ava:focus-visible .cn-ava-in{box-shadow:0 0 0 2px #fff,0 0 0 5px var(--primary-light);}
   .cn-ava[data-flash="true"] .cn-ava-in{animation:cn-flash 1.6s ease-out;}
-  .cn-tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translate(-50%,4px);padding:6px 10px;border-radius:8px;background:var(--n900);color:#fff;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:2;}
-  .cn-ava:hover .cn-tip,.cn-ava:focus-visible .cn-tip{opacity:1;transform:translate(-50%,0);transition-delay:.25s;}
+  .cn-tip{position:absolute;top:50%;left:calc(100% + 10px);transform:translate(4px,-50%);padding:6px 10px;border-radius:8px;background:var(--n900);color:#fff;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s,transform .12s;z-index:2;}
+  .cn-ava:hover .cn-tip,.cn-ava:focus-visible .cn-tip{opacity:1;transform:translate(0,-50%);transition-delay:.25s;}
 
-  .cn-name{display:inline;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;color:var(--n900);text-decoration:none;border-radius:6px;overflow-wrap:anywhere;transition:color .12s;}
+  .cn-name{display:inline;font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.01em;color:var(--n900);text-decoration:none;border-radius:6px;overflow-wrap:anywhere;transition:color .12s;}
   .cn-name span{display:inline-block;max-width:100%;}   /* перенос между частями ФИО, не на дефисе */
   .cn-name:hover{color:var(--primary);}
   .cn-name:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
-  .cn-iin{font-size:13px;line-height:18px;color:var(--n400);margin-top:2px;font-variant-numeric:tabular-nums;}
-  .cn-who{min-width:0;}
-  .cn-nav{position:relative;background:var(--n0);border:1px solid var(--stroke);border-radius:20px;padding:8px;box-shadow:0 1px 2px rgba(10,13,20,.03);display:flex;flex-direction:column;gap:2px;}
-  .cn-it{width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:11px;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);text-decoration:none;transition:background .12s,color .12s;box-sizing:border-box;}
+  .cn-iin{font-size:12.5px;line-height:18px;color:var(--n400);margin-top:1px;font-variant-numeric:tabular-nums;}
+  .cn-who{min-width:0;flex:1;}
+  .cn-nav{position:relative;background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:8px;box-shadow:0 1px 2px rgba(10,13,20,.03);display:flex;flex-direction:column;gap:2px;}
+  .cn-it{width:100%;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);text-decoration:none;transition:background .12s,color .12s;box-sizing:border-box;}
   .cn-it:hover{background:var(--n100);}
   .cn-it.on,.cn-it.on:hover{background:var(--primary);color:#fff;font-weight:600;}
-  .cn-lbl{flex:1;min-width:0;text-align:left;white-space:nowrap;}
-  .cn-grp{border:none;background:none;font-family:inherit;cursor:pointer;}
-  .cn-grp .cn-lbl{white-space:normal;}
-  .cn-grp.in{color:var(--primary);font-weight:600;}
-  .cn-grp.in:hover{background:var(--primary-lighter);}
-  .cn-chev{font-size:18px;flex:0 0 auto;color:var(--n400);transition:transform .18s ease;}
-  .cn-grp.in .cn-chev{color:var(--primary);}
-  .cn-grp[aria-expanded="true"] .cn-chev{transform:rotate(180deg);}
-  .cn-sub{display:flex;flex-direction:column;gap:2px;margin:0 0 2px 22px;padding-left:8px;border-left:1px solid var(--stroke);}
-  .cn-sub .cn-it{padding:10px 10px;font-size:13.5px;}
+  .cn-lbl{flex:1;min-width:0;text-align:left;}
+  /* Группа «Электронный паспорт здоровья»: ссылка на сводку + шеврон раскрытия поверх правого края */
+  .cn-grp{position:relative;flex:0 0 auto;}
+  .cn-grp-a{padding-right:44px;}
+  .cn-grp-a .cn-lbl{white-space:normal;}
+  .cn-grp-a.in{color:var(--primary);font-weight:600;}
+  .cn-grp-a.in:hover{background:var(--primary-lighter);}
+  .cn-grp-t{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;transition:background .12s,color .12s;}
+  .cn-grp-t:hover{background:var(--n200);color:var(--n600);}
+  .cn-grp-t.on{color:#fff;}
+  .cn-grp-t.on:hover{background:rgba(255,255,255,.18);color:#fff;}
+  .cn-grp-t:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);}
+  .cn-chev{font-size:18px;flex:0 0 auto;transition:transform .18s ease;}
+  .cn-grp-t[aria-expanded="true"] .cn-chev{transform:rotate(180deg);}
+  .cn-sub{display:flex;flex-direction:column;gap:1px;margin:2px 0 4px 21px;padding-left:9px;border-left:1px solid var(--stroke);}
+  .cn-sub .cn-it{padding:7px 10px;font-size:13.5px;line-height:20px;}
   .cn-sub .cn-lbl{white-space:normal;}
-  .cn-flat{display:none;}
+  .cn-flat,.cn-off{display:none;}
   .cn-badge{font-size:11px;font-weight:600;min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--red);color:#fff;}
   .cn-it.on .cn-badge{background:rgba(255,255,255,.25);}
   .cn-out{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border:1px solid var(--stroke);border-radius:12px;background:var(--n0);color:var(--n500);font-size:14px;font-weight:500;text-decoration:none;transition:background .12s,border-color .12s;}
@@ -181,7 +190,9 @@
     .cn-it{width:auto;flex:0 0 auto;padding:9px 12px;gap:8px;font-size:13.5px;}
     .cn-it i{font-size:18px !important;}
     .cn-out{display:none;}
-    .cn-grp,.cn-sub{display:none !important;}
+    .cn-grp-t,.cn-sub{display:none !important;}
+    .cn-grp-a{padding-right:12px;}
+    .cn-lbl,.cn-grp-a .cn-lbl{white-space:nowrap;}
     .cn-flat{display:flex;}
   }
   @media (max-width:520px){
@@ -228,9 +239,10 @@
         </a>
       </sc-if>
       <sc-if value="{{ n.isGroup }}" hint-placeholder-val="{{ false }}">
-        <button type="button" class="{{ n.cls }}" aria-expanded="{{ n.expanded }}" aria-controls="cn-sub-epz" onClick="{{ n.onToggle }}">
-          <i class="{{ n.icon }}" style="font-size:20px;flex:0 0 auto;"></i><span class="cn-lbl">{{ n.label }}</span><i class="ri-arrow-down-s-line cn-chev" aria-hidden="true"></i>
-        </button>
+        <div class="cn-grp">
+          <a href="{{ n.href }}" class="{{ n.cls }}" aria-current="{{ n.current }}"><i class="{{ n.icon }}" style="font-size:20px;flex:0 0 auto;"></i><span class="cn-lbl">{{ n.label }}</span></a>
+          <button type="button" class="{{ n.tglCls }}" aria-expanded="{{ n.expanded }}" aria-controls="cn-sub-epz" aria-label="{{ n.tglLabel }}" title="{{ n.tglLabel }}" onClick="{{ n.onToggle }}"><i class="ri-arrow-down-s-line cn-chev" aria-hidden="true"></i></button>
+        </div>
         <sc-if value="{{ n.expanded }}" hint-placeholder-val="{{ false }}">
           <div class="cn-sub" id="cn-sub-epz">
             <sc-for list="{{ n.children }}" as="c" hint-placeholder-count="2">
@@ -336,13 +348,24 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:560},&quot;active&quot;:&quot;overview&quot;}">
 const LK = 'Личный кабинет.dc.html';
 // Иконки — только контурные (-line): заливные на индиго-фоне активного пункта читаются как сплошной белый блок
+// ЭПЗ (замечания после показа министру, 24.11.2026): подразделы ЭПЗ — вложенным списком прямо в меню кабинета,
+// второго меню «Разделы ЭПЗ» на странице нет. Заголовок группы ведёт на сводку ЭПЗ, шеврон — раскрывает/сворачивает.
+// Раздел — в адресе страницы просмотра (#allergy); EPZ_SUB совпадает с разделами EpzView (режим citizen)
+const EPZ = 'Просмотр ЭПЗ.dc.html';
+const EPZ_SUB = [
+  ['ambulatory','Амбулаторная помощь','ri-stethoscope-line'], ['diseases','Заболевания','ri-virus-line'],
+  ['allergy','Аллергологический анамнез','ri-alert-line'], ['hospital','Госпитализация','ri-hotel-bed-line'],
+  ['prophy','Профилактика','ri-shield-check-line'], ['vitals','Измерения','ri-heart-pulse-line'],
+  ['dispensary','Диспансерный учёт','ri-clipboard-line'], ['women','Женское здоровье','ri-women-line'],
+  ['ambulance','Вызовы скорой','ri-first-aid-kit-line'], ['docs','Больничные и справки','ri-file-list-3-line'],
+];
+const epzSec = () => { const h = (location.hash || '').slice(1).split('/')[0]; return EPZ_SUB.some(x => x[0] === h) ? h : ''; };
 const CN_ITEMS = [
   { id:'overview', label:'Обзор', icon:'ri-dashboard-line', href:LK + '#overview' },
   { id:'lmk', label:'Личная медицинская карта', icon:'ri-booklet-line', href:'Личная медицинская карта.dc.html' },
-  { id:'epz', label:'Электронный паспорт здоровья (ЭПЗ)', icon:'ri-heart-pulse-line', children:[
-    { id:'epz-view', label:'Просмотр ЭПЗ', icon:'ri-file-list-3-line', href:'Просмотр ЭПЗ.dc.html' },
-    { id:'epz-access', label:'Управление доступами к ЭПЗ', icon:'ri-shield-user-line', href:'Управление доступами к ЭПЗ.dc.html' },
-  ] },
+  { id:'epz-view', label:'Электронный паспорт здоровья', icon:'ri-heart-pulse-line', href:EPZ,
+    children: EPZ_SUB.map(([id, label, icon]) => ({ id:'epz:' + id, label, icon, href:EPZ + '#' + id })) },
+  { id:'epz-access', label:'Управление доступами к ЭПЗ', icon:'ri-shield-user-line', href:'Управление доступами к ЭПЗ.dc.html' },
   { id:'family', label:'Моя семья', icon:'ri-parent-line', href:'Моя семья.dc.html' },
   { id:'services', label:'Услуги', icon:'ri-government-line', href:'Услуги гражданина.dc.html' },
   { id:'requests', label:'Мои заявки', icon:'ri-draft-line', href:'Мои заявки гражданина.dc.html' },
@@ -396,10 +419,17 @@ class Component extends DCLogic {
     this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
   };
 
-  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'', ntUnread:0 };
+  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'', ntUnread:0, epzSec:epzSec() };
 
   componentDidMount(){
     this.reveal();
+    this._fit = () => this.fit();
+    window.addEventListener('resize', this._fit);
+    setTimeout(this._fit, 0); setTimeout(this._fit, 600);
+    // Раздел ЭПЗ — из адреса; EpzView меняет его без перехода (событие mp-epz-nav)
+    this._epz = () => { const v = epzSec(); if(v !== this.state.epzSec){ this.setState({ epzSec:v }); this.reveal(); } };
+    window.addEventListener('hashchange', this._epz);
+    window.addEventListener('mp-epz-nav', this._epz);
     // Непрочитанные уведомления (постановка 24.11.2026): AttachData, событие mp-attach-notif-change
     this._nt = () => { const A = window.mpAttach; if(A && A.unread) this.setState({ ntUnread: A.unread() }); };
     this._nt();
@@ -417,12 +447,24 @@ class Component extends DCLogic {
     this._edit = () => { if(!this.state.dlg){ this._ret = document.activeElement; this.open(); } };
     window.addEventListener('mp-avatar-edit', this._edit);
   }
-  componentDidUpdate(prev){ if(!prev || prev.active !== (this.props || {}).active) this.reveal(); }
+  componentDidUpdate(prev){ if(!prev || prev.active !== (this.props || {}).active) this.reveal(); this.fit(); }
+  // Липкое меню, только пока помещается в окно: раскрытый ЭПЗ на ноутбуке выше экрана — тогда меню прокручивается
+  // вместе со страницей, и все пункты достижимы (без вложенной прокрутки и обрезанных пунктов)
+  fit(){
+    const root = this.rootRef.current, host = root && root.closest('.cn-host');
+    if(!host || this.state.dlg) return;
+    const tall = window.innerWidth > 1024 && root.offsetHeight > window.innerHeight - 110;
+    const want = tall ? 'static' : '';
+    if(host.style.position !== want) host.style.position = want;
+  }
   componentWillUnmount(){
     window.removeEventListener(AVA_EVT, this._sync);
     window.removeEventListener('storage', this._sync);
     window.removeEventListener('mp-citizen-change', this._syncMe);
     window.removeEventListener('mp-avatar-edit', this._edit);
+    window.removeEventListener('resize', this._fit);
+    window.removeEventListener('hashchange', this._epz);
+    window.removeEventListener('mp-epz-nav', this._epz);
     window.removeEventListener('mp-attach-ready', this._nt);
     window.removeEventListener('mp-attach-notif-change', this._nt);
     window.removeEventListener('storage', this._ntSt);
@@ -587,13 +629,18 @@ class Component extends DCLogic {
     const active = p.active || 'overview';
     const items = CN_ITEMS.map(n => {
       if(n.children){
-        const inside = n.children.some(c => c.id === active);
+        // Группа ЭПЗ: на сводке выделен заголовок, в разделе — пункт раздела (заголовок — цветом)
+        const inside = active === n.id, sub = inside ? (s.epzSec || '') : '';
         const expanded = s.open == null ? inside : s.open;
         return { ...n, isGroup:true, isLink:false, expanded,
-          cls: 'cn-it cn-grp' + (inside ? ' in' : ''),
+          cls: 'cn-it cn-grp-a' + (inside && !sub ? ' on' : (inside ? ' in' : '')),
+          current: inside && !sub ? 'page' : undefined,
+          tglCls: 'cn-grp-t' + (inside && !sub ? ' on' : ''),
+          tglLabel: expanded ? 'Свернуть разделы ЭПЗ' : 'Показать разделы ЭПЗ',
           onToggle: () => this.setState({ open:!expanded }),
-          children: n.children.map(c => { const on = c.id === active; return { ...c,
-            cls: on ? 'cn-it on' : 'cn-it', flatCls: 'cn-it cn-flat' + (on ? ' on' : ''),
+          children: n.children.map(c => { const on = c.id === 'epz:' + sub; return { ...c,
+            // ≤1024px (лента): разделы ЭПЗ отдельными пунктами — только на страницах ЭПЗ
+            cls: on ? 'cn-it on' : 'cn-it', flatCls: inside ? 'cn-it cn-flat' + (on ? ' on' : '') : 'cn-it cn-off',
             current: on ? 'page' : undefined }; }),
         };
       }

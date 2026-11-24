@@ -7,7 +7,7 @@
 </head>
 <body>
 <!--
-  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ) → Просмотр ЭПЗ.
+  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ): сводка и подразделы (подразделы — в меню кабинета, 24.11).
   Тот же просмотр ЭПЗ, что в «Кабинете врача» (общий компонент EpzView), в режиме гражданина:
   свой ЭПЗ без ввода ИИН и запроса доступа через КДП, без панели сессии доступа и полосы
   «пациент · режим просмотра» (ФИО и ИИН — в карточке меню кабинета).
@@ -56,7 +56,8 @@
     <nav class="ep-crumbs" aria-label="Навигационная цепочка">
       <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
       <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
-      <span aria-current="page" style="color:var(--n700);font-weight:500;">Просмотр ЭПЗ</span>
+      <sc-if value="{{ inSec }}" hint-placeholder-val="{{ false }}"><a href="Просмотр ЭПЗ.dc.html" onClick="{{ toMain }}">Электронный паспорт здоровья</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></sc-if>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">{{ crumb }}</span>
     </nav>
 
     <div class="lk-grid">
@@ -73,8 +74,22 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:1100}}">
+// Крошки: «Электронный паспорт здоровья › Раздел» — раздел берём из адреса (#allergy), как EpzView и меню кабинета
+const SEC = { ambulatory:'Амбулаторная помощь', diseases:'Заболевания', allergy:'Аллергологический анамнез', hospital:'Госпитализация',
+  prophy:'Профилактика', vitals:'Измерения', dispensary:'Диспансерный учёт', women:'Женское здоровье', ambulance:'Вызовы скорой', docs:'Больничные и справки' };
+const secOf = () => { const h = (location.hash || '').slice(1).split('/')[0]; return SEC[h] ? h : ''; };
 class Component extends DCLogic {
-  renderVals(){ return {}; }
+  state = { sec: secOf() };
+  componentDidMount(){
+    this._u = () => { const v = secOf(); if(v !== this.state.sec) this.setState({ sec:v }); };
+    window.addEventListener('hashchange', this._u); window.addEventListener('mp-epz-nav', this._u);
+  }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._u); window.removeEventListener('mp-epz-nav', this._u); }
+  renderVals(){
+    const sec = this.state.sec;
+    return { inSec: !!sec, crumb: sec ? SEC[sec] : 'Электронный паспорт здоровья',
+      toMain: (e) => { e.preventDefault(); try { history.replaceState(null, '', location.pathname + location.search); } catch(_){} window.dispatchEvent(new HashChangeEvent('hashchange')); } };
+  }
 }
 </script>
 </body>

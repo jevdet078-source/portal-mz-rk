@@ -119,6 +119,7 @@ const tabs = data.map(t => ({
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
 | `mp-diary` | `[{ id, d (glu / bp / chf), ts, v, c, src:'manual' }]` — записи, добавленные гражданином в «Дневник наблюдения» (демо-записи строятся от текущей даты и не хранятся) | `EpzDiary` |
 | `mp-diary-view` (sessionStorage) | `{ sel, per, cond }` — выбранное направление, период, условие глюкозы | `EpzDiary` |
+| событие `mp-epz-nav` | смена раздела ЭПЗ гражданина без перехода (`history.replaceState`) | `EpzView` → `CitizenNav`, `Просмотр ЭПЗ` (крошки) |
 | `mp-diary-scn` / `mp-diary-save` (sessionStorage) | ответ сервиса `ok` / `week` / `empty` / `slow` / `down`; сохранение `ok` / `fail` | панель «Прототип» `EpzDiary` (события `mp-diary-state` { ready, sel } → `EpzView`, `mp-diary-add` ← кнопка в шапке раздела ЭПЗ) |
 | `mp-avatar` | фото профиля гражданина — data:URL JPEG 400×400; нет — инициалы | `CitizenNav` (окно «Изменение фото профиля») → `Header`, `Профиль гражданина`, `Услуги гражданина` (событие `mp-avatar-change`; открыть окно — событие `mp-avatar-edit`) |
 | `mp-avatar-scn` (sessionStorage) | сохранение фото в прототипе: `ok` / `fail` | панель «Прототип» `Услуги гражданина`, `Профиль гражданина` → `CitizenNav` |
