@@ -101,7 +101,7 @@
   .amb-scroll::-webkit-scrollbar{height:8px;}
   .amb-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:8px;}
   /* минимумы — по содержимому (заголовок со значком сортировки, метки статуса): ничего не обрезается; без прокрутки — от 1175 px */
-  .amb-tr{display:grid;grid-template-columns:minmax(96px,.7fr) minmax(112px,.75fr) minmax(140px,1.2fr) minmax(110px,1fr) minmax(140px,1.4fr) minmax(120px,1.2fr) minmax(96px,.6fr) minmax(118px,.75fr) 74px;min-width:1000px;background:var(--n0);}
+  .amb-tr{display:grid;grid-template-columns:minmax(96px,.7fr) minmax(112px,.75fr) minmax(140px,1.2fr) minmax(118px,1fr) minmax(140px,1.4fr) minmax(120px,1.2fr) minmax(106px,.6fr) minmax(112px,.7fr) 74px;min-width:1012px;background:var(--n0);}
   .amb-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
   .amb-thead>div{background:var(--n50);}
   .amb-thead .amb-th{background:var(--n50);}   /* у закреплённых «Дата» и «Действия» — свой фон: прокрученные заголовки не просвечивают */
@@ -150,13 +150,20 @@
   .amb-pg i{font-size:18px;}
 
   /* Модальное окно «Карточка амбулаторного приёма» */
-  .amb-ov{position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.48);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;animation:amb-fade .18s ease;font-family:'Inter',sans-serif;color:var(--n900);}
-  .amb-dlg{width:100%;max-width:1040px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);overflow:hidden;outline:none;animation:amb-pop .22s ease;}
+  .amb-ov{position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.48);display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;animation:amb-fade .18s ease;font-family:'Inter',sans-serif;color:var(--n900);}
+  .amb-dlg{width:100%;max-width:960px;max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);overflow:hidden;outline:none;animation:amb-pop .22s ease;}
   .amb-dlg button{font-family:inherit;}
   .amb-dlg-top{flex:0 0 auto;border-bottom:1px solid var(--stroke);}
   .amb-dlg-head{display:flex;align-items:center;gap:12px;padding:16px 16px 16px 24px;}
   .amb-dlg-t{margin:0;font-size:18px;line-height:24px;font-weight:600;letter-spacing:-.01em;}
   .amb-dlg-s{margin:2px 0 0;font-size:13px;line-height:18px;color:var(--n500);}
+  .amb-dlg-ico{width:44px;height:44px;border-radius:12px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:22px;}
+  .amb-dlg-foot{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:14px 24px;border-top:1px solid var(--stroke);background:var(--n0);flex-wrap:wrap;}
+  .amb-sign{display:inline-flex;align-items:center;gap:6px;margin-right:auto;font-size:12.5px;line-height:16px;color:var(--n500);}
+  .amb-sign i{font-size:16px;color:var(--green);}
+  .amb-soft{border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .amb-soft i{color:var(--primary) !important;}
+  .amb-soft:hover{background:#E3E8FF;}
   .amb-close{width:40px;height:40px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .amb-close:hover{background:var(--n100);color:var(--n600);}
   .amb-close i{font-size:22px;}
@@ -279,8 +286,9 @@
     .amb-sec{scroll-margin-top:96px;}
     .amb-dlg-head{padding:12px 8px 12px 16px;}
     .amb-dlg-t{font-size:16px;line-height:22px;}
-    .amb-print-lbl{display:none;}
-    .amb-print{width:40px;padding:0;}
+    .amb-sign{flex-basis:100%;}
+    .amb-dlg-foot .amb-btn{flex:1 1 0;padding:0 10px;}
+    .amb-fclose{display:none !important;}
     .amb-info{grid-template-columns:repeat(2,minmax(0,1fr));}
     .amb-inf,.amb-inf:first-child,.amb-inf:nth-child(4){padding:10px 16px;}
     .amb-inf::before{display:none;}
@@ -322,7 +330,7 @@
     <div class="amb-tools" ref="{{ toolsRef }}" onKeyDown="{{ onToolsKey }}">
       <label class="amb-search">
         <i class="ri-search-line" aria-hidden="true"></i>
-        <input type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по врачу, организации, диагнозу, причине обращения" aria-label="Поиск по ФИО врача, специальности, медицинской организации, виду приёма, коду и наименованию диагноза, причине обращения" autoComplete="off" spellCheck="false">
+        <input type="search" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Поиск по врачу, диагнозу, организации" aria-label="Поиск по ФИО врача, специальности, медицинской организации, виду приёма, коду и наименованию диагноза, причине обращения" autoComplete="off" spellCheck="false">
         <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
           <button class="amb-x" type="button" onClick="{{ clearQ }}" aria-label="Очистить поиск" title="Очистить"><i class="ri-close-circle-fill" style="font-size:18px;"></i></button>
         </sc-if>
@@ -443,14 +451,13 @@
 <!-- ============ Карточка амбулаторного приёма ============ -->
 <sc-if value="{{ cardOpen }}" hint-placeholder-val="{{ false }}">
   <div class="amb-ov" onMouseDown="{{ ovDown }}" onClick="{{ ovClick }}" onKeyDown="{{ dlgKey }}">
-    <div class="amb-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="amb-dlg-t" aria-describedby="amb-dlg-s" tabIndex="-1">
+    <div class="amb-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="amb-dlg-t" tabIndex="-1">
       <div class="amb-dlg-top">
         <div class="amb-dlg-head">
+          <span class="amb-dlg-ico" aria-hidden="true"><i class="ri-stethoscope-line"></i></span>
           <div style="flex:1;min-width:0;">
             <h2 class="amb-dlg-t" id="amb-dlg-t">Карточка амбулаторного приёма</h2>
-            <p class="amb-dlg-s" id="amb-dlg-s">Протокол осмотра и медицинские назначения</p>
           </div>
-          <button class="amb-btn amb-print" type="button" onClick="{{ printCard }}" aria-label="Печать" title="Печать карточки приёма"><i class="ri-printer-line"></i><span class="amb-print-lbl">Печать</span></button>
           <button class="amb-close" type="button" onClick="{{ closeCard }}" aria-label="Закрыть" title="Закрыть"><i class="ri-close-line"></i></button>
         </div>
         <div class="amb-info">
@@ -592,6 +599,13 @@
             </sc-if>
           </section>
         </sc-for>
+      </div>
+      <!-- Подвал — как у всех окон ЭПЗ (24.11): ЭЦП, «Распечатать», «Скачать PDF», «Закрыть» -->
+      <div class="amb-dlg-foot">
+        <span class="amb-sign"><i class="ri-shield-check-fill" aria-hidden="true"></i>Подписано ЭЦП врача</span>
+        <button class="amb-btn" type="button" onClick="{{ printCard }}"><i class="ri-printer-line"></i>Распечатать</button>
+        <button class="amb-btn amb-soft" type="button" onClick="{{ printCard }}"><i class="ri-download-2-line"></i>Скачать PDF</button>
+        <button class="amb-btn amb-fclose" type="button" onClick="{{ closeCard }}">Закрыть</button>
       </div>
     </div>
   </div>
@@ -1019,7 +1033,8 @@ class Component extends DCLogic {
   openCard(id, focusStudies){
     const v = VISITS[id];
     this._returnFocus = document.activeElement;
-    const open = {};
+    // Первый блок (установленный диагноз) раскрыт сразу
+    const open = v.dxList.length ? { dx:true } : {};
     if(focusStudies){ if(v.labs.length) open.labs = true; if(v.diag.length) open.diag = true; }
     this.setState({ card:id, open, det:{}, pop:null });
     this.lockScroll();
@@ -1313,7 +1328,7 @@ class Component extends DCLogic {
       prevPage: () => { if(page > 1) goPage(page - 1); }, nextPage: () => { if(page < pageCount) goPage(page + 1); },
 
       cardOpen: !!cv, dlgRef:this.dlgRef, bodyRef:this.bodyRef,
-      cv: cv ? { date:cv.d, time:cv.t, type:cv.type, typeStyle:tone(TYPE_TONE[cv.type]), doctor:cv.doc, spec:cv.spec, org:cv.org } : {},
+      cv: cv ? { title:(cv.type==='Консультация'?'Консультация':cv.type+' приём')+' · '+cv.spec.toLowerCase(), date:cv.d, time:cv.t, type:cv.type, typeStyle:tone(TYPE_TONE[cv.type]), doctor:cv.doc, spec:cv.spec, org:cv.org } : {},
       secs: cv ? this.sections(cv) : [],
       closeCard: () => this.closeCard(),
       printCard: () => this.printCard(),

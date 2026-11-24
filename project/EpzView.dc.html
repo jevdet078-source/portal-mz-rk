@@ -15,8 +15,13 @@
 
   Пропсы:
     patient — ключ пациента в PATIENTS (ivanova | kasymov | smagulov | akhmetova | seitzhanova)
-    mode    — doctor | citizen. У гражданина нет полосы «пациент · режим просмотра» над разделами:
-              ФИО и ИИН уже в карточке меню кабинета; раздел хранится в адресе (#allergy и т. п.)
+    mode    — doctor | citizen. У гражданина нет полосы «пациент · режим просмотра» над разделами и меню разделов
+              на странице: ФИО и ИИН — в карточке меню кабинета, разделы ЭПЗ — в меню кабинета (CitizenNav);
+              раздел хранится в адресе (#allergy и т. п.), смена раздела без перехода — событие window mp-epz-nav.
+              На «Главной» гражданина — синхронизация с ЕГИС ЗРК и «Разделы ЭПЗ» (быстрый доступ с числом записей).
+  Единый каркас подразделов (замечания после показа министру, 24.11.2026): шапка (значок, H1, бейдж количества,
+  «Экспорт отчёта») → реестр (поиск и фильтры работают, таблица с «глазом», «Показано 1–N из M») → окно ez-dlg
+  по центру (статус, «поле — значение», хронология, блоки-аккордеоны, «Распечатать» / «Скачать PDF» / «Закрыть»).
     top     — отступ липкого меню разделов от верха окна, px (под шапкой страницы)
   Меню разделов становится лентой, когда сам компонент уже 1440 px: иначе разделам остаётся меньше 1175 px
   и таблица амбулаторных приёмов (11 столбцов) не помещается без прокрутки. Лента на ширине > 640 px — в несколько строк.
@@ -147,13 +152,13 @@
   .ez-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--n200) transparent;}
   .ez-tr{display:grid;grid-template-columns:var(--cols);min-width:var(--minw,0);}
   .ez-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
-  .ez-th{display:flex;align-items:center;padding:10px 10px;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .ez-th{display:flex;align-items:center;min-height:40px;padding:10px 10px;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
   .ez-row{border-top:1px solid var(--stroke);cursor:pointer;transition:background .1s;}
   .ez-tbody .ez-row:first-child{border-top:none;}
   .ez-row:hover{background:var(--n100);}
   .ez-row.is-sel{background:var(--primary-lighter);}
   .ez-row:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
-  .ez-td{padding:12px 10px;font-size:13.5px;line-height:19px;color:var(--n600);min-width:0;overflow-wrap:break-word;display:flex;flex-direction:column;justify-content:center;}
+  .ez-td{padding:12px 10px;font-size:13.5px;line-height:19px;color:var(--n600);min-width:0;overflow-wrap:normal;word-break:normal;display:flex;flex-direction:column;justify-content:center;}
   .ez-th:first-child,.ez-td:first-child{padding-left:16px;}
   .ez-th:last-child,.ez-td:last-child{padding-right:14px;}
   .ez-strong{font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;}
@@ -182,7 +187,7 @@
   .ez-kv{display:grid;grid-template-columns:repeat(var(--kv,3),minmax(0,1fr));gap:14px 20px;}
   .ez-k{font-size:12.5px;line-height:16px;color:var(--n500);}
   .ez-v{margin-top:3px;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:break-word;}
-  .ez-v .ez-pill{vertical-align:1px;}
+  .ez-v .ez-pill{vertical-align:1px;white-space:normal;height:auto;min-height:22px;padding:2px 8px;}
   /* Окно подробностей записи: по центру, шапка и подвал закреплены, прокрутка внутри */
   .ez-ov{position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.48);display:flex;align-items:center;justify-content:center;padding:24px;animation:mp-fade .18s ease;font-family:'Inter',sans-serif;color:var(--n900);}
   .ez-dlg{width:100%;max-width:var(--dw,720px);max-height:calc(100vh - 48px);display:flex;flex-direction:column;background:var(--n0);border-radius:20px;box-shadow:var(--sh-modal);overflow:hidden;outline:none;animation:mp-pop .22s ease;}
@@ -224,6 +229,10 @@
   .ez-eye:focus-visible,.ez-btn:focus-visible,.ez-dd-btn:focus-visible,.ez-opt:focus-visible,.ez-tab:focus-visible,.ez-close:focus-visible,.ez-sec-h:focus-visible,.ez-x:focus-visible,.ez-reset:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   @media (max-width:1100px){ .ez-kv{--kv:2 !important;} }
   @media (max-width:640px){
+    .ez-title{flex-wrap:wrap;row-gap:6px;}
+    .ez-h1{font-size:20px;line-height:26px;}
+    .epz-sync .ez-btn{width:100%;}
+    .epz-vt .ez-pill{white-space:normal;height:auto;padding:2px 8px;align-self:flex-start;}
     .ez-head .ez-btn{width:100%;}
     .ez-search{flex-basis:100%;}
     .ez-dd{flex:1 1 auto;}
@@ -234,6 +243,8 @@
     .ez-dlg-body{padding:14px 16px;}
     .ez-dlg-foot{padding:12px 16px;}
     .ez-sign{flex-basis:100%;}
+    .ez-dlg-foot .ez-btn{flex:1 1 0;padding:0 10px;}
+    .ez-dlg-foot .ez-btn:last-child{display:none;}
     .ez-kv{--kv:1 !important;}
   }
 
@@ -244,13 +255,14 @@
   .epz-sync .ez-btn[disabled]{opacity:.6;cursor:progress;}
   .epz-spin{display:inline-block;animation:mp-spin .9s linear infinite;}
   .epz-qh{margin:8px 0 0;font-size:16px;line-height:22px;font-weight:600;color:var(--n900);}
-  .epz-q{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
-  .epz-qt{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;text-decoration:none;color:inherit;box-shadow:var(--sh-xs);transition:border-color .12s,box-shadow .12s;}
+  .epz-q{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
+  @media (max-width:1180px){ .epz-q{grid-template-columns:repeat(2,minmax(0,1fr));} }
+  .epz-qt{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px 16px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;text-decoration:none;color:inherit;box-shadow:var(--sh-xs);transition:border-color .12s,box-shadow .12s;}
   .epz-qt:hover{border-color:var(--primary-light);box-shadow:var(--sh-md);}
   .epz-qt:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
-  .epz-qt-t{display:block;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
+  .epz-qt-t{display:block;font-size:14px;line-height:20px;font-weight:600;color:var(--n900);overflow-wrap:anywhere;hyphens:auto;}
   /* Измерения: плитки показателей выбранного измерения */
-  .epz-vg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+  .epz-vg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start;}
   @media (max-width:900px){ .epz-vg{grid-template-columns:repeat(2,minmax(0,1fr));} }
   .epz-vt{border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;}
   .epz-vv{font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.01em;color:var(--n900);font-variant-numeric:tabular-nums;}
@@ -266,7 +278,7 @@
   .epz-case-r{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;}
   .epz-case-code{font-size:15px;line-height:20px;font-weight:700;color:var(--primary);font-variant-numeric:tabular-nums;}
   .epz-case-n{font-size:13.5px;line-height:19px;font-weight:500;color:var(--n900);}
-  @media (max-width:1180px){
+  @media (max-width:1500px){
     .epz-dl{grid-template-columns:minmax(0,1fr);}
     .epz-dcases{flex-direction:row;flex-wrap:wrap;}
     .epz-dcases-h{display:none;}
@@ -604,7 +616,7 @@
               </div>
             </div>
             <div class="ez-card">
-              <div class="ez-scroll" style="--cols:minmax(140px,1.3fr) repeat(3,minmax(76px,.7fr)) minmax(96px,.8fr) minmax(84px,.7fr) minmax(104px,.9fr) 74px;">
+              <div class="ez-scroll" style="--cols:minmax(130px,1.3fr) repeat(3,minmax(74px,.7fr)) minmax(96px,.8fr) minmax(84px,.7fr) minmax(104px,.9fr) 74px;">
                 <div class="ez-tr ez-thead"><div class="ez-th">Дата и время</div><div class="ez-th">Рост</div><div class="ez-th">Вес</div><div class="ez-th">ИМТ</div><div class="ez-th">Температура</div><div class="ez-th">Пульс</div><div class="ez-th">АД (лев./прав.)</div><div class="ez-th ez-act">Действие</div></div>
                 <div class="ez-tbody">
                   <sc-for list="{{ vRows }}" as="v">
@@ -1190,7 +1202,9 @@ class Component extends DCLogic {
     // ---------- Ячейки реестров (единый каркас подразделов, 24.11) ----------
     // ct — текст (strong: тёмный полужирный; color: цвет; b: вторая строка), cp — метка-статус, cc — код МКБ над названием
     const ct=(a,o={})=>({ isTxt:true, isCode:false, isPill:false, a:a==null||a===''?'—':a, aStyle:o.strong?'font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;':(o.color?`font-weight:600;color:${o.color};`:''), hasB:!!o.b, b:o.b||'', code:'', pill:'' });
-    const cp=(a,c,o={})=>({ isTxt:false, isCode:false, isPill:true, a, pill:`background:${c[0]};color:${c[1]};`, hasB:!!o.b, b:o.b||'', aStyle:'', code:'' });
+    // Текст метки на светлом фоне — тёмным оттенком того же цвета (контраст не ниже 4.5:1)
+    const DARK={ '#F17B2C':'#6E330C', '#DF1C41':'#710E21', '#38C793':'#176448', '#35B9E9':'#164564' };
+    const cp=(a,c,o={})=>({ isTxt:false, isCode:false, isPill:true, a, pill:`background:${c[0]};color:${DARK[c[1]]||c[1]};`, hasB:!!o.b, b:o.b||'', aStyle:'', code:'' });
     const cc=(code,a)=>({ isTxt:true, isCode:true, isPill:false, code, a, aStyle:'color:var(--n900);margin-top:3px;', hasB:false, b:'', pill:'' });
     const splitDx=(x)=>{ const i=String(x).indexOf(' '); return i>0?[x.slice(0,i),x.slice(i+1)]:[x,'']; };
     let tbCfg=null;
@@ -1220,7 +1234,7 @@ class Component extends DCLogic {
       ];
       tbCfg={ rows:dz, ph:'Поиск по коду МКБ-10 или названию',
         cols:['Дата','Диагноз','Тип','Характер','Статус','Мед. организация'],
-        vars:'--cols:minmax(104px,.8fr) minmax(220px,2.2fr) minmax(110px,.9fr) minmax(116px,.8fr) minmax(136px,.9fr) minmax(130px,1.1fr) 74px;',
+        vars:'--cols:minmax(104px,.8fr) minmax(220px,2.2fr) minmax(128px,.9fr) minmax(116px,.8fr) minmax(136px,.9fr) minmax(130px,1.1fr) 74px;',
         dds:[ {id:'char',label:'Характер',all:'Любой характер',icon:'ri-pulse-line',get:z=>z.char[0]}, {id:'st',label:'Статус',all:'Любой статус',icon:'ri-checkbox-circle-line',get:z=>z.st[0]}, {id:'org',label:'Мед. организация',all:'Все организации',icon:'ri-hospital-line',get:z=>z.org} ],
         text:z=>z.mkb+' '+z.name+' '+z.org,
         cells:z=>[ ct(z.d,{strong:true}), cc(z.mkb,z.name), ct(z.typ), cp(z.char[0],z.char[1]), cp(z.st[0],z.st[1]), ct(z.org) ],
@@ -1265,7 +1279,7 @@ class Component extends DCLogic {
       const hOut=(h)=>h.refusal?['Отказ',T.red]:(h.discharge?h.discharge.out:['В стационаре',T.blue]);
       tbCfg={ rows:hz, ph:'Поиск по организации, отделению или диагнозу',
         cols:['Дата поступления','Мед. организация','Тип','Отделение','Основной диагноз','Исход'],
-        vars:'--cols:minmax(116px,.8fr) minmax(130px,1fr) minmax(108px,.7fr) minmax(130px,1fr) minmax(200px,1.8fr) minmax(118px,.8fr) 74px;',
+        vars:'--cols:minmax(116px,.8fr) minmax(130px,1fr) minmax(108px,.7fr) minmax(150px,1fr) minmax(190px,1.8fr) minmax(118px,.8fr) 74px;',
         dds:[ {id:'typ',label:'Тип госпитализации',all:'Любой тип',icon:'ri-hotel-bed-line',get:h=>h.typ[0]}, {id:'org',label:'Мед. организация',all:'Все организации',icon:'ri-hospital-line',get:h=>h.org} ],
         text:h=>h.org+' '+h.dept+' '+h.dx,
         cells:h=>{ const dx=splitDx(h.dx), dt=h.d.split(' '); return [ ct(dt[0],{strong:true,b:dt[1]}), ct(h.org), cp(h.typ[0],h.typ[1]), ct(h.dept), cc(dx[0],dx[1]), cp(hOut(h)[0],hOut(h)[1]) ]; },
@@ -1505,7 +1519,7 @@ class Component extends DCLogic {
       onClick:()=>{ this.setState({ dispCase:i }); if(this.state.dispTab==='diary' && !(c.active && c.diary)) setDispTab('reg'); }, pressed:String(s.dispCase===i),
       statusStyle:`background:${(c.active?T.green:T.gray)[0]};color:${(c.active?T.green:T.gray)[1]};` }));
     const dc=Math.min(s.dispCase, DCASES.length-1), DC=DCASES[dc];
-    const dcReg=DC.reg, dcDx=DC.dx;
+    const dcReg=DC.reg, dcDx=DC.dx.filter(m=>m.k!=='Код МКБ-10' && m.k!=='Наименование');
     // Направление дневника — выбранного случая; у случая без дневника — первое доступное
     const diarySel=DC.active&&DC.diary ? DC.diary : (diaryCases[0] ? diaryCases[0].c.diary : '');
     this._caseOf=(sel)=>{ const x=diaryCases.find(y=>y.c.diary===sel); return x ? x.i : -1; };
@@ -1517,13 +1531,13 @@ class Component extends DCLogic {
     // История наблюдения (Р8) — таблица с «глазом» → окно приёма; Рецепты (Р9) — таблица → окно с препаратами
     let dtCols=[], dtRows=[], dtVars='';
     if(s.dispTab==='obs'){
-      dtCols=['Дата','Вид приёма','Мед. организация','Врач / специалист','Диагноз','Следующая явка'];
-      dtVars='--cols:minmax(100px,.7fr) minmax(150px,1fr) minmax(100px,.7fr) minmax(170px,1.4fr) minmax(76px,.5fr) minmax(136px,.8fr) 74px;';
+      dtCols=['Дата','Вид приёма','Врач / специалист','Диагноз','Следующая явка'];
+      dtVars='--cols:minmax(104px,.7fr) minmax(170px,1fr) minmax(200px,1.6fr) minmax(90px,.5fr) minmax(136px,.8fr) 74px;';
       dtRows=DC.obs.map(d=>{ const dt=d.datetime.split(', '); return {
         aria:'Просмотр: '+d.kind+' '+dt[0],
-        cells:[ ct(dt[0],{strong:true,b:dt[1]}), cp(d.kind,d.kc), ct(d.org), ct(d.specialist), ct(d.icd,{color:'var(--primary)'}), ct(d.nextVisit,{color:'var(--red)'}) ],
+        cells:[ ct(dt[0],{strong:true,b:dt[1]}), cp(d.kind,d.kc), ct(d.specialist,{b:d.org}), ct(d.icd,{color:'var(--primary)'}), ct(d.nextVisit,{color:'var(--red)'}) ],
         onOpen:()=>openDrawer({ icon:'ri-file-text-line', iconC:T.blue, title:d.kind, subtitle:d.datetime+' · '+d.org, kv:3,
-          meta:[['Дата наблюдения',d.datetime],['Вид наблюдения',d.kind],['Диагноз',d.icd,'#4D42E9'],['Специалист',d.specialist],['Организация',d.org],['Следующая явка',d.nextVisit,T.red,true]],
+          meta:[['Дата наблюдения',d.datetime],['Диагноз',d.icd,'#4D42E9'],['Специалист',d.specialist],['Организация',d.org],['Следующая явка',d.nextVisit,T.red,true]],
           sections:[
             { heading:'Состояние пациента', icon:'ri-line-chart-line', c:T.green, text:d.condition },
             { heading:'Уточнение клинического диагноза', icon:'ri-file-text-line', c:T.orange, text:d.icd+' — '+d.icdNote+'.' },
@@ -1623,7 +1637,8 @@ class Component extends DCLogic {
       cells:r=>{ const dt=r.date.split(' '); return [ ct(dt[0],{strong:true,b:dt[1]}), ct(r.reason,{strong:true}), cp(r.profile[0],r.profile[1]), cp(r.urgency[0],r.urgency[1]), ct(r.result) ]; },
       aria:r=>'Просмотр вызова '+r.date,
       open:r=>{ const m=Object.fromEntries(r.detail.meta);
-        return { ...r.detail, title:'Вызов скорой · '+r.reason, subtitle:r.date,
+        const secs=r.detail.sections.map(x=>x.list?{ ...x, list:x.list.filter(it=>!/^(Профиль вызова|Категория срочности)/.test(it[1])) }:x);
+        return { ...r.detail, sections:secs, w:'760px', title:'Вызов скорой · '+r.reason, subtitle:r.date,
           meta:[['Дата и время вызова',m['Дата и время вызова']],['Тип вызова',m['Тип вызова']],['Профиль',r.profile[0]],['Срочность',r.urgency[0],r.urgency[1],true]], kv:4,
           steps:[['ri-phone-line',r.date.split(' ')[1],'Приём вызова'],['ri-send-plane-line',m['Передан бригаде'],'Передан бригаде'],['ri-truck-line',m['Выезд бригады'],'Выезд бригады'],['ri-map-pin-line',m['Прибытие'],'Прибытие на место']] }; } };
 
@@ -1631,7 +1646,7 @@ class Component extends DCLogic {
     const docData=[
       { num:'№ ELN-2024-8832', type:'Больничный лист', typeIcon:'ri-government-line', tc:T.blue, date:'12.10.2024', icd:'J06.9', icdName:'ОРВИ верхних дых. путей', org:'ГКБ №1', status:['Закрыт',T.gray], filt:'closed',
         detail:{ icon:'ri-government-line', iconC:T.blue, status:['Закрыт','Период нетрудоспособности завершён',T.gray],
-          meta:[['Статус','Закрыт'],['Номер документа','910 234 556 712'],['Тип','Электронный лист нетрудоспособности'],['Дата выдачи','12.10.2024'],['Освобождение с','12.10.2024'],['Освобождение по','21.10.2024'],['Приступить к работе','22.10.2024'],['Режим','Амбулаторный']],
+          meta:[['Статус','Закрыт'],['Номер документа','ELN-2024-8832'],['Тип','Электронный лист нетрудоспособности'],['Дата выдачи','12.10.2024'],['Освобождение с','12.10.2024'],['Освобождение по','21.10.2024'],['Приступить к работе','22.10.2024'],['Режим','Амбулаторный']],
           sections:[
             { heading:'Медицинские сведения', icon:'ri-stethoscope-line', c:T.blue, list:[['ri-hashtag','Диагноз (МКБ-10): J06.9 — ОРВИ верхних дыхательных путей','#4D42E9'],['ri-pulse-line','Стадия: острая фаза, средней степени тяжести','#525866'],['ri-error-warning-line','Причина нетрудоспособности: (01) Заболевание','#525866'],['ri-capsule-line','Дополнительно: назначена симптоматическая терапия','#38C793']] },
             { heading:'Лечащий врач', icon:'ri-user-line', c:T.green, text:'Александров Пётр Сергеевич — врач-терапевт высшей категории.\nГКБ №1. Документ подписан ЭЦП.' },
@@ -1659,7 +1674,7 @@ class Component extends DCLogic {
       text:r=>r.num+' '+r.icd+' '+r.icdName+' '+r.type,
       cells:r=>[ ct(r.num.replace('№ ',''),{color:'var(--primary-darker)'}), ct(r.type), ct(r.date,{strong:true}), cc(r.icd,r.icdName), ct(r.org), cp(r.status[0],r.status[1]) ],
       aria:r=>'Просмотр документа '+r.num,
-      open:r=>({ ...r.detail, title:r.type+' '+r.num.replace('№ ',''), subtitle:'Выдан '+r.date+' · '+r.org, kv:3,
+      open:r=>({ ...r.detail, icon:'ri-file-text-line', title:r.type+' '+r.num.replace('№ ',''), subtitle:'Выдан '+r.date+' · '+r.org, kv:3,
         meta:r.detail.meta.filter(m=>m[0]!=='Статус') }) };
 
     // Аллергологический анамнез (Р4): без дублей сведений о гражданине, фильтр и количество; подробности — в окне
@@ -1717,12 +1732,12 @@ class Component extends DCLogic {
       ['dispensary','Диспансерный учёт','ri-clipboard-line']].concat(P.pregnant?[['women','Женское здоровье','ri-women-line']]:[])
       .concat([['ambulance','Вызовы скорой','ri-first-aid-kit-line'],['docs','Больничные и справки','ri-file-list-3-line']])
       .map(([id,label,icon])=>({ label, icon, href:'#'+id,
-        n: id==='women' ? (P.preg?'Беременность, '+P.preg.weeks+' нед.':'') : (id==='dispensary' ? plural(DCASES.length,'диагноз','диагноза','диагнозов')+' на учёте' : (id==='allergy' ? (allAllergies.length?plural(allAllergies.length,'аллерген','аллергена','аллергенов'):'Не зарегистрированы') : zap(COUNTS[id]))),
+        n: id==='women' ? (P.preg?'Беременность, '+P.preg.weeks+' нед.':'') : (id==='dispensary' ? plural(DCASES.length,'диагноз','диагноза','диагнозов')+' на учёте' : (id==='allergy' ? (allAllergies.length?[...new Set(allAllergies.map(a=>a.type.toLowerCase()))].join(', ').replace(/^./,c=>c.toUpperCase()):'Не зарегистрированы') : zap(COUNTS[id]))),
         onClick:(e)=>{ if(e){ e.preventDefault(); } goSection(id); } }));
 
     // ---------- Окно подробностей записи ----------
     const dr=s.drawer;
-    const pillOf=(c)=>`background:${c[0]};color:${c[1]};`;
+    const pillOf=(c)=>`background:${c[0]};color:${DARK[c[1]]||c[1]};`;
     const drawerSections=(dr&&dr.sections||[]).map((sec,i)=>{
       const items=(sec.list||[]).map(it=> Array.isArray(it)
         ? { icon:it[0], text:it[1], color:it[2], hasCode:false, code:'', hasTag:!!it[3], tagText:it[3]||'', tag:it[3]?pillOf(T.green):'' }
