@@ -167,22 +167,6 @@
           </div>
         </sc-if>
 
-        <!-- ===== Уведомления ===== -->
-        <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:20px;animation:mp-slidein .2s ease;">
-            <h1 style="font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0;">Уведомления</h1>
-            <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:8px 24px;box-shadow:var(--sh-xs);">
-              <sc-for list="{{ notifications }}" as="n" hint-placeholder-count="5">
-                <div style="display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--stroke);align-items:flex-start;">
-                  <div style="width:40px;height:40px;border-radius:10px;background:{{ n.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ n.icon }}" style="font-size:20px;color:{{ n.color }};"></i></div>
-                  <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;">{{ n.title }}</div><p style="font-size:13px;line-height:1.5;color:var(--n500);margin:4px 0 0;">{{ n.desc }}</p></div>
-                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto;"><span style="font-size:12px;color:var(--n400);white-space:nowrap;">{{ n.time }}</span><sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:50%;background:var(--primary);"></span></sc-if></div>
-                </div>
-              </sc-for>
-            </div>
-          </div>
-        </sc-if>
-
       </main>
     </div>
   </div>
@@ -228,10 +212,12 @@
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
-// Разделы кабинета живут в location.hash (#overview, #notif): меню — общий компонент CitizenNav,
+// Разделы кабинета живут в location.hash (#overview; #notif → «Уведомления гражданина»): меню — общий компонент CitizenNav,
 // в нём ссылки «Личный кабинет.dc.html#…», поэтому разделы открываются и с других страниц.
 // «Паспорт здоровья», «История приёмов», «Результаты», «Страхование ОСМС» убраны по замечанию аналитика.
-const LK_TABS = ['overview','notif'];
+const LK_TABS = ['overview'];
+// Уведомления — отдельная страница (постановка 24.11.2026); старая ссылка #notif ведёт туда
+if((location.hash || '') === '#notif') location.replace('Уведомления гражданина.dc.html');
 
 class Component extends DCLogic {
   state = { tab:'overview', bookingOpen:false, bookDay:1, bookSlot:null, booked:false, bookedWhen:'' };
@@ -277,16 +263,6 @@ class Component extends DCLogic {
       { icon:'ri-scan-line', title:'Первый скрининг (УЗИ)', org:'Поликлиника №5', date:'02 апр' },
     ];
 
-    // notifications
-    const notifData = [
-      { icon:'ri-calendar-event-line', c:C.orange, title:'Приближается второй скрининг', desc:'Рекомендуем записаться на УЗИ до 6 июля. Есть свободные слоты на этой неделе.', time:'2 часа назад', unread:true },
-      { icon:'ri-test-tube-line', c:C.green, title:'Готовы результаты анализа крови', desc:'Общий анализ крови от 9 июня готов. Показатели в норме.', time:'1 день назад', unread:true },
-      { icon:'ri-syringe-line', c:C.teal, title:'Сезон вакцинации против гриппа', desc:'Беременным рекомендована прививка. Уточните у врача удобное время.', time:'2 дня назад', unread:true },
-      { icon:'ri-file-text-line', c:C.blue, title:'Новое назначение врача', desc:'Ахметова А.К. добавила назначение: фолиевая кислота, препараты железа.', time:'10 июня', unread:false },
-      { icon:'ri-shield-check-line', c:C.green, title:'Поступило отчисление ОСМС', desc:'За июнь 2026 зачислено 2 975 ₸. Статус застрахованного активен.', time:'10 июня', unread:false },
-    ];
-    const notifications = notifData.map(n => ({ ...n, color:n.c[1], bg:n.c[0] }));
-
     // booking modal
     const dayData = [ { dow:'Пн', day:'30', mon:'июн' }, { dow:'Ср', day:'02', mon:'июл' }, { dow:'Чт', day:'03', mon:'июл' }, { dow:'Пт', day:'04', mon:'июл' } ];
     const bookDays = dayData.map((d,i)=>({ ...d, onClick:()=>this.setState({ bookDay:i }),
@@ -303,9 +279,8 @@ class Component extends DCLogic {
 
     return {
       tab:s.tab,
-      isOverview:s.tab==='overview', isNotif:s.tab==='notif',
+      isOverview:s.tab==='overview',
       recommendations, stats, upcoming, recentVisits,
-      notifications,
       openBooking:()=>this.setState({ bookingOpen:true }), closeBooking:()=>this.setState({ bookingOpen:false }), stop:(e)=>e.stopPropagation(),
       bookingOpen:s.bookingOpen, bookDays, bookSlots,
       confirmLabel: s.bookSlot!=null ? 'Подтвердить запись' : 'Выберите время',
