@@ -284,6 +284,33 @@
     .epz-dcases-h{display:none;}
     .epz-case{flex:1 1 220px;width:auto;}
   }
+  /* Женское здоровье (25.11): вкладки в плашке, сводка беременности с триместрами, пары плашек, таблицы с заголовком */
+  .epz-w .ez-tabs{border-bottom:none;}
+  .epz-w-cap{justify-content:space-between;flex-wrap:wrap;gap:6px 12px;}
+  .epz-w-ct{display:inline-flex;align-items:center;gap:8px;}
+  .epz-tri{list-style:none;margin:16px 0 0;padding:16px 0 0;border-top:1px solid var(--stroke);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .epz-tri-i{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .epz-tri-bar{height:6px;border-radius:999px;background:var(--n200);margin-bottom:8px;}
+  .epz-tri-i.is-done .epz-tri-bar{background:var(--green);}
+  .epz-tri-i.is-cur .epz-tri-bar{background:var(--primary);}
+  .epz-tri-t{font-size:14px;line-height:20px;font-weight:600;color:var(--n900);}
+  .epz-tri-i.is-cur .epz-tri-t{color:var(--primary);}
+  .epz-tri .ez-sub{color:var(--n500);}
+  .epz-wg{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px;}
+  .epz-w-blocks{display:flex;flex-direction:column;gap:18px;}
+  .epz-w-sep{border-top:1px solid var(--stroke);padding-top:18px;}
+  .epz-w-risks{display:flex;flex-wrap:wrap;gap:8px;}
+  .epz-w-risks .ez-pill{height:28px;padding:0 10px;gap:6px;font-size:13px;}
+  .epz-w-risks .ez-pill i{font-size:16px;}
+  .epz-w .ez-cap .ez-badge{margin-left:2px;}
+  .epz-wh{padding:14px 16px;border-bottom:1px solid var(--stroke);}
+  .epz-wh .ez-cap{margin:0;}
+  .epz-wkv{padding:16px;border-bottom:1px solid var(--stroke);}
+  .epz-wr{border-top:1px solid var(--stroke);}
+  .epz-wr>.ez-td{min-height:46px;}
+  .ez-tbody .epz-wr:first-child{border-top:none;}
+  @media (max-width:1100px){ .epz-wg{grid-template-columns:minmax(0,1fr);} }
+  @media (max-width:640px){ .epz-tri{grid-template-columns:minmax(0,1fr);gap:10px;} }
   /* Окно вызова скорой: хронология — приём, передача бригаде, выезд, прибытие */
   .epz-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));position:relative;}
   .epz-steps li{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;}
@@ -726,197 +753,109 @@
           </div>
         </sc-if>
 
-        <!-- ===== Женское здоровье ===== -->
+        <!-- ===== Женское здоровье (25.11: содержимое вкладок — в каркасе подразделов ЭПЗ) =====
+             Плашки «поле — значение» — ez-cardp + ez-cap + ez-kv; таблицы — ez-card с заголовком и количеством,
+             заголовки столбцов в регистре предложения, метки ez-pill; «глаз» и окно — только у записей с подробностями. -->
         <sc-if value="{{ secWomen }}" hint-placeholder-val="{{ false }}">
-          <div style="animation:mp-slidein .2s ease;">
-            <div class="ez-card" style="margin-bottom:16px;"><div class="ez-tabs" role="tablist" aria-label="Женское здоровье">
+          <div class="ez epz-w">
+            <div class="ez-card"><div class="ez-tabs" role="tablist" aria-label="Женское здоровье">
               <sc-for list="{{ womenTabs }}" as="t"><button type="button" role="tab" class="ez-tab" aria-selected="{{ t.sel }}" onClick="{{ t.onClick }}">{{ t.label }}</button></sc-for>
             </div></div>
 
+            <!-- Беременность: текущая беременность (сводка и триместры) → постановка на учёт и динамика → таблицы ниже -->
             <sc-if value="{{ womenPreg }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <!-- pregnancy hero -->
-                <div style="background:linear-gradient(135deg,#312D86,#4D42E9 55%,#6B61F2);border-radius:18px;padding:24px;color:#fff;position:relative;overflow:hidden;">
-                  <div style="position:absolute;inset:0;opacity:.35;background-image:radial-gradient(circle at 85% 20%,rgba(255,255,255,.3),transparent 40%);pointer-events:none;"></div>
-                  <div class="epz-hero" style="position:relative;display:flex;align-items:center;gap:24px;">
-                    <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(#fff 0% 60%,rgba(255,255,255,.25) 60% 100%);display:flex;align-items:center;justify-content:center;flex:0 0 auto;">
-                      <div style="width:94px;height:94px;border-radius:50%;background:#3A33A0;display:flex;flex-direction:column;align-items:center;justify-content:center;"><span style="font-size:30px;font-weight:700;line-height:1;">24</span><span style="font-size:11px;color:rgba(255,255,255,.75);">недели</span></div>
-                    </div>
-                    <div style="flex:1;">
-                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="font-size:12px;font-weight:600;background:rgba(255,255,255,.18);padding:4px 11px;border-radius:999px;">Активная · в работе</span><span style="font-size:12px;font-weight:600;background:rgba(255,255,255,.18);padding:4px 11px;border-radius:999px;">II триместр</span></div>
-                      <div style="font-size:20px;font-weight:600;letter-spacing:-.01em;">Беременность от 14.02.2024</div>
-                      <div style="display:flex;gap:28px;margin-top:14px;">
-                        <div><div style="font-size:11px;color:rgba(255,255,255,.65);">ПДР</div><div style="font-size:17px;font-weight:600;">15.08.2024</div></div>
-                        <div><div style="font-size:11px;color:rgba(255,255,255,.65);">Осталось</div><div style="font-size:17px;font-weight:600;">≈ 16 недель</div></div>
-                        <div><div style="font-size:11px;color:rgba(255,255,255,.65);">Следующий визит</div><div style="font-size:17px;font-weight:600;">25.04.2024</div></div>
-                        <div><div style="font-size:11px;color:rgba(255,255,255,.65);">Группа риска</div><div style="font-size:17px;font-weight:600;">Средняя</div></div>
-                      </div>
-                    </div>
-                  </div>
+              <div class="ez-cardp">
+                <div class="ez-cap epz-w-cap"><span class="epz-w-ct"><i class="ri-women-line" aria-hidden="true"></i>{{ pregTitle }}</span><span class="ez-pill" style="{{ pregStatusStyle }}">{{ pregStatus }}</span></div>
+                <div class="ez-kv" style="--kv:5;">
+                  <sc-for list="{{ pregKv }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v"><sc-if value="{{ m.isPill }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ m.pill }}">{{ m.v }}</span></sc-if><sc-if value="{{ m.isTxt }}" hint-placeholder-val="{{ true }}">{{ m.v }}</sc-if></div></div></sc-for>
                 </div>
-
-                <!-- trimester stepper -->
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:18px 20px;box-shadow:var(--sh-xs);">
-                  <div style="display:flex;align-items:center;gap:0;">
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;"><i class="ri-check-line" style="font-size:19px;"></i></div><div style="font-size:12.5px;font-weight:600;">I триместр</div><div style="font-size:11px;color:var(--n400);">1–13 нед · завершён</div></div>
-                    <div style="flex:0 0 40px;height:2px;background:var(--green);margin-bottom:34px;"></div>
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 4px var(--primary-lighter);"><i class="ri-loader-2-line" style="font-size:18px;"></i></div><div style="font-size:12.5px;font-weight:600;color:var(--primary);">II триместр</div><div style="font-size:11px;color:var(--n400);">14–27 нед · текущий</div></div>
-                    <div style="flex:0 0 40px;height:2px;background:var(--n200);margin-bottom:34px;"></div>
-                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="width:34px;height:34px;border-radius:50%;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;border:1px solid var(--stroke);"><i class="ri-time-line" style="font-size:18px;"></i></div><div style="font-size:12.5px;font-weight:600;color:var(--n400);">III триместр</div><div style="font-size:11px;color:var(--n400);">28–40 нед · предстоит</div></div>
-                  </div>
+                <ol class="epz-tri" aria-label="Триместры">
+                  <sc-for list="{{ pregTri }}" as="t"><li class="{{ t.cls }}" aria-current="{{ t.cur }}"><span class="epz-tri-bar" aria-hidden="true"></span><span class="epz-tri-t">{{ t.t }}</span><span class="ez-sub">{{ t.s }}</span></li></sc-for>
+                </ol>
+              </div>
+              <div class="ez-cardp">
+                <div class="ez-cap"><i class="ri-line-chart-line" aria-hidden="true"></i>Динамика показателей</div>
+                <div class="epz-vg">
+                  <sc-for list="{{ pregDyn }}" as="t"><div class="epz-vt"><div class="ez-k">{{ t.k }}</div><div class="epz-vv">{{ t.v }}<sc-if value="{{ t.hasU }}" hint-placeholder-val="{{ true }}"><small>{{ t.u }}</small></sc-if></div></div></sc-for>
                 </div>
-
-                <div class="epz-g2" style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px;align-items:start;">
-                  <!-- постановка на учёт -->
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                    <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-file-add-line" style="color:var(--primary);font-size:18px;"></i>Постановка на учёт</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                      <div><div style="font-size:11px;color:var(--n400);">Дата постановки на учёт</div><div style="font-size:13.5px;font-weight:600;">14.02.2024</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Поступила из другой МО</div><div style="font-size:13.5px;font-weight:600;">Нет</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Дата последней менструации</div><div style="font-size:13.5px;font-weight:600;">05.12.2023</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Срок беременности</div><div style="font-size:13.5px;font-weight:600;">9 недель (ранняя)</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Тип беременности</div><div style="font-size:13.5px;font-weight:600;">Одноплодная</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Первое шевеление плода</div><div style="font-size:13.5px;font-weight:600;">18.04.2024</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Прегравидарная подготовка</div><div style="font-size:13.5px;font-weight:600;">Да</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Тип направления</div><div style="font-size:13.5px;font-weight:600;">Первичное</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Дата УЗИ</div><div style="font-size:13.5px;font-weight:600;">12.03.2024</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Срок по УЗИ</div><div style="font-size:13.5px;font-weight:600;">12 недель</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Мед. организация</div><div style="font-size:13.5px;font-weight:600;">Поликлиника №4</div></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Врач</div><div style="font-size:13.5px;font-weight:600;">Касымова Г.М.</div></div>
-                    </div>
-                  </div>
-                  <!-- dynamics -->
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                    <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-line-chart-line" style="color:var(--teal);font-size:18px;"></i>Динамика показателей</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                      <div style="border:1px solid var(--stroke);border-radius:11px;padding:11px 13px;"><div style="font-size:11px;color:var(--n400);">Прибавка веса</div><div style="font-size:15px;font-weight:700;color:var(--teal-d);">+6.5 кг</div></div>
-                      <div style="border:1px solid var(--stroke);border-radius:11px;padding:11px 13px;"><div style="font-size:11px;color:var(--n400);">АД (посл.)</div><div style="font-size:15px;font-weight:700;">118/76</div></div>
-                      <div style="border:1px solid var(--stroke);border-radius:11px;padding:11px 13px;"><div style="font-size:11px;color:var(--n400);">ВДМ</div><div style="font-size:15px;font-weight:700;">24 см</div></div>
-                      <div style="border:1px solid var(--stroke);border-radius:11px;padding:11px 13px;"><div style="font-size:11px;color:var(--n400);">ЧСС плода</div><div style="font-size:15px;font-weight:700;color:var(--pink);">148 уд/мин</div></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- screenings -->
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-scan-2-line" style="color:var(--primary);font-size:18px;"></i>Пренатальные скрининги</div>
-                  <div class="epz-g2" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
-                    <div style="border:1px solid var(--green);background:var(--green-l);border-radius:13px;padding:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12.5px;font-weight:600;">I скрининг</span><i class="ri-checkbox-circle-fill" style="font-size:18px;color:var(--green);"></i></div><div style="font-size:11px;color:var(--n500);">11–13 недель · 12.03.2024</div><div style="font-size:13px;font-weight:600;color:var(--green-d);margin-top:6px;">Риск низкий</div></div>
-                    <div style="border:1px solid var(--green);background:var(--green-l);border-radius:13px;padding:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12.5px;font-weight:600;">II скрининг</span><i class="ri-checkbox-circle-fill" style="font-size:18px;color:var(--green);"></i></div><div style="font-size:11px;color:var(--n500);">18–21 неделя · 20.04.2024</div><div style="font-size:13px;font-weight:600;color:var(--green-d);margin-top:6px;">Без патологий</div></div>
-                    <div style="border:1px dashed var(--n300);background:var(--n50);border-radius:13px;padding:14px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12.5px;font-weight:600;color:var(--n500);">III скрининг</span><i class="ri-time-line" style="font-size:18px;color:var(--n400);"></i></div><div style="font-size:11px;color:var(--n500);">30–34 недели</div><div style="font-size:13px;font-weight:600;color:var(--n400);margin-top:6px;">Предстоит</div></div>
-                  </div>
-                </div>
-
-                <!-- visit schedule -->
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;"><i class="ri-calendar-2-line" style="color:var(--primary);font-size:18px;"></i>График посещений</div>
-                  <div class="dc-scroll" style="border:1px solid var(--stroke);border-radius:12px;overflow-x:auto;">
-                    <div class="xtable" style="width:100%;border-collapse:collapse;">
-                      <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Дата</div><div class="xth" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Цель визита</div><div class="xth" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Статус</div><div class="xth" style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Врач</div></div></div>
-                      <div class="xtbody">
-                        <sc-for list="{{ pregVisits }}" as="p"><div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:11px 14px;font-size:13px;font-weight:600;">{{ p.date }}</div><div class="xtd" style="padding:11px 14px;font-size:13px;color:var(--n600);">{{ p.goal }}</div><div class="xtd" style="padding:11px 14px;"><span style="{{ p.statusStyle }}">{{ p.status }}</span></div><div class="xtd" style="padding:11px 14px;font-size:13px;color:var(--n500);">{{ p.doctor }}</div></div></sc-for>
-                      </div>
-                    </div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:8px;margin-top:14px;background:var(--n100);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--n500);"><i class="ri-information-line" style="font-size:17px;color:var(--n400);"></i>Запись о снятии с учёта отсутствует. Беременность продолжается.</div>
-                </div>
-                <!-- archived (expandable) -->
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;overflow:hidden;box-shadow:var(--sh-xs);">
-                  <div onClick="{{ toggleArch }}" style="padding:18px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;"><div style="width:42px;height:42px;border-radius:11px;background:var(--green-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-archive-line" style="font-size:22px;color:var(--green);"></i></div><div style="flex:1;"><div style="font-size:15px;font-weight:600;">Беременность от 05.05.2022</div><div style="font-size:12.5px;color:var(--n500);margin-top:2px;">Завершено (снята с учёта) · Исход: Роды (здоровый ребёнок)</div></div><i class="{{ archChevron }}" style="font-size:22px;color:var(--n400);"></i></div>
-                  <sc-if value="{{ archOpen }}" hint-placeholder-val="{{ false }}">
-                    <div style="padding:0 20px 20px;animation:mp-slidein .2s ease;">
-                      <div class="epz-g4" style="border-top:1px solid var(--stroke);padding-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px;"><div><div style="font-size:11px;color:var(--n400);">Дата регистрации</div><div style="font-size:13.5px;font-weight:600;">05.05.2022</div></div><div><div style="font-size:11px;color:var(--n400);">Дата снятия</div><div style="font-size:13.5px;font-weight:600;">12.01.2023</div></div><div><div style="font-size:11px;color:var(--n400);">Исход</div><div style="font-size:13.5px;font-weight:600;color:var(--green-d);">Срочные роды</div></div><div><div style="font-size:11px;color:var(--n400);">Масса плода</div><div style="font-size:13.5px;font-weight:600;">3 450 г</div></div></div>
-                      <div style="display:flex;align-items:center;gap:8px;background:var(--green-l);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--green-d);"><i class="ri-checkbox-circle-fill" style="font-size:17px;"></i>Беременность завершена без осложнений. Ребёнок здоров, состоит на учёте в разделе «Здоровье детей».</div>
-                    </div>
-                  </sc-if>
-                </div>
+              </div>
+              <div class="ez-cardp">
+                <div class="ez-cap"><i class="ri-file-add-line" aria-hidden="true"></i>Постановка на учёт</div>
+                <div class="ez-kv" style="--kv:4;"><sc-for list="{{ pregReg }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div>
               </div>
             </sc-if>
 
+            <!-- Акушерско-гинекологический анамнез: одна плашка, два блока «поле — значение» -->
             <sc-if value="{{ womenAnamnesis }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;"><i class="ri-women-line" style="color:var(--pink);font-size:20px;"></i>Репродуктивный анамнез</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                    <sc-for list="{{ reproSummary }}" as="r"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--stroke);"><span style="font-size:13.5px;color:var(--n500);">{{ r.label }}</span><span style="font-size:16px;font-weight:700;">{{ r.value }}</span></div></sc-for>
-                  </div>
-                </div>
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:15px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;"><i class="ri-bar-chart-box-line" style="color:var(--primary);font-size:20px;"></i>Исходы беременностей</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                    <sc-for list="{{ outcomes }}" as="o"><div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--stroke);"><span style="font-size:13px;color:var(--n500);">{{ o.label }}</span><span style="font-size:15px;font-weight:700;color:{{ o.color }};">{{ o.value }}</span></div></sc-for>
-                  </div>
-                </div>
+              <div class="ez-cardp epz-w-blocks">
+                <div><div class="ez-cap"><i class="ri-women-line" aria-hidden="true"></i>Репродуктивный анамнез</div><div class="ez-kv" style="--kv:4;">
+                  <sc-for list="{{ reproSummary }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for>
+                </div></div>
+                <div class="epz-w-sep"><div class="ez-cap"><i class="ri-bar-chart-box-line" aria-hidden="true"></i>Исходы беременностей</div><div class="ez-kv" style="--kv:4;">
+                  <sc-for list="{{ outcomes }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for>
+                </div></div>
               </div>
             </sc-if>
 
+            <!-- ЖФВ: менструальная функция и половая жизнь · общий анамнез и факторы риска → наследственность (таблица ниже) -->
             <sc-if value="{{ womenJfv }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:14px;">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--pink);"><i class="ri-calendar-2-line" style="font-size:18px;"></i>Менструальная функция</div>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
-                    <div style="border:1px solid var(--stroke);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n400);">Возраст менархе</div><div style="font-size:15px;font-weight:600;margin-top:3px;">13 лет</div></div>
-                    <div style="border:1px solid var(--stroke);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n400);">Длительность цикла</div><div style="font-size:15px;font-weight:600;margin-top:3px;">28 дней</div></div>
-                    <div style="border:1px solid var(--stroke);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n400);">Длительность менструации</div><div style="font-size:15px;font-weight:600;margin-top:3px;">5 дней</div></div>
-                  </div>
+              <div class="epz-wg">
+                <div class="ez-cardp">
+                  <div class="ez-cap"><i class="ri-calendar-2-line" aria-hidden="true"></i>Менструальная функция</div>
+                  <div class="ez-kv"><sc-for list="{{ jfvMenses }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                    <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--purple);"><i class="ri-heart-2-line" style="font-size:18px;"></i>Половая жизнь</div>
-                    <div style="display:flex;flex-direction:column;gap:12px;">
-                      <div style="display:flex;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--stroke);"><span style="font-size:13px;color:var(--n500);">Возраст начала</span><span style="font-size:13.5px;font-weight:600;">18 лет</span></div>
-                      <div><div style="font-size:11px;color:var(--n400);">Комментарий</div><div style="font-size:13px;margin-top:3px;">Без особенностей</div></div>
-                    </div>
-                  </div>
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                    <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--teal);"><i class="ri-file-list-2-line" style="font-size:18px;"></i>Общий анамнез</div>
-                    <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
-                      <div><span style="color:var(--n400);">Перенесённые заболевания: </span>ОРВИ, ветряная оспа (детство)</div>
-                      <div><span style="color:var(--n400);">Перенесённые операции: </span>Аппендэктомия (2015)</div>
-                      <div><span style="color:var(--n400);">Диспансерное наблюдение: </span>Да (сахарный диабет, гипертензия, сердечная недостаточность)</div>
-                      <div><span style="color:var(--n400);">Переливание крови: </span>Не проводилось</div>
-                    </div>
-                  </div>
+                <div class="ez-cardp">
+                  <div class="ez-cap"><i class="ri-heart-2-line" aria-hidden="true"></i>Половая жизнь</div>
+                  <div class="ez-kv" style="--kv:2;"><sc-for list="{{ jfvSex }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div>
                 </div>
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--orange);"><i class="ri-parent-line" style="font-size:18px;"></i>Наследственность</div>
-                  <div class="epz-g2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                    <div style="border:1px solid var(--stroke);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n400);">Здоровье отца</div><div style="font-size:13.5px;font-weight:600;margin-top:3px;">Удовлетворительное</div></div>
-                    <div style="border:1px solid var(--stroke);border-radius:12px;padding:14px;"><div style="font-size:11px;color:var(--n400);">Наследственные заболевания (отец)</div><div style="font-size:13.5px;font-weight:600;margin-top:3px;">Гипертоническая болезнь</div></div>
-                  </div>
-                  <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:8px;">Наследственные заболевания родственников</div>
-                  <div class="dc-scroll" style="border:1px solid var(--stroke);border-radius:11px;overflow-x:auto;">
-                    <div class="xtable" style="width:100%;border-collapse:collapse;">
-                      <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Заболевание (МКБ-10)</div><div class="xth" style="text-align:left;padding:9px 12px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Степень родства</div></div></div>
-                      <div class="xtbody">
-                        <div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:11px 12px;font-size:13px;"><span style="font-weight:600;color:var(--primary);">I11</span> Гипертензивная болезнь сердца</div><div class="xtd" style="padding:11px 12px;font-size:13px;color:var(--n500);">Отец</div></div>
-                        <div class="xtr" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:11px 12px;font-size:13px;"><span style="font-weight:600;color:var(--primary);">E11</span> Сахарный диабет 2 типа</div><div class="xtd" style="padding:11px 12px;font-size:13px;color:var(--n500);">Бабушка (по матери)</div></div>
-                      </div>
-                    </div>
-                  </div>
+              </div>
+              <div class="epz-wg">
+                <div class="ez-cardp">
+                  <div class="ez-cap"><i class="ri-file-list-2-line" aria-hidden="true"></i>Общий анамнез</div>
+                  <div class="ez-kv" style="--kv:2;"><sc-for list="{{ jfvGeneral }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div>
                 </div>
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:16px;padding:22px;box-shadow:var(--sh-xs);">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px;color:var(--orange);"><i class="ri-alert-line" style="font-size:18px;"></i>Факторы риска</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:10px;">
-                    <sc-for list="{{ jfvRisks }}" as="r"><span style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--orange-d);background:var(--orange-l);border-radius:10px;padding:9px 14px;"><i class="ri-error-warning-line" style="font-size:16px;"></i>{{ r }}</span></sc-for>
-                  </div>
+                <div class="ez-cardp">
+                  <div class="ez-cap"><i class="ri-alert-line" aria-hidden="true"></i>Факторы риска<span class="ez-badge">{{ jfvRiskN }}</span></div>
+                  <div class="epz-w-risks"><sc-for list="{{ jfvRisks }}" as="r"><span class="ez-pill" style="{{ jfvRiskStyle }}"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ r }}</span></sc-for></div>
                 </div>
               </div>
             </sc-if>
 
-            <sc-if value="{{ womenContra }}" hint-placeholder-val="{{ false }}">
-              <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:start;">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;box-shadow:var(--sh-xs);"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);margin-bottom:12px;">Текущий статус</div><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:50%;background:var(--green-l);display:flex;align-items:center;justify-content:center;"><i class="ri-checkbox-circle-fill" style="font-size:20px;color:var(--green);"></i></div><div><div style="font-size:14px;font-weight:600;">Активен</div><div style="font-size:12px;color:var(--n400);">КОК (с 15.01.2023)</div></div></div></div>
-                <div class="dc-scroll" style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-xs);overflow-x:auto;">
-                  <div class="xtable" style="width:100%;border-collapse:collapse;">
-                    <div class="xthead"><div class="xtr" style="background:var(--n50);"><div class="xth" style="text-align:left;padding:11px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Метод</div><div class="xth" style="text-align:left;padding:11px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Назначение</div><div class="xth" style="text-align:left;padding:11px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Начало</div><div class="xth" style="text-align:left;padding:11px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">Окончание</div></div></div>
-                    <div class="xtbody">
-                      <sc-for list="{{ contraRows }}" as="c"><div class="xtr dc-row" style="border-top:1px solid var(--stroke);"><div class="xtd" style="padding:13px 16px;font-size:13.5px;font-weight:600;">{{ c.method }}</div><div class="xtd" style="padding:13px 14px;font-size:13px;color:var(--n500);">{{ c.purpose }}</div><div class="xtd" style="padding:13px 14px;font-size:13px;color:var(--primary);font-weight:500;">{{ c.start }}</div><div class="xtd" style="padding:13px 16px;font-size:13px;color:var(--n500);">{{ c.end }}</div></div></sc-for>
-                    </div>
+            <!-- Таблицы вкладки (Беременность: скрининги, график посещений, завершённые беременности · ЖФВ: наследственность · Контрацепция) -->
+            <sc-for list="{{ wTables }}" as="tb">
+              <div class="ez-card">
+                <sc-if value="{{ tb.hasHead }}" hint-placeholder-val="{{ true }}">
+                  <div class="epz-wh"><div class="ez-cap"><i class="{{ tb.icon }}" aria-hidden="true"></i>{{ tb.title }}<sc-if value="{{ tb.hasN }}" hint-placeholder-val="{{ true }}"><span class="ez-badge">{{ tb.n }}</span></sc-if></div></div>
+                </sc-if>
+                <sc-if value="{{ tb.hasKv }}" hint-placeholder-val="{{ false }}">
+                  <div class="epz-wkv"><div class="ez-kv" style="--kv:2;"><sc-for list="{{ tb.kv }}" as="m"><div><div class="ez-k">{{ m.k }}</div><div class="ez-v">{{ m.v }}</div></div></sc-for></div></div>
+                </sc-if>
+                <div class="ez-scroll" style="{{ tb.vars }}">
+                  <div class="ez-tr ez-thead">
+                    <sc-for list="{{ tb.cols }}" as="c"><div class="ez-th">{{ c }}</div></sc-for>
+                    <sc-if value="{{ tb.hasEye }}" hint-placeholder-val="{{ false }}"><div class="ez-th ez-act">Действие</div></sc-if>
+                  </div>
+                  <div class="ez-tbody">
+                    <sc-for list="{{ tb.rows }}" as="r">
+                      <div class="{{ r.cls }}" onClick="{{ r.onOpen }}">
+                        <sc-for list="{{ r.cells }}" as="c">
+                          <div class="ez-td">
+                            <sc-if value="{{ c.isCode }}" hint-placeholder-val="{{ false }}"><span class="ez-code">{{ c.code }}</span></sc-if>
+                            <sc-if value="{{ c.isPill }}" hint-placeholder-val="{{ false }}"><span class="ez-pill" style="{{ c.pill }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.isTxt }}" hint-placeholder-val="{{ true }}"><span style="{{ c.aStyle }}">{{ c.a }}</span></sc-if>
+                            <sc-if value="{{ c.hasB }}" hint-placeholder-val="{{ false }}"><span class="ez-sub">{{ c.b }}</span></sc-if>
+                          </div>
+                        </sc-for>
+                        <sc-if value="{{ r.hasEye }}" hint-placeholder-val="{{ false }}"><div class="ez-td ez-act"><button type="button" class="ez-eye" aria-label="{{ r.aria }}" title="Просмотр"><i class="ri-eye-line" aria-hidden="true"></i></button></div></sc-if>
+                      </div>
+                    </sc-for>
                   </div>
                 </div>
+                <sc-if value="{{ tb.hasFoot }}" hint-placeholder-val="{{ false }}">
+                  <div class="ez-foot"><span class="ez-count">Показано <b>{{ tb.shown }}</b> из <b>{{ tb.total }}</b></span><div class="ez-pages" aria-label="Страницы"><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button><span class="ez-pg" aria-current="page">1</span><button type="button" class="ez-pg" disabled="{{ pgOff }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button></div></div>
+                </sc-if>
               </div>
-            </sc-if>
+            </sc-for>
           </div>
         </sc-if>
 
@@ -1028,7 +967,7 @@ class Component extends DCLogic {
     const route = (props || {}).mode === 'citizen' ? this.route() : { section:'main', dispTab:'reg' };
     this.state = {
       section: route.section,
-      prophyTab:'screen', womenTab:'preg', vitalIdx:0, archOpen:false,
+      prophyTab:'screen', womenTab:'preg', vitalIdx:0,
       drawer:null, docFilter:'all', dispTab:route.dispTab, dispCase:0, narrow:false,
       // фильтры реестров по разделам { [раздел]: { q, [фильтр]: значение } }, открытый список, свёрнутые блоки окна, тост, синхронизация
       flt:{}, ddOpen:null, dlgClosed:{}, toast:'', syncAt:'сегодня, 10:42', syncBusy:false,
@@ -1565,17 +1504,32 @@ class Component extends DCLogic {
 
 
     // ---------- WOMEN ----------
+    // 25.11: содержимое вкладок — в каркасе подразделов ЭПЗ. Данные прежние; метки — тёмным текстом на светлом фоне (DARK)
     const womenTabs=[ {id:'preg',label:'Беременность'},{id:'anamnesis',label:'Акушерско-гинекологический анамнез'},{id:'jfv',label:'ЖФВ'},{id:'contra',label:'Контрацепция'} ]
       .map(t=>({ ...t, sel:String(s.womenTab===t.id), onClick:()=>this.setState({ womenTab:t.id }) }));
+    const wPill=(c)=>`background:${c[0]};color:${DARK[c[1]]||c[1]};`;
+    const wKv=(arr)=>arr.map(([k,v,c])=>({ k, v, isPill:!!c, isTxt:!c, pill:c?wPill(c):'' }));
+    // Текущая беременность: сводка, триместры, постановка на учёт, динамика
+    const pregKv=wKv([ ['Срок','24 недели'],['Дата родов (ПДР)','15.08.2024'],['Осталось','≈ 16 недель'],['Следующий визит','25.04.2024'],['Группа риска','Средняя',T.orangeD] ]);
+    const pregTri=[ ['I триместр','1–13 нед · завершён','done'],['II триместр','14–27 нед · текущий','cur'],['III триместр','28–40 нед · предстоит','next'] ]
+      .map(([t,sub,k])=>({ t, s:sub, cls:'epz-tri-i is-'+k, cur:k==='cur'?'step':'false' }));
+    const pregReg=wKv([ ['Дата постановки на учёт','14.02.2024'],['Поступила из другой МО','Нет'],['Дата последней менструации','05.12.2023'],['Срок беременности','9 недель (ранняя)'],
+      ['Тип беременности','Одноплодная'],['Первое шевеление плода','18.04.2024'],['Прегравидарная подготовка','Да'],['Тип направления','Первичное'],
+      ['Дата УЗИ','12.03.2024'],['Срок по УЗИ','12 недель'],['Мед. организация','Поликлиника №4'],['Врач','Касымова Г.М.'] ]);
+    const pregDyn=[ ['Прибавка веса','+6.5','кг'],['АД (последнее)','118/76',''],['Высота дна матки','24','см'],['ЧСС плода','148','уд/мин'] ]
+      .map(([k,v,u])=>({ k, v, u, hasU:!!u }));
     const pregVisits=[
       { date:'15.02.2024', goal:'Первичный осмотр', status:'Завершено', sc:T.green, doctor:'Касымова Г.М.' },
       { date:'12.03.2024', goal:'Плановое УЗИ (I триместр)', status:'Завершено', sc:T.green, doctor:'Петрова А.К.' },
       { date:'18.05.2024', goal:'Контроль анализов', status:'Запланировано', sc:T.blue, doctor:'Касымова Г.М.' },
       { date:'10.06.2024', goal:'II скрининг', status:'Предстоит', sc:T.gray, doctor:'—' },
-    ].map(p=>({ ...p, statusStyle:tag(p.status,p.sc) }));
-    const reproSummary=[ {label:'Количество беременностей',value:'3'},{label:'Количество родов',value:'2'},{label:'Количество детей',value:'2'},{label:'Сведения о завершении',value:'—'} ];
-    const outcomes=[ {label:'Самопроизвольные аборты',value:'0'},{label:'Медицинские аборты',value:'1'},{label:'Медаборты до 12 недель',value:'1'},{label:'Мини-аборты',value:'0'},{label:'Преждевременные роды',value:'0'},{label:'Мертворождения',value:'0'} ]
-      .map(o=>({ ...o, color: o.value==='0'?'#0A0D14':'#DF1C41' }));
+    ];
+    const screenings=[ ['I скрининг','11–13 недель','12.03.2024',['Риск низкий',T.green]], ['II скрининг','18–21 неделя','20.04.2024',['Без патологий',T.green]], ['III скрининг','30–34 недели','',['Предстоит',T.gray]] ];
+    const pregArchive=[ { from:'05.05.2022', to:'12.01.2023', outcome:'Срочные роды', mass:'3 450 г' } ];
+    // Анамнез
+    const reproSummary=wKv([ ['Количество беременностей','3'],['Количество родов','2'],['Количество детей','2'],['Сведения о завершении','—'] ]);
+    const outcomes=wKv([ ['Самопроизвольные аборты','0'],['Медицинские аборты','1'],['Медаборты до 12 недель','1'],['Мини-аборты','0'],['Преждевременные роды','0'],['Мертворождения','0'] ]);
+    // Контрацепция: текущий метод — меткой «Активен» в столбце «Окончание» (без отдельной плашки статуса, которая повторяла первую строку)
     const contraRows=[
       { method:'Комбинированные оральные контрацептивы', purpose:'С лечебной целью', start:'15.01.2023', end:'—' },
       { method:'Барьерный метод', purpose:'С контрацептивной целью', start:'10.05.2021', end:'14.01.2023' },
@@ -1583,6 +1537,7 @@ class Component extends DCLogic {
       { method:'Чисто прогестиновые таблетки', purpose:'Послеродовая контрацепция', start:'12.11.2016', end:'10.08.2018' },
       { method:'Барьерный метод', purpose:'С контрацептивной целью', start:'01.06.2014', end:'11.11.2016' },
     ];
+    // ЖФВ
     const jfvSummary=[
       { label:'Статус наблюдения', value:'Активна', color:'#176448' },
       { label:'Дата постановки', value:'10.01.2022', color:'#0A0D14' },
@@ -1591,7 +1546,42 @@ class Component extends DCLogic {
       { label:'Последний осмотр', value:'12.04.2024', color:'#0A0D14' },
       { label:'Группа динамического набл.', value:'II группа', color:'#0A0D14' },
     ];
+    const jfvMenses=wKv([ ['Возраст менархе','13 лет'],['Длительность цикла','28 дней'],['Длительность менструации','5 дней'] ]);
+    const jfvSex=wKv([ ['Возраст начала','18 лет'],['Комментарий','Без особенностей'] ]);
+    const jfvGeneral=wKv([ ['Перенесённые заболевания','ОРВИ, ветряная оспа (детство)'],['Перенесённые операции','Аппендэктомия (2015)'],
+      ['Диспансерное наблюдение','Да (сахарный диабет, гипертензия, сердечная недостаточность)'],['Переливание крови','Не проводилось'] ]);
     const jfvRisks=['Отягощённый акушерский анамнез','Возраст старше 30 лет','Хронический гастрит'];
+    const relatives=[ ['I11','Гипертензивная болезнь сердца','Отец'], ['E11','Сахарный диабет 2 типа','Бабушка (по матери)'] ];
+
+    // Таблицы вкладки — один шаблон: заголовок с количеством, сетка столбцов, строки; «глаз» — только у строк с подробностями
+    const wRow=(cells,open,aria)=>({ cells, hasEye:!!open, cls:open?'ez-tr ez-row':'ez-tr epz-wr', onOpen:open||null, aria:aria||'' });
+    const wTbl=(o)=>({ hasHead:!!o.title, title:o.title||'', icon:o.icon||'', hasN:!!o.title && !o.kv, n:String(o.rows.length), hasKv:!!o.kv, kv:o.kv||[],
+      cols:o.cols, vars:o.vars, rows:o.rows, hasEye:o.rows.some(r=>r.hasEye), hasFoot:!!o.foot,
+      shown:o.rows.length>1?'1–'+o.rows.length:String(o.rows.length), total:String(o.rows.length) });
+    const wTables = s.womenTab==='preg' ? [
+      wTbl({ title:'Пренатальные скрининги', icon:'ri-scan-2-line', cols:['Скрининг','Срок','Дата','Результат'],
+        vars:'--cols:minmax(140px,1fr) minmax(130px,1fr) minmax(110px,.8fr) minmax(150px,1fr);',
+        rows:screenings.map(x=>wRow([ ct(x[0],{strong:true}), ct(x[1]), ct(x[2]), cp(x[3][0],x[3][1]) ])) }),
+      wTbl({ title:'График посещений', icon:'ri-calendar-2-line', foot:true, cols:['Дата','Цель визита','Врач','Статус'],
+        vars:'--cols:minmax(110px,.7fr) minmax(210px,1.6fr) minmax(150px,1fr) minmax(140px,.8fr);',
+        rows:pregVisits.map(p=>wRow([ ct(p.date,{strong:true}), ct(p.goal), ct(p.doctor), cp(p.status,p.sc) ])) }),
+      wTbl({ title:'Завершённые беременности', icon:'ri-archive-line', foot:true, cols:['Беременность от','Дата снятия с учёта','Исход'],
+        vars:'--cols:minmax(140px,1fr) minmax(160px,1fr) minmax(170px,1.4fr) 74px;',
+        rows:pregArchive.map(a=>wRow([ ct(a.from,{strong:true}), ct(a.to), cp(a.outcome,T.green) ],
+          ()=>openDrawer({ w:'640px', icon:'ri-women-line', iconC:T.green, title:'Беременность от '+a.from, subtitle:'Снята с учёта · исход: роды (здоровый ребёнок)', kv:4,
+            status:['Беременность завершена без осложнений','Ребёнок состоит на учёте в разделе «Здоровье детей»',T.green],
+            meta:[['Дата регистрации',a.from],['Дата снятия',a.to],['Исход',a.outcome,T.green,true],['Масса плода',a.mass]], sections:[] }),
+          'Просмотр: беременность от '+a.from)) }),
+    ] : s.womenTab==='jfv' ? [
+      wTbl({ title:'Наследственность', icon:'ri-parent-line', kv:wKv([ ['Здоровье отца','Удовлетворительное'],['Наследственные заболевания (отец)','Гипертоническая болезнь'] ]),
+        cols:['Наследственные заболевания родственников (МКБ-10)','Степень родства'],
+        vars:'--cols:minmax(260px,2fr) minmax(170px,1fr);',
+        rows:relatives.map(x=>wRow([ cc(x[0],x[1]), ct(x[2]) ])) }),
+    ] : s.womenTab==='contra' ? [
+      wTbl({ foot:true, cols:['Метод','Назначение','Начало','Окончание'],
+        vars:'--cols:minmax(240px,2fr) minmax(190px,1.4fr) minmax(110px,.7fr) minmax(120px,.7fr);',
+        rows:contraRows.map(c=>wRow([ ct(c.method,{strong:true}), ct(c.purpose), ct(c.start), c.end==='—'?cp('Активен',T.green):ct(c.end) ])) }),
+    ] : [];
 
     // ---------- AMBULANCE ----------
     const ambData=[
@@ -1794,8 +1784,8 @@ class Component extends DCLogic {
       diaryAddLabel: s.diary.sel==='chf' ? 'Добавить запись' : 'Добавить измерение',
       dcReg, dcDx, dispStd, dispRcp, dispDereg, dispDeregActive, dispDeregDone:!dispDeregActive,
       womenTabs, womenPreg:s.womenTab==='preg', womenAnamnesis:s.womenTab==='anamnesis', womenJfv:s.womenTab==='jfv', womenContra:s.womenTab==='contra',
-      pregVisits, reproSummary, outcomes, contraRows, jfvSummary, jfvRisks,
-      archOpen:s.archOpen, toggleArch:()=>this.setState(st=>({ archOpen:!st.archOpen })), archChevron: s.archOpen?'ri-arrow-up-s-line':'ri-arrow-down-s-line',
+      pregTitle:'Беременность от 14.02.2024', pregStatus:'Активная · в работе', pregStatusStyle:wPill(T.green), pregKv, pregTri, pregReg, pregDyn,
+      reproSummary, outcomes, jfvSummary, jfvMenses, jfvSex, jfvGeneral, jfvRisks, jfvRiskN:String(jfvRisks.length), jfvRiskStyle:wPill(T.orangeD), wTables,
       stop:(e)=>e.stopPropagation(),
       drawerOpen:!!dr, closeDrawer:()=>this.setState({ drawer:null }), drawerW:(dr&&dr.w)||'720px', drawerKv:String((dr&&dr.kv)||3),
       drawerHasSub:!!(dr&&dr.subtitle), drawerHasMeta:drawerMeta.length>0, drawerSign:'Подписано ЭЦП врача',
