@@ -43,8 +43,9 @@
 
   /* Заголовок раздела */
   .amb-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:6px;}
-  .amb-title{display:flex;align-items:center;gap:14px;min-width:0;}
-  .amb-title-ico{width:46px;height:46px;border-radius:12px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:24px;}
+  .amb-title{display:flex;align-items:center;gap:12px;min-width:0;}
+  .amb-cnt{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--primary-lighter);color:var(--primary);font-size:12.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .amb-title-ico{width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:24px;}
   .amb-h1{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;}
   .amb-sub{margin:2px 0 0;font-size:13.5px;line-height:20px;color:var(--n500);}
   .amb-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;flex:0 0 auto;transition:background .12s,border-color .12s;box-shadow:var(--sh-xs);}
@@ -100,7 +101,7 @@
   .amb-scroll::-webkit-scrollbar{height:8px;}
   .amb-scroll::-webkit-scrollbar-thumb{background:var(--n200);border-radius:8px;}
   /* минимумы — по содержимому (заголовок со значком сортировки, метки статуса): ничего не обрезается; без прокрутки — от 1175 px */
-  .amb-tr{display:grid;grid-template-columns:minmax(94px,.75fr) minmax(76px,.5fr) minmax(112px,.75fr) minmax(105px,1fr) minmax(144px,.9fr) minmax(126px,1fr) minmax(124px,1.3fr) minmax(104px,1.1fr) minmax(106px,.7fr) minmax(118px,.75fr) 66px;min-width:1175px;background:var(--n0);}
+  .amb-tr{display:grid;grid-template-columns:minmax(96px,.7fr) minmax(112px,.75fr) minmax(140px,1.2fr) minmax(110px,1fr) minmax(140px,1.4fr) minmax(120px,1.2fr) minmax(96px,.6fr) minmax(118px,.75fr) 74px;min-width:1000px;background:var(--n0);}
   .amb-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
   .amb-thead>div{background:var(--n50);}
   .amb-thead .amb-th{background:var(--n50);}   /* у закреплённых «Дата» и «Действия» — свой фон: прокрученные заголовки не просвечивают */
@@ -310,22 +311,10 @@
   <div class="amb-head">
     <div class="amb-title">
       <div class="amb-title-ico" aria-hidden="true"><i class="ri-stethoscope-line"></i></div>
-      <div style="min-width:0;">
-        <h1 class="amb-h1">Амбулаторная помощь</h1>
-        <p class="amb-sub">История амбулаторных приёмов, исследований и назначений</p>
-      </div>
+      <h1 class="amb-h1">Амбулаторная помощь</h1>
+      <span class="amb-cnt">{{ countBadge }}</span>
     </div>
     <button class="amb-btn" type="button" onClick="{{ exportReport }}" disabled="{{ exportDisabled }}" title="{{ exportHint }}"><i class="ri-download-2-line"></i>Экспорт отчёта</button>
-  </div>
-
-  <!-- Сводные показатели -->
-  <div class="amb-card amb-stats" role="list" aria-label="Сводные показатели">
-    <sc-for list="{{ stats }}" as="st" hint-placeholder-count="4">
-      <div class="amb-stat" role="listitem">
-        <span class="amb-stat-ico" style="{{ st.icoStyle }}" aria-hidden="true"><i class="{{ st.icon }}"></i></span>
-        <div style="min-width:0;"><div class="amb-stat-lbl">{{ st.label }}</div><div class="amb-stat-val">{{ st.value }}</div></div>
-      </div>
-    </sc-for>
   </div>
 
   <!-- Поиск, фильтры, таблица, пагинация -->
@@ -401,11 +390,9 @@
           <div class="amb-tbody" role="rowgroup">
             <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
               <div class="amb-tr amb-row" role="row" onClick="{{ r.open }}">
-                <div class="amb-td amb-c1" role="cell"><span class="amb-strong">{{ r.date }}</span></div>
-                <div class="amb-td" role="cell"><span class="amb-num">{{ r.time }}</span></div>
+                <div class="amb-td amb-c1" role="cell"><span class="amb-strong">{{ r.date }}</span><span class="amb-num" style="font-size:12.5px;color:var(--n400);">{{ r.time }}</span></div>
                 <div class="amb-td" role="cell"><span class="amb-pill" style="{{ r.typeStyle }}">{{ r.type }}</span></div>
-                <div class="amb-td" role="cell" style="color:var(--n900);font-weight:500;">{{ r.doctor }}</div>
-                <div class="amb-td" role="cell" style="overflow-wrap:normal;">{{ r.spec }}</div>
+                <div class="amb-td" role="cell"><span style="color:var(--n900);font-weight:500;">{{ r.doctor }}</span><span style="font-size:12.5px;color:var(--n400);">{{ r.spec }}</span></div>
                 <div class="amb-td" role="cell">{{ r.org }}</div>
                 <div class="amb-td" role="cell">
                   <sc-if value="{{ r.hasDx }}" hint-placeholder-val="{{ true }}"><div><span class="amb-icd">{{ r.dx }}</span>{{ r.dxName }}</div></sc-if>
@@ -935,17 +922,15 @@ const SECTIONS = [
 
 // Сортировка: ключ столбца → функция сравнения по возрастанию
 const COLS = [
-  { key:'date', label:'Дата', sort:(a,b) => cmp(a.key, b.key) },
-  { key:'time', label:'Время', sort:(a,b) => cmp(a.t, b.t) },
+  { key:'date', label:'Дата и время', sort:(a,b) => cmp(a.key, b.key) || cmp(a.t, b.t) },
   { key:'type', label:'Вид приёма', sort:(a,b) => TYPES.indexOf(a.type) - TYPES.indexOf(b.type) },
   { key:'doc', label:'Врач', sort:(a,b) => a.doc.localeCompare(b.doc, 'ru') },
-  { key:'spec', label:'Специальность', sort:(a,b) => a.spec.localeCompare(b.spec, 'ru') },
-  { key:'org', label:'Медицинская организация', sort:(a,b) => a.org.localeCompare(b.org, 'ru') },
-  { key:'dx', label:'Диагноз (МКБ-10)' },
+  { key:'org', label:'Мед. организация', sort:(a,b) => a.org.localeCompare(b.org, 'ru') },
+  { key:'dx', label:'Диагноз' },
   { key:'reason', label:'Причина обращения' },
   { key:'studies', label:'Исследования' },
   { key:'status', label:'Статус' },
-  { key:'actions', label:'Действия' },
+  { key:'actions', label:'Действие' },
 ];
 const PAGE = 10;
 const DEF_SORT = { col:'date', dir:'desc' };
@@ -1248,13 +1233,7 @@ class Component extends DCLogic {
     const hasFilters = !!(s.q.trim() || s.from || s.to || s.type || s.spec);
     const goPage = (p) => { this.set({ page:p }); const el = this.scrollRef.current; if(el) el.closest('.amb-card').scrollIntoView({ block:'nearest', behavior:'smooth' }); };
 
-    const count = (t) => VISITS.filter(v => v.type === t).length;
-    const stats = [
-      { label:'Всего приёмов', value:VISITS.length, icon:'ri-stethoscope-line', tone:['#EEF2FF','#4D42E9'] },
-      { label:'Первичных приёмов', value:count('Первичный'), icon:TYPE_ICON['Первичный'], tone:['#EFFAF6','#176448'] },
-      { label:'Повторных приёмов', value:count('Повторный'), icon:TYPE_ICON['Повторный'], tone:['#EBFAFF','#164564'] },
-      { label:'Консультаций', value:count('Консультация'), icon:TYPE_ICON['Консультация'], tone:['#FEF7EC','#693D11'] },
-    ].map(x => ({ ...x, icoStyle:tone(x.tone) }));
+    const countBadge = VISITS.length + ' ' + plural(VISITS.length, 'запись', 'записи', 'записей');
 
     const cols = COLS.map((c, i) => {
       const sortable = !!c.sort, on = s.sort.col === c.key;
@@ -1296,7 +1275,7 @@ class Component extends DCLogic {
     const rangeA = total ? (page - 1) * PAGE + 1 : 0, rangeB = Math.min(page * PAGE, total);
 
     return {
-      stats,
+      countBadge,
       exportReport: () => this.exportReport(list),
       exportDisabled: !total, exportHint: hasFilters ? 'Выгрузить отобранные приёмы в CSV' : 'Выгрузить все приёмы в CSV',
 
