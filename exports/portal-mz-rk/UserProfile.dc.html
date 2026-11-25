@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Профиль пользователя организации — общий для всех кабинетов, кроме кабинета гражданина.
+  Постановка «Разработка прототипа профиля пользователя для всех кабинетов портала МЗ, за исключением кабинета
+  гражданина» (25.11.2026, docs/tz/2026-11-25-profil-polzovatelya.md). Образец — «Профиль гражданина»:
+  те же шапка профиля (фото, полное ФИО, идентификатор под ФИО) и строки «поле → значение → действие».
+    • ФИО и БИН организации — только просмотр (БИН стоит под ФИО вместо ИИН);
+    • номер телефона и электронная почта — обязательные, меняются прямо в строке: «Изменить» → поле,
+      «Отмена» / «Сохранить», Enter / Esc; ошибка — под полем; без подтверждения по SMS / БМГ;
+    • адрес организации — только просмотр (вместо адреса регистрации), замок с подсказкой;
+    • фото — необязательное: окно «Изменение фото профиля» (как в меню кабинета гражданина).
+  Подключение — в основной области страницы кабинета:
+    <dc-import name="UserProfile" cab="biz | nn | fk | ncels | head" hint-size="100%,640px"></dc-import>
+  Проп h — размер заголовка под соседние страницы кабинета: md (18/500, по умолчанию), m (20/600), lg (24/600).
+  Кто вошёл: biz / ncels / head — демо-пользователь кабинета (head — window.mpOrgRep.head()),
+  nn / fk — текущий сотрудник АРМ (window.mpArm.current(arm), переключатель «Работать от имени»).
+  Хранение (вместо сервера):
+    localStorage mp-user-profile — { "<кабинет>[:<id сотрудника>]": { phone, email } }, нет записи — демо-значения;
+    localStorage mp-user-photo:<кабинет>[:<id>] — фото (JPEG 400×400, data URL), событие window mp-user-photo-change
+    (его слушают шапки и меню кабинетов).
+  Язык — localStorage mp-lang (ҚАЗ — казахский, иначе русский), событие window mp-lang-change.
+  Панель «Прототип»: язык, контакты заполнены / не заполнены, сохранение успешно / ошибка
+  (sessionStorage mp-user-save-scn), сброс фото. Проп pp-left — отступ панели слева (по умолчанию 296 — правее меню).
+-->
+<x-dc>
+<helmet>
+<style>
+  .up{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--stroke:#E2E4E9;
+    display:flex;flex-direction:column;gap:16px;font-family:'Inter',sans-serif;color:var(--n900);animation:up-fade .2s ease;
+  }
+  .up *,.up *::before,.up *::after{box-sizing:border-box;}
+  @keyframes up-fade{from{opacity:0}to{opacity:1}}
+  @keyframes up-slidein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes up-pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+  @keyframes up-spin{to{transform:rotate(360deg)}}
+  @keyframes up-flash{0%{box-shadow:0 0 0 4px var(--primary-lighter),0 0 0 8px rgba(56,199,147,.55)}100%{box-shadow:0 0 0 4px var(--primary-lighter),0 0 0 8px rgba(56,199,147,0)}}
+
+  .up-title{margin:0;font-size:18px;line-height:24px;font-weight:500;letter-spacing:-.015em;}
+  .up[data-h="lg"] .up-title{font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+  .up[data-h="m"] .up-title{font-size:20px;line-height:28px;font-weight:600;}
+  .up-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:0 1px 2px rgba(10,13,20,.03);overflow:hidden;}
+
+  /* Кто вошёл: фото + полное ФИО + БИН — как в профиле гражданина */
+  .up-hero{display:flex;align-items:center;gap:24px;padding:24px;}
+  .up-ava{position:relative;width:112px;height:112px;flex:0 0 auto;padding:0;border:none;border-radius:50%;background:none;cursor:pointer;font-family:inherit;}
+  .up-ava-in{position:absolute;inset:0;border-radius:50%;overflow:hidden;background:var(--primary-lighter);box-shadow:0 0 0 4px var(--primary-lighter);display:flex;align-items:center;justify-content:center;transition:box-shadow .15s;}
+  .up-ava[data-flash="true"] .up-ava-in{animation:up-flash 1.6s ease-out;}
+  .up-ini{font-size:38px;line-height:1;font-weight:600;letter-spacing:-.01em;color:var(--primary);}
+  .up-ava-ov{position:absolute;inset:0;border-radius:50%;background:rgba(10,13,20,0);color:#fff;font-size:26px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+  .up-ava-ov i{opacity:0;transition:opacity .15s;}
+  .up-ava:hover .up-ava-in{box-shadow:0 0 0 4px var(--primary-light);}
+  .up-ava:hover .up-ava-ov,.up-ava:focus-visible .up-ava-ov{background:rgba(10,13,20,.38);}
+  .up-ava:hover .up-ava-ov i,.up-ava:focus-visible .up-ava-ov i{opacity:1;}
+  .up-ava:focus-visible{outline:none;}
+  .up-ava:focus-visible .up-ava-in{box-shadow:0 0 0 2px #fff,0 0 0 6px var(--primary-light);}
+  .up-who{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px;}
+  .up-fio{margin:0;max-width:34ch;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
+  .up-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
+  .up-id{font-size:14px;line-height:20px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .up-who .up-btn{margin-top:12px;}
+
+  /* Строки: поле → значение → действие (колонка значения ограничена: действие рядом со значением и на мониторе) */
+  .up-row{display:grid;grid-template-columns:minmax(200px,240px) minmax(0,600px) auto;justify-content:start;align-items:center;gap:8px 24px;min-height:68px;padding:12px 24px;border-top:1px solid var(--stroke);transition:background .12s;}
+  .up-row.ed:hover{background:var(--n50);}          /* ховер — только у строк, которые можно изменить */
+  .up-row.open{align-items:start;background:#FAFAFF;padding-top:16px;padding-bottom:16px;}
+  .up-row.open:hover{background:#FAFAFF;}
+  .up-row.open .up-lbl{min-height:40px;}
+  .up-lbl{display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);}
+  .up-lbl i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .up-lbl label{min-width:0;}
+  .up-req{color:var(--red);font-weight:600;cursor:help;border-radius:4px;}
+  .up-req:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);}
+  .up-val{min-width:0;font-size:15px;line-height:22px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;text-wrap:pretty;}
+  .up-val.tnum{font-variant-numeric:tabular-nums;}
+  .up-val.miss{display:flex;align-items:center;gap:6px;color:var(--red-d);font-weight:500;}
+  .up-val.miss i{font-size:17px;color:var(--red);flex:0 0 auto;}
+  .up-act{display:flex;align-items:center;justify-content:flex-end;gap:8px;}
+  .up-lock{width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:var(--n400);font-size:18px;cursor:help;transition:background .12s,color .12s;}
+  .up-lock:hover{background:var(--n100);color:var(--n600);}
+
+  /* Поле ввода */
+  .up-field{display:flex;flex-direction:column;gap:6px;max-width:440px;}
+  .up-box{position:relative;display:flex;align-items:center;}
+  .up-pfx{position:absolute;left:12px;top:0;bottom:0;display:flex;align-items:center;font-size:15px;font-weight:500;color:var(--n500);pointer-events:none;font-variant-numeric:tabular-nums;}
+  .up-input{width:100%;height:40px;padding:0 12px;border:1px solid var(--n300);border-radius:10px;background:var(--n0);font-family:inherit;font-size:15px;color:var(--n900);outline:none;transition:border-color .12s,box-shadow .12s;}
+  .up-input.tel{padding-left:38px;font-variant-numeric:tabular-nums;letter-spacing:.01em;}
+  .up-input::placeholder{color:var(--n400);}
+  .up-input:hover{border-color:var(--n400);}
+  .up-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .up-input[aria-invalid="true"]{border-color:var(--red);}
+  .up-input[aria-invalid="true"]:focus{box-shadow:0 0 0 3px var(--red-l);}
+  .up-input:disabled{background:var(--n50);color:var(--n500);}
+  .up-err{display:flex;align-items:flex-start;gap:6px;font-size:13px;line-height:18px;color:var(--red);animation:up-fade .15s ease;}
+  .up-err i{font-size:16px;line-height:18px;flex:0 0 auto;}
+  .up-fail{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:10px;background:var(--red-l);color:var(--red-d);font-size:13px;line-height:18px;animation:up-fade .15s ease;}
+  .up-fail i{font-size:16px;line-height:18px;color:var(--red);flex:0 0 auto;}
+
+  .up-btn{height:36px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
+  .up-btn i{font-size:17px;}
+  .up-btn.sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:0 1px 2px rgba(82,88,102,.06);}
+  .up-btn.sec:hover:not(:disabled){background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .up-btn.sec i{color:var(--n400);}
+  .up-btn.pri{height:40px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-weight:600;}
+  .up-btn.pri:hover:not(:disabled){background:var(--primary-dark);border-color:var(--primary-dark);}
+  .up-btn.pri[data-busy="true"]{cursor:progress;opacity:.85;}
+  .up-row.open .up-btn.sec{height:40px;}
+  .up-btn:disabled{cursor:not-allowed;}
+  .up-spin{display:inline-block;animation:up-spin .8s linear infinite;}
+  .up-btn:focus-visible,.up-lock:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  .up-toast{position:fixed;right:28px;bottom:96px;z-index:80;display:flex;align-items:center;gap:10px;max-width:380px;padding:12px 16px 12px 14px;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:0 16px 32px -12px rgba(10,13,20,.14);font-size:14px;line-height:20px;font-weight:500;color:var(--n900);animation:up-slidein .2s ease;}
+  .up-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+  .up-tip{position:fixed;z-index:300;max-width:300px;padding:8px 11px;border-radius:10px;background:var(--n900,#0A0D14);color:#fff;font:500 13px/1.45 'Inter',system-ui,sans-serif;letter-spacing:-.003em;box-shadow:0 12px 28px -10px rgba(10,13,20,.45);pointer-events:none;opacity:0;transform:translateY(3px);transition:opacity .14s ease,transform .14s ease;}
+  .up-tip.on{opacity:1;transform:none;}
+
+  /* ===== Окно «Изменение фото профиля» (как в меню кабинета гражданина) ===== */
+  .up-ov{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;text-align:left;}
+  .up-ov-bg{position:absolute;inset:0;background:rgba(10,13,20,.48);animation:up-fade .15s ease;}
+  .up-dlg{position:relative;width:100%;max-width:480px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;background:#fff;border-radius:20px;box-shadow:0 24px 48px -12px rgba(14,18,27,.24);animation:up-pop .18s ease;overflow:hidden;}
+  .up-dlg:focus{outline:none;}
+  .up-dlg-h{display:flex;align-items:center;gap:12px;padding:18px 16px 16px 24px;border-bottom:1px solid var(--stroke);}
+  .up-dlg-t{flex:1;min-width:0;margin:0;font-size:18px;line-height:26px;font-weight:600;letter-spacing:-.01em;}
+  .up-x{width:36px;height:36px;border:none;border-radius:10px;background:transparent;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
+  .up-x:hover{background:var(--n100);color:var(--n600);}
+  .up-dlg-b{overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;}
+  .up-pv-box{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .up-pv{position:relative;width:176px;height:176px;border-radius:50%;overflow:hidden;background:var(--n100);box-shadow:0 0 0 4px var(--primary-lighter);display:flex;align-items:flex-end;justify-content:center;flex:0 0 auto;touch-action:none;user-select:none;-webkit-user-select:none;transition:box-shadow .15s;}
+  .up-pv img{display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
+  .up-pv-cur{width:100%;height:100%;object-fit:cover;}
+  .up-pv-ini{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--primary-lighter);color:var(--primary);font-size:56px;font-weight:600;letter-spacing:-.01em;}
+  .up-pv[data-edit="true"]{cursor:grab;box-shadow:0 0 0 4px var(--primary-light);}
+  .up-pv[data-edit="true"]:active{cursor:grabbing;}
+  .up-pv[data-edit="true"]:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 6px var(--primary);}
+  .up-pv-move{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;background:rgba(10,13,20,.55);color:#fff;font-size:11.5px;font-weight:500;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;}
+  .up-pv[data-edit="true"]:hover .up-pv-move,.up-pv[data-edit="true"]:focus-visible .up-pv-move{opacity:1;}
+  .up-pv-busy{position:absolute;inset:0;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;animation:up-fade .15s ease;}
+  .up-zoom{display:flex;align-items:center;gap:10px;width:220px;}
+  .up-zoom i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .up-zoom input{flex:1;min-width:0;margin:0;accent-color:var(--primary);cursor:pointer;height:20px;}
+  .up-zoom input:disabled{cursor:default;opacity:.5;}
+  .up-dz{display:flex;flex-direction:column;align-items:center;gap:10px;padding:20px 16px;border:1.5px dashed var(--n300);border-radius:14px;background:var(--n50);text-align:center;cursor:pointer;transition:background .12s,border-color .12s;}
+  .up-dz:hover{border-color:var(--primary-light);background:#FAFAFF;}
+  .up-dz[data-drag="true"]{border-color:var(--primary);background:var(--primary-lighter);border-style:solid;}
+  .up-dz[data-err="true"]{border-color:#F8C9D2;}
+  .up-dz-ico{width:44px;height:44px;border-radius:50%;background:var(--n0);box-shadow:0 0 0 1px var(--stroke);display:flex;align-items:center;justify-content:center;color:var(--primary);}
+  .up-dz-or{font-size:13px;line-height:18px;color:var(--n500);}
+  .up-file{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 12px;border:1px solid var(--stroke);border-radius:14px;background:var(--n0);transition:background .12s,border-color .12s;}
+  .up-file[data-drag="true"]{border-color:var(--primary);background:var(--primary-lighter);}
+  .up-file-ico{width:36px;height:36px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .up-file-n{font-size:14px;line-height:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .up-file-s{font-size:12px;line-height:16px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .up-hint{display:flex;align-items:center;gap:6px;font-size:12.5px;line-height:18px;color:var(--n500);}
+  .up-btn2{height:36px;padding:0 14px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;box-shadow:0 1px 2px rgba(82,88,102,.06);transition:background .12s,border-color .12s,color .12s;}
+  .up-btn2:hover{background:var(--n100);border-color:var(--n300);color:var(--n900);}
+  .up-btn2:disabled{opacity:.5;cursor:default;}
+  .up-derr{display:flex;gap:10px;padding:12px 14px;border-radius:12px;background:var(--red-l);color:var(--red-d);animation:up-fade .15s ease;}
+  .up-derr i{font-size:18px;line-height:20px;color:var(--red);flex:0 0 auto;}
+  .up-dlg-f{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 24px 24px;}
+  .up-bt{height:44px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;}
+  .up-bt-sec{border:1px solid var(--stroke);background:var(--n0);color:var(--n600);font-weight:500;}
+  .up-bt-sec:hover{background:var(--n100);border-color:var(--n300);}
+  .up-bt-pri{border:none;background:var(--primary);color:#fff;box-shadow:0 1px 2px rgba(77,66,233,.24);}
+  .up-bt-pri:hover:not(:disabled){background:var(--primary-dark);}
+  .up-bt-pri:disabled{background:var(--n200);color:var(--n400);box-shadow:none;cursor:not-allowed;}
+  .up-bt-pri[data-busy="true"]:disabled{background:var(--primary);color:#fff;opacity:.85;cursor:progress;}
+  .up-x:focus-visible,.up-btn2:focus-visible,.up-bt:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .up-zoom input:focus-visible{outline:2px solid var(--primary-light);outline-offset:2px;border-radius:4px;}
+
+  /* Панель «Прототип» (как на профиле гражданина) */
+  .up-pp{position:fixed;bottom:20px;z-index:50;width:232px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .up-pp.open{width:264px;}
+  .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
+  .pp-head:hover{background:var(--n100);}
+  .pp-cap{margin:10px 0 4px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
+  .pp-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .pp-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--stroke);background:#fff;font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover:not(:disabled){background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+  .pp-btn:disabled{opacity:.5;cursor:default;}
+  .pp-head:focus-visible,.pp-btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  @media (min-width:1800px){
+    .up-hero{padding:28px 32px;}
+    .up-row{padding-left:32px;padding-right:32px;}
+  }
+  @media (max-width:720px){
+    .up-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"lbl act" "val val";gap:4px 12px;padding:14px 16px;}
+    .up-row .up-lbl{grid-area:lbl;}
+    .up-row .up-val,.up-row .up-field{grid-area:val;}
+    .up-row .up-act{grid-area:act;}
+    .up-row.open{grid-template-areas:"lbl lbl" "val val" "act act";}
+    .up-row.open .up-lbl{min-height:0;}
+    .up-row.open .up-act{justify-content:stretch;margin-top:8px;}
+    .up-row.open .up-act .up-btn{flex:1;}
+    .up-field{max-width:none;}
+  }
+  @media (max-width:640px){
+    .up-title{font-size:18px;line-height:24px;}
+    .up[data-h="lg"] .up-title{font-size:20px;line-height:28px;}
+    .up-hero{gap:16px;padding:20px 16px;}
+    .up-ava{width:80px;height:80px;}
+    .up-ini{font-size:28px;}
+    .up-fio{font-size:20px;line-height:26px;}
+    .up-toast{left:16px;right:16px;bottom:80px;max-width:none;}
+    .up-pp{left:96px !important;right:16px;width:auto;}
+    .up-pp.open{width:auto;}
+  }
+  @media (max-width:520px){
+    .up-hero{flex-wrap:wrap;}   /* узкая колонка рядом со свёрнутым меню кабинета: ФИО и кнопка фото — под фото */
+    /* «Изменить» / «Добавить» в просмотре — только значок (подпись — в aria-label), подписи поля хватает места */
+    .up-row:not(.open) .up-act .up-btn{width:36px;padding:0;}
+    .up-row:not(.open) .up-act .up-btn-t{display:none;}
+    .up-ov{align-items:flex-end;padding:0;}
+    .up-dlg{max-width:none;max-height:calc(100vh - 24px);border-radius:20px 20px 0 0;}
+    .up-dlg-h{padding:16px 12px 14px 20px;}
+    .up-dlg-b{padding:20px;}
+    .up-dlg-f{padding:12px 20px 20px;}
+    .up-pv{width:152px;height:152px;}
+    .up-pv-ini{font-size:48px;}
+  }
+  @media (hover:none){ .up-dz-or{display:none;} }
+  @media (prefers-reduced-motion:reduce){ .up,.up-toast,.up-err,.up-fail,.up-ov-bg,.up-dlg,.up-derr,.up-pv-busy{animation:none;} .up-ava[data-flash="true"] .up-ava-in{animation:none;} }
+</style>
+</helmet>
+
+<div class="up" data-h="{{ h }}" lang="{{ langAttr }}">
+  <h1 class="up-title">{{ t.title }}</h1>
+
+  <section class="up-card" aria-label="{{ t.title }}">
+    <!-- Фото, полное ФИО, БИН организации -->
+    <div class="up-hero">
+      <button type="button" class="up-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-haspopup="dialog" aria-label="{{ photoAct }}" data-flash="{{ flash }}">
+        <span class="up-ava-in">
+          <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ photoBg }}"></span></sc-if>
+          <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><span class="up-ini" aria-hidden="true">{{ initials }}</span></sc-if>
+          <span class="up-ava-ov" aria-hidden="true"><i class="ri-camera-line"></i></span>
+        </span>
+      </button>
+      <div class="up-who">
+        <h2 class="up-fio"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></h2>
+        <div class="up-id">{{ binText }}</div>
+        <button type="button" class="up-btn sec" onClick="{{ openDlg }}" aria-haspopup="dialog"><i class="{{ photoIcon }}" aria-hidden="true"></i>{{ photoAct }}</button>
+      </div>
+    </div>
+
+    <!-- Номер телефона и электронная почта — обязательные, редактируются -->
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
+      <div class="{{ r.cls }}">
+        <div class="up-lbl"><i class="{{ r.icon }}" aria-hidden="true"></i><label for="{{ r.inputId }}">{{ r.label }}&nbsp;<span class="up-req" tabIndex="0" role="img" aria-label="{{ t.req }}" data-up-tip="{{ t.req }}">*</span></label></div>
+        <sc-if value="{{ r.view }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ r.has }}" hint-placeholder-val="{{ true }}"><div class="{{ r.valCls }}">{{ r.text }}</div></sc-if>
+          <sc-if value="{{ r.miss }}" hint-placeholder-val="{{ false }}"><div class="up-val miss"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ r.text }}</div></sc-if>
+          <div class="up-act">
+            <button type="button" class="up-btn sec" ref="{{ r.btnRef }}" onClick="{{ r.start }}" aria-label="{{ r.btnAria }}"><i class="{{ r.btnIcon }}" aria-hidden="true"></i><span class="up-btn-t">{{ r.btn }}</span></button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
+          <div class="up-field">
+            <div class="up-box">
+              <sc-if value="{{ r.isTel }}" hint-placeholder-val="{{ false }}"><span class="up-pfx" aria-hidden="true">+7</span></sc-if>
+              <input id="{{ r.inputId }}" ref="{{ r.inputRef }}" class="{{ r.inputCls }}" type="{{ r.type }}" inputMode="{{ r.inputMode }}" autoComplete="{{ r.autoComplete }}" spellCheck="false" maxLength="{{ r.maxLength }}"
+                     placeholder="{{ r.ph }}" value="{{ r.draft }}" onChange="{{ r.onDraft }}" onKeyDown="{{ r.onKey }}"
+                     aria-invalid="{{ r.invalid }}" aria-required="true" aria-describedby="{{ r.descId }}" disabled="{{ r.saving }}">
+            </div>
+            <sc-if value="{{ r.hasErr }}" hint-placeholder-val="{{ false }}">
+              <div class="up-err" id="{{ r.errId }}" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ r.errText }}</div>
+            </sc-if>
+            <sc-if value="{{ r.failed }}" hint-placeholder-val="{{ false }}">
+              <div class="up-fail" id="{{ r.errId }}" role="alert"><i class="ri-error-warning-fill" aria-hidden="true"></i>{{ t.saveFail }}</div>
+            </sc-if>
+          </div>
+          <div class="up-act">
+            <button type="button" class="up-btn sec" onClick="{{ r.cancel }}" disabled="{{ r.saving }}">{{ t.cancel }}</button>
+            <button type="button" class="up-btn pri" onClick="{{ r.save }}" disabled="{{ r.saving }}" data-busy="{{ r.saving }}">
+              <sc-if value="{{ r.saving }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line up-spin" aria-hidden="true"></i></sc-if>{{ r.saveLbl }}
+            </button>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+
+    <!-- Адрес организации — только просмотр -->
+    <div class="up-row">
+      <div class="up-lbl"><i class="ri-building-2-line" aria-hidden="true"></i>{{ t.addr }}</div>
+      <div class="up-val">{{ addr }}</div>
+      <div class="up-act"><span class="up-lock" tabIndex="0" role="img" aria-label="{{ t.lock }}" data-up-tip="{{ t.lock }}"><i class="ri-lock-line" aria-hidden="true"></i></span></div>
+    </div>
+  </section>
+
+  <!-- Изменение фото профиля -->
+  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
+    <div class="up-ov" onDragOver="{{ onDragOver }}" onDragLeave="{{ onDragLeave }}" onDrop="{{ onDrop }}">
+      <div class="up-ov-bg" onClick="{{ onBackdrop }}"></div>
+      <div class="up-dlg" ref="{{ dlgRef }}" role="dialog" aria-modal="true" aria-labelledby="up-dlg-t" tabIndex="-1" onKeyDown="{{ onDlgKey }}">
+        <div class="up-dlg-h">
+          <h2 id="up-dlg-t" class="up-dlg-t">{{ t.dlgTitle }}</h2>
+          <button type="button" class="up-x" onClick="{{ close }}" aria-label="{{ t.close }}"><i class="ri-close-line" style="font-size:22px;"></i></button>
+        </div>
+        <div class="up-dlg-b">
+          <div class="up-pv-box">
+            <div class="up-pv" ref="{{ pvRef }}" data-edit="{{ pvEdit }}" tabIndex="{{ pvTab }}" role="{{ pvRole }}" aria-label="{{ pvAria }}"
+                 onPointerDown="{{ onPvDown }}" onKeyDown="{{ onPvKey }}">
+              <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}"><img src="{{ selSrc }}" alt="" style="{{ selStyle }}" draggable="false"></sc-if>
+              <sc-if value="{{ showCur }}" hint-placeholder-val="{{ false }}"><img class="up-pv-cur" src="{{ photo }}" alt="{{ t.curPhoto }}" draggable="false"></sc-if>
+              <sc-if value="{{ showDef }}" hint-placeholder-val="{{ true }}"><span class="up-pv-ini" aria-hidden="true">{{ initials }}</span></sc-if>
+              <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ false }}"><span class="up-pv-move" aria-hidden="true"><i class="ri-drag-move-2-line" style="font-size:13px;"></i>{{ t.move }}</span></sc-if>
+              <sc-if value="{{ phSaving }}" hint-placeholder-val="{{ false }}">
+                <div class="up-pv-busy" role="progressbar" aria-label="{{ t.phSaving }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ prog }}">
+                  <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+                    <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="4"></circle>
+                    <circle cx="32" cy="32" r="27" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-dasharray="169.65" stroke-dashoffset="{{ ringOff }}" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset .12s linear;"></circle>
+                    <text x="32" y="37" text-anchor="middle" fill="#fff" font-family="Inter,sans-serif" font-size="14" font-weight="600">{{ progTxt }}</text>
+                  </svg>
+                </div>
+              </sc-if>
+            </div>
+            <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+              <div class="up-zoom">
+                <i class="ri-zoom-out-line" aria-hidden="true"></i>
+                <input type="range" min="1" max="3" step="0.01" value="{{ zoom }}" onChange="{{ onZoom }}" disabled="{{ phSaving }}" aria-label="{{ t.zoom }}">
+                <i class="ri-zoom-in-line" aria-hidden="true"></i>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ noSel }}" hint-placeholder-val="{{ true }}">
+            <div class="up-dz" data-drag="{{ drag }}" data-err="{{ hasDErr }}" onClick="{{ onDzClick }}">
+              <span class="up-dz-ico" aria-hidden="true"><i class="ri-upload-cloud-2-line" style="font-size:22px;"></i></span>
+              <button type="button" class="up-btn2" ref="{{ pickRef }}" onClick="{{ pick }}"><i class="ri-folder-open-line" style="font-size:16px;color:var(--n400);"></i>{{ t.pick }}</button>
+              <span class="up-dz-or">{{ dzText }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+            <div class="up-file" data-drag="{{ drag }}">
+              <span class="up-file-ico" aria-hidden="true"><i class="ri-image-line" style="font-size:18px;"></i></span>
+              <span style="flex:1;min-width:0;">
+                <span class="up-file-n" style="display:block;" title="{{ selName }}">{{ selName }}</span>
+                <span class="up-file-s" style="display:block;">{{ selMeta }}</span>
+              </span>
+              <button type="button" class="up-btn2" onClick="{{ pick }}" disabled="{{ phSaving }}"><i class="ri-refresh-line" style="font-size:16px;color:var(--n400);"></i>{{ t.replace }}</button>
+            </div>
+          </sc-if>
+
+          <div class="up-hint"><i class="ri-information-line" style="font-size:15px;" aria-hidden="true"></i>{{ t.fmt }}</div>
+
+          <sc-if value="{{ hasDErr }}" hint-placeholder-val="{{ false }}">
+            <div class="up-derr" role="alert">
+              <i class="ri-error-warning-fill" aria-hidden="true"></i>
+              <div style="min-width:0;">
+                <div style="font-size:14px;line-height:20px;font-weight:600;">{{ dErrTitle }}</div>
+                <div style="font-size:13px;line-height:18px;margin-top:2px;">{{ dErrText }}</div>
+              </div>
+            </div>
+          </sc-if>
+          <input ref="{{ fileRef }}" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" onChange="{{ onFile }}" tabIndex="-1" aria-hidden="true" style="display:none;">
+        </div>
+        <div class="up-dlg-f">
+          <button type="button" class="up-bt up-bt-sec" onClick="{{ close }}">{{ t.cancel }}</button>
+          <button type="button" class="up-bt up-bt-pri" onClick="{{ phSave }}" disabled="{{ phSaveOff }}" data-busy="{{ phSaving }}">
+            <sc-if value="{{ phSaving }}" hint-placeholder-val="{{ false }}"><i class="ri-loader-4-line up-spin" style="font-size:18px;" aria-hidden="true"></i></sc-if>{{ phSaveLbl }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="up-toast" role="status"><i class="ri-checkbox-circle-fill" style="font-size:22px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>{{ toast }}</div>
+  </sc-if>
+  <span class="up-sr" aria-live="polite">{{ live }}</span>
+
+  <!-- Панель прототипа -->
+  <div class="{{ ppCls }}" style="{{ ppStyle }}" role="region" aria-label="Панель прототипа">
+    <button type="button" class="pp-head" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:2px 12px 12px;border-top:1px solid var(--stroke);">
+        <sc-for list="{{ ppGroups }}" as="g" hint-placeholder-count="3">
+          <div class="pp-cap">{{ g.label }}</div>
+          <div class="pp-row" role="radiogroup" aria-label="{{ g.label }}">
+            <sc-for list="{{ g.opts }}" as="x" hint-placeholder-count="2">
+              <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}">{{ x.label }}</button>
+            </sc-for>
+          </div>
+        </sc-for>
+        <div class="pp-cap">Фото профиля</div>
+        <button type="button" class="pp-btn" onClick="{{ ppNoPhoto }}" disabled="{{ ppNoPhotoOff }}" style="width:100%;"><i class="ri-user-3-line" style="font-size:15px;" aria-hidden="true"></i>Сбросить: фото не загружено</button>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:640},&quot;cab&quot;:&quot;biz&quot;}">
+// ---------- Словарь: русский и казахский (п. 4 постановки) ----------
+const T = {
+  ru: {
+    title:'Профиль', bin:'БИН организации', phone:'Номер телефона', email:'Электронная почта', addr:'Адрес организации',
+    req:'Обязательное поле', lock:'Только просмотр: данные получены из государственных информационных систем',
+    change:'Изменить', add:'Добавить', cancel:'Отмена', save:'Сохранить', saving:'Сохранение…',
+    noPhone:'Не указан', noMail:'Не указана',
+    phoneChange:'Изменить номер телефона', phoneAdd:'Добавить номер телефона', mailChange:'Изменить электронную почту', mailAdd:'Добавить электронную почту',
+    eEmptyPhone:'Введите номер телефона', eFmtPhone:'Неверный формат номера телефона. Пример: +7 701 123 45 67',
+    eEmptyMail:'Введите электронную почту', eFmtMail:'Неверный формат электронной почты. Пример: name@mail.kz',
+    saveFail:'Не удалось сохранить изменения. Повторите попытку позже',
+    okPhone:'Номер телефона изменён', okPhoneAdd:'Номер телефона добавлен', okMail:'Электронная почта изменена', okMailAdd:'Электронная почта добавлена',
+    phUpload:'Загрузить фото', phChange:'Изменить фото', phOk:'Фото профиля обновлено',
+    dlgTitle:'Изменение фото профиля', close:'Закрыть', pick:'Выберите файл', dz:'или перетащите фото сюда', dzDrop:'Отпустите файл, чтобы загрузить',
+    replace:'Заменить', fmt:'JPG, JPEG, PNG · не более 5 МБ', move:'Перетащите', zoom:'Масштаб фото', curPhoto:'Текущее фото профиля',
+    noPhotoAria:'Фото не загружено', pvAria:'Область фото: перетащите или используйте стрелки, «+» и «−» — масштаб',
+    phSaving:'Сохранение фото', phSel:'Фото выбрано. Перетащите его, чтобы выбрать область, и нажмите «Сохранить»',
+    eType:['Неподдерживаемый формат файла', 'Выберите фото в формате JPG, JPEG или PNG'],
+    eSize:(mb) => ['Файл больше 5 МБ', `Размер выбранного файла — ${mb} МБ. Выберите фото меньшего размера`],
+    eBroken:['Не удалось открыть файл', 'Файл повреждён или не является изображением. Выберите другое фото'],
+    eUpload:['Не удалось загрузить фотографию', 'Попробуйте сохранить ещё раз немного позже'],
+    kb:'КБ', mb:'МБ',
+  },
+  kz: {
+    title:'Профиль', bin:'Ұйымның БСН', phone:'Телефон нөмірі', email:'Электрондық пошта', addr:'Ұйымның мекенжайы',
+    req:'Міндетті өріс', lock:'Тек қарау: деректер мемлекеттік ақпараттық жүйелерден алынған',
+    change:'Өзгерту', add:'Қосу', cancel:'Болдырмау', save:'Сақтау', saving:'Сақталуда…',
+    noPhone:'Көрсетілмеген', noMail:'Көрсетілмеген',
+    phoneChange:'Телефон нөмірін өзгерту', phoneAdd:'Телефон нөмірін қосу', mailChange:'Электрондық поштаны өзгерту', mailAdd:'Электрондық поштаны қосу',
+    eEmptyPhone:'Телефон нөмірін енгізіңіз', eFmtPhone:'Телефон нөмірінің форматы қате. Мысалы: +7 701 123 45 67',
+    eEmptyMail:'Электрондық поштаны енгізіңіз', eFmtMail:'Электрондық пошта форматы қате. Мысалы: name@mail.kz',
+    saveFail:'Өзгерістерді сақтау мүмкін болмады. Кейінірек қайталап көріңіз',
+    okPhone:'Телефон нөмірі өзгертілді', okPhoneAdd:'Телефон нөмірі қосылды', okMail:'Электрондық пошта өзгертілді', okMailAdd:'Электрондық пошта қосылды',
+    phUpload:'Фото жүктеу', phChange:'Фотоны өзгерту', phOk:'Профиль фотосы жаңартылды',
+    dlgTitle:'Профиль фотосын өзгерту', close:'Жабу', pick:'Файлды таңдаңыз', dz:'немесе фотоны осында сүйреп әкеліңіз', dzDrop:'Файлды осында тастаңыз',
+    replace:'Ауыстыру', fmt:'JPG, JPEG, PNG · 5 МБ-тан аспайды', move:'Жылжытыңыз', zoom:'Фото масштабы', curPhoto:'Профильдің ағымдағы фотосы',
+    noPhotoAria:'Фото жүктелмеген', pvAria:'Фото аймағы: жылжытыңыз немесе көрсеткілерді пайдаланыңыз, «+» және «−» — масштаб',
+    phSaving:'Фото сақталуда', phSel:'Фото таңдалды. Аймақты таңдау үшін оны жылжытып, «Сақтау» түймесін басыңыз',
+    eType:['Файл форматы қолдау көрсетілмейді', 'JPG, JPEG немесе PNG форматындағы фотоны таңдаңыз'],
+    eSize:(mb) => ['Файл 5 МБ-тан үлкен', `Таңдалған файлдың өлшемі — ${mb} МБ. Кішірек фото таңдаңыз`],
+    eBroken:['Файлды ашу мүмкін болмады', 'Файл зақымдалған немесе сурет емес. Басқа фото таңдаңыз'],
+    eUpload:['Фотоны жүктеу мүмкін болмады', 'Сәл кейінірек қайта сақтап көріңіз'],
+    kb:'КБ', mb:'МБ',
+  },
+};
+const readLang = () => { try { return localStorage.getItem('mp-lang') === 'ҚАЗ' ? 'kz' : 'ru'; } catch(e){ return 'ru'; } };
+
+// ---------- Организации кабинетов (БИН и юридический адрес — как в справочнике «Организации») ----------
+const ORG = {
+  biz:   { bin:'180540024521', ru:'010000, г. Астана, район Есиль, пр. Кабанбай батыра, 11, офис 402', kz:'010000, Астана қ., Есіл ауданы, Қабанбай батыр даңғылы, 11, 402-кеңсе' },
+  nn:    { bin:'110340017483', ru:'010000, г. Астана, район Есиль, ул. Мәңгілік Ел, 20, н. п. 3', kz:'010000, Астана қ., Есіл ауданы, Мәңгілік Ел көшесі, 20, 3-үй-жай' },
+  fk:    { bin:'060140011846', ru:'010000, г. Астана, район Есиль, пр. Мәңгілік Ел, 8, административное здание «Дом министерств», подъезд 5', kz:'010000, Астана қ., Есіл ауданы, Мәңгілік Ел даңғылы, 8, «Министрліктер үйі» әкімшілік ғимараты, 5-кіреберіс' },
+  ncels: { bin:'980240003251', ru:'010000, г. Астана, район Байконур, ул. А. Иманова, 13', kz:'010000, Астана қ., Байқоңыр ауданы, Ә. Иманов көшесі, 13' },
+  head:  { bin:'000140003818', ru:'020100, Акмолинская обл., Аккольский район, г. Акколь, ул. Нурмагамбетова, 98', kz:'020100, Ақмола обл., Ақкөл ауданы, Ақкөл қ., Нұрмағамбетов көшесі, 98' },
+};
+// Демо-пользователи кабинетов без своего справочника сотрудников
+const DEMO = {
+  biz:   { last:'Сейтжанова', first:'Аружан', middle:'Маратовна', phone:'7015552418', email:'a.seitzhanova@astanagroup.kz' },
+  ncels: { last:'Сейткали', first:'Асель', middle:'Бериковна', phone:'7019874512', email:'a.seitkali@ndda.kz' },
+};
+const DOMAIN = { nn:'nnczr.kz', fk:'dsm.gov.kz', head:'crb-akkol.kz' };
+const LAT = { а:'a',ә:'a',б:'b',в:'v',г:'g',ғ:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'i',к:'k',қ:'k',л:'l',м:'m',н:'n',ң:'n',о:'o',ө:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ұ:'u',ү:'u',ф:'f',х:'kh',һ:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',і:'i',ь:'',э:'e',ю:'yu',я:'ya' };
+const lat = (s) => String(s || '').toLowerCase().split('').map(c => LAT[c] != null ? LAT[c] : (/[a-z0-9-]/.test(c) ? c : '')).join('');
+const splitFio = (fio) => { const p = String(fio || '').trim().split(/\s+/); return { last:p[0] || '', first:p[1] || '', middle:p.slice(2).join(' ') }; };
+
+// Кто вошёл в кабинет. key — ключ хранения контактов и фото (у АРМ — свой у каждого сотрудника)
+const whoAmI = (cab) => {
+  if(cab === 'nn' || cab === 'fk'){
+    const A = window.mpArm;
+    if(!A || !A.ready) return null;
+    const id = A.current(cab), u = A.user(id);
+    if(!u) return null;
+    return { key:cab + ':' + id, last:u.last, first:u.first, middle:u.middle,
+      phone:'77' + String(u.iin || '').slice(-8), email:lat(u.first[0]) + '.' + lat(u.last) + '@' + DOMAIN[cab] };
+  }
+  if(cab === 'head'){
+    const R = window.mpOrgRep;
+    if(!R) return null;
+    const h = R.head(), f = splitFio(h.fio);
+    return { key:'head', ...f, phone:'7172' + String(h.iin || '000000').slice(-6), email:lat(f.first[0]) + '.' + lat(f.last) + '@' + DOMAIN.head };
+  }
+  const d = DEMO[cab] || DEMO.biz;
+  return { key: DEMO[cab] ? cab : 'biz', ...d };
+};
+
+// ---------- Хранение (вместо сервера) ----------
+const STORE = 'mp-user-profile', PHOTO = 'mp-user-photo:', PHOTO_EVT = 'mp-user-photo-change', SCN = 'mp-user-save-scn';
+const readAll = () => { try { const v = JSON.parse(localStorage.getItem(STORE) || '{}'); return v && typeof v === 'object' ? v : {}; } catch(e){ return {}; } };
+const readContacts = (me) => { const r = readAll()[me.key] || {}; return { phone: r.phone != null ? r.phone : me.phone, email: r.email != null ? r.email : me.email }; };
+const writeContacts = (key, patch) => { const all = readAll(); all[key] = { ...(all[key] || {}), ...patch }; try { localStorage.setItem(STORE, JSON.stringify(all)); } catch(e){} };
+const dropContacts = (key) => { const all = readAll(); delete all[key]; try { localStorage.setItem(STORE, JSON.stringify(all)); } catch(e){} };
+const readPhoto = (key) => { try { return localStorage.getItem(PHOTO + key) || ''; } catch(e){ return ''; } };
+const readScn = () => { try { return sessionStorage.getItem(SCN) === 'fail' ? 'fail' : 'ok'; } catch(e){ return 'ok'; } };
+
+// ---------- Телефон: «+7» в поле, 10 цифр, маска 701 123 45 67 ----------
+const telDigits = (v) => { let d = String(v || '').replace(/\D/g, ''); if(d.length > 10 && (d[0] === '7' || d[0] === '8')) d = d.slice(1); return d.slice(0, 10); };
+const telMask = (d) => [d.slice(0, 3), d.slice(3, 6), d.slice(6, 8), d.slice(8, 10)].filter(Boolean).join(' ');
+const telShow = (d) => d ? '+7 ' + telMask(d) : '';
+const MAIL_RE = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$/;
+const check = {
+  phone: (d) => !d ? 'eEmptyPhone' : (d.length !== 10 || d[0] !== '7' ? 'eFmtPhone' : ''),
+  email: (v) => !v ? 'eEmptyMail' : (!MAIL_RE.test(v) || v.length > 254 ? 'eFmtMail' : ''),
+};
+
+// ---------- Фото ----------
+const MAX_BYTES = 5 * 1024 * 1024, EXTS = ['jpg', 'jpeg', 'png'], TYPES = ['image/jpeg', 'image/png'];
+const PV = 176, OUT = 400, ZMAX = 3, RING = 169.65;
+const DRAG_END = ['pointerup', 'pointercancel', 'mouseup', 'blur'];
+const fmtMb = (b) => (b / 1048576).toFixed(1).replace('.', ',');
+
+// Подсказки — как data-tip на соседних страницах, но свой атрибут data-up-tip:
+// иначе механизм подсказок страницы (HomeData, АРМ НЦЭЛС) показал бы вторую подсказку поверх
+const installTips = () => {
+  if(window.__upTips) return; window.__upTips = true;
+  let el = null, cur = null, timer = null;
+  const hide = () => { clearTimeout(timer); cur = null; if(el) el.classList.remove('on'); };
+  const show = (tg) => {
+    const txt = tg.getAttribute('data-up-tip'); if(!txt || cur !== tg || !document.body.contains(tg)) return;
+    if(!el){ el = document.createElement('div'); el.className = 'up-tip'; el.setAttribute('role', 'tooltip'); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.remove('on'); el.style.left = '0px'; el.style.top = '0px';
+    const r = tg.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8)) + 'px';
+    el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8) + 'px';
+    requestAnimationFrame(() => el && el.classList.add('on'));
+  };
+  const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-up-tip]') : null;
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-up-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  document.addEventListener('focusout', hide);
+  document.addEventListener('mousedown', hide);
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hide(); });
+  window.addEventListener('scroll', hide, { passive:true, capture:true });
+};
+
+const FIELDS = ['phone', 'email'];
+const blankEd = () => ({ open:false, draft:'', err:'', tried:false, saving:false, failed:false });
+
+class Component extends DCLogic {
+  avaRef = React.createRef(); dlgRef = React.createRef(); fileRef = React.createRef(); pickRef = React.createRef();
+  inRef = { phone:React.createRef(), email:React.createRef() };
+  btnRef = { phone:React.createRef(), email:React.createRef() };
+  pvRef = (el) => {
+    if(this._pv === el) return;
+    if(this._pv) this._pv.removeEventListener('wheel', this._onWheel);
+    this._pv = el;
+    if(el) el.addEventListener('wheel', this._onWheel, { passive:false });
+  };
+  _onWheel = (e) => { if(!this.state.sel || this.state.phSaving) return; e.preventDefault(); this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); };
+
+  constructor(props){
+    super(props);
+    this.state = { lang:readLang(), me:null, c:{ phone:'', email:'' }, photo:'', ed:{ phone:blankEd(), email:blankEd() },
+      scn:readScn(), toast:'', live:'', ppOpen:false, flash:false,
+      dlg:false, sel:null, z:1, x:0, y:0, dErr:null, drag:false, phSaving:false, prog:0 };
+  }
+  cab(){ const c = (this.props || {}).cab; return ['biz', 'nn', 'fk', 'ncels', 'head'].indexOf(c) !== -1 ? c : 'biz'; }
+  // Кто вошёл и его контакты; у АРМ сотрудник меняется переключателем «Работать от имени»
+  sync(){
+    const me = whoAmI(this.cab());
+    if(!me){ if(this.state.me) this.setState({ me:null }); return; }
+    const same = this.state.me && this.state.me.key === me.key;
+    this.setState({ me, c:readContacts(me), photo:readPhoto(me.key), ...(same ? {} : { ed:{ phone:blankEd(), email:blankEd() } }) });
+  }
+  componentDidMount(){
+    try { installTips(); } catch(e){}
+    this._sync = () => this.sync();
+    ['mp-arm-ready', 'mp-arm-change', 'mp-orgrep-ready', PHOTO_EVT].forEach(n => window.addEventListener(n, this._sync));
+    this._lang = () => this.setState({ lang:readLang() });
+    window.addEventListener('mp-lang-change', this._lang);
+    this._storage = (e) => { if(e.key === 'mp-lang') this._lang(); else if(e.key === STORE || (e.key || '').indexOf(PHOTO) === 0) this.sync(); };
+    window.addEventListener('storage', this._storage);
+    this.sync();
+    // данные АРМ и отчётности приходят асинхронно — событие могло прийти до подписки
+    this._t1 = setTimeout(this._sync, 400); this._t2 = setTimeout(this._sync, 1500);
+    // уход со страницы с несохранённым значением — предупреждение браузера
+    this._unload = (e) => { const s = this.state; if(FIELDS.some(f => s.ed[f].open && this.norm(f, s.ed[f].draft) !== s.c[f])){ e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', this._unload);
+  }
+  componentWillUnmount(){
+    ['mp-arm-ready', 'mp-arm-change', 'mp-orgrep-ready', PHOTO_EVT].forEach(n => window.removeEventListener(n, this._sync));
+    window.removeEventListener('mp-lang-change', this._lang);
+    window.removeEventListener('storage', this._storage);
+    window.removeEventListener('beforeunload', this._unload);
+    clearTimeout(this._t1); clearTimeout(this._t2); clearTimeout(this._toastT); clearTimeout(this._flashT);
+    FIELDS.forEach(f => clearTimeout(this['_save_' + f]));
+    clearInterval(this._timer); this.dragEnd(); this.unlock();
+  }
+  t(){ return T[this.state.lang] || T.ru; }
+  showToast(txt){
+    clearTimeout(this._toastT);
+    this.setState({ toast:txt });   // у тоста role="status" — диктор прочитает его сам
+    this._toastT = setTimeout(() => this.setState({ toast:'' }), 3500);
+  }
+  focusLater(ref){ setTimeout(() => { if(ref && ref.current) ref.current.focus(); }, 0); }
+  norm(f, v){ return f === 'phone' ? telDigits(v) : String(v || '').trim(); }
+  patchEd(f, patch, cb){ this.setState({ ed:{ ...this.state.ed, [f]:{ ...this.state.ed[f], ...patch } } }, cb); }
+
+  // ---------- Телефон и почта ----------
+  start(f){
+    const v = this.state.c[f];
+    this.patchEd(f, { open:true, draft: f === 'phone' ? telMask(v) : v, err:'', tried:false, saving:false, failed:false }, () => {
+      setTimeout(() => { const el = this.inRef[f].current; if(el){ el.focus(); el.select(); } }, 0);
+    });
+  }
+  cancel(f){
+    clearTimeout(this['_save_' + f]);
+    this.patchEd(f, blankEd());
+    this.focusLater(this.btnRef[f]);
+  }
+  save(f){
+    const s = this.state, e = s.ed[f];
+    if(e.saving) return;
+    const v = this.norm(f, e.draft), err = check[f](v);
+    if(err){ this.patchEd(f, { err, tried:true, failed:false }); this.focusLater(this.inRef[f]); return; }
+    if(v === s.c[f]){ this.cancel(f); return; }   // ничего не изменилось — просто закрываем
+    const added = !s.c[f], scn = readScn();
+    this.patchEd(f, { saving:true, err:'', failed:false });
+    this['_save_' + f] = setTimeout(() => {
+      if(scn === 'fail'){ this.patchEd(f, { saving:false, failed:true }); this.focusLater(this.inRef[f]); return; }   // введённое не теряется
+      const me = this.state.me; if(!me) return;
+      writeContacts(me.key, { [f]:v });
+      this.setState({ c:{ ...this.state.c, [f]:v }, ed:{ ...this.state.ed, [f]:blankEd() } });
+      const t = this.t();
+      this.showToast(f === 'phone' ? (added ? t.okPhoneAdd : t.okPhone) : (added ? t.okMailAdd : t.okMail));
+      this.focusLater(this.btnRef[f]);
+    }, 700);
+  }
+  onDraft(f, raw){
+    const e = this.state.ed[f];
+    const draft = f === 'phone' ? telMask(telDigits(raw)) : raw;
+    // после первой попытки сохранить проверяем по ходу ввода: ошибка уходит, как только значение исправлено
+    this.patchEd(f, { draft, failed:false, err: e.tried ? check[f](this.norm(f, draft)) : '' });
+  }
+
+  // ---------- Окно фото ----------
+  lock(){
+    const sb = window.innerWidth - document.documentElement.clientWidth;
+    this._bodyCss = [document.body.style.overflow, document.body.style.paddingRight];
+    document.body.style.overflow = 'hidden';
+    if(sb > 0) document.body.style.paddingRight = sb + 'px';
+    document.body.setAttribute('data-mp-modal', '1');
+  }
+  unlock(){
+    if(this._bodyCss){ [document.body.style.overflow, document.body.style.paddingRight] = this._bodyCss; this._bodyCss = null; }
+    document.body.removeAttribute('data-mp-modal');
+  }
+  open(){
+    this._ret = document.activeElement;
+    this.lock();
+    this.setState({ dlg:true, sel:null, dErr:null, drag:false, phSaving:false, prog:0, z:1, x:0, y:0, live:'' }, () => {
+      setTimeout(() => { const b = this.pickRef.current || this.dlgRef.current; if(b) b.focus(); }, 30);
+    });
+  }
+  close(){
+    clearInterval(this._timer); this.dragEnd(); this.dropSel(); this.unlock();
+    this.setState({ dlg:false, sel:null, dErr:null, phSaving:false, prog:0, drag:false });
+    const ret = (this._ret && document.body.contains(this._ret)) ? this._ret : this.avaRef.current;
+    this._ret = null;
+    setTimeout(() => { if(ret && ret.focus) ret.focus(); }, 0);
+  }
+  dropSel(){ if(this.state.sel) try { URL.revokeObjectURL(this.state.sel.src); } catch(e){} }
+  pick(){ if(!this.state.phSaving && this.fileRef.current) this.fileRef.current.click(); }
+  take(file){
+    if(!file || this.state.phSaving) return;
+    const t = this.t(), ext = (file.name.split('.').pop() || '').toLowerCase();
+    if(!EXTS.includes(ext) || (file.type && !TYPES.includes(file.type))) return this.setState({ dErr:'type', drag:false });
+    if(file.size > MAX_BYTES) return this.setState({ dErr:'size:' + fmtMb(file.size), drag:false });
+    const src = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      this.dropSel(); this._img = img;
+      this.setState({ sel:{ src, w:img.naturalWidth, h:img.naturalHeight, name:file.name, size:file.size }, z:1, x:0, y:0, dErr:null, live:t.phSel });
+    };
+    img.onerror = () => { try { URL.revokeObjectURL(src); } catch(e){} this.setState({ dErr:'broken', drag:false }); };
+    img.src = src;
+  }
+  geom(st){
+    const s = st || this.state, sel = s.sel, base = PV / Math.min(sel.w, sel.h);
+    const W = sel.w * base * s.z, H = sel.h * base * s.z;
+    return { W, H, mx:(W - PV) / 2, my:(H - PV) / 2 };
+  }
+  clampXY(x, y, z){ const g = this.geom({ ...this.state, z }); return { x:Math.max(-g.mx, Math.min(g.mx, x)), y:Math.max(-g.my, Math.min(g.my, y)) }; }
+  setZoom(z){ const s = this.state, nz = Math.max(1, Math.min(ZMAX, z)), k = nz / s.z; this.setState({ z:nz, ...this.clampXY(s.x * k, s.y * k, nz) }); }
+  move(dx, dy){ const s = this.state; this.setState(this.clampXY(s.x + dx, s.y + dy, s.z)); }
+  dragStart(e){
+    this.dragEnd();
+    const d = { px:e.clientX, py:e.clientY, x:this.state.x, y:this.state.y };
+    this._dragMove = (ev) => { if(!(ev.buttons & 1)) return this.dragEnd(); this.setState(this.clampXY(d.x + ev.clientX - d.px, d.y + ev.clientY - d.py, this.state.z)); };
+    window.addEventListener('pointermove', this._dragMove);
+    DRAG_END.forEach(t => window.addEventListener(t, this.dragEnd, true));
+    this._dragT = setTimeout(() => { if(this._dragMove) window.addEventListener('pointerdown', this.dragEnd, true); }, 0);
+  }
+  dragEnd = () => {
+    clearTimeout(this._dragT);
+    if(!this._dragMove) return;
+    window.removeEventListener('pointermove', this._dragMove);
+    DRAG_END.concat('pointerdown').forEach(t => window.removeEventListener(t, this.dragEnd, true));
+    this._dragMove = null;
+  };
+  phSave(){
+    const s = this.state;
+    if(!s.sel || s.phSaving) return;
+    const scn = readScn(), t = this.t();
+    this.setState({ phSaving:true, prog:0, dErr:null, live:t.phSaving });
+    clearInterval(this._timer);
+    this._timer = setInterval(() => {
+      const p = Math.min(100, this.state.prog + 7 + Math.round(Math.random() * 6));
+      if(scn === 'fail' && p >= 62){ clearInterval(this._timer); return this.setState({ phSaving:false, prog:0, dErr:'upload', live:this.t().eUpload[0] }); }
+      if(p < 100) return this.setState({ prog:p });
+      clearInterval(this._timer);
+      this.setState({ prog:100 }, () => setTimeout(() => this.commit(), 180));
+    }, 90);
+  }
+  commit(){
+    const s = this.state, me = s.me, g = this.geom(), k = OUT / PV;
+    let url = '';
+    try {
+      const c = document.createElement('canvas'); c.width = c.height = OUT;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, OUT, OUT);
+      ctx.drawImage(this._img, ((PV - g.W) / 2 + s.x) * k, ((PV - g.H) / 2 + s.y) * k, g.W * k, g.H * k);
+      url = c.toDataURL('image/jpeg', 0.9);
+      localStorage.setItem(PHOTO + me.key, url);
+    } catch(e){ url = ''; }
+    if(!url) return this.setState({ phSaving:false, prog:0, dErr:'upload', live:this.t().eUpload[0] });
+    try { window.dispatchEvent(new CustomEvent(PHOTO_EVT, { detail:me.key })); } catch(e){}
+    this.close();
+    clearTimeout(this._flashT);
+    this.setState({ photo:url, flash:true });
+    this.showToast(this.t().phOk);
+    this._flashT = setTimeout(() => this.setState({ flash:false }), 1700);
+  }
+  trap(e){
+    const d = this.dlgRef.current; if(!d) return;
+    const f = [...d.querySelectorAll('button:not([disabled]),input:not([disabled]):not([type="file"]),[tabindex="0"]')].filter(x => x.offsetParent !== null);
+    if(!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if(e.shiftKey && i <= 0){ e.preventDefault(); f[f.length - 1].focus(); }
+    else if(!e.shiftKey && i === f.length - 1){ e.preventDefault(); f[0].focus(); }
+  }
+
+  // ---------- Прототип ----------
+  setLang(code){
+    try { localStorage.setItem('mp-lang', code); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-lang-change', { detail:code })); } catch(e){}
+    this.setState({ lang: code === 'ҚАЗ' ? 'kz' : 'ru' });
+  }
+  setFilled(filled){
+    const me = this.state.me; if(!me) return;
+    FIELDS.forEach(f => clearTimeout(this['_save_' + f]));
+    if(filled) dropContacts(me.key); else writeContacts(me.key, { phone:'', email:'' });
+    this.setState({ c:readContacts(me), ed:{ phone:blankEd(), email:blankEd() } });
+  }
+  setScn(id){ try { sessionStorage.setItem(SCN, id); } catch(e){} this.setState({ scn:id }); }
+
+  renderVals(){
+    const s = this.state, p = this.props || {}, t = this.t();
+    const me = s.me || { last:'', first:'', middle:'', key:'' };
+    const org = ORG[this.cab()] || ORG.biz;
+    const opt = (label, on, onClick) => ({ label, on:String(on), onClick });
+    const filled = !!(s.c.phone && s.c.email);
+
+    const rows = FIELDS.map(f => {
+      const e = s.ed[f], v = s.c[f], has = !!v, tel = f === 'phone';
+      const errText = e.err ? t[e.err] : '';
+      return {
+        cls: 'up-row ed' + (e.open ? ' open' : ''), icon: tel ? 'ri-phone-line' : 'ri-mail-line', label: tel ? t.phone : t.email,
+        inputId: 'up-' + f, view: !e.open, open: e.open, has, miss: !has,
+        text: has ? (tel ? telShow(v) : v) : (tel ? t.noPhone : t.noMail),
+        valCls: 'up-val' + (tel ? ' tnum' : ''),
+        btn: has ? t.change : t.add, btnIcon: has ? 'ri-pencil-line' : 'ri-add-line',
+        btnAria: tel ? (has ? t.phoneChange : t.phoneAdd) : (has ? t.mailChange : t.mailAdd),
+        btnRef: this.btnRef[f], inputRef: this.inRef[f],
+        start: () => this.start(f), cancel: () => this.cancel(f), save: () => this.save(f),
+        isTel: tel, inputCls: 'up-input' + (tel ? ' tel' : ''), type: tel ? 'tel' : 'email', inputMode: tel ? 'tel' : 'email',
+        autoComplete: tel ? 'tel-national' : 'email', maxLength: tel ? '13' : '254', ph: tel ? '701 123 45 67' : 'name@mail.kz',
+        draft: e.draft, onDraft: (ev) => this.onDraft(f, ev.target.value),
+        onKey: (ev) => {
+          if(ev.key === 'Enter'){ ev.preventDefault(); this.save(f); }
+          else if(ev.key === 'Escape'){ ev.preventDefault(); ev.stopPropagation(); this.cancel(f); }
+        },
+        hasErr: !!errText, errText, failed: e.failed, invalid: String(!!errText),
+        errId: 'up-' + f + '-err', descId: (errText || e.failed) ? 'up-' + f + '-err' : undefined,
+        saving: e.saving, saveLbl: e.saving ? t.saving : t.save,
+      };
+    });
+
+    const sel = s.sel;
+    let selStyle = '';
+    if(sel){ const g = this.geom(); selStyle = `position:absolute;max-width:none;width:${g.W}px;height:${g.H}px;left:${(PV - g.W) / 2 + s.x}px;top:${(PV - g.H) / 2 + s.y}px;`; }
+    const canEdit = !!sel && !s.phSaving;
+    const dErr = !s.dErr ? null : s.dErr.indexOf('size:') === 0 ? t.eSize(s.dErr.slice(5)) : ({ type:t.eType, broken:t.eBroken, upload:t.eUpload })[s.dErr];
+    const fmtSize = (b) => b < 1048576 ? Math.max(1, Math.round(b / 1024)) + ' ' + t.kb : fmtMb(b) + ' ' + t.mb;
+    const ppLeft = parseInt(p.ppLeft || p['pp-left'], 10);
+
+    return {
+      t, h: p.h === 'lg' || p.h === 'm' ? p.h : 'md', langAttr: s.lang === 'kz' ? 'kk' : 'ru',
+      fioLast: me.last, fioFirst: me.first, fioMiddle: me.middle,
+      initials: ((me.last[0] || '') + (me.first[0] || '')).toUpperCase(),
+      binText: t.bin + ' ' + org.bin, addr: org[s.lang] || org.ru,
+      rows,
+
+      // фото фоном и стилем-объектом: строку стилей рантайм делит по «;», а она есть в data:-URL
+      photo: s.photo, hasPhoto: !!s.photo, noPhoto: !s.photo,
+      photoBg: s.photo ? { position:'absolute', inset:0, background:`#EEF2FF url("${s.photo}") center/cover no-repeat` } : {},
+      photoAct: s.photo ? t.phChange : t.phUpload, photoIcon: s.photo ? 'ri-image-edit-line' : 'ri-upload-2-line',
+      flash: s.flash ? 'true' : 'false', avaRef: this.avaRef,
+      openDlg: () => { if(s.me) this.open(); },
+
+      dlg: s.dlg, dlgRef: this.dlgRef, fileRef: this.fileRef, pickRef: this.pickRef, pvRef: this.pvRef,
+      close: () => this.close(),
+      onBackdrop: () => { if(!s.sel) this.close(); },   // выбранное, но не сохранённое фото случайным кликом мимо окна не теряем
+      onDlgKey: (e) => { if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.close(); } else if(e.key === 'Tab') this.trap(e); },
+      pick: (e) => { if(e) e.stopPropagation(); this.pick(); },
+      onDzClick: () => this.pick(),
+      onFile: (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; this.take(f); },
+      onDragOver: (e) => { e.preventDefault(); if(!s.phSaving && !s.drag) this.setState({ drag:true }); },
+      onDragLeave: (e) => { if(!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) this.setState({ drag:false }); },
+      onDrop: (e) => { e.preventDefault(); this.setState({ drag:false }); this.take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); },
+      drag: s.drag ? 'true' : 'false', dzText: s.drag ? t.dzDrop : t.dz,
+      hasSel: !!sel, noSel: !sel, selSrc: sel ? sel.src : '', selStyle,
+      selName: sel ? sel.name : '', selMeta: sel ? `${fmtSize(sel.size)} · ${sel.w} × ${sel.h}` : '',
+      showCur: !sel && !!s.photo, showDef: !sel && !s.photo,
+      canEdit, pvEdit: canEdit ? 'true' : 'false', pvTab: canEdit ? '0' : '-1', pvRole: canEdit ? 'application' : 'img',
+      pvAria: canEdit ? t.pvAria : (s.photo ? t.curPhoto : t.noPhotoAria),
+      onPvDown: (e) => { if(canEdit && e.button === 0){ e.preventDefault(); this.dragStart(e); } },
+      onPvKey: (e) => {
+        if(!canEdit) return;
+        const st = e.shiftKey ? 24 : 6;
+        const m = { ArrowLeft:[-st, 0], ArrowRight:[st, 0], ArrowUp:[0, -st], ArrowDown:[0, st] }[e.key];
+        if(m){ e.preventDefault(); this.move(m[0], m[1]); }
+        else if(e.key === '+' || e.key === '='){ e.preventDefault(); this.setZoom(s.z + .1); }
+        else if(e.key === '-' || e.key === '_'){ e.preventDefault(); this.setZoom(s.z - .1); }
+      },
+      zoom: s.z, onZoom: (e) => this.setZoom(parseFloat(e.target.value) || 1),
+      phSaving: s.phSaving, prog: s.prog, progTxt: s.prog + '%', ringOff: RING * (1 - s.prog / 100),
+      phSaveOff: !sel || s.phSaving, phSaveLbl: s.phSaving ? t.saving : t.save, phSave: () => this.phSave(),
+      hasDErr: !!dErr, dErrTitle: dErr ? dErr[0] : '', dErrText: dErr ? dErr[1] : '',
+
+      hasToast: !!s.toast, toast: s.toast, live: s.live,
+
+      ppOpen: s.ppOpen, ppCls: s.ppOpen ? 'up-pp open' : 'up-pp',
+      ppStyle: `left:${isNaN(ppLeft) ? 296 : ppLeft}px;`,
+      ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
+      ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
+      ppGroups: [
+        { label:'Язык профиля', opts:[ opt('Русский', s.lang === 'ru', () => this.setLang('РУС')), opt('Қазақша', s.lang === 'kz', () => this.setLang('ҚАЗ')) ] },
+        { label:'Телефон и почта', opts:[ opt('Заполнены', filled, () => this.setFilled(true)), opt('Не заполнены', !s.c.phone && !s.c.email, () => this.setFilled(false)) ] },
+        { label:'Сохранение изменений', opts:[ opt('Успешно', s.scn !== 'fail', () => this.setScn('ok')), opt('Ошибка', s.scn === 'fail', () => this.setScn('fail')) ] },
+      ],
+      ppNoPhoto: () => { const k = s.me && s.me.key; if(!k) return; try { localStorage.removeItem(PHOTO + k); window.dispatchEvent(new CustomEvent(PHOTO_EVT, { detail:k })); } catch(e){} },
+      ppNoPhotoOff: !s.photo,
+    };
+  }
+}
+</script>
+</body>
+</html>

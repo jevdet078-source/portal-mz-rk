@@ -114,6 +114,11 @@
         <dc-import name="ArmNotifications" arm="nn" hint-size="100%,600px"></dc-import>
       </sc-if>
 
+      <!-- Профиль сотрудника (постановка «Профиль пользователя», 25.11.2026): тело — общий UserProfile -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="UserProfile" cab="nn" hint-size="100%,640px"></dc-import>
+      </sc-if>
+
       <sc-if value="{{ isRegistry }}" hint-placeholder-val="{{ true }}">
         <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
@@ -254,6 +259,7 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ notProfile }}" hint-placeholder-val="{{ true }}">
   <!-- Панель прототипа -->
   <div class="arm-pp" style="position:fixed;left:296px;bottom:20px;z-index:50;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);">
     <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
@@ -262,6 +268,7 @@
       <sc-for list="{{ demo }}" as="d" hint-placeholder-count="3"><button class="pp-b" onClick="{{ d.onClick }}" aria-pressed="{{ d.on }}" title="{{ d.title }}" style="{{ d.style }}">{{ d.label }}</button></sc-for>
     </div>
   </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -281,7 +288,7 @@ class Component extends DCLogic {
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
     if(window.mpArm && window.mpArm.ready) this.load();
     this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
-    this._hash = () => this.setState({ view: location.hash === '#notifications' ? 'notifications' : 'registry', pop:null });
+    this._hash = () => this.setState({ view: location.hash === '#notifications' ? 'notifications' : location.hash === '#profile' ? 'profile' : 'registry', pop:null });
     window.addEventListener('hashchange', this._hash);
     this._hash();
     this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
@@ -352,7 +359,8 @@ class Component extends DCLogic {
     const me = ready ? A.current('nn') : '';
     const T = s.toast;
     const base = {
-      isNotifs: s.view === 'notifications', isRegistry: s.view !== 'notifications',
+      isNotifs: s.view === 'notifications', isRegistry: s.view === 'registry',
+      isProfile: s.view === 'profile', notProfile: s.view !== 'profile',
       hasToast: !!T, toastTitle: T ? T.title : '', toastText: T ? T.text : '', hasToastText: !!(T && T.text),
       toastIcon: T && T.kind === 'err' ? 'ri-error-warning-fill' : 'ri-checkbox-circle-fill',
       toastIconStyle:`font-size:20px;flex:0 0 auto;color:${T && T.kind === 'err' ? '#DF1C41' : '#38C793'};`,

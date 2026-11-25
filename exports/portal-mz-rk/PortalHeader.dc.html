@@ -296,11 +296,13 @@
           <a class="ph-login" href="{{ loginHref }}" aria-label="{{ loginLabel }}" data-tip="{{ loginTip }}"><i class="{{ loginIcon }}"></i><span class="ph-t">{{ loginLabel }}</span><span class="ph-ts">{{ loginShort }}</span></a>
         </sc-if>
         <!-- Вошедший гражданин (mp-profile = citizen): колокольчик уведомлений (CitizenBell, замечания 25.11);
-             ФИО → «Личный кабинет», «Перейти в профиль», «Журнал сессий», «Выйти» -->
+             ФИО → «Личный кабинет», «Перейти в профиль», «Журнал сессий», «Выйти».
+             Первый руководитель медорганизации в компактной шапке (постановка «Профиль пользователя», 25.11.2026):
+             та же кнопка ФИО вместо «Кабинет руководителя» → «Кабинет руководителя», «Перейти в профиль», «Выйти» -->
         <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
           <dc-import name="CitizenBell" btn="ph-ibtn" hint-size="40px,40px"></dc-import>
         </sc-if>
-        <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ hasMe }}" hint-placeholder-val="{{ false }}">
           <div style="position:relative;" onKeyDown="{{ meKey }}">
             <button type="button" class="ph-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ fio }}">
               <span class="ph-ava" aria-hidden="true" style="{{ cAvaStyle }}">{{ cIni }}</span>
@@ -314,14 +316,22 @@
                   <span class="ph-ava" aria-hidden="true" style="{{ cAvaStyle }}">{{ cIni }}</span>
                   <span style="min-width:0;padding-top:2px;">
                     <span class="ph-me-fio"><span>{{ fioLast }}</span> <span>{{ fioFirst }}</span> <span>{{ fioMiddle }}</span></span>
-                    <span class="ph-me-role">Гражданин</span>
+                    <span class="ph-me-role">{{ meRole }}</span>
                   </span>
                 </div>
+                <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ true }}">
                 <div class="ph-me-grp">
                   <a href="Личный кабинет.dc.html" class="ph-mi" role="menuitem"><i class="ri-dashboard-line"></i>Личный кабинет</a>
                   <a href="Профиль гражданина.dc.html" class="ph-mi" role="menuitem"><i class="ri-user-line"></i>Перейти в профиль</a>
                   <a href="Журнал сессий.dc.html" class="ph-mi" role="menuitem"><i class="ri-history-line"></i>Журнал сессий</a>
                 </div>
+                </sc-if>
+                <sc-if value="{{ isHead }}" hint-placeholder-val="{{ false }}">
+                <div class="ph-me-grp">
+                  <a href="Администрирование отчётности.dc.html" class="ph-mi" role="menuitem"><i class="ri-user-star-line"></i>Кабинет руководителя</a>
+                  <a href="Профиль руководителя.dc.html" class="ph-mi" role="menuitem" aria-current="{{ headOnProfile }}"><i class="ri-user-line"></i>Перейти в профиль</a>
+                </div>
+                </sc-if>
                 <div class="ph-me-grp">
                   <a href="#" class="ph-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
                 </div>
@@ -357,6 +367,13 @@ const ME_FIO = {
   long: { last:'Нурмухамбетова-Сейтжанова', first:'Аружан-Айгерим', middle:'Мухамедкаримовна' },
 };
 const readMe = () => { let k = 'base'; try { if(sessionStorage.getItem('mp-citizen-fio') === 'long') k = 'long'; } catch(e){} return ME_FIO[k]; };
+// Первый руководитель медорганизации — из данных авторизации (mp-org-head); фото — из «Профиля руководителя» (UserProfile, cab="head")
+const readHead = () => {
+  let fio = 'Жакупова Гульмира Сапаровна';
+  try { const h = JSON.parse(lsGet('mp-org-head') || 'null'); if(h && h.fio) fio = h.fio; } catch(e){}
+  const p = fio.trim().split(/\s+/);
+  return { last:p[0] || '', first:p[1] || '', middle:p.slice(2).join(' ') };
+};
 // шаги уплотнения компактной шапки (см. комментарий у стилей .ph-c), по порядку
 const FIT = ['icons', 'cab', 'name', 'lang', 'pad', 'proto', 'brand', 'login'];
 const mq = (q) => { try { return window.matchMedia(q).matches; } catch(e){ return false; } };
@@ -376,7 +393,7 @@ class Component extends DCLogic {
     const r = lsGet('mp-role');
     this.state = { role: ROLES.some(x => x.id === r) ? r : 'citizens', lang: lsGet('mp-lang') || 'РУС', biz: lsGet('mp-profile') === 'business',
       a11y:a, profile: lsGet('mp-profile'), a11yOpen:false, langOpen:false, solid:false, megaOpen:false, hcTop:72, hcAvail:700,
-      meOpen:false, me:readMe(), cPhoto: lsGet('mp-avatar') || '' };
+      meOpen:false, me:readMe(), cPhoto: lsGet('mp-avatar') || '', head:readHead(), hPhoto: lsGet('mp-user-photo:head') || '' };
     this.meBtnRef = React.createRef(); this.meMenuRef = React.createRef();
   }
   closeMe(focus){
@@ -384,11 +401,11 @@ class Component extends DCLogic {
     if(focus) setTimeout(() => { if(this.meBtnRef.current) this.meBtnRef.current.focus(); }, 0);
   }
   // вход / выход в другой вкладке, смена фото и ФИО — шапка обновляется без перезагрузки
-  syncUser(){ this.setState({ profile: lsGet('mp-profile'), biz: lsGet('mp-profile') === 'business', me: readMe(), cPhoto: lsGet('mp-avatar') || '' }); }
+  syncUser(){ this.setState({ profile: lsGet('mp-profile'), biz: lsGet('mp-profile') === 'business', me: readMe(), cPhoto: lsGet('mp-avatar') || '', head: readHead(), hPhoto: lsGet('mp-user-photo:head') || '' }); }
   compact(){ return this.props.reports === '1' || this.props.section === 'reports' || this.props.section === 'help'; }
   componentDidMount(){
     this._syncUser = () => this.syncUser();
-    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change'].forEach(t => window.addEventListener(t, this._syncUser));
+    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change', 'mp-user-photo-change'].forEach(t => window.addEventListener(t, this._syncUser));
     this._onRole = (e) => { if(e && e.detail) this.setState({ role:e.detail }); };
     window.addEventListener('mp-role-change', this._onRole);
     this._onA11y = (e) => { if(e && e.detail) this.setState({ a11y:e.detail }); };
@@ -431,7 +448,7 @@ class Component extends DCLogic {
     }
   }
   componentWillUnmount(){
-    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change'].forEach(t => window.removeEventListener(t, this._syncUser));
+    ['storage', 'mp-avatar-change', 'mp-citizen-change', 'mp-profile-change', 'mp-user-photo-change'].forEach(t => window.removeEventListener(t, this._syncUser));
     window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-a11y-change', this._onA11y);
     window.removeEventListener('scroll', this._onScroll); window.removeEventListener('keydown', this._esc);
     document.removeEventListener('pointerdown', this._down, true);
@@ -522,7 +539,10 @@ class Component extends DCLogic {
     // первый руководитель медорганизации работает в разделе отчётности: кабинет и пункт ведут в журнал
     const head = !!lsGet('mp-org-head') && s.profile === 'medical';
     const cab = compact ? (head ? HEAD_CAB : CABINET[s.profile]) : s.biz ? CABINET.business : null;
-    const isCitizen = s.profile === 'citizen', me = s.me;
+    const isCitizen = s.profile === 'citizen';
+    // руководитель в компактной шапке — кнопка ФИО с меню вместо «Кабинет руководителя»
+    const isHead = head && compact && !isCitizen;
+    const me = isHead ? s.head : s.me, mePhoto = isHead ? s.hPhoto : s.cPhoto;
     const sizes = [ { id:'md', label:'A', title:'Обычный', fs:15 }, { id:'lg', label:'A+', title:'Крупный', fs:18 }, { id:'xl', label:'A++', title:'Очень крупный', fs:21 } ]
       .map(z => ({ ...z, on: s.a11y.size === z.id ? 'true' : 'false', style:`font-size:${z.fs}px;`, onClick:() => this.setA11y({ size:z.id }) }));
     return {
@@ -555,14 +575,16 @@ class Component extends DCLogic {
       toggleLang: () => { this.closeMega(false); this.setState(st => ({ langOpen:!st.langOpen, a11yOpen:false })); },
       closeAll: () => this.setState({ langOpen:false, a11yOpen:false }),
       // вошедший гражданин — кнопка ФИО с меню вместо «Войти» / «Личный кабинет»
-      showLogin: !isCitizen, isCitizen,
+      showLogin: !isCitizen && !isHead, isCitizen, isHead, hasMe: isCitizen || isHead,
+      meRole: isHead ? 'Первый руководитель' : 'Гражданин',
+      headOnProfile: (() => { try { return /Профиль руководителя\.dc\.html$/.test(decodeURIComponent(location.pathname)) ? 'page' : undefined; } catch(e){ return undefined; } })(),
       fio: [me.last, me.first, me.middle].join(' '),
       fioLast: me.last, fioFirst: me.first, fioMiddle: me.middle,
       fioIni: me.first[0] + '.' + (me.middle ? ' ' + me.middle[0] + '.' : ''),
       meAria: 'Меню пользователя: ' + [me.last, me.first, me.middle].join(' '),
-      cIni: s.cPhoto ? '' : (me.last[0] + me.first[0]).toUpperCase(),
+      cIni: mePhoto ? '' : ((me.last[0] || '') + (me.first[0] || '')).toUpperCase(),
       // фото фоном и стилем-объектом: строку стилей рантайм делит по «;», а она есть в data:-URL
-      cAvaStyle: s.cPhoto ? { background:`#EEF2FF url("${s.cPhoto}") center/cover no-repeat` } : {},
+      cAvaStyle: mePhoto ? { background:`#EEF2FF url("${mePhoto}") center/cover no-repeat` } : {},
       meOpen: s.meOpen ? 'true' : 'false', meOpenB: s.meOpen, meBtnRef: this.meBtnRef, meMenuRef: this.meMenuRef,
       toggleMe: (e) => {
         const open = !s.meOpen, kb = e && e.detail === 0;   // открыли с клавиатуры — фокус на первый пункт
@@ -586,6 +608,8 @@ class Component extends DCLogic {
       // выход на публичной странице — остаёмся на ней, в шапке снова «Войти»
       meLogout: (e) => {
         if(e && e.preventDefault) e.preventDefault();
+        // руководитель выходит из своего раздела — на главную, с которой пришёл
+        if(isHead){ try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); localStorage.removeItem('mp-org-head'); } catch(err){} location.href = this.home(); return; }
         try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-iin'); } catch(err){}
         try { window.dispatchEvent(new CustomEvent('mp-profile-change')); } catch(err){}
         this.setState({ meOpen:false }); this.syncUser();
