@@ -195,14 +195,16 @@
         Организация + роль в ней. Роль — часть контекста «от чьего имени и в каком качестве
         я работаю», поэтому живёт в одном элементе с организацией, а не отдельной вкладкой.
         Активная роль видна всегда (плашка справа), переключение — в выпадающем меню.
+        Постановка «Профиль пользователя» (25.11.2026): кнопка показывает пользователя (фото / инициалы, «Фамилия И. О.»)
+        и организацию; меню — кто вошёл (ФИО, организация, БИН), «Перейти в профиль», роль в организации, «Выйти».
       -->
       <sc-if value="{{ hasOrg }}" hint-placeholder-val="{{ false }}">
-        <div style="position:relative;">
-          <button onClick="{{ toggleOrg }}" aria-haspopup="menu" aria-expanded="{{ orgOpen }}" title="Организация и роль" style="{{ orgBtnStyle }}">
-            <span style="width:32px;height:32px;border-radius:8px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:18px;color:var(--orange);"></i></span>
-            <span class="hdr-org-txt" style="line-height:1.2;white-space:nowrap;text-align:left;">
-              <span style="display:block;font-size:13px;font-weight:600;color:var(--n900);">{{ org }}</span>
-              <span style="display:block;font-size:12px;color:var(--n400);">{{ bin }}</span>
+        <div style="position:relative;" onKeyDown="{{ orgKey }}">
+          <button class="hdr-user" ref="{{ orgBtnRef }}" onClick="{{ toggleOrg }}" aria-haspopup="menu" aria-expanded="{{ orgOpen }}" aria-label="{{ orgAria }}" title="{{ bizFio }}" style="{{ orgBtnStyle }}">
+            <span class="hdr-ava" aria-hidden="true" style="{{ bAvaStyle }}">{{ bIni }}</span>
+            <span class="hdr-org-txt" style="min-width:0;line-height:1.2;white-space:nowrap;text-align:left;">
+              <span style="display:block;font-size:13px;font-weight:600;color:var(--n900);">{{ bizShort }}</span>
+              <span style="display:block;font-size:12px;color:var(--n500);overflow:hidden;text-overflow:ellipsis;">{{ org }}</span>
             </span>
             <sc-if value="{{ showRolePill }}" hint-placeholder-val="{{ true }}">
               <span class="hdr-pill" style="{{ rolePillStyle }}"><i class="{{ roleIcon }}" style="font-size:14px;"></i>{{ roleLabel }}</span>
@@ -212,15 +214,19 @@
 
           <sc-if value="{{ orgOpen }}" hint-placeholder-val="{{ false }}">
             <div onClick="{{ closeOrg }}" style="position:fixed;inset:0;z-index:44;"></div>
-            <div role="menu" style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:328px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:hdr-drop .15s ease;">
-              <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--n50);border-bottom:1px solid var(--stroke);">
-                <span style="width:36px;height:36px;border-radius:9px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-briefcase-4-line" style="font-size:19px;color:var(--orange);"></i></span>
-                <span style="min-width:0;line-height:1.3;">
-                  <span style="display:block;font-size:13.5px;font-weight:600;color:var(--n900);">{{ org }}</span>
-                  <span style="display:block;font-size:12px;color:var(--n400);">{{ bin }}</span>
+            <div class="hdr-me-pop" ref="{{ orgMenuRef }}" role="menu" aria-label="Меню пользователя" style="width:328px;border-radius:14px;">
+              <div class="hdr-me-who">
+                <span class="hdr-ava" aria-hidden="true" style="{{ bAvaStyle }}">{{ bIni }}</span>
+                <span style="min-width:0;padding-top:2px;">
+                  <span class="hdr-me-fio" style="display:block;"><span>{{ bizLast }}</span> <span>{{ bizFirst }}</span> <span>{{ bizMiddle }}</span></span>
+                  <span class="hdr-me-role" style="display:block;">{{ org }}</span>
+                  <span class="hdr-me-role" style="display:block;margin-top:0;font-variant-numeric:tabular-nums;">{{ bin }}</span>
                 </span>
               </div>
-              <div style="padding:12px 16px 6px;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Роль в организации</div>
+              <div style="padding:8px;border-top:1px solid var(--stroke);">
+                <a href="Профиль пользователя.dc.html" class="hdr-mi" role="menuitem" aria-current="{{ bizOnProfile }}" onClick="{{ goBizProfile }}"><i class="ri-user-line"></i>Перейти в профиль</a>
+              </div>
+              <div style="padding:12px 16px 6px;border-top:1px solid var(--stroke);font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Роль в организации</div>
               <div style="padding:0 8px 8px;">
                 <sc-for list="{{ bizRoles }}" as="r" hint-placeholder-count="2">
                   <button onClick="{{ r.onClick }}" role="menuitemradio" aria-checked="{{ r.on }}" style="{{ r.style }}">
@@ -235,6 +241,9 @@
               </div>
               <div style="padding:10px 16px 12px;border-top:1px solid var(--stroke);display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:16px;color:var(--n400);">
                 <i class="ri-information-line" style="font-size:15px;flex:0 0 auto;margin-top:.5px;"></i><span>Роль администратора открывает группу «Администрирование» в меню кабинета.</span>
+              </div>
+              <div style="padding:8px;border-top:1px solid var(--stroke);">
+                <a href="{{ homeHref }}" class="hdr-mi" role="menuitem" onClick="{{ bizLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
               </div>
             </div>
           </sc-if>
@@ -316,10 +325,16 @@ const ME_FIO = {
 };
 const readMe = () => { let k = 'base'; try { if(sessionStorage.getItem('mp-citizen-fio') === 'long') k = 'long'; } catch(e){} return ME_FIO[k]; };
 const readCPhoto = () => { try { return localStorage.getItem('mp-avatar') || ''; } catch(e){ return ''; } };
+// Кабинет бизнеса: пользователь, который работает от имени организации (демо) — то же в BusinessNav
+// и «Профиле пользователя» (UserProfile, cab="biz"); фото — из профиля (localStorage mp-user-photo:biz)
+const BIZ_ME = { last:'Сейтжанова', first:'Аружан', middle:'Маратовна' };
+const readBPhoto = () => { try { return localStorage.getItem('mp-user-photo:biz') || ''; } catch(e){ return ''; } };
 
 class Component extends DCLogic {
-  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, meOpen:false, read:['97','96','95','94'], ed:[], photo:'', docRead:['d1'], me:readMe(), cPhoto:readCPhoto() };
+  state = { lang:'РУС', role:'citizens', bizRole:'applicant', langOpen:false, bellOpen:false, orgOpen:false, meOpen:false, read:['97','96','95','94'], ed:[], photo:'', docRead:['d1'], me:readMe(), cPhoto:readCPhoto(), bPhoto:readBPhoto() };
   meBtnRef = React.createRef();
+  orgBtnRef = React.createRef();
+  orgMenuRef = React.createRef();
   meMenuRef = React.createRef();
   closeMe(focus){
     this.setState({ meOpen:false });
@@ -332,6 +347,9 @@ class Component extends DCLogic {
     window.addEventListener('mp-citizen-change', this._syncMe);
     window.addEventListener('mp-avatar-change', this._syncCPhoto);
     window.addEventListener('storage', this._syncCPhoto);
+    this._syncBPhoto = () => this.setState({ bPhoto: readBPhoto() });
+    window.addEventListener('mp-user-photo-change', this._syncBPhoto);
+    window.addEventListener('storage', this._syncBPhoto);
     // прочитанные уведомления — общий ключ со страницей «Уведомления»
     try { const v = localStorage.getItem('mp-notif-read'); if(v){ const r = JSON.parse(v); if(Array.isArray(r)) this.setState({ read:r }); } } catch(e){}
     this._onNotif = (e) => { if(e && Array.isArray(e.detail)) this.setState({ read:e.detail }); };
@@ -365,7 +383,7 @@ class Component extends DCLogic {
     this._onPhoto = (e) => this.setState({ photo: (e && typeof e.detail === 'string') ? e.detail : '' });
     window.addEventListener('mp-doc-photo-change', this._onPhoto);
   }
-  componentWillUnmount(){ window.removeEventListener('storage', this._syncProfile); window.removeEventListener('mp-profile-change', this._syncProfile); window.removeEventListener('mp-citizen-change', this._syncMe); window.removeEventListener('mp-avatar-change', this._syncCPhoto); window.removeEventListener('storage', this._syncCPhoto); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-ed-notif-change', this._readEd); window.removeEventListener('storage', this._onStorage); window.removeEventListener('mp-doc-photo-change', this._onPhoto); }
+  componentWillUnmount(){ window.removeEventListener('storage', this._syncProfile); window.removeEventListener('mp-profile-change', this._syncProfile); window.removeEventListener('mp-citizen-change', this._syncMe); window.removeEventListener('mp-avatar-change', this._syncCPhoto); window.removeEventListener('storage', this._syncCPhoto); window.removeEventListener('mp-role-change', this._onRole); window.removeEventListener('mp-notif-change', this._onNotif); window.removeEventListener('mp-biz-role-change', this._onBizRole); window.removeEventListener('mp-ed-notif-change', this._readEd); window.removeEventListener('storage', this._onStorage); window.removeEventListener('mp-doc-photo-change', this._onPhoto); window.removeEventListener('mp-user-photo-change', this._syncBPhoto); window.removeEventListener('storage', this._syncBPhoto); }
   // Кабинет врача: из открытого ЭПЗ с активной сессией доступа не уходим молча —
   // просим меню кабинета (DoctorNav) показать подтверждение. true — переход перехвачен.
   guard(e, to){
@@ -398,6 +416,7 @@ class Component extends DCLogic {
   setLang(code){
     this.setState({ lang:code, langOpen:false });
     try { localStorage.setItem('mp-lang', code); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('mp-lang-change', { detail:code })); } catch(e){}
   }
   renderVals(){
     const s = this.state;
@@ -521,10 +540,43 @@ class Component extends DCLogic {
       org: this.props.org || '',
       bin: this.props.bin || '',
       bizRoles, orgOpen: s.orgOpen,
-      toggleOrg: () => this.setState(st => ({ orgOpen:!st.orgOpen, langOpen:false, bellOpen:false })),
+      // кнопка «пользователь + организация» (постановка «Профиль пользователя», 25.11.2026):
+      // меню — кто вошёл, «Перейти в профиль», роль в организации, «Выйти»
+      toggleOrg: (e) => {
+        const open = !s.orgOpen, kb = e && e.detail === 0;   // открыли с клавиатуры — фокус на первый пункт
+        this.setState({ orgOpen:open, langOpen:false, bellOpen:false }, () => {
+          if(open && kb) setTimeout(() => { const m = this.orgMenuRef.current, f = m && m.querySelector('.hdr-mi'); if(f) f.focus(); }, 0);
+        });
+      },
       closeOrg: () => this.setState({ orgOpen:false }),
+      orgBtnRef: this.orgBtnRef, orgMenuRef: this.orgMenuRef,
+      orgKey: (e) => {
+        if(!s.orgOpen) return;
+        if(e.key === 'Escape'){ e.preventDefault(); this.setState({ orgOpen:false }); setTimeout(() => { if(this.orgBtnRef.current) this.orgBtnRef.current.focus(); }, 0); return; }
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+          const m = this.orgMenuRef.current; if(!m) return;
+          const it = [...m.querySelectorAll('.hdr-mi,[role="menuitemradio"]')], i = it.indexOf(document.activeElement);
+          e.preventDefault();
+          const n = e.key === 'ArrowDown' ? (i + 1) % it.length : (i <= 0 ? it.length - 1 : i - 1);
+          if(it[n]) it[n].focus();
+        }
+        if(e.key === 'Tab') this.setState({ orgOpen:false });
+      },
       orgChevron: s.orgOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
-      orgBtnStyle: `display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 4px;border:1px solid ${s.orgOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:#fff;font-family:inherit;cursor:pointer;transition:border-color .15s;`,
+      orgBtnStyle: `display:flex;align-items:center;gap:10px;height:40px;max-width:420px;padding:0 10px 0 4px;border:1px solid ${s.orgOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:#fff;font-family:inherit;cursor:pointer;transition:border-color .15s;`,
+      bizFio: [BIZ_ME.last, BIZ_ME.first, BIZ_ME.middle].join(' '),
+      bizShort: BIZ_ME.last + ' ' + BIZ_ME.first[0] + '. ' + BIZ_ME.middle[0] + '.',
+      bizLast: BIZ_ME.last, bizFirst: BIZ_ME.first, bizMiddle: BIZ_ME.middle,
+      orgAria: 'Меню пользователя: ' + [BIZ_ME.last, BIZ_ME.first, BIZ_ME.middle].join(' ') + ', ' + (this.props.org || ''),
+      bIni: s.bPhoto ? '' : (BIZ_ME.last[0] + BIZ_ME.first[0]).toUpperCase(),
+      bAvaStyle: s.bPhoto ? { background:`#EEF2FF url("${s.bPhoto}") center/cover no-repeat` } : {},
+      bizOnProfile: (() => { try { return /Профиль пользователя\.dc\.html$/.test(decodeURIComponent(location.pathname)) ? 'page' : undefined; } catch(e){ return undefined; } })(),
+      goBizProfile: (e) => {
+        // уже в профиле — закрываем меню и поднимаемся к началу, без перезагрузки
+        let here = false; try { here = /Профиль пользователя\.dc\.html$/.test(decodeURIComponent(location.pathname)); } catch(err){}
+        if(here){ if(e && e.preventDefault) e.preventDefault(); this.setState({ orgOpen:false }); window.scrollTo({ top:0, behavior:'smooth' }); }
+      },
+      bizLogout: () => { try { localStorage.removeItem('mp-profile'); localStorage.removeItem('mp-biz-role'); } catch(err){} },
       // активная роль видна всегда: «Администратор» — приподнятый контекст, отмечен отдельным цветом
       showRolePill: true,
       roleLabel: isAdmin ? 'Администратор' : 'Заявитель',

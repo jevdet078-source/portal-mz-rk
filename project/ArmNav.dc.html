@@ -15,6 +15,8 @@
     collapsed — "1", чтобы стартовать свёрнутым (карточки)
 
   АРМ ННЦРЗ: «Прочие услуги» (реестр заявок ЕД, UC01.13.3.1) и «Уведомления» (UC01.13.3.2).
+  Карточка сотрудника над разделами (постановка «Профиль пользователя», 25.11.2026): ФИО ведёт в профиль —
+  раздел #profile страницы АРМ (active="profile" при hash-active). Фото — из профиля (localStorage mp-user-photo:<arm>:<id>).
   АРМ ФК (UC01.13.4 §4): «Комиссии» → «Активные», «Завершены», у председательствующего ПФК / ЗПФК —
   ещё «Согласование»; «Уведомления». Счётчик у пункта — задачи текущего сотрудника / непрочитанные.
 -->
@@ -26,7 +28,16 @@
   .an-it{transition:background .15s,color .15s;}
   .an-it:hover{background:#F6F8FA !important;color:#0A0D14 !important;}
   .an-it[aria-current="page"]:hover{background:#EEF2FF !important;color:#4D42E9 !important;}
-  .an-it:focus-visible,.an-t:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .an-it:focus-visible,.an-t:focus-visible,.an-me:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .an-me{display:flex;align-items:center;gap:10px;min-width:0;border-radius:12px;text-decoration:none;color:#0A0D14;box-sizing:border-box;transition:background .15s,border-color .15s,box-shadow .15s;}
+  .an-me.wide{width:100%;padding:8px 10px;border:1px solid #E2E4E9;}
+  .an-me.wide:hover{background:#F6F8FA;border-color:#CDD0D5;}
+  .an-me.rail{width:44px;height:44px;justify-content:center;border:1px solid transparent;}
+  .an-me.rail:hover{background:#F6F8FA;}
+  .an-me[data-on="true"]{background:#EEF2FF !important;border-color:#C6D0FF !important;}
+  .an-me-fio{flex:1;min-width:0;font-size:14px;line-height:19px;font-weight:600;letter-spacing:-.006em;}
+  .an-me-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
+  .an-me[data-on="true"] .an-me-fio{color:#312D86;}
 </style>
 </helmet>
 <nav aria-label="{{ caption }}" style="{{ rootStyle }}">
@@ -35,6 +46,12 @@
       <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#868C98;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ caption }}</div>
     </sc-if>
     <button class="an-t" onClick="{{ toggle }}" title="{{ toggleTitle }}" aria-label="{{ toggleTitle }}" style="width:36px;height:36px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#525866;flex:0 0 auto;"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
+  </div>
+  <div style="{{ meWrap }}">
+    <a class="{{ meCls }}" href="{{ meHref }}" data-on="{{ meOn }}" aria-current="{{ meCur }}" aria-label="{{ meAria }}" title="{{ meTitle }}">
+      <span aria-hidden="true" style="{{ meAva }}">{{ meIni }}</span>
+      <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}"><span class="an-me-fio"><span>{{ meLast }}</span> <span>{{ meFirst }}</span> <span>{{ meMiddle }}</span></span></sc-if>
+    </a>
   </div>
   <div style="{{ listStyle }}">
     <sc-for list="{{ items }}" as="it" hint-placeholder-count="4">
@@ -72,12 +89,15 @@ class Component extends DCLogic {
     this._hash = () => this.setState({ hash: location.hash });
     window.addEventListener('hashchange', this._hash);
     this._hash();
+    window.addEventListener('mp-user-photo-change', this._re);
+    this._st = (e) => { if((e.key || '').indexOf('mp-user-photo:') === 0) this._re(); };
+    window.addEventListener('storage', this._st);
     this._t = setInterval(() => { if(!document.hidden) this._re(); }, 15000);
     this._t1 = setTimeout(this._re, 600); this._t2 = setTimeout(this._re, 2000);
   }
   componentWillUnmount(){
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._re));
-    window.removeEventListener('hashchange', this._hash); clearInterval(this._t); clearTimeout(this._t1); clearTimeout(this._t2);
+    window.removeEventListener('hashchange', this._hash); window.removeEventListener('mp-user-photo-change', this._re); window.removeEventListener('storage', this._st); clearInterval(this._t); clearTimeout(this._t1); clearTimeout(this._t2);
   }
   renderVals(){
     const s = this.state, p = this.props || {}, A = window.mpArm;
@@ -91,6 +111,7 @@ class Component extends DCLogic {
     // активный пункт на странице реестра меняется по #hash без перезагрузки
     let active = p.active || (arm === 'fk' ? 'active' : 'registry');
     const h = (s.hash || '').replace('#', '');
+    if(p.hashActive === '1' && h === 'profile') active = 'profile';
     if(p.hashActive === '1' && h){ if(arm === 'nn' && (h === 'notifications' || h === 'registry')) active = h; if(arm === 'fk' && ['active','done','approval','notifications'].indexOf(h) !== -1) active = h; }
     const unread = ready ? A.unreadFor(me) : 0;
     let data;
@@ -121,8 +142,21 @@ class Component extends DCLogic {
         badgeStyle:`min-width:20px;height:20px;padding:0 6px;border-radius:999px;font-size:12px;line-height:20px;font-weight:600;text-align:center;${it.accent ? 'background:#4D42E9;color:#fff;' : 'background:#C6D0FF;color:#312D86;'}`,
         style:`display:flex;align-items:center;gap:8px;border-radius:8px;text-decoration:none;font-size:14px;line-height:20px;font-weight:500;letter-spacing:-.006em;box-sizing:border-box;${expanded ? 'width:100%;height:40px;padding:8px 12px;' : 'width:36px;height:36px;padding:0;justify-content:center;'}${on ? 'background:#EEF2FF;color:#4D42E9;' : 'background:transparent;color:#525866;'}` };
     });
+    // карточка сотрудника: ФИО → профиль; в свёрнутом меню — фото / инициалы
+    const u = ready ? A.user(me) : null;
+    let photo = ''; try { photo = me ? (localStorage.getItem('mp-user-photo:' + arm + ':' + me) || '') : ''; } catch(e){}
+    const c = A && me ? A.avatar(me) : ['#EEF2FF', '#4D42E9'];
+    const meOn = active === 'profile', meFull = u ? [u.last, u.first, u.middle].join(' ') : '';
     return {
       expanded, items,
+      meWrap: expanded ? 'padding:12px 20px 0;' : 'padding:12px 0 0;display:flex;justify-content:center;',
+      meCls: 'an-me ' + (expanded ? 'wide' : 'rail'), meOn: String(meOn), meCur: meOn ? 'page' : 'false',
+      meHref: (arm === 'fk' ? 'АРМ ФК.dc.html' : 'АРМ ННЦРЗ.dc.html') + '#profile',
+      meAria: 'Перейти в профиль: ' + meFull, meTitle: expanded ? 'Перейти в профиль' : meFull,
+      meLast: u ? u.last : '', meFirst: u ? u.first : '', meMiddle: u ? u.middle : '',
+      meIni: photo || !ready ? '' : A.initials(me),
+      meAva: photo ? { width:36, height:36, borderRadius:9, flex:'0 0 auto', background:`#EEF2FF url("${photo}") center/cover no-repeat` }
+        : `width:36px;height:36px;border-radius:9px;background:${c[0]};color:${c[1]};font-size:12.5px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`,
       caption: arm === 'fk' ? 'АРМ Формулярной комиссии' : 'АРМ ННЦРЗ',
       toggle: () => this.setState({ collapsed: !collapsed }),
       toggleTitle: expanded ? 'Свернуть меню' : 'Развернуть меню',

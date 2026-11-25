@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Профиль первого руководителя медорганизации (раздел отчётности).
+  Постановка «Разработка прототипа профиля пользователя для всех кабинетов портала МЗ, за исключением кабинета
+  гражданина» (25.11.2026, docs/tz/2026-11-25-profil-polzovatelya.md).
+  Открывается: кнопка ФИО в компактной шапке (PortalHeader) → «Перейти в профиль»; ФИО руководителя в меню раздела (OrgReportsNav).
+  Каркас и доступ — как у «Журнала отчётных форм»; тело профиля — общий компонент UserProfile (cab="head").
+-->
+<x-dc>
+<helmet>
+<style>
+  body{ margin:0; background:#fff; }
+  .rp{ display:flex; flex-direction:column; min-height:100vh; font-family:'Inter',system-ui,sans-serif; color:var(--n900); -webkit-font-smoothing:antialiased; }
+  .rp, .rp *, .rp *::before, .rp *::after{ box-sizing:border-box; }
+  .rp-top{ position:sticky; top:0; z-index:40; }
+  .rp-main{ flex:1 0 auto; background:linear-gradient(180deg, color-mix(in srgb, var(--b50) 75%, #fff) 0, #fff 340px); padding-bottom:clamp(32px,3.4vw,64px); }
+  html[data-fill="flat"] .rp-main{ background:#fff; }
+
+  .rp-crow{ display:flex; align-items:center; gap:16px; min-height:36px; padding-top:clamp(12px,1vw,18px); }
+  .rp-crumbs{ display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; font-size:13.5px; line-height:20px; color:var(--n500); }
+  .rp-crumbs li{ display:inline-flex; align-items:center; gap:6px; }
+  .rp-crumbs a{ display:inline-flex; align-items:center; gap:6px; color:var(--n500); text-decoration:none; border-radius:6px; transition:color .15s; }
+  .rp-crumbs a:hover{ color:var(--b700); }
+  .rp-crumbs a:focus-visible{ outline:2px solid var(--b500); outline-offset:2px; }
+  .rp-crumbs a i{ font-size:16px; }
+  .rp-crumbs > li > i{ font-size:16px; color:var(--n300); }
+  .rp-crumbs [aria-current]{ color:var(--n900); font-weight:500; }
+
+  /* левое меню + рабочая область — как в «Журнале отчётных форм» */
+  .rp-lay{ display:grid; grid-template-columns:clamp(264px,17vw,300px) minmax(0,1fr); gap:clamp(20px,1.6vw,28px); align-items:start; margin-top:clamp(14px,1.2vw,22px); }
+  .rp-side{ position:sticky; top:88px; }
+  @media (max-width:1024px){
+    .rp-lay{ grid-template-columns:minmax(0,1fr); gap:20px; }
+    .rp-side{ position:static; }
+  }
+  @media (max-width:640px){ .rp-main{ padding-bottom:120px; } }
+</style>
+</helmet>
+
+<div class="rp">
+  <dc-import name="HomeData" hint-size="0px,0px"></dc-import>
+  <dc-import name="OrgRepData" hint-size="0px,0px"></dc-import>
+  <div class="rp-top"><dc-import name="PortalHeader" look="light" section="reports" hint-size="100%,72px"></dc-import></div>
+
+  <main class="rp-main">
+    <div class="hm-wrap">
+      <div class="rp-crow">
+        <nav aria-label="Хлебные крошки">
+          <ol class="rp-crumbs">
+            <li><a href="{{ homeHref }}"><i class="ri-home-5-line" aria-hidden="true"></i>Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><a href="Администрирование отчётности.dc.html">Кабинет руководителя</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></li>
+            <li><span aria-current="page">Профиль</span></li>
+          </ol>
+        </nav>
+      </div>
+
+      <div class="rp-lay">
+        <aside class="rp-side"><dc-import name="OrgReportsNav" active="profile" hint-size="300px,280px"></dc-import></aside>
+        <dc-import name="UserProfile" cab="head" h="lg" pp-left="20" hint-size="100%,640px"></dc-import>
+      </div>
+    </div>
+  </main>
+
+  <dc-import name="PortalFooter" hint-size="100%,420px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch(e){ return null; } };
+
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    // раздел первого руководителя: без входа — авторизация с возвратом, остальным — общий раздел «Отчётные формы»
+    if(!lsGet('mp-profile')){ try { location.replace('Вход.dc.html?return=' + encodeURIComponent('Профиль руководителя.dc.html')); } catch(e){} }
+    else if(!lsGet('mp-org-head')){ try { location.replace('Отчётные формы.dc.html'); } catch(e){} }
+  }
+  renderVals(){
+    return { homeHref: lsGet('mp-home-page') || 'Главная H - Витрина.dc.html' };
+  }
+}
+</script>
+</body>
+</html>
