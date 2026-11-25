@@ -79,9 +79,10 @@
   .up-row.open .up-lbl{min-height:40px;}
   .up-lbl{display:flex;align-items:center;gap:10px;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);}
   .up-lbl i{font-size:18px;color:var(--n400);flex:0 0 auto;}
-  .up-req{color:var(--red);font-weight:600;margin-left:-6px;cursor:help;border-radius:4px;}
+  .up-lbl label{min-width:0;}
+  .up-req{color:var(--red);font-weight:600;cursor:help;border-radius:4px;}
   .up-req:focus-visible{outline:none;box-shadow:0 0 0 2px var(--primary-light);}
-  .up-val{min-width:0;font-size:15px;line-height:22px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;}
+  .up-val{min-width:0;font-size:15px;line-height:22px;font-weight:500;color:var(--n900);overflow-wrap:anywhere;text-wrap:pretty;}
   .up-val.tnum{font-variant-numeric:tabular-nums;}
   .up-val.miss{display:flex;align-items:center;gap:6px;color:var(--red-d);font-weight:500;}
   .up-val.miss i{font-size:17px;color:var(--red);flex:0 0 auto;}
@@ -218,6 +219,9 @@
   }
   @media (max-width:520px){
     .up-hero{flex-wrap:wrap;}   /* узкая колонка рядом со свёрнутым меню кабинета: ФИО и кнопка фото — под фото */
+    /* «Изменить» / «Добавить» в просмотре — только значок (подпись — в aria-label), подписи поля хватает места */
+    .up-row:not(.open) .up-act .up-btn{width:36px;padding:0;}
+    .up-row:not(.open) .up-act .up-btn-t{display:none;}
     .up-ov{align-items:flex-end;padding:0;}
     .up-dlg{max-width:none;max-height:calc(100vh - 24px);border-radius:20px 20px 0 0;}
     .up-dlg-h{padding:16px 12px 14px 20px;}
@@ -237,7 +241,7 @@
   <section class="up-card" aria-label="{{ t.title }}">
     <!-- Фото, полное ФИО, БИН организации -->
     <div class="up-hero">
-      <button type="button" class="up-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-haspopup="dialog" aria-label="{{ photoAct }}" data-up-tip="{{ photoAct }}" data-flash="{{ flash }}">
+      <button type="button" class="up-ava" ref="{{ avaRef }}" onClick="{{ openDlg }}" aria-haspopup="dialog" aria-label="{{ photoAct }}" data-flash="{{ flash }}">
         <span class="up-ava-in">
           <sc-if value="{{ hasPhoto }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="{{ photoBg }}"></span></sc-if>
           <sc-if value="{{ noPhoto }}" hint-placeholder-val="{{ true }}"><span class="up-ini" aria-hidden="true">{{ initials }}</span></sc-if>
@@ -254,12 +258,12 @@
     <!-- Номер телефона и электронная почта — обязательные, редактируются -->
     <sc-for list="{{ rows }}" as="r" hint-placeholder-count="2">
       <div class="{{ r.cls }}">
-        <div class="up-lbl"><i class="{{ r.icon }}" aria-hidden="true"></i><label for="{{ r.inputId }}">{{ r.label }}</label><span class="up-req" tabIndex="0" role="img" aria-label="{{ t.req }}" data-up-tip="{{ t.req }}">*</span></div>
+        <div class="up-lbl"><i class="{{ r.icon }}" aria-hidden="true"></i><label for="{{ r.inputId }}">{{ r.label }}&nbsp;<span class="up-req" tabIndex="0" role="img" aria-label="{{ t.req }}" data-up-tip="{{ t.req }}">*</span></label></div>
         <sc-if value="{{ r.view }}" hint-placeholder-val="{{ true }}">
           <sc-if value="{{ r.has }}" hint-placeholder-val="{{ true }}"><div class="{{ r.valCls }}">{{ r.text }}</div></sc-if>
           <sc-if value="{{ r.miss }}" hint-placeholder-val="{{ false }}"><div class="up-val miss"><i class="ri-error-warning-line" aria-hidden="true"></i>{{ r.text }}</div></sc-if>
           <div class="up-act">
-            <button type="button" class="up-btn sec" ref="{{ r.btnRef }}" onClick="{{ r.start }}" aria-label="{{ r.btnAria }}"><i class="{{ r.btnIcon }}" aria-hidden="true"></i>{{ r.btn }}</button>
+            <button type="button" class="up-btn sec" ref="{{ r.btnRef }}" onClick="{{ r.start }}" aria-label="{{ r.btnAria }}"><i class="{{ r.btnIcon }}" aria-hidden="true"></i><span class="up-btn-t">{{ r.btn }}</span></button>
           </div>
         </sc-if>
         <sc-if value="{{ r.open }}" hint-placeholder-val="{{ false }}">
@@ -405,7 +409,7 @@
 // ---------- Словарь: русский и казахский (п. 4 постановки) ----------
 const T = {
   ru: {
-    title:'Профиль', bin:'БИН', phone:'Номер телефона', email:'Электронная почта', addr:'Адрес организации',
+    title:'Профиль', bin:'БИН организации', phone:'Номер телефона', email:'Электронная почта', addr:'Адрес организации',
     req:'Обязательное поле', lock:'Только просмотр: данные получены из государственных информационных систем',
     change:'Изменить', add:'Добавить', cancel:'Отмена', save:'Сохранить', saving:'Сохранение…',
     noPhone:'Не указан', noMail:'Не указана',
@@ -426,7 +430,7 @@ const T = {
     kb:'КБ', mb:'МБ',
   },
   kz: {
-    title:'Профиль', bin:'БСН', phone:'Телефон нөмірі', email:'Электрондық пошта', addr:'Ұйымның мекенжайы',
+    title:'Профиль', bin:'Ұйымның БСН', phone:'Телефон нөмірі', email:'Электрондық пошта', addr:'Ұйымның мекенжайы',
     req:'Міндетті өріс', lock:'Тек қарау: деректер мемлекеттік ақпараттық жүйелерден алынған',
     change:'Өзгерту', add:'Қосу', cancel:'Болдырмау', save:'Сақтау', saving:'Сақталуда…',
     noPhone:'Көрсетілмеген', noMail:'Көрсетілмеген',
@@ -436,7 +440,7 @@ const T = {
     saveFail:'Өзгерістерді сақтау мүмкін болмады. Кейінірек қайталап көріңіз',
     okPhone:'Телефон нөмірі өзгертілді', okPhoneAdd:'Телефон нөмірі қосылды', okMail:'Электрондық пошта өзгертілді', okMailAdd:'Электрондық пошта қосылды',
     phUpload:'Фото жүктеу', phChange:'Фотоны өзгерту', phOk:'Профиль фотосы жаңартылды',
-    dlgTitle:'Профиль фотосын өзгерту', close:'Жабу', pick:'Файлды таңдаңыз', dz:'немесе фотоны осында сүйреп әкеліңіз', dzDrop:'Жүктеу үшін файлды жіберіңіз',
+    dlgTitle:'Профиль фотосын өзгерту', close:'Жабу', pick:'Файлды таңдаңыз', dz:'немесе фотоны осында сүйреп әкеліңіз', dzDrop:'Файлды осында тастаңыз',
     replace:'Ауыстыру', fmt:'JPG, JPEG, PNG · 5 МБ-тан аспайды', move:'Жылжытыңыз', zoom:'Фото масштабы', curPhoto:'Профильдің ағымдағы фотосы',
     noPhotoAria:'Фото жүктелмеген', pvAria:'Фото аймағы: жылжытыңыз немесе көрсеткілерді пайдаланыңыз, «+» және «−» — масштаб',
     phSaving:'Фото сақталуда', phSel:'Фото таңдалды. Аймақты таңдау үшін оны жылжытып, «Сақтау» түймесін басыңыз',
