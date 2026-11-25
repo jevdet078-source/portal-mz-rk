@@ -14,15 +14,15 @@
   («Запрошен доступ…» / «Предоставлен доступ…»), тип сообщения — меткой, фильтр по типу.
 
   Запись — общая для двух типов:
-    метка типа («Уведомление» — колокольчик, «Оповещение» — щит) · заголовок + строка опознания · статус · дата и время;
+    метка типа («Уведомление» — колокольчик, «Оповещение» — щит) · заголовок + строка опознания (у уведомления — со статусом) · дата и время;
     второй строкой — текст в подложке.
-    Уведомление: услуга, «Заявка № …» (ссылка в карточку), статус бейджем; текст по шаблону, «Мои заявки» — ссылка.
+    Уведомление: услуга, «Заявка №…» (ссылка в карточку) и статус бейджем рядом; текст по шаблону, «Мои заявки» — ссылка.
     Оповещение: событие, организация и БИН; текст по шаблону, цель, сервисы и срок выделены. Номера заявки,
     статуса услуги и перехода в «Мои заявки» нет; клик по непрочитанному отмечает его прочитанным.
   Непрочитанное: точка, полужирный заголовок, сиреневая подложка с полосой; прочитанное — светлая подложка.
   Вкладки «Все» / «Непрочитанные» / «Прочитанные» со счётчиками + фильтр «Тип» (все / уведомления / оповещения);
   поиск — номер заявки, услуга, организация, БИН; подсветка, Esc — очистить.
-  «Отметить все прочитанными» учитывает фильтр и поиск — тост с отменой. Новое сообщение при открытой
+  «Прочитать все» учитывает фильтр и поиск — тост с отменой. Новое сообщение при открытой
   странице подсвечивается; `?id=` (переход из колокольчика) — прокрутка к сообщению и подсветка.
 
   Данные — AttachData (window.mpAttach): localStorage `mp-attach-notifs`, событие `mp-attach-notif-change`.
@@ -67,7 +67,7 @@
   .nt-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
   .nt-clip{border-radius:0 0 19px 19px;overflow:hidden;}
 
-  /* Вкладки + тип + поиск + «Отметить все прочитанными» */
+  /* Вкладки + тип + поиск + «Прочитать все» */
   .nt-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;padding:0 20px;border-bottom:1px solid var(--stroke);}
   .nt-tabs{display:flex;align-items:stretch;gap:24px;align-self:stretch;}
   .nt-tab{position:relative;display:inline-flex;align-items:center;gap:8px;height:64px;padding:0 2px;border:none;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;transition:color .15s;}
@@ -99,7 +99,7 @@
   .nt-ty-btn[data-on="true"] > i{color:var(--primary);}
   .nt-ty-x{position:absolute;right:6px;top:6px;width:28px;height:28px;border:none;border-radius:8px;background:none;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;padding:0;}
   .nt-ty-x:hover{background:#E2E8FF;}
-  .nt-ty-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:248px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;animation:nt-pop .14s ease;}
+  .nt-ty-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:332px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;animation:nt-pop .14s ease;}
   .nt-ty-o{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
   .nt-ty-o:hover,.nt-ty-o:focus-visible{background:var(--n100);outline:none;}
   .nt-ty-o[aria-checked="true"]{color:var(--primary-darker);font-weight:600;}
@@ -122,19 +122,17 @@
   /* Список: сетка общая для обоих типов — тип · заголовок и опознание · статус · дата; текст второй строкой */
   .nt-list{list-style:none;margin:0;padding:0;}
   .nt-list > li + li .nt-rec{border-top:1px solid var(--n200);}
-  .nt-rec{display:grid;grid-template-columns:148px minmax(220px,1.6fr) minmax(168px,1fr) 148px;grid-template-areas:"ty main st dt" "msg msg msg msg";column-gap:24px;row-gap:12px;align-items:center;padding:16px 20px;background:var(--n0);transition:background .15s;}
-  .nt-rec.pd{grid-template-areas:"ty main main dt" "msg msg msg msg";}
+  .nt-rec{display:grid;grid-template-columns:148px minmax(0,1fr) 148px;grid-template-areas:"ty main dt" "msg msg msg";column-gap:24px;row-gap:12px;align-items:center;padding:16px 20px;background:var(--n0);transition:background .15s;}
   .nt-rec.go{cursor:pointer;}
   .nt-rec.go:hover{background:var(--n50);}
   .nt-rec:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
   .nt-rec.fresh{animation:nt-fresh 2.4s ease;}
   .nt-c-ty{grid-area:ty;display:flex;align-items:center;gap:10px;min-width:0;}
   .nt-c-main{grid-area:main;min-width:0;display:flex;flex-direction:column;gap:2px;}
-  .nt-c-st{grid-area:st;display:flex;min-width:0;}
   .nt-c-dt{grid-area:dt;font-size:14px;line-height:20px;color:var(--n500);white-space:nowrap;font-variant-numeric:tabular-nums;}
   .nt-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:transparent;}
   .nt-ttl{font-size:14px;line-height:20px;font-weight:500;color:var(--n600);}
-  .nt-sub{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;font-size:13px;line-height:20px;color:var(--n500);}
+  .nt-sub{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:4px;font-size:13px;line-height:20px;color:var(--n500);}
   .nt-sub .sep{color:var(--n400);}
   .nt-bin{white-space:nowrap;font-variant-numeric:tabular-nums;}
   .nt-num{font-size:13px;line-height:20px;font-weight:500;color:var(--primary);text-decoration:none;font-variant-numeric:tabular-nums;border-radius:4px;white-space:nowrap;}
@@ -204,9 +202,8 @@
     .nt-bar,.nt-rec{padding-left:24px;padding-right:24px;}
     .nt-rec{column-gap:32px;}
   }
-  /* Ноутбук: подпись «Отметить … прочитанными» уходит в подсказку, кнопка — значком */
-  @container ntmain (max-width:1180px){
-    .nt-q{width:320px;}
+  /* Ноутбук: поиск уже; на 1366 подпись «Прочитать …» уходит в подсказку, кнопка — значком */
+    @container ntmain (max-width:1080px){
     .nt-btn.rd{width:40px;padding:0;}
     .nt-btn.rd .lbl{display:none;}
   }
@@ -219,9 +216,8 @@
     .nt-tabs{gap:20px;overflow-x:auto;scrollbar-width:none;}
     .nt-tabs::-webkit-scrollbar{display:none;}
     .nt-tab{height:52px;}
-    .nt-rec,.nt-rec.pd{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"ty dt" "main main" "st st" "msg msg";row-gap:8px;}
-    .nt-rec.pd{grid-template-areas:"ty dt" "main main" "msg msg";}
-    .nt-c-main,.nt-c-st{padding-left:18px;}
+    .nt-rec{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"ty dt" "main main" "msg msg";row-gap:8px;}
+    .nt-c-main{padding-left:18px;}
     .nt-msg{margin-top:2px;}
   }
   @container ntmain (max-width:640px){
@@ -280,7 +276,7 @@
         <h1 class="nt-h1">Уведомления</h1>
 
         <section class="nt-card" id="nt-panel" aria-label="Уведомления и оповещения">
-          <!-- Вкладки, тип, поиск, «Отметить все прочитанными» -->
+          <!-- Вкладки, тип, поиск, «Прочитать все» -->
           <sc-if value="{{ hasBar }}" hint-placeholder-val="{{ true }}">
             <div class="nt-bar">
               <div class="nt-tabs" role="tablist" aria-label="Уведомления">
@@ -343,15 +339,12 @@
                     <div class="nt-c-main">
                       <div class="nt-ttl"><sc-for list="{{ r.ttlParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></div>
                       <sc-if value="{{ r.isApp }}" hint-placeholder-val="{{ true }}">
-                        <div class="nt-sub"><a class="nt-num" href="{{ r.href }}" onClick="{{ r.mark }}" aria-label="{{ r.numAria }}">Заявка № <sc-for list="{{ r.numParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></a></div>
+                        <div class="nt-sub"><a class="nt-num" href="{{ r.href }}" onClick="{{ r.mark }}" aria-label="{{ r.numAria }}">Заявка №<sc-for list="{{ r.numParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></a><span class="{{ r.stCls }}">{{ r.st }}</span></div>
                       </sc-if>
                       <sc-if value="{{ r.isPd }}" hint-placeholder-val="{{ false }}">
                         <div class="nt-sub"><span><sc-for list="{{ r.orgParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></span><span class="nt-bin"><span class="sep" aria-hidden="true">·&nbsp;&nbsp;</span>БИН <sc-for list="{{ r.binParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></span></div>
                       </sc-if>
                     </div>
-                    <sc-if value="{{ r.isApp }}" hint-placeholder-val="{{ true }}">
-                      <div class="nt-c-st"><span class="{{ r.stCls }}">{{ r.st }}</span></div>
-                    </sc-if>
                     <div class="nt-c-dt">{{ r.dt }}</div>
                     <sc-if value="{{ r.isApp }}" hint-placeholder-val="{{ true }}">
                       <p class="nt-msg"><span>{{ r.pre }}</span><a class="nt-lnk" href="Мои заявки гражданина.dc.html" onClick="{{ r.mark }}">Мои заявки</a><span>{{ r.post }}</span></p>
@@ -458,9 +451,9 @@ const SK = [34, 26, 40, 30].map(w => ({ w:`width:${w}%;height:12px;` }));
 const TABS = [ ['all', 'Все'], ['unread', 'Непрочитанные'], ['read', 'Прочитанные'] ];
 // Тип сообщения: уведомление по заявке (kind 'app') и оповещение о доступе к персональным данным (kind 'pd')
 const TYPES = [
-  { id:'all', label:'Все типы', icon:'ri-stack-line', many:'сообщения', gen:'сообщений' },
-  { id:'app', label:'Уведомления', one:'Уведомление', icon:'ri-notification-3-line', many:'уведомления', gen:'уведомлений' },
-  { id:'pd', label:'Оповещения', one:'Оповещение', icon:'ri-shield-user-line', many:'оповещения', gen:'оповещений' },
+  { id:'all', label:'Все типы', full:'Все типы', icon:'ri-stack-line', many:'сообщения', gen:'сообщений' },
+  { id:'app', label:'Уведомления', full:'Уведомления по заявкам', one:'Уведомление', icon:'ri-notification-3-line', many:'уведомления', gen:'уведомлений' },
+  { id:'pd', label:'Оповещения', full:'Оповещения о доступе к данным', one:'Оповещение', icon:'ri-shield-user-line', many:'оповещения', gen:'оповещений' },
 ];
 const TY = id => TYPES.find(t => t.id === id) || TYPES[0];
 const kindOf = x => x.kind === 'pd' ? 'pd' : 'app';
@@ -483,7 +476,7 @@ const installTips = () => {
     requestAnimationFrame(() => { if(el) el.style.opacity = '1'; });
   };
   const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
-  // подсказка показывается, только если подпись кнопки скрыта (у «Отметить … прочитанными» на ноутбуке)
+  // подсказка показывается, только если подпись кнопки скрыта (у «Прочитать …» на ноутбуке)
   const needed = (tg) => { const lb = tg.querySelector && tg.querySelector('.lbl'); return !lb || lb.offsetWidth === 0; };
   document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip') && needed(tg)){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
   document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && needed(tg) && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
@@ -642,7 +635,7 @@ class Component extends DCLogic {
     // Фильтр «Тип»: счётчики — с учётом вкладки и поиска
     const tyOpts = TYPES.map(t => {
       const on = s.ty === t.id;
-      return { label:t.label, icon:t.icon, icCls:'nt-ty-ic ' + t.id, on: on ? 'true' : 'false',
+      return { label:t.full, icon:t.icon, icCls:'nt-ty-ic ' + t.id, on: on ? 'true' : 'false',
         n: found.filter(x => inTab(x, s.tab) && inTy(x, t.id)).length,
         onClick: () => { this.setState({ ty:t.id, shown:PAGE }); this.closeTy(true); } };
     });
@@ -687,7 +680,7 @@ class Component extends DCLogic {
         numAria: 'Открыть заявку № ' + x.num,
         st: st.label, stCls: 'nt-st ' + st.tone,
         dt: dtTxt,
-        pre: text.slice(0, cut), post: text.slice(cut + 'Мои заявки'.length),
+        pre: text.slice(0, cut).replace(/ (\S*)$/, '\u00a0$1'), post: text.slice(cut + 'Мои заявки'.length),
       };
     });
 
@@ -700,7 +693,7 @@ class Component extends DCLogic {
 
     // «Отметить … прочитанными» — по выбранному типу и найденному
     const unreadIds = filtered.filter(x => !x.read).map(x => x.id);
-    const readAllLabel = raw ? 'Отметить найденные прочитанными' : s.ty === 'all' ? 'Отметить все прочитанными' : 'Отметить ' + ty.many + ' прочитанными';
+    const readAllLabel = raw ? 'Прочитать найденные' : s.ty === 'all' ? 'Прочитать все' : 'Прочитать ' + ty.many;
 
     // Пустая вкладка или тип (без поиска)
     const emptyKind = !raw && list.length === 0;

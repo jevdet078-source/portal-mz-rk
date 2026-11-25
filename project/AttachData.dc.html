@@ -338,7 +338,7 @@ const A = {
     const svc = (x.services || []).join(', ');
     return x.ev === 'requested'
       ? [ { t:'Получен запрос от ' + x.org + ' (БИН: ' + x.bin + ') на доступ к вашим персональным данным для сбора, обработки и хранения в целях ' },
-          { t:x.purpose, b:true }, { t:'. Сервисы: ' }, { t:svc, b:true }, { t:'. Запрашиваемый срок доступа — до ' }, { t:fmtDT(x.until), b:true, d:true }, { t:'.' } ]
+          { t:x.purpose, b:true }, { t:'. Сервисы: ' }, { t:svc, b:true }, { t:'. Запрашиваемый срок доступа — до ' }, { t:fmtDT(x.until), b:true, d:true }, { t:'.' } ]
       : [ { t:'Вы предоставили ' + x.org + ' (БИН: ' + x.bin + ') доступ к вашим персональным данным для сбора, обработки и хранения в целях ' },
           { t:x.purpose, b:true }, { t:'. Сервисы: ' }, { t:svc, b:true }, { t:'. Доступ действует до ' }, { t:fmtDT(x.until), b:true, d:true }, { t:'.' } ];
   },
