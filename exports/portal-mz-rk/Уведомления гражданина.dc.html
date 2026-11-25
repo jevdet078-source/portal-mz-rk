@@ -12,22 +12,27 @@
 </head>
 <body>
 <!--
-  Личный кабинет гражданина → «Уведомления» (постановка 24.11.2026, текст аналитика из Telegram):
-  уведомления об изменении статусов заявок — по аналогии с «Центром уведомлений» кабинета бизнеса,
-  в оформлении и навигации кабинета гражданина (CitizenNav, active="notif").
+  Личный кабинет гражданина → «Уведомления» (вход — колокольчик в шапке, CitizenBell).
+  Постановка 24.11.2026: уведомления об изменении статусов заявок — по аналогии с «Центром уведомлений»
+  кабинета бизнеса, в оформлении и навигации кабинета гражданина (CitizenNav, active="notif").
+  Постановка 25.11.2026: в том же списке — оповещения о доступе к персональным данным
+  («Запрошен доступ…» / «Предоставлен доступ…»), тип сообщения — меткой, фильтр по типу.
 
-  Запись: № заявки (ссылка в карточку) · наименование услуги · статус бейджем · дата и время;
-  второй строкой — текст по единому шаблону в подложке, «Мои заявки» в тексте — ссылка.
-  Непрочитанное: точка, полужирная услуга, сиреневая подложка с полосой; прочитанное — светлая подложка.
-  Вкладки «Все» / «Непрочитанные» / «Прочитанные» со счётчиками (при поиске — найденное);
-  поиск по номеру заявки (по части номера, «№» не мешает) или названию услуги, подсветка, Esc — очистить.
-  Открытие уведомления (строка, номер, «Мои заявки») отмечает его прочитанным. «Отметить все прочитанными» —
-  тост с отменой. Уведомление, пришедшее при открытой странице, подсвечивается.
+  Запись — общая для двух типов:
+    метка типа («Уведомление» — колокольчик, «Оповещение» — щит) · заголовок + строка опознания (у уведомления — со статусом) · дата и время;
+    второй строкой — текст в подложке.
+    Уведомление: услуга, «Заявка №…» (ссылка в карточку) и статус бейджем рядом; текст по шаблону, «Мои заявки» — ссылка.
+    Оповещение: событие, организация и БИН; текст по шаблону, цель, сервисы и срок выделены. Номера заявки,
+    статуса услуги и перехода в «Мои заявки» нет; клик по непрочитанному отмечает его прочитанным.
+  Непрочитанное: точка, полужирный заголовок, сиреневая подложка с полосой; прочитанное — светлая подложка.
+  Вкладки «Все» / «Непрочитанные» / «Прочитанные» со счётчиками + фильтр «Тип» (все / уведомления / оповещения);
+  поиск — номер заявки, услуга, организация, БИН; подсветка, Esc — очистить.
+  «Прочитать все» учитывает фильтр и поиск — тост с отменой. Новое сообщение при открытой
+  странице подсвечивается; `?id=` (переход из колокольчика) — прокрутка к сообщению и подсветка.
 
   Данные — AttachData (window.mpAttach): localStorage `mp-attach-notifs`, событие `mp-attach-notif-change`.
-  Новая заявка или смена статуса в карточке (панель «Прототип») присылает уведомление.
   Панель «Прототип» — sessionStorage `mp-cit-notif-scn`: ok | empty | down, «Ничего не найдено»,
-  «Статус заявки изменился», «Сбросить данные».
+  «Статус заявки изменился», «Оповещение: запрос / предоставление доступа», «Сбросить данные».
 -->
 <x-dc>
 <helmet>
@@ -38,6 +43,7 @@
     --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
     --orange:#F17B2C;--orange-l:#FEF3EB;--orange-d:#6E330C;
     --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;--yellow-light:#FBDFB1;
+    --teal-l:#EBFAFF;--teal-dk:#1F87AD;--teal-d:#164564;
     --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-lg:0 16px 40px -12px rgba(14,18,27,.14);
   }
   *{box-sizing:border-box;}
@@ -45,6 +51,7 @@
   @keyframes mp-fade{from{opacity:0}to{opacity:1}}
   @keyframes nt-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
   @keyframes nt-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes nt-pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
   @keyframes nt-fresh{0%,40%{background:var(--n100)}100%{background:var(--n0)}}
 
   /* Раскладка кабинета гражданина — как у «Моих заявок»: на всю ширину, поля 32 / 24 / 16 px */
@@ -59,10 +66,11 @@
   .nt-main{min-width:0;display:flex;flex-direction:column;gap:16px;container:ntmain / inline-size;animation:mp-fade .2s ease;}
   .nt-h1{margin:0;font-size:24px;line-height:32px;font-weight:600;letter-spacing:-.02em;}
 
-  /* Плашка списка: border, а не inset-тень (фон шапки и ховер строки доходят до края) */
-  .nt-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);overflow:hidden;}
+  /* Плашка списка: border, а не inset-тень (фон подложек и ховер строки доходят до края) */
+  .nt-card{background:var(--n0);border:1px solid var(--stroke);border-radius:20px;box-shadow:var(--sh-xs);}
+  .nt-clip{border-radius:0 0 19px 19px;overflow:hidden;}
 
-  /* Вкладки + поиск + «Отметить все прочитанными» */
+  /* Вкладки + тип + поиск + «Прочитать все» */
   .nt-bar{display:flex;align-items:center;justify-content:space-between;gap:12px 16px;padding:0 20px;border-bottom:1px solid var(--stroke);}
   .nt-tabs{display:flex;align-items:stretch;gap:24px;align-self:stretch;}
   .nt-tab{position:relative;display:inline-flex;align-items:center;gap:8px;height:64px;padding:0 2px;border:none;background:none;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n500);cursor:pointer;white-space:nowrap;transition:color .15s;}
@@ -73,16 +81,38 @@
   .nt-cnt{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--n100);color:var(--n500);font-size:12px;line-height:16px;font-weight:600;font-variant-numeric:tabular-nums;}
   .nt-tab[aria-selected="true"] .nt-cnt{background:var(--primary-lighter);color:var(--primary-darker);}
   .nt-tab.un .nt-cnt{background:var(--primary);color:#fff;}
-  .nt-tools{display:flex;align-items:center;gap:12px;padding:12px 0;}
-  .nt-qw{position:relative;}
+  .nt-tools{display:flex;align-items:center;gap:12px;padding:12px 0;min-width:0;}
+  .nt-qw{position:relative;min-width:0;}
   .nt-qw > i{position:absolute;left:12px;top:10px;font-size:20px;color:var(--n400);pointer-events:none;}
-  .nt-q{width:320px;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 38px 0 40px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:var(--n0);box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;}
+  .nt-q{width:320px;max-width:100%;height:40px;border:1px solid var(--stroke);border-radius:10px;padding:0 38px 0 40px;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);background:var(--n0);box-shadow:var(--sh-xs);outline:none;transition:border-color .15s,box-shadow .15s;text-overflow:ellipsis;}
   .nt-q::placeholder{color:var(--n400);}
   .nt-q::-webkit-search-cancel-button{display:none;}
   .nt-q:hover{border-color:var(--n300);}
   .nt-q:focus{border-color:var(--primary);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .nt-x{position:absolute;right:6px;top:6px;width:28px;height:28px;border:none;border-radius:6px;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--n400);padding:0;}
   .nt-x:hover{color:var(--n600);background:var(--n100);}
+
+  /* Фильтр «Тип» — кнопка с выпадающим списком, как «Период» в «Моих заявках» */
+  .nt-tyw{position:relative;display:flex;align-items:center;flex:0 0 auto;}
+  .nt-ty-btn{height:40px;display:inline-flex;align-items:center;gap:8px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);font-family:inherit;font-size:14px;line-height:20px;font-weight:500;color:var(--n700);cursor:pointer;white-space:nowrap;box-shadow:var(--sh-xs);transition:border-color .12s,background .12s,box-shadow .12s;}
+  .nt-ty-btn:hover{border-color:var(--n300);background:var(--n50);}
+  .nt-ty-btn > i{font-size:18px;color:var(--n400);}
+  .nt-ty-btn[aria-expanded="true"]{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-lighter);}
+  .nt-ty-btn[data-on="true"]{padding-right:36px;border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .nt-ty-btn[data-on="true"] > i{color:var(--primary);}
+  .nt-ty-x{position:absolute;right:6px;top:6px;width:28px;height:28px;border:none;border-radius:8px;background:none;color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;padding:0;}
+  .nt-ty-x:hover{background:#E2E8FF;}
+  .nt-ty-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:332px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;animation:nt-pop .14s ease;}
+  .nt-ty-o{width:100%;display:flex;align-items:center;gap:10px;min-height:40px;padding:8px 10px;border:none;border-radius:8px;background:none;font-family:inherit;font-size:14px;line-height:20px;color:var(--n900);text-align:left;cursor:pointer;}
+  .nt-ty-o:hover,.nt-ty-o:focus-visible{background:var(--n100);outline:none;}
+  .nt-ty-o[aria-checked="true"]{color:var(--primary-darker);font-weight:600;}
+  .nt-ty-o .nt-cnt{margin-left:auto;}
+  .nt-ty-o > .ri-check-line{font-size:18px;color:var(--primary);}
+  .nt-ty-o > .nt-chk{width:18px;flex:0 0 auto;}
+  .nt-ty-ic{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:15px;}
+  .nt-ty-ic.all{background:var(--n100);color:var(--n500);}
+  .nt-ty-ic.app{background:var(--n100);color:var(--primary);}
+  .nt-ty-ic.pd{background:var(--teal-l);color:var(--teal-dk);}
 
   .nt-btn{height:40px;padding:0 14px;border-radius:10px;font-family:inherit;font-size:14px;line-height:20px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;text-decoration:none;border:1px solid var(--stroke);background:var(--n0);color:var(--n600);box-shadow:var(--sh-xs);transition:background .15s,border-color .15s,color .15s;}
   .nt-btn i{font-size:18px;color:var(--n400);transition:color .15s;}
@@ -92,33 +122,43 @@
   .nt-btn.pri i{color:#fff;}
   .nt-btn.pri:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
 
-  /* Список: сетка столбцов общая для шапки и записей */
-  .nt-head,.nt-rec{display:grid;grid-template-columns:128px minmax(200px,1.5fr) minmax(200px,1fr) 148px;column-gap:24px;padding-left:20px;padding-right:20px;}
-  .nt-head{background:var(--n50);border-bottom:1px solid var(--stroke);}
-  .nt-head > span{padding:12px 0;font-size:12px;line-height:16px;font-weight:500;color:var(--n500);white-space:nowrap;}
-  .nt-head > span:first-child{padding-left:18px;}
+  /* Список: сетка общая для обоих типов — тип · заголовок и опознание · статус · дата; текст второй строкой */
   .nt-list{list-style:none;margin:0;padding:0;}
   .nt-list > li + li .nt-rec{border-top:1px solid var(--n200);}
-  .nt-rec{grid-template-areas:"num svc st dt" "msg msg msg msg";row-gap:10px;align-items:center;padding-top:16px;padding-bottom:16px;cursor:pointer;background:var(--n0);transition:background .15s;}
-  .nt-rec:hover{background:var(--n50);}
+  .nt-rec{display:grid;grid-template-columns:148px minmax(0,1fr) 148px;grid-template-areas:"ty main dt" "msg msg msg";column-gap:24px;row-gap:12px;align-items:center;padding:16px 20px;background:var(--n0);transition:background .15s;}
+  .nt-rec.go{cursor:pointer;}
+  .nt-rec.go:hover{background:var(--n50);}
+  .nt-rec:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
   .nt-rec.fresh{animation:nt-fresh 2.4s ease;}
-  .nt-c-num{grid-area:num;display:flex;align-items:center;gap:10px;min-width:0;}
-  .nt-c-svc{grid-area:svc;min-width:0;font-size:14px;line-height:20px;font-weight:500;color:var(--n600);}
-  .nt-c-st{grid-area:st;display:flex;min-width:0;}
+  .nt-c-ty{grid-area:ty;display:flex;align-items:center;gap:10px;min-width:0;}
+  .nt-c-main{grid-area:main;min-width:0;display:flex;flex-direction:column;gap:2px;}
   .nt-c-dt{grid-area:dt;font-size:14px;line-height:20px;color:var(--n500);white-space:nowrap;font-variant-numeric:tabular-nums;}
   .nt-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:transparent;}
-  .nt-num{font-size:14px;line-height:20px;font-weight:600;color:var(--primary);text-decoration:none;font-variant-numeric:tabular-nums;border-radius:4px;white-space:nowrap;}
+  .nt-ttl{font-size:14px;line-height:20px;font-weight:500;color:var(--n600);}
+  .nt-sub{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:4px;font-size:13px;line-height:20px;color:var(--n500);}
+  .nt-sub .sep{color:var(--n400);}
+  .nt-bin{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .nt-num{font-size:13px;line-height:20px;font-weight:500;color:var(--primary);text-decoration:none;font-variant-numeric:tabular-nums;border-radius:4px;white-space:nowrap;}
   .nt-num:hover,.nt-rec:hover .nt-num{color:var(--primary-dark);text-decoration:underline;text-underline-offset:3px;}
   .nt-rec.un .nt-dot{background:var(--primary);}
-  .nt-rec.un .nt-c-svc{font-weight:600;color:var(--n900);}
+  .nt-rec.un .nt-ttl{font-weight:600;color:var(--n900);}
   .nt-rec.un .nt-c-dt{color:var(--n900);}
 
-  /* Текст уведомления — в подложке по вертикали номера заявки (дефект В10) */
+  /* Метка типа: тег со значком (у статуса заявки — круглый бейдж с точкой, не путаются) */
+  .nt-type{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 8px 0 6px;border-radius:6px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;}
+  .nt-type i{font-size:15px;}
+  .nt-type.app{background:var(--n100);color:var(--n600);}
+  .nt-type.app i{color:var(--primary);}
+  .nt-type.pd{background:var(--teal-l);color:var(--teal-d);}
+  .nt-type.pd i{color:var(--teal-dk);}
+
+  /* Текст — в подложке по вертикали метки типа (дефект В10) */
   .nt-msg{grid-area:msg;margin:0 0 0 18px;padding:8px 14px 8px 12px;border-radius:10px;font-size:14px;line-height:20px;color:var(--n600);background:var(--n50);box-shadow:inset 0 0 0 1px var(--stroke);text-wrap:pretty;transition:background .15s,box-shadow .15s;}
-  .nt-rec:hover .nt-msg{background:var(--n100);box-shadow:inset 0 0 0 1px var(--n300);}
+  .nt-rec.go:hover .nt-msg{background:var(--n100);box-shadow:inset 0 0 0 1px var(--n300);}
   .nt-rec.un .nt-msg{background:var(--primary-lighter);box-shadow:inset 3px 0 0 var(--primary);color:var(--n900);}
-  .nt-rec.un:hover .nt-msg{box-shadow:inset 3px 0 0 var(--primary),inset 0 0 0 1px var(--primary-light);}
-  .nt-msg{text-wrap:balance;}
+  .nt-rec.un.go:hover .nt-msg{box-shadow:inset 3px 0 0 var(--primary),inset 0 0 0 1px var(--primary-light);}
+  .nt-v{font-weight:500;color:var(--n900);}
+  .nt-v.dt{white-space:nowrap;font-variant-numeric:tabular-nums;}
   .nt-lnk{color:var(--primary);font-weight:500;text-decoration:underline;text-decoration-color:var(--primary-light);text-underline-offset:3px;border-radius:3px;transition:color .12s,text-decoration-color .12s;}
   .nt-lnk:hover{color:var(--primary-dark);text-decoration-color:currentColor;}
   .nt-hl{background:var(--yellow-light);border-radius:2px;box-shadow:0 0 0 1px var(--yellow-light);color:var(--n900);}
@@ -137,8 +177,9 @@
   .nt-empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 24px 64px;text-align:center;}
   .nt-empty-ic{width:56px;height:56px;border-radius:16px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:28px;}
   .nt-empty-ic.err{background:var(--red-l);color:var(--red);}
+  .nt-empty-ic.pd{background:var(--teal-l);color:var(--teal-dk);}
   .nt-empty-t{font-size:16px;line-height:24px;font-weight:600;color:var(--n900);max-width:520px;overflow-wrap:anywhere;}
-  .nt-empty-s{margin:-6px 0 4px;font-size:14px;line-height:20px;color:var(--n500);max-width:420px;}
+  .nt-empty-s{margin:-6px 0 4px;font-size:14px;line-height:20px;color:var(--n500);max-width:440px;}
   .nt-sk{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0%,#EDEFF3 50%,var(--n100) 100%);background-size:960px 100%;animation:nt-sh 1.3s linear infinite;}
 
   /* Тост с отменой — над кнопкой помощника, как в меню кабинета */
@@ -148,23 +189,29 @@
 
   /* Панель прототипа — как в карточке заявки */
   .nt-pp{position:fixed;left:20px;bottom:20px;z-index:50;width:220px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
-  .nt-pp.open{width:264px;}
+  .nt-pp.open{width:284px;}
   .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);font-family:inherit;cursor:pointer;text-align:left;}
   .pp-head:hover{background:var(--n100);}
   .pp-cap{margin:10px 0 2px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
   .pp-btn{width:100%;min-height:30px;padding:6px 10px;border-radius:8px;border:1px solid var(--stroke);background:var(--n0);font-family:inherit;font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
   .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[disabled]{opacity:.5;cursor:default;}
   .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
 
-  :is(.nt-tab,.nt-num,.nt-lnk,.nt-btn,.nt-x,.nt-undo,.nt-crumbs a,.pp-head,.pp-btn):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  :is(.nt-tab,.nt-num,.nt-lnk,.nt-btn,.nt-x,.nt-ty-btn,.nt-ty-x,.nt-undo,.nt-crumbs a,.pp-head,.pp-btn):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .nt-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 
   @media (min-width:1800px){
-    .nt-bar,.nt-head,.nt-rec{padding-left:24px;padding-right:24px;}
-    .nt-head,.nt-rec{column-gap:32px;}
+    .nt-bar,.nt-rec{padding-left:24px;padding-right:24px;}
+    .nt-rec{column-gap:32px;}
   }
-  /* Узкая колонка: шапка таблицы не нужна, запись — карточкой */
-  @container ntmain (max-width:860px){
+  /* Ноутбук: поиск уже; на 1366 подпись «Прочитать …» уходит в подсказку, кнопка — значком */
+    @container ntmain (max-width:1080px){
+    .nt-btn.rd{width:40px;padding:0;}
+    .nt-btn.rd .lbl{display:none;}
+  }
+  /* Узкая колонка: вкладки над инструментами, запись — карточкой */
+  @container ntmain (max-width:900px){
     .nt-bar{flex-direction:column-reverse;align-items:stretch;gap:0;padding-top:12px;}
     .nt-tools{padding:0 0 4px;}
     .nt-qw{flex:1;min-width:0;}
@@ -172,20 +219,23 @@
     .nt-tabs{gap:20px;overflow-x:auto;scrollbar-width:none;}
     .nt-tabs::-webkit-scrollbar{display:none;}
     .nt-tab{height:52px;}
-    .nt-head{display:none;}
-    .nt-rec{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"num dt" "svc svc" "st st" "msg msg";row-gap:8px;}
-    .nt-c-svc,.nt-c-st{padding-left:18px;}
+    .nt-rec{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"ty dt" "main main" "msg msg";row-gap:8px;}
+    .nt-c-main{padding-left:18px;}
     .nt-msg{margin-top:2px;}
+  }
+  @container ntmain (max-width:640px){
+    .nt-sub{flex-direction:column;align-items:flex-start;}
+    .nt-sub .sep{display:none;}
   }
   @container ntmain (max-width:520px){
     .nt-tools{flex-wrap:wrap;}
-    .nt-tools .nt-btn{flex:1;}
+    .nt-qw{flex-basis:100%;order:-1;}
+    .nt-tyw{flex:1;}
+    .nt-ty-btn{width:100%;}
+    .nt-btn.rd{width:auto;padding:0 14px;flex:1;}
+    .nt-btn.rd .lbl{display:inline;}
     .nt-tabs{gap:16px;}
     .nt-tab:not(.un) .nt-cnt{display:none;}
-    .nt-rec{grid-template-areas:"num st" "svc svc" "dt dt" "msg msg";row-gap:6px;}
-    .nt-c-dt{padding-left:18px;margin-top:-4px;}
-    .nt-msg{margin-top:6px;}
-    .nt-c-st{padding-left:0;justify-content:flex-end;}
     .nt-c-dt{font-size:13px;}
     .nt-msg{margin-left:0;}
   }
@@ -199,11 +249,12 @@
     .nt-crumbs{margin-bottom:16px;}
     .nt-h1{font-size:22px;line-height:30px;}
     .nt-card{border-radius:16px;}
+    .nt-clip{border-radius:0 0 15px 15px;}
     .nt-bar,.nt-rec{padding-left:14px;padding-right:14px;}
     .nt-toast{left:16px;right:16px;bottom:88px;max-width:none;}
     .nt-pp{left:12px;bottom:12px;}
   }
-  @media (prefers-reduced-motion:reduce){ .nt-sk,.nt-rec.fresh,.nt-toast{animation:none;} }
+  @media (prefers-reduced-motion:reduce){ .nt-sk,.nt-rec.fresh,.nt-toast,.nt-ty-pop{animation:none;} }
 </style>
 </helmet>
 
@@ -227,8 +278,8 @@
       <main class="nt-main">
         <h1 class="nt-h1">Уведомления</h1>
 
-        <section class="nt-card" id="nt-panel" aria-label="Уведомления об изменении статусов заявок">
-          <!-- Вкладки, поиск, «Отметить все прочитанными» -->
+        <section class="nt-card" id="nt-panel" aria-label="Уведомления и оповещения">
+          <!-- Вкладки, тип, поиск, «Прочитать все» -->
           <sc-if value="{{ hasBar }}" hint-placeholder-val="{{ true }}">
             <div class="nt-bar">
               <div class="nt-tabs" role="tablist" aria-label="Уведомления">
@@ -237,26 +288,41 @@
                 </sc-for>
               </div>
               <div class="nt-tools">
+                <div class="nt-tyw" onKeyDown="{{ tyKey }}">
+                  <button type="button" class="nt-ty-btn" ref="{{ tyRef }}" aria-haspopup="true" aria-expanded="{{ tyOpen }}" data-on="{{ tyOn }}" onClick="{{ tyToggle }}" aria-label="{{ tyAria }}"><i class="ri-filter-3-line" aria-hidden="true"></i>{{ tyLabel }}<sc-if value="{{ tyOff }}" hint-placeholder-val="{{ true }}"><i class="ri-arrow-down-s-line" aria-hidden="true"></i></sc-if></button>
+                  <sc-if value="{{ tyIsOn }}" hint-placeholder-val="{{ false }}">
+                    <button type="button" class="nt-ty-x" onClick="{{ tyClear }}" aria-label="Сбросить тип" data-tip="Все типы"><i class="ri-close-line" aria-hidden="true"></i></button>
+                  </sc-if>
+                  <sc-if value="{{ tyIsOpen }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ tyClose }}" style="position:fixed;inset:0;z-index:29;"></div>
+                    <div class="nt-ty-pop" role="radiogroup" aria-label="Тип сообщения">
+                      <sc-for list="{{ tyOpts }}" as="o" hint-placeholder-count="3">
+                        <button type="button" class="nt-ty-o" role="radio" aria-checked="{{ o.on }}" onClick="{{ o.onClick }}"><span class="{{ o.icCls }}" aria-hidden="true"><i class="{{ o.icon }}"></i></span>{{ o.label }}<span class="nt-cnt">{{ o.n }}</span></button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
                 <div class="nt-qw" role="search">
                   <i class="ri-search-2-line" aria-hidden="true"></i>
-                  <input class="nt-q" type="search" ref="{{ qRef }}" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Номер заявки или название услуги" aria-label="Поиск по номеру заявки или названию услуги" autoComplete="off" spellCheck="false" enterKeyHint="search" disabled="{{ qOff }}" />
+                  <input class="nt-q" type="search" ref="{{ qRef }}" value="{{ q }}" onChange="{{ onQ }}" onKeyDown="{{ onQKey }}" placeholder="Номер, услуга, организация, БИН" aria-label="Поиск по номеру заявки, услуге, организации или БИН" autoComplete="off" spellCheck="false" enterKeyHint="search" disabled="{{ qOff }}" />
                   <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
                     <button type="button" class="nt-x" onClick="{{ clearQ }}" aria-label="Очистить поиск" data-tip="Очистить · Esc"><i class="ri-close-circle-fill" style="font-size:18px;" aria-hidden="true"></i></button>
                   </sc-if>
                 </div>
                 <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
-                  <button type="button" class="nt-btn" onClick="{{ readAll }}"><i class="ri-check-double-line" aria-hidden="true"></i>{{ readAllLabel }}</button>
+                  <button type="button" class="nt-btn rd" onClick="{{ readAll }}" aria-label="{{ readAllLabel }}" data-tip="{{ readAllLabel }}"><i class="ri-check-double-line" aria-hidden="true"></i><span class="lbl">{{ readAllLabel }}</span></button>
                 </sc-if>
               </div>
             </div>
           </sc-if>
 
+          <div class="nt-clip">
           <!-- Загрузка -->
           <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
             <div aria-busy="true" aria-label="Загрузка уведомлений">
               <sc-for list="{{ sk }}" as="k" hint-placeholder-count="4">
                 <div style="display:flex;flex-direction:column;gap:12px;padding:18px 20px;border-bottom:1px solid var(--n100);">
-                  <div style="display:flex;align-items:center;gap:24px;"><span class="nt-sk" style="width:84px;height:12px;"></span><span class="nt-sk" style="{{ k.w }}"></span><span class="nt-sk" style="width:120px;height:22px;border-radius:999px;margin-left:auto;"></span><span class="nt-sk" style="width:110px;height:12px;"></span></div>
+                  <div style="display:flex;align-items:center;gap:24px;"><span class="nt-sk" style="width:112px;height:22px;border-radius:6px;margin-left:18px;"></span><span class="nt-sk" style="{{ k.w }}"></span><span class="nt-sk" style="width:120px;height:22px;border-radius:999px;margin-left:auto;"></span><span class="nt-sk" style="width:110px;height:12px;"></span></div>
                   <span class="nt-sk" style="height:36px;border-radius:10px;margin-left:18px;"></span>
                 </div>
               </sc-for>
@@ -265,19 +331,30 @@
 
           <!-- Список -->
           <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
-            <div class="nt-head" aria-hidden="true"><span>№ заявки</span><span>Наименование услуги</span><span>Статус</span><span>Дата и время</span></div>
             <ul class="nt-list" aria-label="{{ listAria }}">
               <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
                 <li>
-                  <div class="{{ r.cls }}" onClick="{{ r.open }}">
-                    <div class="nt-c-num">
+                  <div class="{{ r.cls }}" data-id="{{ r.id }}" onClick="{{ r.open }}" onKeyDown="{{ r.key }}" tabIndex="{{ r.ti }}" role="{{ r.role }}" aria-label="{{ r.recAria }}">
+                    <div class="nt-c-ty">
                       <span class="nt-dot" aria-hidden="true"></span>
-                      <a class="nt-num" href="{{ r.href }}" onClick="{{ r.mark }}" aria-label="{{ r.aria }}"><sc-for list="{{ r.numParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></a>
+                      <span class="{{ r.tyCls }}"><i class="{{ r.tyIc }}" aria-hidden="true"></i>{{ r.tyLabel }}</span>
                     </div>
-                    <div class="nt-c-svc"><sc-for list="{{ r.svcParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></div>
-                    <div class="nt-c-st"><span class="{{ r.stCls }}">{{ r.st }}</span></div>
+                    <div class="nt-c-main">
+                      <div class="nt-ttl"><sc-for list="{{ r.ttlParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></div>
+                      <sc-if value="{{ r.isApp }}" hint-placeholder-val="{{ true }}">
+                        <div class="nt-sub"><a class="nt-num" href="{{ r.href }}" onClick="{{ r.mark }}" aria-label="{{ r.numAria }}">Заявка №<sc-for list="{{ r.numParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></a><span class="{{ r.stCls }}">{{ r.st }}</span></div>
+                      </sc-if>
+                      <sc-if value="{{ r.isPd }}" hint-placeholder-val="{{ false }}">
+                        <div class="nt-sub"><span><sc-for list="{{ r.orgParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></span><span class="nt-bin"><span class="sep" aria-hidden="true">·&nbsp;&nbsp;</span>БИН <sc-for list="{{ r.binParts }}" as="p" hint-placeholder-count="1"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></span></div>
+                      </sc-if>
+                    </div>
                     <div class="nt-c-dt">{{ r.dt }}</div>
-                    <p class="nt-msg"><span>{{ r.pre }}</span><a class="nt-lnk" href="Мои заявки гражданина.dc.html" onClick="{{ r.mark }}">Мои заявки</a><span>{{ r.post }}</span></p>
+                    <sc-if value="{{ r.isApp }}" hint-placeholder-val="{{ true }}">
+                      <p class="nt-msg"><span>{{ r.pre }}</span><a class="nt-lnk" href="Мои заявки гражданина.dc.html" onClick="{{ r.mark }}">Мои заявки</a><span>{{ r.post }}</span></p>
+                    </sc-if>
+                    <sc-if value="{{ r.isPd }}" hint-placeholder-val="{{ false }}">
+                      <p class="nt-msg"><sc-for list="{{ r.msgParts }}" as="p" hint-placeholder-count="3"><span class="{{ p.c }}">{{ p.t }}</span></sc-for></p>
+                    </sc-if>
                   </div>
                 </li>
               </sc-for>
@@ -292,29 +369,29 @@
             <div class="nt-empty" role="status">
               <div class="nt-empty-ic" aria-hidden="true"><i class="ri-search-line"></i></div>
               <div class="nt-empty-t">{{ noMatchT }}</div>
-              <p class="nt-empty-s">Проверьте номер заявки или название услуги</p>
+              <p class="nt-empty-s">Проверьте номер заявки, название услуги, организацию или БИН</p>
               <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-                <sc-if value="{{ inOther }}" hint-placeholder-val="{{ false }}"><button type="button" class="nt-btn pri" onClick="{{ toAll }}"><i class="ri-search-line" aria-hidden="true"></i>{{ inOtherLabel }}</button></sc-if>
+                <sc-if value="{{ inOther }}" hint-placeholder-val="{{ false }}"><button type="button" class="nt-btn pri" onClick="{{ toWide }}"><i class="ri-search-line" aria-hidden="true"></i>{{ inOtherLabel }}</button></sc-if>
                 <button type="button" class="nt-btn" onClick="{{ clearQ }}"><i class="ri-close-line" aria-hidden="true"></i>Сбросить поиск</button>
               </div>
             </div>
           </sc-if>
 
-          <!-- Пустая вкладка -->
+          <!-- Пустая вкладка или тип -->
           <sc-if value="{{ tabEmpty }}" hint-placeholder-val="{{ false }}">
             <div class="nt-empty" role="status">
-              <div class="nt-empty-ic" aria-hidden="true"><i class="{{ tabEmptyIc }}"></i></div>
+              <div class="{{ tabEmptyIcCls }}" aria-hidden="true"><i class="{{ tabEmptyIc }}"></i></div>
               <div class="nt-empty-t">{{ tabEmptyT }}</div>
-              <button type="button" class="nt-btn" onClick="{{ toAll }}">Показать все уведомления</button>
+              <button type="button" class="nt-btn" onClick="{{ tabEmptyGo }}">{{ tabEmptyBtn }}</button>
             </div>
           </sc-if>
 
-          <!-- Уведомлений нет -->
+          <!-- Сообщений нет -->
           <sc-if value="{{ noAny }}" hint-placeholder-val="{{ false }}">
             <div class="nt-empty" role="status">
               <div class="nt-empty-ic" aria-hidden="true"><i class="ri-notification-3-line"></i></div>
               <div class="nt-empty-t">Уведомлений пока нет</div>
-              <p class="nt-empty-s">Здесь появятся изменения статусов ваших заявок</p>
+              <p class="nt-empty-s">Здесь появятся изменения статусов ваших заявок и оповещения о доступе к персональным данным</p>
               <a class="nt-btn pri" href="Услуги гражданина.dc.html"><i class="ri-government-line" aria-hidden="true"></i>Перейти к услугам</a>
             </div>
           </sc-if>
@@ -328,13 +405,14 @@
               <button type="button" class="nt-btn" onClick="{{ retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button>
             </div>
           </sc-if>
+          </div>
         </section>
         <span class="nt-sr" aria-live="polite">{{ live }}</span>
       </main>
     </div>
   </div>
 
-  <!-- Тост «Отметить все прочитанными» с отменой -->
+  <!-- Тост «Отметить прочитанными» с отменой -->
   <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
     <div class="nt-toast" role="status">
       <i class="ri-check-double-line" style="font-size:20px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>
@@ -358,6 +436,7 @@
         </sc-for>
         <div class="pp-cap">Данные</div>
         <button type="button" class="pp-btn" onClick="{{ ppPush }}" disabled="{{ ppPushOff }}"><i class="ri-notification-badge-line" style="font-size:15px;" aria-hidden="true"></i>{{ ppPushLabel }}</button>
+        <button type="button" class="pp-btn" onClick="{{ ppPd }}" disabled="{{ ppPdOff }}"><i class="ri-shield-user-line" style="font-size:15px;" aria-hidden="true"></i>{{ ppPdLabel }}</button>
         <button type="button" class="pp-btn" onClick="{{ ppReset }}"><i class="ri-restart-line" style="font-size:15px;" aria-hidden="true"></i>Сбросить данные</button>
       </div>
     </sc-if>
@@ -373,8 +452,17 @@ const PAGE = 10;
 const NOT_FOUND_Q = 'Вызов врача на дом';
 const SK = [34, 26, 40, 30].map(w => ({ w:`width:${w}%;height:12px;` }));
 const TABS = [ ['all', 'Все'], ['unread', 'Непрочитанные'], ['read', 'Прочитанные'] ];
+// Тип сообщения: уведомление по заявке (kind 'app') и оповещение о доступе к персональным данным (kind 'pd')
+const TYPES = [
+  { id:'all', label:'Все типы', full:'Все типы', icon:'ri-stack-line', many:'сообщения', gen:'сообщений' },
+  { id:'app', label:'Уведомления', full:'Уведомления по заявкам', one:'Уведомление', icon:'ri-notification-3-line', many:'уведомления', gen:'уведомлений' },
+  { id:'pd', label:'Оповещения', full:'Оповещения о доступе к данным', one:'Оповещение', icon:'ri-shield-user-line', many:'оповещения', gen:'оповещений' },
+];
+const TY = id => TYPES.find(t => t.id === id) || TYPES[0];
+const kindOf = x => x.kind === 'pd' ? 'pd' : 'app';
 const plural = (n, f) => { const a = Math.abs(n) % 100, b = a % 10; return f[a > 10 && a < 20 ? 2 : b === 1 ? 0 : b >= 2 && b <= 4 ? 1 : 2]; };
 const readScn = () => { try { return sessionStorage.getItem(SCN) || 'ok'; } catch(e){ return 'ok'; } };
+const urlId = () => { try { return new URLSearchParams(location.search).get('id') || ''; } catch(e){ return ''; } };
 
 // Подсказки data-tip — тот же механизм, что на остальных страницах кабинета
 const installTips = () => {
@@ -391,8 +479,10 @@ const installTips = () => {
     requestAnimationFrame(() => { if(el) el.style.opacity = '1'; });
   };
   const pick = (e) => (e.target && e.target.closest) ? e.target.closest('[data-tip]') : null;
-  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip')){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
-  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
+  // подсказка показывается, только если подпись кнопки скрыта (у «Прочитать …» на ноутбуке)
+  const needed = (tg) => { const lb = tg.querySelector && tg.querySelector('.lbl'); return !lb || lb.offsetWidth === 0; };
+  document.addEventListener('mouseover', (e) => { const tg = pick(e); if(tg === cur) return; hide(); if(tg && tg.getAttribute('data-tip') && needed(tg)){ cur = tg; timer = setTimeout(() => show(tg), 380); } });
+  document.addEventListener('focusin', (e) => { const tg = pick(e); hide(); if(tg && tg.getAttribute('data-tip') && needed(tg) && tg.matches(':focus-visible')){ cur = tg; show(tg); } });
   document.addEventListener('focusout', hide);
   document.addEventListener('mousedown', hide);
   window.addEventListener('scroll', hide, { passive:true, capture:true });
@@ -417,7 +507,8 @@ const hlParts = (str, needle) => {
 
 class Component extends DCLogic {
   qRef = React.createRef();
-  state = { ready:false, list:[], scn:readScn(), tab:'all', q:'', shown:PAGE, fresh:[], toast:'', undoIds:null, live:'', ppOpen:false };
+  tyRef = React.createRef();
+  state = { ready:false, list:[], scn:readScn(), tab:'all', ty:'all', tyOpen:false, q:'', shown:PAGE, fresh:[], toast:'', undoIds:null, live:'', ppOpen:false };
 
   componentDidMount(){
     installTips();
@@ -441,25 +532,44 @@ class Component extends DCLogic {
     const list = A.notifs();
     if(!this.state.ready){
       if(this._loading) return; this._loading = true;
-      this._lt = setTimeout(() => { this._loading = false; this._known = new Set(A.notifs().map(x => x.id)); this.setState({ ready:true, list:A.notifs() }); }, 450);
+      this._lt = setTimeout(() => {
+        this._loading = false;
+        const all = A.notifs();
+        this._known = new Set(all.map(x => x.id));
+        this.setState({ ready:true, list:all });
+        this.reveal(urlId());
+      }, 450);
       return;
     }
-    // Пришло новое уведомление при открытой странице — подсветить его
+    // Пришло новое сообщение при открытой странице — подсветить его
     const known = this._known || new Set();
     const fresh = list.filter(x => !known.has(x.id)).map(x => x.id);
     this._known = new Set(list.map(x => x.id));
     const patch = { list };
     if(fresh.length){
       patch.fresh = fresh;
-      patch.live = fresh.length === 1 ? 'Новое уведомление' : 'Новых уведомлений: ' + fresh.length;
+      patch.live = fresh.length === 1 ? 'Новое сообщение' : 'Новых сообщений: ' + fresh.length;
       clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ fresh:[] }), 2600);
     }
     this.setState(patch);
   }
+  // Переход из колокольчика (?id=…): показать сообщение в общем списке, прокрутить к нему и подсветить
+  reveal(id){
+    if(!id) return;
+    const i = this.state.list.findIndex(x => x.id === id);
+    if(i === -1) return;
+    this.setState({ tab:'all', ty:'all', q:'', shown: Math.max(PAGE, Math.ceil((i + 1) / PAGE) * PAGE), fresh:[id] });
+    clearTimeout(this._ft); this._ft = setTimeout(() => this.setState({ fresh:[] }), 2600);
+    setTimeout(() => {
+      const el = document.querySelector('[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+      if(el) el.scrollIntoView({ block:'center' });
+    }, 60);
+    try { history.replaceState(null, '', location.pathname); } catch(e){}
+  }
   setScn(scn){
     try { sessionStorage.setItem(SCN, scn); } catch(e){}
     try { window.dispatchEvent(new CustomEvent('mp-attach-notif-change')); } catch(e){}
-    this.setState({ scn, q:'', shown:PAGE });
+    this.setState({ scn, q:'', shown:PAGE, tyOpen:false });
   }
   retry(){
     clearTimeout(this._lt);
@@ -473,6 +583,10 @@ class Component extends DCLogic {
     this.setState({ toast:text, undoIds: undoIds || null });
     this._tt = setTimeout(() => this.setState({ toast:'', undoIds:null }), 6000);
   }
+  closeTy(focus){
+    this.setState({ tyOpen:false });
+    if(focus) setTimeout(() => { const b = this.tyRef.current; if(b) b.focus(); }, 0);
+  }
 
   renderVals(){
     const s = this.state, A = window.mpAttach;
@@ -480,23 +594,32 @@ class Component extends DCLogic {
     const loading = !s.ready && !!A || !A;
     const all = (emptyScn || down) ? [] : s.list;
 
-    // Поиск: цифры — по части номера заявки («№» и пробелы не мешают), иначе — по названию услуги
+    // Поиск: цифры — по части номера заявки или БИН («№» и пробелы не мешают);
+    // слова — по названию услуги, организации или заголовку оповещения
     const raw = (s.q || '').trim();
     const ql = raw.toLowerCase();
     const svc = A ? A.SERVICE : '';
     const svcL = svc.toLowerCase();
+    const PD_EV = A ? A.PD_EV : {};
+    const pdTitle = x => (PD_EV[x.ev] || {}).title || '';
     const words = ql.replace(/[№#]/g, ' ').split(/\s+/).filter(Boolean);
     const numW = words.filter(w => /^\d+$/.test(w)), txtW = words.filter(w => !/^\d+$/.test(w));
     const digits = numW.join('');
-    const byNum = numW.length > 0;
-    const svcQ = txtW.join(' ');
-    const match = (x) => !raw || (numW.every(w => x.num.indexOf(w) !== -1) && (!svcQ || svcL.indexOf(svcQ) !== -1));
+    const txtQ = txtW.join(' ');
+    const match = (x) => {
+      if(!raw) return true;
+      if(kindOf(x) === 'pd') return numW.every(w => x.bin.indexOf(w) !== -1) && (!txtQ || x.org.toLowerCase().indexOf(txtQ) !== -1 || pdTitle(x).toLowerCase().indexOf(txtQ) !== -1);
+      return numW.every(w => x.num.indexOf(w) !== -1) && (!txtQ || svcL.indexOf(txtQ) !== -1);
+    };
     const found = all.filter(match);
     const inTab = (x, t) => t === 'all' || (t === 'unread' ? !x.read : x.read);
-    const unreadAll = all.filter(x => !x.read).length;
+    const inTy = (x, t) => t === 'all' || kindOf(x) === t;
+    const ty = TY(s.ty);
+    const filtered = found.filter(x => inTy(x, s.ty));   // поиск + тип, без вкладки
+    const narrowed = !!raw || s.ty !== 'all';
 
     const tabs = TABS.map(([id, label]) => {
-      const n = found.filter(x => inTab(x, id)).length, on = s.tab === id;
+      const n = filtered.filter(x => inTab(x, id)).length, on = s.tab === id;
       return { label, n, on: on ? 'true' : 'false',
         cls: 'nt-tab' + (id === 'unread' && n > 0 && !raw ? ' un' : ''),
         aria: id === 'unread' ? n + ' ' + plural(n, ['непрочитанное', 'непрочитанных', 'непрочитанных']) : String(n),
@@ -512,39 +635,80 @@ class Component extends DCLogic {
         } };
     });
 
-    const list = found.filter(x => inTab(x, s.tab));
+    // Фильтр «Тип»: счётчики — с учётом вкладки и поиска
+    const tyOpts = TYPES.map(t => {
+      const on = s.ty === t.id;
+      return { label:t.full, icon:t.icon, icCls:'nt-ty-ic ' + t.id, on: on ? 'true' : 'false',
+        n: found.filter(x => inTab(x, s.tab) && inTy(x, t.id)).length,
+        onClick: () => { this.setState({ ty:t.id, shown:PAGE }); this.closeTy(true); } };
+    });
+
+    const list = filtered.filter(x => inTab(x, s.tab));
     const view = list.slice(0, s.shown);
     const STATUS = A ? A.STATUS : {};
     const rows = view.map(x => {
+      const unread = !x.read, fresh = s.fresh.indexOf(x.id) !== -1;
+      const mark = () => this.markRead(x.id);
+      const dtTxt = A.fmtDT(x.at);
+      if(kindOf(x) === 'pd'){
+        const title = pdTitle(x);
+        const markPd = () => { if(!x.read){ mark(); this.setState({ live:'Оповещение отмечено прочитанным' }); } };
+        return {
+          id: x.id, isApp:false, isPd:true,
+          cls: 'nt-rec pd' + (unread ? ' un go' : '') + (fresh ? ' fresh' : ''),
+          tyCls:'nt-type pd', tyIc:'ri-shield-user-line', tyLabel:'Оповещение',
+          ttlParts: hlParts(title, txtQ && title.toLowerCase().indexOf(txtQ) !== -1 ? txtQ : ''),
+          orgParts: hlParts(x.org, txtQ), binParts: hlParts(x.bin, numW.length === 1 ? digits : ''),
+          msgParts: A.pdParts(x).map(p => ({ t:p.t, c: p.b ? 'nt-v' + (p.d ? ' dt' : '') : '' })),
+          dt: dtTxt,
+          ti: unread ? '0' : '-1', role: unread ? 'button' : 'group',
+          recAria: (unread ? 'Непрочитанное оповещение. ' : 'Оповещение. ') + title + '. ' + x.org + ', БИН ' + x.bin + ', ' + dtTxt + '. ' + A.pdText(x) + (unread ? ' Нажмите, чтобы отметить прочитанным.' : ''),
+          open: () => { const sel = window.getSelection && String(window.getSelection()); if(sel) return; markPd(); },
+          key: (e) => { if(e.target !== e.currentTarget) return; if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); markPd(); } },
+        };
+      }
       const st = STATUS[x.status] || { label:x.status, tone:'blue' };
       const text = A.ntText(x.num, x.status), cut = text.lastIndexOf('Мои заявки');
-      const unread = !x.read, href = CARD + '?n=' + encodeURIComponent(x.num);
-      const mark = () => this.markRead(x.id);
+      const href = CARD + '?n=' + encodeURIComponent(x.num);
       return {
-        cls: 'nt-rec' + (unread ? ' un' : '') + (s.fresh.indexOf(x.id) !== -1 ? ' fresh' : ''),
+        id: x.id, isApp:true, isPd:false,
+        cls: 'nt-rec go' + (unread ? ' un' : '') + (fresh ? ' fresh' : ''),
+        tyCls:'nt-type app', tyIc:'ri-notification-3-line', tyLabel:'Уведомление',
         href, mark,
         open: (e) => { if(e.target && e.target.closest && e.target.closest('a')) return; const sel = window.getSelection && String(window.getSelection()); if(sel) return; mark(); location.href = href; },
+        key: () => {}, ti:'-1', role:'group',
+        recAria: (unread ? 'Непрочитанное уведомление. ' : 'Уведомление. ') + svc + ', заявка № ' + x.num + ', статус «' + st.label + '», ' + dtTxt,
+        ttlParts: hlParts(svc, txtQ),
         numParts: hlParts(x.num, numW.length === 1 ? digits : ''),
-        svcParts: hlParts(svc, svcQ),
+        numAria: 'Открыть заявку № ' + x.num,
         st: st.label, stCls: 'nt-st ' + st.tone,
-        dt: A.fmtDT(x.at),
-        pre: text.slice(0, cut), post: text.slice(cut + 'Мои заявки'.length),
-        aria: (unread ? 'Непрочитанное. ' : '') + 'Заявка № ' + x.num + ', ' + svc + ', статус «' + st.label + '», ' + A.fmtDT(x.at),
+        dt: dtTxt,
+        pre: text.slice(0, cut).replace(/ (\S*)$/, '\u00a0$1'), post: text.slice(cut + 'Мои заявки'.length),
       };
     });
 
     const ready = !loading && !down;
     const hasAny = ready && all.length > 0;
     const rest = list.length - view.length;
-    const tabName = (TABS.find(t => t[0] === s.tab) || TABS[0])[1].toLowerCase();
+    const tabName = (TABS.find(t => t[0] === s.tab) || TABS[0])[1];
 
     const clearQ = () => { this.setState({ q:'', shown:PAGE }); const el = this.qRef.current; if(el) el.focus(); };
+
+    // «Отметить … прочитанными» — по выбранному типу и найденному
+    const unreadIds = filtered.filter(x => !x.read).map(x => x.id);
+    const readAllLabel = raw ? 'Прочитать найденные' : s.ty === 'all' ? 'Прочитать все' : 'Прочитать ' + ty.many;
+
+    // Пустая вкладка или тип (без поиска)
+    const emptyKind = !raw && list.length === 0;
+    const tyEmpty = emptyKind && s.ty !== 'all' && filtered.length === 0;   // сообщений этого типа нет совсем
+    const tabEmptyT = s.tab === 'unread' ? 'Все ' + ty.many + ' прочитаны' : 'Прочитанных ' + ty.gen + ' пока нет';
 
     const A2 = A;
     // Панель «Прототип»: смена статуса последней заявки — как ответ сервиса; присылает уведомление
     const apps = A2 ? A2.list() : [];
     const target = apps[0] || null;
     const nextSt = target ? A2.ORDER[(A2.ORDER.indexOf(target.status) + 1) % A2.ORDER.length] : null;
+    const pdNext = A2 && A2.pdNext ? A2.pdNext() : null;
 
     return {
       loading, isDown: down && !loading,
@@ -553,40 +717,65 @@ class Component extends DCLogic {
       onQ: (e) => this.setState({ q: e.target.value, shown:PAGE }),
       onQKey: (e) => { if(e.key === 'Escape' && s.q){ e.preventDefault(); clearQ(); } },
       clearQ, qRef: this.qRef,
-      hasUnread: hasAny && (raw ? found.some(x => !x.read) : unreadAll > 0),
-      readAllLabel: raw ? 'Отметить найденные прочитанными' : 'Отметить все прочитанными',
+
+      tyRef: this.tyRef, tyOpts,
+      tyLabel: ty.label, tyOn: s.ty !== 'all' ? 'true' : 'false', tyIsOn: s.ty !== 'all', tyOff: s.ty === 'all',
+      tyAria: 'Тип сообщения: ' + ty.label.toLowerCase(),
+      tyOpen: s.tyOpen ? 'true' : 'false', tyIsOpen: s.tyOpen,
+      tyToggle: (e) => {
+        const open = !s.tyOpen, kb = e && e.detail === 0;
+        this.setState({ tyOpen:open }, () => {
+          if(open && kb) setTimeout(() => { const b = document.querySelector('.nt-ty-o[aria-checked="true"]'); if(b) b.focus(); }, 0);
+        });
+      },
+      tyClose: () => this.closeTy(false),
+      tyClear: () => { this.setState({ ty:'all', shown:PAGE }); const b = this.tyRef.current; if(b) b.focus(); },
+      tyKey: (e) => {
+        if(e.key === 'Escape' && s.tyOpen){ e.preventDefault(); e.stopPropagation(); this.closeTy(true); return; }
+        if(!s.tyOpen || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+        e.preventDefault();
+        const opts = Array.from(document.querySelectorAll('.nt-ty-o')), i = opts.indexOf(document.activeElement);
+        const j = e.key === 'ArrowDown' ? (i + 1) % opts.length : (i + opts.length - 1) % opts.length;
+        if(opts[j]) opts[j].focus();
+      },
+
+      hasUnread: hasAny && unreadIds.length > 0,
+      readAllLabel,
       readAll: () => {
-        if(!A2) return;
-        if(raw){
-          const ids = found.filter(x => !x.read).map(x => x.id);
-          A2.ntRead(ids);
-          this.toast(ids.length === 1 ? 'Уведомление отмечено прочитанным' : 'Найденные уведомления отмечены прочитанными', ids);
-          return;
-        }
-        const was = A2.ntReadAll();
-        this.toast(was.length === 1 ? 'Уведомление отмечено прочитанным' : 'Все уведомления отмечены прочитанными', was);
+        if(!A2 || !unreadIds.length) return;
+        A2.ntRead(unreadIds);
+        const one = unreadIds.length === 1;
+        const oneKind = one ? kindOf(filtered.find(x => x.id === unreadIds[0]) || {}) : '';
+        this.toast(one ? TY(oneKind).one + ' отмечено прочитанным'
+          : raw ? 'Найденные сообщения отмечены прочитанными'
+          : s.ty === 'all' ? 'Все сообщения отмечены прочитанными'
+          : ty.label + ' отмечены прочитанными', unreadIds);
       },
       hasToast: !!s.toast, toast: s.toast, canUndo: !!(s.undoIds && s.undoIds.length),
       undo: () => { if(A2 && s.undoIds) A2.ntUnread(s.undoIds); clearTimeout(this._tt); this.setState({ toast:'', undoIds:null, live:'Отметка отменена' }); },
 
       sk: SK,
       hasRows: hasAny && rows.length > 0, rows,
-      listAria: 'Уведомления: ' + list.length,
+      listAria: (s.ty === 'all' ? 'Сообщения' : ty.label) + ': ' + list.length,
       hasMore: hasAny && rest > 0,
       moreLabel: 'Показать ещё ' + Math.min(PAGE, rest),
       showMore: () => this.setState({ shown: s.shown + PAGE }),
 
       noMatch: hasAny && !!raw && list.length === 0,
-      noMatchT: (s.tab === 'all' ? 'По запросу' : 'Во вкладке «' + (TABS.find(t => t[0] === s.tab) || TABS[0])[1] + '» по запросу') + ' «' + raw + '» ничего не найдено',
-      inOther: s.tab !== 'all' && found.length > 0,
+      noMatchT: (s.tab === 'all' && s.ty === 'all' ? 'По запросу'
+        : 'В разделе «' + [s.tab !== 'all' ? tabName : '', s.ty !== 'all' ? ty.label : ''].filter(Boolean).join(' · ') + '» по запросу') + ' «' + raw + '» ничего не найдено',
+      inOther: (s.tab !== 'all' || s.ty !== 'all') && found.length > 0,
       inOtherLabel: 'Показать во всех · ' + found.length,
-      tabEmpty: hasAny && !raw && list.length === 0,
-      tabEmptyIc: s.tab === 'unread' ? 'ri-check-double-line' : 'ri-mail-open-line',
-      tabEmptyT: s.tab === 'unread' ? 'Все уведомления прочитаны' : 'Прочитанных уведомлений пока нет',
-      toAll: () => this.setState({ tab:'all', shown:PAGE }),
+      toWide: () => this.setState({ tab:'all', ty:'all', shown:PAGE }),
+      tabEmpty: hasAny && emptyKind,
+      tabEmptyIcCls: 'nt-empty-ic' + (s.ty === 'pd' ? ' pd' : ''),
+      tabEmptyIc: tyEmpty ? ty.icon : s.tab === 'unread' ? 'ri-check-double-line' : 'ri-mail-open-line',
+      tabEmptyT: tyEmpty ? ty.gen[0].toUpperCase() + ty.gen.slice(1) + ' пока нет' : tabEmptyT,
+      tabEmptyBtn: tyEmpty ? 'Показать все типы' : 'Показать все ' + ty.many,
+      tabEmptyGo: () => this.setState(tyEmpty ? { ty:'all', shown:PAGE } : { tab:'all', shown:PAGE }),
       noAny: ready && all.length === 0,
       retry: () => this.retry(),
-      live: s.live || (raw && hasAny ? 'Найдено: ' + list.length + ' (' + tabName + ')' : ''),
+      live: s.live || (raw && hasAny ? 'Найдено: ' + list.length + ' (' + tabName.toLowerCase() + ')' : ''),
 
       ppCls: 'nt-pp' + (s.ppOpen ? ' open' : ''), ppOpen: s.ppOpen ? 'true' : 'false', ppIsOpen: s.ppOpen,
       ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line',
@@ -598,11 +787,14 @@ class Component extends DCLogic {
         { id:'down', label:'Сервис недоступен', icon:'ri-wifi-off-line' },
       ].map(x => ({ ...x,
         on: (x.id === 'search' ? (s.scn === 'ok' && s.q === NOT_FOUND_Q) : (s.scn === x.id && !(x.id === 'ok' && s.q === NOT_FOUND_Q))) ? 'true' : 'false',
-        onClick: () => { if(x.id === 'search'){ this.setScn('ok'); this.setState({ tab:'all', q:NOT_FOUND_Q }); } else this.setScn(x.id); } })),
+        onClick: () => { if(x.id === 'search'){ this.setScn('ok'); this.setState({ tab:'all', ty:'all', q:NOT_FOUND_Q }); } else this.setScn(x.id); } })),
       ppPushOff: !target || down || emptyScn,
       ppPushLabel: target ? 'Статус № ' + target.num + ' → «' + A2.STATUS[nextSt].label + '»' : 'Статус заявки изменился',
       ppPush: () => { if(target) A2.setStatus(target.num, nextSt); },
-      ppReset: () => { if(!A2) return; try { sessionStorage.removeItem(SCN); } catch(e){} A2.reset(); this._known = new Set(A2.notifs().map(x => x.id)); this.setState({ scn:'ok', q:'', tab:'all', shown:PAGE, list:A2.notifs(), fresh:[] }); },
+      ppPdOff: !pdNext || down || emptyScn,
+      ppPdLabel: pdNext && pdNext.ev === 'granted' ? 'Оповещение: доступ предоставлен' : 'Оповещение: запрошен доступ',
+      ppPd: () => { if(A2 && A2.pdPush) A2.pdPush(); },
+      ppReset: () => { if(!A2) return; try { sessionStorage.removeItem(SCN); } catch(e){} A2.reset(); this._known = new Set(A2.notifs().map(x => x.id)); this.setState({ scn:'ok', q:'', tab:'all', ty:'all', tyOpen:false, shown:PAGE, list:A2.notifs(), fresh:[] }); },
     };
   }
 }
