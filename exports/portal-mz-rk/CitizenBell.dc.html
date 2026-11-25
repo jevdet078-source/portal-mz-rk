@@ -20,8 +20,10 @@
 
   Кнопка: значок + число непрочитанных. Выпадающий список: «Уведомления», «N новых», «Прочитать все», три последних
   уведомления (значок статуса, услуга, «Статус изменён на «…»», № заявки и время; непрочитанное — точкой и полужирным),
-  внизу «Все уведомления» → страница «Уведомления гражданина» (вкладки, поиск, статусы — без изменений).
-  Клик по уведомлению отмечает его прочитанным и открывает карточку заявки. Esc и клик мимо закрывают.
+  внизу «Все уведомления» → страница «Уведомления гражданина» (вкладки, тип, поиск, статусы).
+  Клик по уведомлению отмечает его прочитанным и открывает карточку заявки. Оповещение о доступе к персональным
+  данным (постановка 25.11) — щит, событие, организация, БИН; клик отмечает прочитанным и открывает страницу
+  уведомлений с подсветкой оповещения (`?id=`). Esc и клик мимо закрывают.
 
   Данные — AttachData (window.mpAttach): localStorage `mp-attach-notifs`, событие `mp-attach-notif-change`;
   состояния «Нет уведомлений» / «Сервис недоступен» — из панели «Прототип» страницы уведомлений (sessionStorage `mp-cit-notif-scn`).
@@ -30,7 +32,7 @@
 <helmet>
 <style>
   :root{--primary:#4D42E9;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;
-    --green-l:#EFFAF6;--green-d:#176448;--red-l:#FDEDF0;--red-d:#710E21;--orange-l:#FEF3EB;--orange-d:#6E330C;}
+    --green-l:#EFFAF6;--green-d:#176448;--red-l:#FDEDF0;--red-d:#710E21;--orange-l:#FEF3EB;--orange-d:#6E330C;--teal-l:#EBFAFF;--teal-dk:#1F87AD;}
   @keyframes cb-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
   .cb{position:relative;font-family:'Inter',sans-serif;}
   .cb-btn{position:relative;width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s,color .15s;}
@@ -61,6 +63,7 @@
   .cb-ico.green{background:var(--green-l);color:var(--green-d);}
   .cb-ico.red{background:var(--red-l);color:var(--red-d);}
   .cb-ico.orange{background:var(--orange-l);color:var(--orange-d);}
+  .cb-ico.teal{background:var(--teal-l);color:var(--teal-dk);}
   .cb-body{min-width:0;display:flex;flex-direction:column;gap:2px;}
   .cb-svc{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
   .cb-it.un .cb-svc{font-weight:600;}
@@ -164,6 +167,16 @@ class Component extends DCLogic {
     const A = () => window.mpAttach;
     const svc = (A() && A().SERVICE) || 'Прикрепление к поликлинике';
     const items = list.slice(0, SHOW).map(x => {
+      // Оповещение о доступе к персональным данным (постановка 25.11): событие, организация, БИН и время;
+      // перехода в заявку нет — открывается страница уведомлений с подсветкой этого оповещения
+      if(x.kind === 'pd'){
+        const a = A(), title = (a && a.PD_EV && a.PD_EV[x.ev] || {}).title || 'Доступ к персональным данным';
+        return { un: !x.read, cls: 'cb-it' + (x.read ? '' : ' un'), icoCls: 'cb-ico teal', icon: 'ri-shield-user-line',
+          svc: title, txt: x.org, meta: 'БИН ' + x.bin + ' · ' + fmtDT(x.at),
+          href: 'Уведомления гражданина.dc.html?id=' + encodeURIComponent(x.id),
+          aria: (x.read ? '' : 'Непрочитанное. ') + 'Оповещение. ' + title + '. ' + x.org + ', БИН ' + x.bin + ', ' + fmtDT(x.at),
+          onClick: () => { const a2 = A(); if(a2 && a2.ntRead) a2.ntRead(x.id); } };
+      }
       const st = ST[x.status] || [x.status, 'blue', 'ri-notification-3-line'];
       const txt = 'Статус изменён на «' + st[0] + '»';
       return { un: !x.read, cls: 'cb-it' + (x.read ? '' : ' un'), icoCls: 'cb-ico ' + st[1], icon: st[2],
