@@ -103,6 +103,11 @@
         <dc-import name="ArmNotifications" arm="fk" hint-size="100%,600px"></dc-import>
       </sc-if>
 
+      <!-- Профиль сотрудника (постановка «Профиль пользователя», 25.11.2026): тело — общий UserProfile -->
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="UserProfile" cab="fk" hint-size="100%,640px"></dc-import>
+      </sc-if>
+
       <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
         <div style="display:flex;flex-direction:column;gap:16px;animation:mp-slidein .2s ease;">
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
@@ -239,6 +244,7 @@
     </div>
   </sc-if>
 
+  <sc-if value="{{ notProfile }}" hint-placeholder-val="{{ true }}">
   <div class="arm-pp" style="position:fixed;left:296px;bottom:20px;z-index:50;display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;background:#fff;border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-lg);">
     <i class="ri-flask-line" style="font-size:16px;color:var(--n400);"></i>
     <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);">Прототип</span>
@@ -246,6 +252,7 @@
       <sc-for list="{{ demo }}" as="d" hint-placeholder-count="3"><button class="pp-b" onClick="{{ d.onClick }}" aria-pressed="{{ d.on }}" title="{{ d.title }}" style="{{ d.style }}">{{ d.label }}</button></sc-for>
     </div>
   </div>
+  </sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -266,7 +273,7 @@ class Component extends DCLogic {
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._load));
     if(window.mpArm && window.mpArm.ready) this._load();
     this._tick = setInterval(() => { if(!document.hidden) this.setState({ now:Date.now() }); }, 1000);
-    this._hash = () => { const h = location.hash.replace('#', ''); const view = ['active','done','approval','notifications'].indexOf(h) !== -1 ? h : 'active'; if(view !== this.state.view) this.setState({ view, page:1, pop:null, applied:{ ...EMPTY_F }, draft:{ ...EMPTY_F }, errs:{} }); };
+    this._hash = () => { const h = location.hash.replace('#', ''); const view = ['active','done','approval','notifications','profile'].indexOf(h) !== -1 ? h : 'active'; if(view !== this.state.view) this.setState({ view, page:1, pop:null, applied:{ ...EMPTY_F }, draft:{ ...EMPTY_F }, errs:{} }); };
     window.addEventListener('hashchange', this._hash);
     this._hash();
     this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
@@ -324,7 +331,7 @@ class Component extends DCLogic {
     const ready = s.ready && !!ED && !!A && A.ready;
     const fail = ready && ED.fail();
     const me = ready ? A.current('fk') : '';
-    const view = s.view === 'notifications' ? 'active' : s.view;
+    const view = s.view === 'notifications' || s.view === 'profile' ? 'active' : s.view;
     const D = s.draft, F = s.applied;
     const setD = (patch) => this.setState({ draft:{ ...s.draft, ...patch }, errs:{} });
     const T = s.toast, now = s.now;
@@ -395,7 +402,8 @@ class Component extends DCLogic {
     const seg = (on) => `${on ? 'background:#fff;color:#4D42E9;box-shadow:0 1px 2px rgba(10,13,20,.08);' : 'background:transparent;color:#525866;'}`;
     const fast = ready && ED.fast();
     return {
-      isNotifs: s.view === 'notifications', isList: s.view !== 'notifications',
+      isNotifs: s.view === 'notifications', isList: s.view !== 'notifications' && s.view !== 'profile',
+      isProfile: s.view === 'profile', notProfile: s.view !== 'profile',
       title: { active:'Активные комиссии', done:'Завершённые комиссии', approval:'Согласование' }[view], noAccess,
       canCreate: ready && A.roleKey(me) === 'sec',
       fq:D.q, onQ:(e) => setD({ q:e.target.value }), qShort: D.q.trim().length > 0 && D.q.trim().length < 3 && !/^\d+$/.test(D.q.trim()),

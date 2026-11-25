@@ -21,6 +21,8 @@
   • Сотрудник и роль — переключатель «Работать от имени»: все сотрудники ННЦРЗ и Формулярной комиссии
     с числом задач у каждого, чтобы пройти процесс за разные роли. Выбор сотрудника другого АРМ
     открывает реестр этого АРМ. На бою роль приходит из учётной записи — переключателя нет.
+  • Меню сотрудника (постановка «Профиль пользователя», 25.11.2026): кто вошёл, «Перейти в профиль»
+    (раздел #profile страницы АРМ, тело — UserProfile), «Выйти». Фото — из профиля (localStorage mp-user-photo:<arm>:<id>).
   Данные — window.mpArm (EdArm.dc.html), события 'mp-arm-change', 'mp-ed-change'.
 -->
 <x-dc>
@@ -33,6 +35,13 @@
   .ah-it{transition:background .12s;}
   .ah-it:hover{background:#F6F8FA !important;}
   .ah-l:hover{color:#4D42E9 !important;}
+  .ah-mi{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:10px;font-size:14px;font-weight:500;color:#31353F;text-decoration:none;box-sizing:border-box;transition:background .12s,color .12s;}
+  .ah-mi i{font-size:18px;color:#868C98;flex:0 0 auto;}
+  .ah-mi:hover{background:#F6F8FA;color:#0A0D14;}
+  .ah-mi[aria-current="page"]{background:#EEF2FF;color:#312D86;}
+  .ah-mi[aria-current="page"] i{color:#4D42E9;}
+  .ah-mi:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #C6D0FF;}
+  .ah-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
   @media (max-width:1100px){ .ah-sub{display:none !important;} }
   @media (max-width:860px){ .ah-user-txt,.ah-brand-txt{display:none !important;} }
 </style>
@@ -91,7 +100,7 @@
       <!-- сотрудник и роль -->
       <div style="position:relative;">
         <button class="ah-b" onClick="{{ toggleUser }}" aria-haspopup="menu" aria-expanded="{{ userOpen }}" title="Сотрудник и роль" style="{{ userBtnStyle }}">
-          <span style="{{ meAva }}">{{ meIni }}</span>
+          <span aria-hidden="true" style="{{ meAva }}">{{ meIni }}</span>
           <span class="ah-user-txt" style="display:flex;flex-direction:column;gap:1px;line-height:1.2;text-align:left;min-width:0;">
             <span style="font-size:13px;font-weight:600;color:#0A0D14;white-space:nowrap;">{{ meName }}</span>
             <span style="font-size:12px;color:#868C98;white-space:nowrap;">{{ meRole }}</span>
@@ -100,8 +109,19 @@
         </button>
         <sc-if value="{{ userOpen }}" hint-placeholder-val="{{ false }}">
           <div onClick="{{ closeAll }}" style="position:fixed;inset:0;z-index:44;"></div>
-          <div role="menu" aria-label="Работать от имени" style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:392px;max-height:calc(100vh - 96px);display:flex;flex-direction:column;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:ah-drop .15s ease;">
-            <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div role="menu" aria-label="Меню сотрудника" style="position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:392px;max-height:calc(100vh - 96px);display:flex;flex-direction:column;background:#fff;border:1px solid #E2E4E9;border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:ah-drop .15s ease;">
+            <!-- кто вошёл → «Перейти в профиль» -->
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:16px 16px 12px;flex:0 0 auto;">
+              <span aria-hidden="true" style="{{ meAva44 }}">{{ meIni }}</span>
+              <span style="min-width:0;padding-top:2px;display:flex;flex-direction:column;gap:2px;">
+                <span class="ah-fio" style="font-size:14px;line-height:20px;font-weight:600;color:#0A0D14;"><span>{{ meLast }}</span> <span>{{ meFirst }}</span> <span>{{ meMiddle }}</span></span>
+                <span style="font-size:12.5px;line-height:18px;color:#525866;">{{ meRole }}</span>
+              </span>
+            </div>
+            <div style="padding:0 8px 8px;flex:0 0 auto;">
+              <a href="{{ profHref }}" class="ah-mi" role="menuitem" aria-current="{{ onProfile }}" onClick="{{ closeAll }}"><i class="ri-user-line"></i>Перейти в профиль</a>
+            </div>
+            <div style="padding:14px 16px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #E2E4E9;flex:0 0 auto;">
               <span style="font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#868C98;">Работать от имени</span>
               <span style="font-size:12px;line-height:16px;color:#868C98;">Задачи</span>
             </div>
@@ -129,7 +149,10 @@
               </span>
               <i class="ri-arrow-right-up-line" style="font-size:18px;color:#868C98;"></i>
             </a>
-            <div style="padding:8px 16px 10px;background:#FBFCFD;border-top:1px solid #E2E4E9;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:#868C98;"><i class="ri-flask-line" style="font-size:14px;"></i>Переключение ролей есть только в прототипе</div>
+            <div style="padding:8px;border-top:1px solid #E2E4E9;flex:0 0 auto;">
+              <a href="Портал Минздрава - Главная.dc.html" class="ah-mi" role="menuitem" onClick="{{ logout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
+            </div>
+            <div style="padding:8px 16px 10px;background:#FBFCFD;border-top:1px solid #E2E4E9;display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:#868C98;flex:0 0 auto;"><i class="ri-flask-line" style="font-size:14px;"></i>Переключение ролей есть только в прототипе</div>
           </div>
         </sc-if>
       </div>
@@ -147,7 +170,9 @@ class Component extends DCLogic {
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.addEventListener(n, this._re));
     // компоненты страницы грузятся асинхронно: событие готовности данных могло прийти раньше подписки
     this._t1 = setTimeout(this._re, 600); this._t2 = setTimeout(this._re, 2000);
-    this._st = (e) => { if(e.key === 'mp-arm-notifs') this._re(); };
+    this._st = (e) => { if(e.key === 'mp-arm-notifs' || (e.key || '').indexOf('mp-user-photo:') === 0) this._re(); };
+    window.addEventListener('mp-user-photo-change', this._re);
+    window.addEventListener('hashchange', this._re);
     window.addEventListener('storage', this._st);
     this._esc = (e) => { if(e.key === 'Escape' && (this.state.bellOpen || this.state.userOpen)) this.setState({ bellOpen:false, userOpen:false }); };
     window.addEventListener('keydown', this._esc);
@@ -155,6 +180,7 @@ class Component extends DCLogic {
   componentWillUnmount(){
     ['mp-arm-ready','mp-arm-change','mp-ed-change'].forEach(n => window.removeEventListener(n, this._re));
     window.removeEventListener('keydown', this._esc); window.removeEventListener('storage', this._st);
+    window.removeEventListener('mp-user-photo-change', this._re); window.removeEventListener('hashchange', this._re);
     clearTimeout(this._t1); clearTimeout(this._t2);
   }
   renderVals(){
@@ -164,6 +190,11 @@ class Component extends DCLogic {
     const me = ready ? A.current(arm) : '';
     const reg = arm === 'fk' ? 'АРМ ФК.dc.html' : 'АРМ ННЦРЗ.dc.html';
     const ava = (id, px) => { const c = A ? A.avatar(id) : ['#F6F8FA','#525866']; return `width:${px}px;height:${px}px;border-radius:${px >= 32 ? 8 : 7}px;background:${c[0]};color:${c[1]};font-size:${px >= 32 ? 12 : 11}px;line-height:1;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;`; };
+    // фото сотрудника — из профиля (UserProfile); стиль объектом: в data:-URL есть «;»
+    let photo = ''; try { photo = me ? (localStorage.getItem('mp-user-photo:' + arm + ':' + me) || '') : ''; } catch(e){}
+    const photoAva = (px, r) => ({ width:px, height:px, borderRadius:r, flex:'0 0 auto', background:`#EEF2FF url("${photo}") center/cover no-repeat` });
+    const meU = ready && A.user(me) || { last:'', first:'', middle:'' };
+    const onProfile = location.hash === '#profile' && /АРМ (ННЦРЗ|ФК)\.dc\.html$/.test(decodeURIComponent(location.pathname));
 
     // уведомления
     const TONE = { blue:'#4D42E9', green:'#38C793', red:'#DF1C41', yellow:'#F17B2C' };
@@ -205,7 +236,11 @@ class Component extends DCLogic {
       userOpen:s.userOpen, toggleUser: () => this.setState({ userOpen:!s.userOpen, bellOpen:false }),
       userChev: s.userOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
       userBtnStyle:`display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 4px;border:1px solid ${s.userOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:#fff;font-family:inherit;cursor:pointer;max-width:300px;`,
-      meIni: ready ? A.initials(me) : '', meAva: ava(me, 32), meName: ready ? A.shortName(me) : '…', meRole: ready ? A.roleLabel(me) : '',
+      meIni: ready && !photo ? A.initials(me) : '', meAva: photo ? photoAva(32, 8) : ava(me, 32), meName: ready ? A.shortName(me) : '…', meRole: ready ? A.roleLabel(me) : '',
+      meAva44: photo ? photoAva(44, 10) : ava(me, 44) + 'border-radius:10px;font-size:15px;',
+      meLast: meU.last, meFirst: meU.first, meMiddle: meU.middle,
+      profHref: reg + '#profile', onProfile: onProfile ? 'page' : undefined,
+      logout: () => { try { localStorage.removeItem('mp-profile'); } catch(e){} },
       groups,
       closeAll: () => this.setState({ bellOpen:false, userOpen:false }),
     };

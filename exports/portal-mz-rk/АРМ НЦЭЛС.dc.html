@@ -31,6 +31,9 @@
     • в «Все заявки» добавлен столбец «Эксперт» — блок показывает заявки всех экспертов.
   Русские названия статусов — рабочие, коды из постановки; сверить с аналитиком.
   Данные — демонстрационные, генерируются детерминированно относительно текущей даты.
+  Профиль эксперта (постановка «Профиль пользователя», 25.11.2026): кнопка эксперта в шапке → меню «Перейти в профиль» / «Выйти»,
+  ФИО в меню АРМ → раздел #profile этой страницы (тело — общий UserProfile, cab="ncels").
+  Фото — из профиля (localStorage mp-user-photo:ncels).
 -->
 <x-dc>
 <helmet>
@@ -68,6 +71,25 @@
   .nv-it:hover{background:var(--n100) !important;color:var(--n900) !important;}
   .nv-it[aria-current="page"]:hover{background:var(--primary-lighter) !important;color:var(--primary) !important;}
   .hd-b{transition:background .15s,border-color .15s;}
+  .hd-me{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px 0 4px;border:1px solid var(--stroke);border-radius:10px;background:#fff;font-family:inherit;color:var(--n900);cursor:pointer;transition:background .15s,border-color .15s;}
+  .hd-me:hover{background:var(--n100);border-color:var(--n300);}
+  .hd-me[aria-expanded="true"]{border-color:var(--primary);}
+  .hd-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:45;width:320px;background:#fff;border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;}
+  .hd-mi{width:100%;display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:10px;font-size:14px;font-weight:500;color:var(--n600);text-decoration:none;box-sizing:border-box;transition:background .12s,color .12s;}
+  .hd-mi i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .hd-mi:hover{background:var(--n100);color:var(--n900);}
+  .hd-mi[aria-current="page"]{background:var(--primary-lighter);color:var(--primary-darker);}
+  .hd-mi[aria-current="page"] i{color:var(--primary);}
+  .hd-fio span,.nc-me-fio span{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
+  .nc-me{display:flex;align-items:center;gap:10px;min-width:0;border-radius:12px;text-decoration:none;color:var(--n900);transition:background .15s,border-color .15s,box-shadow .15s;}
+  .nc-me.wide{width:100%;padding:8px 10px;border:1px solid var(--stroke);}
+  .nc-me.wide:hover{background:var(--n100);border-color:var(--n300);}
+  .nc-me.rail{width:44px;height:44px;justify-content:center;border:1px solid transparent;}
+  .nc-me.rail:hover{background:var(--n100);}
+  .nc-me[data-on="true"]{background:var(--primary-lighter) !important;border-color:var(--primary-light) !important;}
+  .nc-me-fio{flex:1;min-width:0;font-size:14px;line-height:19px;font-weight:600;letter-spacing:-.006em;}
+  .nc-me[data-on="true"] .nc-me-fio{color:var(--primary-darker);}
+  .hd-me:focus-visible,.hd-mi:focus-visible,.nc-me:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
   .hd-b:hover{background:var(--n100) !important;border-color:var(--n300) !important;}
 
   /* карточки блоков: вся карточка — вкладка, счётчики сроков — фильтры поверх неё */
@@ -123,12 +145,33 @@
       </a>
       <div style="flex:1;"></div>
       <div style="display:flex;align-items:center;gap:10px;flex:0 0 auto;">
-        <div style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px 0 4px;border:1px solid var(--stroke);border-radius:10px;background:#fff;">
-          <span style="width:32px;height:32px;border-radius:8px;background:var(--primary-lighter);color:var(--primary-dark);font-size:12px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;">{{ meIni }}</span>
-          <span class="hd-user-txt" style="display:flex;flex-direction:column;line-height:1.2;">
-            <span style="font-size:14px;font-weight:500;white-space:nowrap;">{{ meName }}</span>
-            <span style="font-size:12px;color:var(--n400);white-space:nowrap;">Эксперт</span>
-          </span>
+        <div style="position:relative;">
+          <button type="button" class="hd-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ meFull }}">
+            <span aria-hidden="true" style="{{ meAva32 }}">{{ meIni }}</span>
+            <span class="hd-user-txt" style="display:flex;flex-direction:column;line-height:1.2;text-align:left;">
+              <span style="font-size:14px;font-weight:500;white-space:nowrap;">{{ meName }}</span>
+              <span style="font-size:12px;color:var(--n500);white-space:nowrap;">Эксперт</span>
+            </span>
+            <i class="{{ meChev }}" style="font-size:18px;color:var(--n400);flex:0 0 auto;" aria-hidden="true"></i>
+          </button>
+          <sc-if value="{{ meOpen }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ closeMe }}" style="position:fixed;inset:0;z-index:44;"></div>
+            <div class="hd-pop" role="menu" aria-label="Меню пользователя">
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:16px;">
+                <span aria-hidden="true" style="{{ meAva44 }}">{{ meIni }}</span>
+                <span style="min-width:0;padding-top:2px;display:flex;flex-direction:column;gap:2px;">
+                  <span class="hd-fio" style="font-size:14px;line-height:20px;font-weight:600;"><span>{{ meLast }}</span> <span>{{ meFirst }}</span> <span>{{ meMiddle }}</span></span>
+                  <span style="font-size:12.5px;line-height:18px;color:var(--n500);">Эксперт</span>
+                </span>
+              </div>
+              <div style="padding:8px;border-top:1px solid var(--stroke);">
+                <a href="#profile" class="hd-mi" role="menuitem" aria-current="{{ profCur }}" onClick="{{ closeMe }}"><i class="ri-user-line"></i>Перейти в профиль</a>
+              </div>
+              <div style="padding:8px;border-top:1px solid var(--stroke);">
+                <a href="Портал Минздрава - Главная.dc.html" class="hd-mi" role="menuitem"><i class="ri-logout-box-r-line"></i>Выйти</a>
+              </div>
+            </div>
+          </sc-if>
         </div>
         <a href="Портал Минздрава - Главная.dc.html" class="hd-b" title="На главную портала" aria-label="На главную портала" style="width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);display:flex;align-items:center;justify-content:center;text-decoration:none;"><i class="ri-home-4-line" style="font-size:18px;"></i></a>
       </div>
@@ -144,6 +187,12 @@
             <div style="flex:1;min-width:0;font-size:11px;line-height:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--n400);white-space:nowrap;">Реестры заявок</div>
           </sc-if>
           <button class="ib" onClick="{{ toggleNav }}" aria-label="{{ navToggleLabel }}" data-tip="{{ navToggleLabel }}" data-tip-pos="right" style="width:36px;height:36px;color:var(--n500);"><i class="ri-side-bar-line" style="font-size:20px;"></i></button>
+        </div>
+        <div style="{{ meWrap }}">
+          <a class="{{ meCls }}" href="#profile" data-on="{{ meOn }}" aria-current="{{ profCur }}" aria-label="{{ meCardAria }}" data-tip="{{ meCardTip }}" data-tip-pos="right">
+            <span aria-hidden="true" style="{{ meAva36 }}">{{ meIni }}</span>
+            <sc-if value="{{ navOpen }}" hint-placeholder-val="{{ true }}"><span class="nc-me-fio"><span>{{ meLast }}</span> <span>{{ meFirst }}</span> <span>{{ meMiddle }}</span></span></sc-if>
+          </a>
         </div>
         <div style="{{ navList }}">
           <sc-for list="{{ navItems }}" as="it" hint-placeholder-count="2">
@@ -167,6 +216,10 @@
     </div>
 
     <main class="nc-main" style="flex:1;min-width:0;padding:24px 32px 64px;">
+      <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="UserProfile" cab="ncels" h="m" pp-left="{{ ppLeft }}" hint-size="100%,640px"></dc-import>
+      </sc-if>
+      <sc-if value="{{ isReg }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;flex-direction:column;gap:20px;max-width:1440px;">
         <h1 style="margin:0;font-size:20px;line-height:28px;font-weight:600;letter-spacing:-.015em;">{{ title }}</h1>
 
@@ -287,6 +340,7 @@
           </div>
         </section>
       </div>
+      </sc-if>
     </main>
   </div>
 </div>
@@ -347,6 +401,8 @@ const DL = [
   { id:'ok',   tone:'green',  tip:'В срок' },
 ];
 const ME = 'Сейткали А. Б.';
+const ME_FIO = { last:'Сейткали', first:'Асель', middle:'Бериковна' };   // то же в UserProfile (cab="ncels")
+const readMePhoto = () => { try { return localStorage.getItem('mp-user-photo:ncels') || ''; } catch(e){ return ''; } };
 const EXPERTS = [ME, 'Жумабаева Д. Т.', 'Ким Е. В.', 'Оспанов Н. К.', 'Ахметова Г. С.'];
 const AVA = [['#EEF2FF','#362DA6'], ['#EFFAF6','#176448'], ['#FEF3EB','#C2540A'], ['#EEEBFF','#5A36BF'], ['#EBFAFF','#1F87AD']];
 const ORGS = ['ТОО «Астана Групп»', 'ТОО «Фарм Лайн»', 'АО «Дала Фарм»', 'ТОО «Медика Трейд»', 'ТОО «Сункар Мед»', 'ТОО «Евразия Медикал»', 'ТОО «Нур Диагностикс»', 'ТОО «Altyn Pharma»'];
@@ -385,18 +441,36 @@ class Component extends DCLogic {
     try { ui = JSON.parse(sessionStorage.getItem(UIKEY) || 'null'); } catch(e){}
     this.data = { ls:genApps('ls'), mi:genApps('mi') };
     this.state = { reg:'ls', block: ui && ui.block || 'work', dl:null, status:null, q:'', page:1, sort:null, pop:null,
-      navOpen: typeof window !== 'undefined' ? window.innerWidth >= 1360 : true };
+      navOpen: typeof window !== 'undefined' ? window.innerWidth >= 1360 : true,
+      view: 'reg', meOpen:false, mePhoto: readMePhoto() };
+    this.meBtnRef = React.createRef();
   }
   componentDidMount(){
-    this._hash = () => { const r = location.hash === '#mi' ? 'mi' : 'ls'; if(r !== this.state.reg) this.setState({ reg:r, dl:null, status:null, page:1, pop:null }); };
+    this._hash = () => {
+      // #profile — профиль эксперта; иначе реестр (#ls / #mi)
+      const view = location.hash === '#profile' ? 'profile' : 'reg';
+      if(view !== this.state.view) this.setState({ view, meOpen:false });
+      if(view === 'profile'){ window.scrollTo(0, 0); return; }
+      const r = location.hash === '#mi' ? 'mi' : 'ls'; if(r !== this.state.reg) this.setState({ reg:r, dl:null, status:null, page:1, pop:null });
+    };
+    this._photo = () => this.setState({ mePhoto: readMePhoto() });
+    window.addEventListener('mp-user-photo-change', this._photo);
+    window.addEventListener('storage', this._photo);
     window.addEventListener('hashchange', this._hash);
     this._hash();
-    this._esc = (e) => { if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null }); };
+    this._esc = (e) => {
+      if(e.key === 'Escape' && this.state.meOpen){ this.setState({ meOpen:false }); setTimeout(() => { if(this.meBtnRef.current) this.meBtnRef.current.focus(); }, 0); return; }
+      if(e.key === 'Escape' && this.state.pop) this.setState({ pop:null });
+    };
     window.addEventListener('keydown', this._esc);
     this.installTips();
   }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._hash); window.removeEventListener('keydown', this._esc); }
+  componentWillUnmount(){ window.removeEventListener('hashchange', this._hash); window.removeEventListener('keydown', this._esc); window.removeEventListener('mp-user-photo-change', this._photo); window.removeEventListener('storage', this._photo); }
 
+  ava(px, r, photo){
+    if(photo) return { width:px, height:px, borderRadius:r, flex:'0 0 auto', background:'#EEF2FF url("' + photo + '") center/cover no-repeat' };
+    return 'width:' + px + 'px;height:' + px + 'px;border-radius:' + r + 'px;background:var(--primary-lighter);color:var(--primary-dark);font-size:' + (px > 40 ? 15 : px > 32 ? 12.5 : 12) + 'px;font-weight:600;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;flex:0 0 auto;';
+  }
   // Подсказки data-tip: один плавающий элемент, по наведению с задержкой и по фокусу с клавиатуры (как в HomeData)
   installTips(){
     if(window.__ncTips) return; window.__ncTips = true;
@@ -452,7 +526,7 @@ class Component extends DCLogic {
     // --- меню ---
     const navOpen = s.navOpen;
     const navItems = ['ls', 'mi'].map(id => {
-      const on = id === reg, n = this.data[id].filter(a => this.inBlock(a, id, 'work')).length;
+      const on = id === reg && s.view !== 'profile', n = this.data[id].filter(a => this.inBlock(a, id, 'work')).length;
       return { href:'#' + id, cur: on ? 'page' : 'false', icon:REG[id].icon, label:REG[id].nav,
         showDot: n > 0,
         aria: REG[id].nav + (n ? ', в работе: ' + n : ''), tip: navOpen ? '' : REG[id].nav,
@@ -550,7 +624,18 @@ class Component extends DCLogic {
 
     const stOpen = s.pop === 'st';
     return {
-      title:R.title, meName:ME, meIni:'СА',
+      title:R.title, meName:ME, meIni: s.mePhoto ? '' : 'СА',
+      isProfile: s.view === 'profile', isReg: s.view !== 'profile', ppLeft: navOpen ? '296' : '104',
+      meFull: [ME_FIO.last, ME_FIO.first, ME_FIO.middle].join(' '), meLast:ME_FIO.last, meFirst:ME_FIO.first, meMiddle:ME_FIO.middle,
+      meAria: 'Меню пользователя: ' + [ME_FIO.last, ME_FIO.first, ME_FIO.middle].join(' '),
+      meOpen: s.meOpen, meBtnRef: this.meBtnRef, meChev: s.meOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line',
+      toggleMe: () => this.setState({ meOpen:!s.meOpen, pop:null }), closeMe: () => this.setState({ meOpen:false }),
+      profCur: s.view === 'profile' ? 'page' : 'false', meOn: String(s.view === 'profile'),
+      meWrap: navOpen ? 'padding:12px 20px 0;' : 'padding:12px 0 0;display:flex;justify-content:center;',
+      meCls: 'nc-me ' + (navOpen ? 'wide' : 'rail'),
+      meCardAria: 'Перейти в профиль: ' + [ME_FIO.last, ME_FIO.first, ME_FIO.middle].join(' '), meCardTip: navOpen ? '' : [ME_FIO.last, ME_FIO.first, ME_FIO.middle].join(' '),
+      // фото — из профиля; стиль объектом: в data:-URL есть «;»
+      meAva32: this.ava(32, 8, s.mePhoto), meAva36: this.ava(36, 9, s.mePhoto), meAva44: this.ava(44, 10, s.mePhoto),
       navOpen, navItems,
       toggleNav: () => this.setState({ navOpen:!navOpen }),
       navToggleLabel: navOpen ? 'Свернуть меню' : 'Развернуть меню',

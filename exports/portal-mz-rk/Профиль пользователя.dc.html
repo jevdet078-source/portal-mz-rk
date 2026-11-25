@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="runtime/inter.css">
+<link rel="stylesheet" href="runtime/remixicon.css">
+<script src="runtime/react.production.min.js"></script>
+<script src="runtime/react-dom.production.min.js"></script>
+<script src="runtime/files.js"></script>
+<script src="runtime/support.js"></script>
+</head>
+<body>
+<!--
+  Кабинет бизнеса → Профиль пользователя (заявитель и администратор организации).
+  Постановка «Разработка прототипа профиля пользователя для всех кабинетов портала МЗ, за исключением кабинета
+  гражданина» (25.11.2026, docs/tz/2026-11-25-profil-polzovatelya.md).
+  Открывается: кнопка пользователя справа вверху (Header) → «Перейти в профиль»; ФИО в меню кабинета (BusinessNav).
+  Тело профиля — общий компонент UserProfile (cab="biz").
+-->
+<x-dc>
+<helmet>
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n900:#0A0D14;
+    --stroke:#E2E4E9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--n50);-webkit-font-smoothing:antialiased;}
+  .bp-main{flex:1;min-width:0;padding:24px 32px 96px;}
+  @media (max-width:640px){ .bp-main{padding:16px 16px 120px;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:var(--n50);">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="app" org="ТОО «Астана Групп»" bin="БИН 180540024521" hint-size="100%,73px"></dc-import></div>
+
+  <div style="display:flex;align-items:flex-start;">
+    <div style="position:sticky;top:73px;height:calc(100vh - 73px);flex:0 0 auto;z-index:30;">
+      <dc-import name="BusinessNav" style="height:100%;" active="profile" hint-size="272px,827px"></dc-import>
+    </div>
+    <main class="bp-main">
+      <dc-import name="UserProfile" cab="biz" hint-size="100%,640px"></dc-import>
+    </main>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals(){ return {}; }
+}
+</script>
+</body>
+</html>

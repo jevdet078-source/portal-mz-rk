@@ -76,7 +76,7 @@ const tabs = data.map(t => ({
 | Ключ | Значение | Кто пишет / читает |
 |---|---|---|
 | `mp-role` | `citizens` / `business` / `medical` | `Header` ↔ главная; `Вход` выставляет по профилю |
-| `mp-lang` | `ҚАЗ` / `РУС` / `ENG` | `Header` |
+| `mp-lang` | `ҚАЗ` / `РУС` / `ENG` | `Header`, `PortalHeader` → `UserProfile` (содержимое профиля на казахском при `ҚАЗ`; смена — событие `mp-lang-change`) |
 | `mp-iin` | ИИН после входа | `Вход` |
 | `mp-profile` | `citizen` / `business` / `medical` / `gov` | `Вход` |
 | `mp-users` | тестовые учётные записи: ИИН → `{ status, password, profiles:[{ kind, bin, org, level, role, sign, consent }] }` | `EcpPicker` (заполняет, сбрасывает), `Регистрация` (пишет), `Вход` (читает) |
@@ -126,6 +126,9 @@ const tabs = data.map(t => ({
 | `mp-avatar-scn` (sessionStorage) | сохранение фото в прототипе: `ok` / `fail` | панель «Прототип» `Услуги гражданина`, `Профиль гражданина` → `CitizenNav` |
 | `mp-home-page` | вариант главной, с которой пришёл пользователь (`Главная J - Итоговый.dc.html`, `Портал Минздрава - Главная.dc.html`…) | `PortalHeader`, `Header` на основной главной → «На главную», герб и «Выйти» в `Header` и `CitizenNav` |
 | `mp-citizen-email` | электронная почта гражданина; нет ключа — демо-адрес, пустая строка — «Не указана» | `Профиль гражданина` |
+| `mp-user-profile` | телефон и почта пользователя организации: `{ "<кабинет>[:<id сотрудника>]": { phone, email } }`, телефон — 10 цифр без «+7»; нет записи — демо-значения, пустая строка — «Не указан(а)» | `UserProfile` |
+| `mp-user-photo:<кабинет>[:<id>]` | фото профиля пользователя организации (`biz`, `ncels`, `head`, `nn:<id>`, `fk:<id>`) — data:URL JPEG 400×400 | `UserProfile` → `Header` (бизнес), `BusinessNav`, `ArmHeader`, `ArmNav`, `АРМ НЦЭЛС`, `PortalHeader` (руководитель), `OrgReportsNav` (событие `mp-user-photo-change`) |
+| `mp-user-save-scn` (sessionStorage) | сохранение в профиле пользователя организации: `ok` / `fail` (телефон, почта, фото) | панель «Прототип» `UserProfile` |
 | `mp-citizen-fio` (sessionStorage) | `long` — длинное ФИО демо-гражданина для проверки переноса | панель «Прототип» `Профиль гражданина` → `Header`, `CitizenNav` (событие `mp-citizen-change`) |
 | `mp-org-head` | `{ iin, fio, post, bin, org }` — вошёл первый руководитель медорганизации (профиль с `firstHead`) | `Вход` → `PortalHeader`, `OrgRepData`, страницы отчётности руководителя |
 | `mp-orgrep-db` | `{ v:2, forms:[id], assigns:[{ id, emp, role, forms, at }] }` — формы организации и назначения | `OrgRepData` (window.mpOrgRep) ↔ `Администрирование отчётности`, `OrgReportsNav` (событие `mp-orgrep-change`) |
