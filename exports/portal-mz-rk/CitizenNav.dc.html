@@ -18,14 +18,16 @@
   Обёртка cn-host — sticky на десктопе; на ≤1024px карточка сжимается в строку, разделы — горизонтальной лентой.
 
   Пропсы:
-    active — overview | lmk | epz-view | epz-access | family | services | requests | notif
+    active — overview | lmk | epz-view | epz-access | family | services | requests | notif (notif — пункта в меню нет, ничего не выделено)
 
-  Разделы: Обзор, Личная медицинская карта, Электронный паспорт здоровья — заголовок группы ведёт на сводку ЭПЗ,
+  Порядок разделов (замечания аналитика 25.11): Главная (сводка ЭПЗ), Электронный паспорт здоровья (подразделы раскрыты),
+  Услуги, Мои заявки, Моя семья, Личная медицинская карта, Управление доступами к ЭПЗ. «Уведомления» — колокольчиком в шапке
+  (Header), «Журнал сессий» — в меню профиля в шапке; в этом меню их нет.
+  Заголовок группы ЭПЗ ведёт в первый подраздел — «Амбулаторную помощь»,
   шеврон раскрывает подразделы ЭПЗ (Амбулаторная помощь … Больничные и справки → «Просмотр ЭПЗ.dc.html#<раздел>»;
-  замечания после показа министру 24.11.2026: одно меню вместо двух), Управление доступами к ЭПЗ, Моя семья (и «ЭПЗ ребёнка»), Услуги, Мои заявки
-  (постановка «Прикрепление к поликлинике», 09.11.2026), Уведомления (отдельная страница «Уведомления гражданина»,
-  постановка 24.11.2026; бейдж — число непрочитанных из AttachData, скрыт при нуле).
-  Группа раскрыта на страницах ЭПЗ; на других — по шеврону. Активный раздел — из адреса (hashchange, mp-epz-nav).
+  замечания после показа министру 24.11.2026: одно меню вместо двух). «Моя семья» включает «ЭПЗ ребёнка»,
+  «Мои заявки» — постановка «Прикрепление к поликлинике», 09.11.2026.
+  Группа ЭПЗ раскрыта на всех страницах, шеврон сворачивает. Активный раздел — из адреса (hashchange, mp-epz-nav).
   Карточка «кто вошёл» — компактной строкой; меню «липкое», только пока помещается в окно (иначе прокручивается со страницей).
   На ≤1024px — лента: на страницах ЭПЗ подразделы идут отдельными пунктами.
   «Выйти» сбрасывает mp-profile и mp-iin.
@@ -341,8 +343,6 @@
     <div class="cn-toast" role="status"><i class="ri-checkbox-circle-fill" style="font-size:20px;color:var(--green);flex:0 0 auto;" aria-hidden="true"></i>{{ toast }}</div>
   </sc-if>
   <span class="cn-sr" aria-live="polite">{{ live }}</span>
-  <!-- счётчик непрочитанных уведомлений — из AttachData (mp-attach-notifs) -->
-  <div style="display:none;"><dc-import name="AttachData" hint-size="0px,0px"></dc-import></div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:300,&quot;height&quot;:560},&quot;active&quot;:&quot;overview&quot;}">
@@ -359,20 +359,20 @@ const EPZ_SUB = [
   ['dispensary','Диспансерный учёт','ri-clipboard-line'], ['women','Женское здоровье','ri-women-line'],
   ['ambulance','Вызовы скорой','ri-first-aid-kit-line'], ['docs','Больничные и справки','ri-file-list-3-line'],
 ];
-const epzSec = () => { const h = (location.hash || '').slice(1).split('/')[0]; return EPZ_SUB.some(x => x[0] === h) ? h : ''; };
+// без раздела в адресе «Просмотр ЭПЗ» открывает «Амбулаторную помощь»
+const epzSec = () => { const h = (location.hash || '').slice(1).split('/')[0]; return EPZ_SUB.some(x => x[0] === h) ? h : 'ambulatory'; };
+// Порядок — по замечаниям аналитика 25.11; «Уведомления» и «Журнал сессий» — в шапке (колокольчик, меню профиля)
 const CN_ITEMS = [
-  { id:'overview', label:'Обзор', icon:'ri-dashboard-line', href:LK + '#overview' },
-  { id:'lmk', label:'Личная медицинская карта', icon:'ri-booklet-line', href:'Личная медицинская карта.dc.html' },
-  { id:'epz-view', label:'Электронный паспорт здоровья', icon:'ri-heart-pulse-line', href:EPZ,
+  { id:'overview', label:'Главная', icon:'ri-home-4-line', href:LK },
+  { id:'epz-view', label:'Электронный паспорт здоровья', icon:'ri-heart-pulse-line', href:EPZ + '#ambulatory',
     children: EPZ_SUB.map(([id, label, icon]) => ({ id:'epz:' + id, label, icon, href:EPZ + '#' + id })) },
-  { id:'epz-access', label:'Управление доступами к ЭПЗ', icon:'ri-shield-user-line', href:'Управление доступами к ЭПЗ.dc.html' },
-  { id:'family', label:'Моя семья', icon:'ri-parent-line', href:'Моя семья.dc.html' },
   { id:'services', label:'Услуги', icon:'ri-government-line', href:'Услуги гражданина.dc.html' },
   { id:'requests', label:'Мои заявки', icon:'ri-draft-line', href:'Мои заявки гражданина.dc.html' },
-  { id:'notif', label:'Уведомления', icon:'ri-notification-3-line', href:'Уведомления гражданина.dc.html', unreadBadge:true },
+  { id:'family', label:'Моя семья', icon:'ri-parent-line', href:'Моя семья.dc.html' },
+  { id:'lmk', label:'Личная медицинская карта', icon:'ri-booklet-line', href:'Личная медицинская карта.dc.html' },
+  { id:'epz-access', label:'Управление доступами к ЭПЗ', icon:'ri-shield-user-line', href:'Управление доступами к ЭПЗ.dc.html' },
 ];
 
-const ntPlural = (n) => { const a = n % 100, b = n % 10; return (a > 10 && a < 20) || b !== 1 ? 'непрочитанных' : 'непрочитанное'; };
 
 // Фото профиля
 const AVA_KEY = 'mp-avatar', AVA_EVT = 'mp-avatar-change', SCN_KEY = 'mp-avatar-scn';
@@ -419,7 +419,7 @@ class Component extends DCLogic {
     this.setZoom(this.state.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08));
   };
 
-  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'', ntUnread:0, epzSec:epzSec() };
+  state = { open:null, photo:readPhoto(), me:readMe(), dlg:false, sel:null, z:1, x:0, y:0, err:null, drag:false, saving:false, prog:0, flash:false, toast:'', live:'', epzSec:epzSec() };
 
   componentDidMount(){
     this.reveal();
@@ -430,13 +430,6 @@ class Component extends DCLogic {
     this._epz = () => { const v = epzSec(); if(v !== this.state.epzSec){ this.setState({ epzSec:v }); this.reveal(); } };
     window.addEventListener('hashchange', this._epz);
     window.addEventListener('mp-epz-nav', this._epz);
-    // Непрочитанные уведомления (постановка 24.11.2026): AttachData, событие mp-attach-notif-change
-    this._nt = () => { const A = window.mpAttach; if(A && A.unread) this.setState({ ntUnread: A.unread() }); };
-    this._nt();
-    window.addEventListener('mp-attach-ready', this._nt);
-    window.addEventListener('mp-attach-notif-change', this._nt);
-    this._ntSt = (e) => { if(!e.key || e.key === 'mp-attach-notifs') this._nt(); };
-    window.addEventListener('storage', this._ntSt);
     // Фото меняется в другом экземпляре меню / вкладке — обновляем карточку
     this._sync = () => this.setState({ photo: readPhoto() });
     window.addEventListener(AVA_EVT, this._sync);
@@ -465,9 +458,6 @@ class Component extends DCLogic {
     window.removeEventListener('resize', this._fit);
     window.removeEventListener('hashchange', this._epz);
     window.removeEventListener('mp-epz-nav', this._epz);
-    window.removeEventListener('mp-attach-ready', this._nt);
-    window.removeEventListener('mp-attach-notif-change', this._nt);
-    window.removeEventListener('storage', this._ntSt);
     clearInterval(this._timer); clearTimeout(this._toastT); clearTimeout(this._flashT);
     this.dragEnd();
     this.unlock();
@@ -631,7 +621,8 @@ class Component extends DCLogic {
       if(n.children){
         // Группа ЭПЗ: на сводке выделен заголовок, в разделе — пункт раздела (заголовок — цветом)
         const inside = active === n.id, sub = inside ? (s.epzSec || '') : '';
-        const expanded = s.open == null ? inside : s.open;
+        // подразделы ЭПЗ раскрыты всегда (замечания 25.11); шеврон сворачивает
+        const expanded = s.open == null ? true : s.open;
         return { ...n, isGroup:true, isLink:false, expanded,
           cls: 'cn-it cn-grp-a' + (inside && !sub ? ' on' : (inside ? ' in' : '')),
           current: inside && !sub ? 'page' : undefined,
@@ -648,9 +639,7 @@ class Component extends DCLogic {
       return { ...n, isLink:true, isGroup:false,
         cls: on ? 'cn-it on' : 'cn-it',
         current: on ? 'page' : undefined,
-        hasBadge: n.unreadBadge ? s.ntUnread > 0 : !!n.badge,
-        badge: n.unreadBadge ? (s.ntUnread > 99 ? '99+' : String(s.ntUnread)) : (n.badge || ''),
-        badgeLabel: n.unreadBadge ? s.ntUnread + ' ' + ntPlural(s.ntUnread) : (n.badgeLabel || ''),
+        hasBadge: !!n.badge, badge: n.badge || '', badgeLabel: n.badgeLabel || '',
       };
     });
 

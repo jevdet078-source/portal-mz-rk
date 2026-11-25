@@ -295,7 +295,11 @@
         <sc-if value="{{ showLogin }}" hint-placeholder-val="{{ true }}">
           <a class="ph-login" href="{{ loginHref }}" aria-label="{{ loginLabel }}" data-tip="{{ loginTip }}"><i class="{{ loginIcon }}"></i><span class="ph-t">{{ loginLabel }}</span><span class="ph-ts">{{ loginShort }}</span></a>
         </sc-if>
-        <!-- Вошедший гражданин (mp-profile = citizen): ФИО → «Личный кабинет», «Перейти в профиль», «Выйти» -->
+        <!-- Вошедший гражданин (mp-profile = citizen): колокольчик уведомлений (CitizenBell, замечания 25.11);
+             ФИО → «Личный кабинет», «Перейти в профиль», «Журнал сессий», «Выйти» -->
+        <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
+          <dc-import name="CitizenBell" btn="ph-ibtn" hint-size="40px,40px"></dc-import>
+        </sc-if>
         <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
           <div style="position:relative;" onKeyDown="{{ meKey }}">
             <button type="button" class="ph-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ fio }}">
@@ -316,6 +320,7 @@
                 <div class="ph-me-grp">
                   <a href="Личный кабинет.dc.html" class="ph-mi" role="menuitem"><i class="ri-dashboard-line"></i>Личный кабинет</a>
                   <a href="Профиль гражданина.dc.html" class="ph-mi" role="menuitem"><i class="ri-user-line"></i>Перейти в профиль</a>
+                  <a href="Журнал сессий.dc.html" class="ph-mi" role="menuitem"><i class="ri-history-line"></i>Журнал сессий</a>
                 </div>
                 <div class="ph-me-grp">
                   <a href="#" class="ph-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
