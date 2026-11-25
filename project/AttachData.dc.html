@@ -22,7 +22,10 @@
   Статусы обработки: IN_PROGRESS · APPROVED · REJECTED · ERROR.
   Уведомления об изменении статуса (постановка 24.11.2026) — localStorage `mp-attach-notifs`, событие
   `mp-attach-notif-change`: подача заявки и смена статуса добавляют непрочитанное уведомление
-  (страница «Уведомления гражданина», счётчик в CitizenNav).
+  (страница «Уведомления гражданина», колокольчик CitizenBell).
+  Оповещения о доступе к персональным данным (постановка 25.11.2026) — в том же списке, `kind:'pd'`:
+  { id, kind, ev: requested | granted, org, bin, purpose, services:[…], until, at, read }; общая отметка
+  прочтения и общий счётчик непрочитанных. Текст — A.pdText(), заголовок — A.PD_EV[ev].
   Сценарий «дети и подопечные» — sessionStorage `mp-attach-kids`: auto | none (панель «Прототип» в мастере).
 -->
 <x-dc><div></div></x-dc>
@@ -164,19 +167,57 @@ const ORDER = ['IN_PROGRESS', 'APPROVED', 'REJECTED', 'ERROR'];
 const SERVICE = 'Прикрепление к поликлинике';
 
 // ---------- Уведомления об изменении статуса ----------
-// localStorage `mp-attach-notifs`: { v, list:[{ id, num, status, at, read }] }, событие `mp-attach-notif-change`.
-// Демо-набор строится из заявок: «В обработке» при подаче + итоговый статус. Непрочитанные — три последних события.
-const NT_KEY = 'mp-attach-notifs', NT_EVT = 'mp-attach-notif-change', NT_V = 1;
+// localStorage `mp-attach-notifs`: { v, list:[…] }, событие `mp-attach-notif-change`.
+//   уведомление по заявке:   { id, kind:'app', num, status, at, read }
+//   оповещение о доступе к ПД: { id, kind:'pd', ev, org, bin, purpose, services, until, at, read }
+// Демо-набор уведомлений строится из заявок: «В обработке» при подаче + итоговый статус. Непрочитанные — три последних события.
+const NT_KEY = 'mp-attach-notifs', NT_EVT = 'mp-attach-notif-change', NT_V = 2;
 const NT_UNREAD = ['0000152:IN_PROGRESS', '0000139:APPROVED', '0000131:REJECTED'];
+
+// ---------- Оповещения о доступе к персональным данным (постановка 25.11.2026) ----------
+const PD_EV = {
+  requested: { title:'Запрошен доступ к персональным данным' },
+  granted:   { title:'Предоставлен доступ к персональным данным' },
+};
+const SV = {
+  gbdfl: 'Государственная база данных «Физические лица»',
+  epz:   'Электронный паспорт здоровья',
+  rpn:   'Регистр прикреплённого населения',
+  vn:    'Сведения о временной нетрудоспособности',
+};
+const ORGS = {
+  gp4:  { org:'ГКП на ПХВ «Городская поликлиника № 4» акимата города Астаны', bin:'990340002145' },
+  ship: { org:'ТОО «Медицинский центр «Шипагер»»', bin:'150840011872' },
+  ins:  { org:'АО «Страховая компания «Мейірім Сақтандыру»»', bin:'081140005319' },
+  lab:  { org:'ТОО «Диагностическая лаборатория «Сенім»»', bin:'200540027716' },
+};
+// Сценарий «Прототип»: запрос → предоставление (организации по кругу)
+const PD_NEXT = [
+  { o:'lab', purpose:'проведения лабораторных исследований', services:['gbdfl', 'epz'], days:90 },
+  { o:'ship', purpose:'оказания медицинской помощи', services:['gbdfl', 'epz', 'vn'], days:30 },
+];
+function pdSeed(){
+  const DAY = 864e5;
+  const pd = (o, ev, purpose, services, at, days, read) => ({ id:'pd:' + o + ':' + ev + ':' + at, kind:'pd', ev,
+    org:ORGS[o].org, bin:ORGS[o].bin, purpose, services: services.map(s => SV[s]), until: at + days * DAY, at, read });
+  return [
+    pd('ins', 'requested', 'заключения договора добровольного медицинского страхования', ['gbdfl', 'epz'], dt(2026, 11, 25, 9, 12), 365, false),
+    pd('gp4', 'granted', 'предоставления услуги «Прикрепление к поликлинике»', ['gbdfl', 'rpn'], dt(2026, 11, 24, 18, 42), 30, false),
+    pd('ship', 'granted', 'оказания медицинской помощи', ['gbdfl', 'epz', 'vn'], dt(2026, 10, 28, 14, 26), 90, true),
+    pd('ship', 'requested', 'оказания медицинской помощи', ['gbdfl', 'epz', 'vn'], dt(2026, 10, 28, 14, 19), 90, true),
+    pd('lab', 'granted', 'проведения лабораторных исследований', ['gbdfl', 'epz'], dt(2026, 9, 20, 11, 5), 180, true),
+    pd('lab', 'requested', 'проведения лабораторных исследований', ['gbdfl', 'epz'], dt(2026, 9, 20, 10, 58), 180, true),
+  ];
+}
 function ntSeed(list){
   const out = [];
   list.forEach(a => {
     const ev = [['IN_PROGRESS', a.at]];
     if(a.status !== 'IN_PROGRESS') ev.push([a.status, a.done || a.upd]);
-    ev.forEach(([st, at]) => out.push({ id:a.num + ':' + st + ':' + at, num:a.num, status:st, at,
+    ev.forEach(([st, at]) => out.push({ id:a.num + ':' + st + ':' + at, kind:'app', num:a.num, status:st, at,
       read: Number(a.num) <= 152 && NT_UNREAD.indexOf(a.num + ':' + st) === -1 }));
   });
-  return out;
+  return out.concat(pdSeed());
 }
 
 // ---------- Утилиты ----------
@@ -288,7 +329,36 @@ const A = {
   ntRead: ids => { const d = A.ntDb(), set = new Set([].concat(ids)); let ch = false; d.list.forEach(x => { if(set.has(x.id) && !x.read){ x.read = true; ch = true; } }); if(ch) A.ntSave(d); },
   ntReadAll: () => { const d = A.ntDb(), was = d.list.filter(x => !x.read).map(x => x.id); d.list.forEach(x => { x.read = true; }); A.ntSave(d); return was; },
   ntUnread: ids => { const d = A.ntDb(), set = new Set(ids); d.list.forEach(x => { if(set.has(x.id)) x.read = false; }); A.ntSave(d); },
-  ntPush: (num, status, at) => { const d = A.ntDb(); d.list.push({ id:num + ':' + status + ':' + at, num, status, at, read:false }); A.ntSave(d); },
+  ntPush: (num, status, at) => { const d = A.ntDb(); d.list.push({ id:num + ':' + status + ':' + at, kind:'app', num, status, at, read:false }); A.ntSave(d); },
+
+  // --- Оповещения о доступе к персональным данным (постановка 25.11.2026) ---
+  // Текст — кусками: { t, b } (b — переменная часть, выделяется), заголовок — PD_EV[ev].title
+  PD_EV,
+  pdParts: x => {
+    const svc = (x.services || []).join(', ');
+    return x.ev === 'requested'
+      ? [ { t:'Получен запрос от ' + x.org + ' (БИН: ' + x.bin + ') на доступ к вашим персональным данным для сбора, обработки и хранения в целях ' },
+          { t:x.purpose, b:true }, { t:'. Сервисы: ' }, { t:svc, b:true }, { t:'. Запрашиваемый срок доступа — до ' }, { t:fmtDT(x.until), b:true, d:true }, { t:'.' } ]
+      : [ { t:'Вы предоставили ' + x.org + ' (БИН: ' + x.bin + ') доступ к вашим персональным данным для сбора, обработки и хранения в целях ' },
+          { t:x.purpose, b:true }, { t:'. Сервисы: ' }, { t:svc, b:true }, { t:'. Доступ действует до ' }, { t:fmtDT(x.until), b:true, d:true }, { t:'.' } ];
+  },
+  pdText: x => A.pdParts(x).map(p => p.t).join(''),
+  // Панель «Прототип»: следующее событие — запрос доступа, затем его предоставление той же организации
+  pdNext: () => {
+    const pds = A.notifs().filter(x => x.kind === 'pd');
+    const last = pds[0];
+    if(last && last.ev === 'requested' && !pds.some(x => x.ev === 'granted' && x.bin === last.bin && x.at > last.at)) return { ev:'granted', from:last };
+    const n = A.ntDb().list.filter(x => x.kind === 'pd' && String(x.id).indexOf(':live:') !== -1 && x.ev === 'requested').length;
+    return { ev:'requested', cfg:PD_NEXT[n % PD_NEXT.length] };
+  },
+  pdPush: () => {
+    const nx = A.pdNext(), d = A.ntDb(), now = Date.now();
+    let x;
+    if(nx.ev === 'granted'){ const f = nx.from; x = { org:f.org, bin:f.bin, purpose:f.purpose, services:f.services.slice(), until: now + (f.until - f.at) }; }
+    else { const c = nx.cfg; x = { org:ORGS[c.o].org, bin:ORGS[c.o].bin, purpose:c.purpose, services:c.services.map(s => SV[s]), until: now + c.days * 864e5 }; }
+    d.list.push({ id:'pd:live:' + nx.ev + ':' + now, kind:'pd', ev:nx.ev, ...x, at:now, read:false });
+    A.ntSave(d);
+  },
 };
 
 // Новая заявка и смена статуса присылают уведомление
