@@ -34,9 +34,7 @@
   .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
   @media (max-width:1536px){ .lk-grid{gap:20px;} }
   .cn-host{position:sticky;top:90px;}
-  /* Сетки «Обзора»: на телефоне — в одну колонку (на планшете три плитки — по две) */
-  @media (max-width:860px){ .lk-g3{grid-template-columns:repeat(2,minmax(0,1fr)) !important;} }
-  @media (max-width:640px){ .lk-g2,.lk-g3{grid-template-columns:minmax(0,1fr) !important;} .lk-wrap{padding:16px 16px 80px !important;} }
+  @media (max-width:640px){ .lk-wrap{padding:16px 16px 80px !important;} }
   @media (max-width:1024px){
     .lk-wrap{padding:20px 24px 80px;}
     .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
@@ -58,236 +56,27 @@
 
       <!-- LEFT: profile + nav (общий компонент — тот же, что в «Медицинской книжке») -->
       <aside class="cn-host">
-        <dc-import name="CitizenNav" active="{{ tab }}" hint-size="300px,620px"></dc-import>
+        <dc-import name="CitizenNav" active="overview" hint-size="300px,620px"></dc-import>
       </aside>
 
-      <!-- RIGHT: content -->
-      <main style="min-width:0;">
-
-        <!-- ===== ОБЗОР ===== -->
-        <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
-          <div style="display:flex;flex-direction:column;gap:24px;animation:mp-slidein .2s ease;">
-
-            <!-- greeting -->
-            <div>
-              <h1 style="font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0 0 4px;">Здравствуйте, Аружан!</h1>
-              <p style="font-size:15px;color:var(--n500);margin:0;">Мы собрали то, что важно для вашего здоровья прямо сейчас.</p>
-            </div>
-
-            <!-- PRIORITY: pregnancy proactive scenario -->
-            <div style="border-radius:22px;overflow:hidden;border:1px solid var(--primary-light);box-shadow:var(--sh-md);">
-              <div style="background:linear-gradient(120deg,var(--primary) 0%,var(--primary-darker) 100%);padding:24px 26px;color:#fff;position:relative;">
-                <div style="position:absolute;inset:0;opacity:.4;background-image:radial-gradient(1.5px 1.5px at 25% 40%,#fff 50%,transparent),radial-gradient(2px 2px at 75% 30%,#fff 50%,transparent),radial-gradient(1.5px 1.5px at 55% 75%,#fff 50%,transparent);pointer-events:none;"></div>
-                <div style="position:relative;display:flex;align-items:center;gap:14px;">
-                  <div style="width:50px;height:50px;border-radius:13px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-bear-smile-line" style="font-size:26px;"></i></div>
-                  <div style="flex:1;">
-                    <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:18px;font-weight:600;">Беременность · 19 недель 4 дня</span><span style="font-size:11px;font-weight:600;background:rgba(255,255,255,.2);padding:3px 9px;border-radius:999px;">II триместр</span></div>
-                    <div style="font-size:13px;color:rgba(255,255,255,.82);margin-top:3px;">ПДР: 14 ноября 2026 · ведёт врач Ахметова А.К.</div>
-                  </div>
-                </div>
-                <div style="position:relative;margin-top:18px;">
-                  <div style="height:8px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;"><div style="width:49%;height:100%;background:#fff;border-radius:999px;"></div></div>
-                  <div style="display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.75);margin-top:6px;"><span>1 триместр</span><span>2 триместр</span><span>3 триместр</span></div>
-                </div>
-              </div>
-              <div style="background:var(--n0);padding:22px 26px;">
-                <div style="display:flex;align-items:flex-start;gap:14px;">
-                  <div style="width:42px;height:42px;border-radius:11px;background:var(--orange-l);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="ri-calendar-event-line" style="font-size:22px;color:var(--orange);"></i></div>
-                  <div style="flex:1;">
-                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span style="font-size:16px;font-weight:600;">Пора пройти второй скрининг (УЗИ)</span><span style="font-size:11px;font-weight:600;color:var(--orange-d);background:var(--orange-l);padding:3px 9px;border-radius:999px;">через 5 дней</span></div>
-                    <p style="font-size:13.5px;line-height:1.55;color:var(--n500);margin:0 0 14px;">Второй скрининг проводится на 18–21 неделе. Рекомендуем записаться в вашей медорганизации — есть свободные слоты на этой неделе.</p>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                      <button onClick="{{ openBooking }}" style="height:44px;padding:0 20px;border:none;border-radius:11px;background:var(--primary);color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;"><i class="ri-calendar-check-line" style="font-size:18px;"></i>Выбрать слот и записаться</button>
-                      <button style="height:44px;padding:0 18px;border:1px solid var(--stroke);border-radius:11px;background:var(--n0);color:var(--n600);font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;">Напомнить позже</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- recommendations row -->
-            <div>
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-                <h2 style="font-size:18px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px;"><i class="ri-magic-line" style="color:var(--primary);font-size:20px;"></i>Рекомендации для вас</h2>
-                <span style="font-size:13px;color:var(--n400);">Обновлено сегодня</span>
-              </div>
-              <div class="lk-g2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                <sc-for list="{{ recommendations }}" as="r" hint-placeholder-count="4">
-                  <div style="background:var(--n0);border:1px solid var(--stroke);border-left:3px solid {{ r.color }};border-radius:14px;padding:18px;display:flex;flex-direction:column;">
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                      <div style="width:38px;height:38px;border-radius:10px;background:{{ r.bg }};display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ r.icon }}" style="font-size:20px;color:{{ r.color }};"></i></div>
-                      <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;line-height:1.3;">{{ r.title }}</div></div>
-                      <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
-                    </div>
-                    <p style="font-size:13px;line-height:1.5;color:var(--n500);margin:0 0 14px;flex:1;">{{ r.desc }}</p>
-                    <button style="align-self:flex-start;height:38px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--primary);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;">{{ r.action }}<i class="ri-arrow-right-line" style="font-size:15px;"></i></button>
-                  </div>
-                </sc-for>
-              </div>
-            </div>
-
-            <!-- quick stats -->
-            <div class="lk-g3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
-              <sc-for list="{{ stats }}" as="st" hint-placeholder-count="3">
-                <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:14px;padding:18px;">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><i class="{{ st.icon }}" style="font-size:18px;color:{{ st.color }};"></i><span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--n400);">{{ st.label }}</span></div>
-                  <div style="font-size:17px;font-weight:600;line-height:1.3;">{{ st.value }}</div>
-                  <div style="font-size:12px;color:var(--n400);margin-top:2px;">{{ st.sub }}</div>
-                </div>
-              </sc-for>
-            </div>
-
-            <!-- two columns: upcoming + recent -->
-            <div class="lk-g2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="font-size:16px;font-weight:600;margin:0;">Предстоящие записи</h3></div>
-                <div style="display:flex;flex-direction:column;gap:12px;">
-                  <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="2">
-                    <div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid var(--stroke);border-radius:12px;">
-                      <div style="width:48px;text-align:center;flex:0 0 auto;"><div style="font-size:20px;font-weight:700;color:var(--primary);line-height:1;">{{ u.day }}</div><div style="font-size:11px;color:var(--n400);text-transform:uppercase;">{{ u.mon }}</div></div>
-                      <div style="width:1px;align-self:stretch;background:var(--stroke);"></div>
-                      <div style="flex:1;"><div style="font-size:14px;font-weight:600;">{{ u.title }}</div><div style="font-size:12.5px;color:var(--n500);margin-top:2px;">{{ u.doctor }} · {{ u.time }}</div></div>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-              <div style="background:var(--n0);border:1px solid var(--stroke);border-radius:18px;padding:22px;box-shadow:var(--sh-xs);">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;"><h3 style="font-size:16px;font-weight:600;margin:0;">Последние посещения</h3></div>
-                <div style="display:flex;flex-direction:column;gap:2px;">
-                  <sc-for list="{{ recentVisits }}" as="v" hint-placeholder-count="3">
-                    <div style="display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--stroke);">
-                      <div style="width:36px;height:36px;border-radius:9px;background:var(--n100);display:flex;align-items:center;justify-content:center;flex:0 0 auto;"><i class="{{ v.icon }}" style="font-size:18px;color:var(--n500);"></i></div>
-                      <div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">{{ v.title }}</div><div style="font-size:12px;color:var(--n400);">{{ v.org }}</div></div>
-                      <span style="font-size:12px;color:var(--n400);white-space:nowrap;">{{ v.date }}</span>
-                    </div>
-                  </sc-for>
-                </div>
-              </div>
-            </div>
-          </div>
-        </sc-if>
-
+      <!-- «Главная» кабинета (замечания аналитика 25.11): сводка ЭПЗ — синхронизация с ЕГИС ЗРК, показатели,
+           аллергия, прикрепление и плитки «Разделы ЭПЗ» (общий EpzView, home="1"); раздел открывается на «Просмотре ЭПЗ» -->
+      <main style="min-width:0;animation:mp-slidein .2s ease;">
+        <dc-import name="EpzView" patient="seitzhanova" mode="citizen" home="1" top="90" hint-size="100%,760px"></dc-import>
       </main>
     </div>
   </div>
 
   <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
-
-  <!-- BOOKING MODAL -->
-  <sc-if value="{{ bookingOpen }}" hint-placeholder-val="{{ false }}">
-    <div onClick="{{ closeBooking }}" style="position:fixed;inset:0;z-index:80;background:rgba(10,13,20,.5);display:flex;align-items:center;justify-content:center;padding:24px;animation:mp-slidein .2s ease;">
-      <div onClick="{{ stop }}" style="width:560px;max-width:100%;max-height:88vh;overflow-y:auto;background:var(--n0);border-radius:20px;box-shadow:var(--sh-lg);">
-        <div style="padding:22px 24px;border-bottom:1px solid var(--stroke);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:var(--n0);z-index:1;">
-          <div style="width:42px;height:42px;border-radius:11px;background:var(--primary-lighter);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:22px;color:var(--primary);"></i></div>
-          <div style="flex:1;"><div style="font-size:17px;font-weight:600;">Запись на второй скрининг (УЗИ)</div><div style="font-size:13px;color:var(--n500);">Городская поликлиника №5 · кабинет 214</div></div>
-          <button onClick="{{ closeBooking }}" style="width:34px;height:34px;border:none;border-radius:8px;background:var(--n100);cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ri-close-line" style="font-size:20px;color:var(--n500);"></i></button>
-        </div>
-        <div style="padding:24px;">
-          <div style="font-size:13px;font-weight:600;color:var(--n500);margin-bottom:12px;">Выберите дату</div>
-          <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;">
-            <sc-for list="{{ bookDays }}" as="d" hint-placeholder-count="4">
-              <button onClick="{{ d.onClick }}" style="{{ d.style }}"><span style="font-size:11px;text-transform:uppercase;">{{ d.dow }}</span><span style="font-size:18px;font-weight:700;">{{ d.day }}</span><span style="font-size:11px;">{{ d.mon }}</span></button>
-            </sc-for>
-          </div>
-          <div style="font-size:13px;font-weight:600;color:var(--n500);margin-bottom:12px;">Свободные слоты</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;">
-            <sc-for list="{{ bookSlots }}" as="sl" hint-placeholder-count="8">
-              <button onClick="{{ sl.onClick }}" style="{{ sl.style }}">{{ sl.time }}</button>
-            </sc-for>
-          </div>
-          <button onClick="{{ confirmBooking }}" style="width:100%;height:50px;border:none;border-radius:12px;background:var(--primary);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;">{{ confirmLabel }}</button>
-        </div>
-      </div>
-    </div>
-  </sc-if>
-
-  <!-- BOOKING SUCCESS TOAST -->
-  <sc-if value="{{ booked }}" hint-placeholder-val="{{ false }}">
-    <div style="position:fixed;right:28px;bottom:96px;z-index:85;background:var(--n900);color:#fff;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:12px;box-shadow:var(--sh-lg);animation:mp-slidein .25s ease;max-width:360px;">
-      <i class="ri-checkbox-circle-fill" style="font-size:24px;color:var(--green);flex:0 0 auto;"></i>
-      <div><div style="font-size:14px;font-weight:600;">Вы записаны на УЗИ</div><div style="font-size:13px;color:rgba(255,255,255,.75);">{{ bookedWhen }} · напоминание придёт за день</div></div>
-    </div>
-  </sc-if>
-
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
-// Разделы кабинета живут в location.hash (#overview; #notif → «Уведомления гражданина»): меню — общий компонент CitizenNav,
-// в нём ссылки «Личный кабинет.dc.html#…», поэтому разделы открываются и с других страниц.
-// «Паспорт здоровья», «История приёмов», «Результаты», «Страхование ОСМС» убраны по замечанию аналитика.
-const LK_TABS = ['overview'];
-// Уведомления — отдельная страница (постановка 24.11.2026); старая ссылка #notif ведёт туда
+// «Главная» личного кабинета гражданина = сводка ЭПЗ (раньше — «Обзор» с рекомендациями и записью на скрининг; убран по замечаниям 25.11).
+// Уведомления — отдельная страница (постановка 24.11.2026, вход — колокольчиком в шапке); старая ссылка #notif ведёт туда
 if((location.hash || '') === '#notif') location.replace('Уведомления гражданина.dc.html');
 
 class Component extends DCLogic {
-  state = { tab:'overview', bookingOpen:false, bookDay:1, bookSlot:null, booked:false, bookedWhen:'' };
-
-  componentDidMount(){
-    this.setState({ tab:this.hashTab() });
-    this._onHash = () => {
-      const t = this.hashTab();
-      if(t !== this.state.tab){ this.setState({ tab:t }); window.scrollTo(0, 0); }
-    };
-    window.addEventListener('hashchange', this._onHash);
-  }
-  componentWillUnmount(){ window.removeEventListener('hashchange', this._onHash); }
-  hashTab(){ const h = (location.hash || '').slice(1); return LK_TABS.indexOf(h) !== -1 ? h : 'overview'; }
-
-  renderVals(){
-    const s = this.state;
-    const C = { blue:['#EEF2FF','#4D42E9'], green:['#EFFAF6','#38C793'], teal:['#EBFAFF','#35B9E9'], orange:['#FEF3EB','#F17B2C'], purple:['#EEEBFF','#6E3FF3'], red:['#FDEDF0','#DF1C41'], yellow:['#FEF7EC','#F2AE40'], pink:['#FDEBFF','#E255F2'] };
-
-    // recommendations
-    const recData = [
-      { icon:'ri-syringe-line', c:C.teal, title:'Вакцинация против гриппа', tag:'Сезон', tagC:C.teal, desc:'Началась сезонная кампания. Беременным рекомендована прививка во II–III триместре.', action:'Узнать о вакцинации' },
-      { icon:'ri-test-tube-line', c:C.orange, title:'Сдать анализ крови (ОАК)', tag:'Плановое', tagC:C.orange, desc:'Перед скринингом нужен общий анализ крови. Действителен 10 дней.', action:'Записаться на анализ' },
-      { icon:'ri-capsule-line', c:C.green, title:'Приём витаминов', tag:'Назначение', tagC:C.green, desc:'Врач назначил фолиевую кислоту и препараты железа. Не прерывайте курс.', action:'Открыть назначение' },
-      { icon:'ri-heart-pulse-line', c:C.red, title:'Контроль давления', tag:'Рекомендация', tagC:C.red, desc:'Измеряйте давление 1 раз в день и фиксируйте показатели к следующему приёму.', action:'Как измерять' },
-    ];
-    const recommendations = recData.map(r => ({ ...r, color:r.c[1], bg:r.c[0],
-      tagStyle:`font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;background:${r.tagC[0]};color:${r.tagC[1]};` }));
-
-    const stats = [
-      { icon:'ri-hospital-line', color:'#6E3FF3', label:'Прикрепление', value:'Поликлиника №5', sub:'г. Астана' },
-      { icon:'ri-drop-line', color:'#DF1C41', label:'Группа крови', value:'II (A), Rh+', sub:'подтверждено' },
-      { icon:'ri-calendar-check-line', color:'#4D42E9', label:'Ближайшая запись', value:'30 июня', sub:'УЗИ-скрининг' },
-    ];
-
-    const upcoming = [
-      { day:'30', mon:'июн', title:'Второй скрининг (УЗИ)', doctor:'Ахметова А.К.', time:'10:30' },
-      { day:'07', mon:'июл', title:'Приём акушера-гинеколога', doctor:'Ахметова А.К.', time:'09:15' },
-    ];
-    const recentVisits = [
-      { icon:'ri-stethoscope-line', title:'Приём гинеколога', org:'Поликлиника №5', date:'10 июн' },
-      { icon:'ri-test-tube-line', title:'Общий анализ крови', org:'Лаборатория Invivo', date:'09 июн' },
-      { icon:'ri-scan-line', title:'Первый скрининг (УЗИ)', org:'Поликлиника №5', date:'02 апр' },
-    ];
-
-    // booking modal
-    const dayData = [ { dow:'Пн', day:'30', mon:'июн' }, { dow:'Ср', day:'02', mon:'июл' }, { dow:'Чт', day:'03', mon:'июл' }, { dow:'Пт', day:'04', mon:'июл' } ];
-    const bookDays = dayData.map((d,i)=>({ ...d, onClick:()=>this.setState({ bookDay:i }),
-      style:`display:flex;flex-direction:column;align-items:center;gap:3px;width:72px;padding:12px 0;border:1.5px solid ${s.bookDay===i?'#4D42E9':'#E2E4E9'};border-radius:13px;font-family:inherit;cursor:pointer;transition:.15s;${s.bookDay===i?'background:#EEF2FF;color:#4D42E9;':'background:#fff;color:#31353F;'}` }));
-    const slotTimes = ['09:00','09:30','10:00','10:30','11:00','14:00','14:30','15:15'];
-    const bookSlots = slotTimes.map((time,i)=>({ time, onClick:()=>this.setState({ bookSlot:i }),
-      style:`height:42px;border:1.5px solid ${s.bookSlot===i?'#4D42E9':'#E2E4E9'};border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;${s.bookSlot===i?'background:#4D42E9;color:#fff;':'background:#fff;color:#31353F;'}` }));
-
-    const confirmBooking = ()=>{
-      const d = dayData[s.bookDay]; const t = s.bookSlot!=null ? slotTimes[s.bookSlot] : '10:30';
-      this.setState({ bookingOpen:false, booked:true, bookedWhen:`${d.day} ${d.mon}, ${t}` });
-      setTimeout(()=>this.setState({ booked:false }), 4500);
-    };
-
-    return {
-      tab:s.tab,
-      isOverview:s.tab==='overview',
-      recommendations, stats, upcoming, recentVisits,
-      openBooking:()=>this.setState({ bookingOpen:true }), closeBooking:()=>this.setState({ bookingOpen:false }), stop:(e)=>e.stopPropagation(),
-      bookingOpen:s.bookingOpen, bookDays, bookSlots,
-      confirmLabel: s.bookSlot!=null ? 'Подтвердить запись' : 'Выберите время',
-      confirmBooking,
-      booked:s.booked, bookedWhen:s.bookedWhen,
-    };
-  }
+  renderVals(){ return {}; }
 }
 </script>
 <template id="__bundler_thumbnail" data-bg-color="#4D42E9"><svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg"><rect width="1200" height="800" fill="#4D42E9"/><g transform="translate(480 280)"><rect width="240" height="240" rx="48" fill="#fff"/><path d="M50 120 h28 l18 -44 24 88 18 -44 h32" fill="none" stroke="#4D42E9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></g></svg></template>

@@ -12,7 +12,9 @@
 </head>
 <body>
 <!--
-  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ): сводка и подразделы (подразделы — в меню кабинета, 24.11).
+  Личный кабинет гражданина → Электронный паспорт здоровья (ЭПЗ): подразделы (подразделы — в меню кабинета, 24.11).
+  Сводка ЭПЗ (показатели, аллергия, прикрепление, «Разделы ЭПЗ») — на «Главной» кабинета (Личный кабинет.dc.html, замечания 25.11);
+  здесь без раздела в адресе открывается первый подраздел — «Амбулаторная помощь».
   Тот же просмотр ЭПЗ, что в «Кабинете врача» (общий компонент EpzView), в режиме гражданина:
   свой ЭПЗ без ввода ИИН и запроса доступа через КДП, без панели сессии доступа и полосы
   «пациент · режим просмотра» (ФИО и ИИН — в карточке меню кабинета).
@@ -59,7 +61,7 @@
     <nav class="ep-crumbs" aria-label="Навигационная цепочка">
       <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
       <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
-      <sc-if value="{{ inSec }}" hint-placeholder-val="{{ false }}"><a href="Просмотр ЭПЗ.dc.html" onClick="{{ toMain }}">Электронный паспорт здоровья</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i></sc-if>
+      <a href="#ambulatory">Электронный паспорт здоровья</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
       <span aria-current="page" style="color:var(--n700);font-weight:500;">{{ crumb }}</span>
     </nav>
 
@@ -80,7 +82,7 @@
 // Крошки: «Электронный паспорт здоровья › Раздел» — раздел берём из адреса (#allergy), как EpzView и меню кабинета
 const SEC = { ambulatory:'Амбулаторная помощь', diseases:'Заболевания', allergy:'Аллергологический анамнез', hospital:'Госпитализация',
   prophy:'Профилактика', vitals:'Измерения', dispensary:'Диспансерный учёт', women:'Женское здоровье', ambulance:'Вызовы скорой', docs:'Больничные и справки' };
-const secOf = () => { const h = (location.hash || '').slice(1).split('/')[0]; return SEC[h] ? h : ''; };
+const secOf = () => { const h = (location.hash || '').slice(1).split('/')[0]; return SEC[h] ? h : 'ambulatory'; };
 class Component extends DCLogic {
   state = { sec: secOf() };
   componentDidMount(){
@@ -90,8 +92,7 @@ class Component extends DCLogic {
   componentWillUnmount(){ window.removeEventListener('hashchange', this._u); window.removeEventListener('mp-epz-nav', this._u); }
   renderVals(){
     const sec = this.state.sec;
-    return { inSec: !!sec, crumb: sec ? SEC[sec] : 'Электронный паспорт здоровья',
-      toMain: (e) => { e.preventDefault(); try { history.replaceState(null, '', location.pathname + location.search); } catch(_){} window.dispatchEvent(new HashChangeEvent('hashchange')); } };
+    return { crumb: SEC[sec] };
   }
 }
 </script>

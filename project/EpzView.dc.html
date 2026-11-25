@@ -19,6 +19,9 @@
               на странице: ФИО и ИИН — в карточке меню кабинета, разделы ЭПЗ — в меню кабинета (CitizenNav);
               раздел хранится в адресе (#allergy и т. п.), смена раздела без перехода — событие window mp-epz-nav.
               На «Главной» гражданина — синхронизация с ЕГИС ЗРК и «Разделы ЭПЗ» (быстрый доступ с числом записей).
+    home    — "1": только сводка ЭПЗ гражданина — «Главная» личного кабинета (замечания 25.11); плитки разделов и
+              плашка аллергии ведут на «Просмотр ЭПЗ.dc.html#раздел». Без home «Просмотр ЭПЗ» гражданина без раздела
+              в адресе открывает «Амбулаторную помощь».
   Единый каркас подразделов (замечания после показа министру, 24.11.2026): шапка (значок, H1, бейдж количества,
   «Экспорт отчёта») → реестр (поиск и фильтры работают, таблица с «глазом», «Показано 1–N из M») → окно ez-dlg
   по центру (статус, «поле — значение», хронология, блоки-аккордеоны, «Распечатать» / «Скачать PDF» / «Закрыть»).
@@ -964,7 +967,7 @@ class Component extends DCLogic {
         ] },
     };
     this.BY_IIN={}; Object.keys(this.PATIENTS).forEach(k=>{ this.BY_IIN[this.PATIENTS[k].iin]=k; });
-    const route = (props || {}).mode === 'citizen' ? this.route() : { section:'main', dispTab:'reg' };
+    const route = (props || {}).mode === 'citizen' ? this.route(props) : { section:'main', dispTab:'reg' };
     this.state = {
       section: route.section,
       prophyTab:'screen', womenTab:'preg', vitalIdx:0,
@@ -996,9 +999,12 @@ class Component extends DCLogic {
     }, 150);
   }
   // Адрес ЭПЗ гражданина: #allergy — раздел; #dispensary/diary — вкладка «Дневник наблюдения» диспансерного учёта
-  route(){
+  // Гражданин (замечания аналитика 25.11): сводка ЭПЗ — на «Главной» кабинета (home="1"), а «Просмотр ЭПЗ» без раздела
+  // в адресе открывает первый подраздел — «Амбулаторную помощь»
+  route(props){
+    if(((props || this.props || {}).home) === '1') return { section:'main', dispTab:'reg' };
     const [sec, sub] = (location.hash || '').slice(1).split('/');
-    const section = EPZ_SECTIONS.includes(sec) ? sec : 'main';
+    const section = EPZ_SECTIONS.includes(sec) && sec !== 'main' ? sec : 'ambulatory';
     return { section, dispTab: section === 'dispensary' && sub === 'diary' ? 'diary' : 'reg' };
   }
   // Ширина компонента → узкая раскладка. Корень ищем по классу: DOM шаблона может пересоздаваться — тогда наблюдаем новый
@@ -1021,7 +1027,7 @@ class Component extends DCLogic {
     this.watchWidth(); setTimeout(() => this.watchWidth(), 0);
     this._onResize = () => this.checkWidth();
     window.addEventListener('resize', this._onResize);
-    if((this.props || {}).mode === 'citizen'){
+    if((this.props || {}).mode === 'citizen' && (this.props || {}).home !== '1'){
       this._onHash = () => { const r = this.route(); this.setState({ section:r.section, drawer:null, ...(r.dispTab === 'diary' || this.state.dispTab === 'diary' ? { dispTab:r.dispTab } : {}) }); };
       window.addEventListener('hashchange', this._onHash);
     }
@@ -1097,8 +1103,10 @@ class Component extends DCLogic {
     // В узкой раскладке меню разделов — горизонтальная лента: активный пункт прокручиваем в видимую область
     // Раздел открывается с начала: если страница прокручена ниже меню разделов — возвращаемся к его верху.
     // У гражданина раздел — в адресе (#allergy), чтобы обновление страницы и «Назад» его сохраняли
-    const goSection=(id)=>this.setState({ section:id, drawer:null }, ()=>setTimeout(()=>{
-      if(citizen){ try { history.replaceState(null, '', id==='main' ? location.pathname + location.search : '#' + id + (id==='dispensary' && this.state.dispTab==='diary' ? '/diary' : '')); } catch(e){} window.dispatchEvent(new Event('mp-epz-nav')); }
+    // «Главная» кабинета гражданина (home="1"): плитки и плашка аллергии открывают раздел на странице «Просмотр ЭПЗ»
+    const home = citizen && p.home === '1';
+    const goSection=(id)=>home ? (location.href='Просмотр ЭПЗ.dc.html#'+id) : this.setState({ section:id, drawer:null }, ()=>setTimeout(()=>{
+      if(citizen){ try { history.replaceState(null, '', '#' + id + (id==='dispensary' && this.state.dispTab==='diary' ? '/diary' : '')); } catch(e){} window.dispatchEvent(new Event('mp-epz-nav')); }
       const root=this.root();
       if(root){ const y=root.getBoundingClientRect().top + window.scrollY - (parseInt(p.top, 10) || 161); if(window.scrollY > y) window.scrollTo({ top:Math.max(0, y), behavior:'smooth' }); }
       const nav=root&&root.querySelector('.epz-nav'), on=nav&&nav.querySelector('[aria-current="page"]');
@@ -1721,9 +1729,9 @@ class Component extends DCLogic {
       ['hospital','Госпитализация','ri-hotel-bed-line'],['prophy','Профилактика','ri-shield-check-line'],['vitals','Измерения','ri-heart-pulse-line'],
       ['dispensary','Диспансерный учёт','ri-clipboard-line']].concat(P.pregnant?[['women','Женское здоровье','ri-women-line']]:[])
       .concat([['ambulance','Вызовы скорой','ri-first-aid-kit-line'],['docs','Больничные и справки','ri-file-list-3-line']])
-      .map(([id,label,icon])=>({ label, icon, href:'#'+id,
+      .map(([id,label,icon])=>({ label, icon, href:(home?'Просмотр ЭПЗ.dc.html':'')+'#'+id,
         n: id==='women' ? (P.preg?'Беременность, '+P.preg.weeks+' нед.':'') : (id==='dispensary' ? plural(DCASES.length,'диагноз','диагноза','диагнозов')+' на учёте' : (id==='allergy' ? (allAllergies.length?[...new Set(allAllergies.map(a=>a.type.toLowerCase()))].join(', ').replace(/^./,c=>c.toUpperCase()):'Не зарегистрированы') : zap(COUNTS[id]))),
-        onClick:(e)=>{ if(e){ e.preventDefault(); } goSection(id); } }));
+        onClick:(e)=>{ if(home) return; if(e){ e.preventDefault(); } goSection(id); } }));
 
     // ---------- Окно подробностей записи ----------
     const dr=s.drawer;
