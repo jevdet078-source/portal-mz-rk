@@ -113,8 +113,9 @@ const tabs = data.map(t => ({
 | `mp-attach-wiz` (sessionStorage) | незавершённая подача на прикрепление: шаг, выборы, загруженные списки | `Прикрепление к поликлинике`, `Паспорт услуги прикрепления` («Продолжить подачу») |
 | `mp-attach-kids` (sessionStorage) | ответ сервисов о детях и подопечных в прототипе: `auto` / `none` | панель «Прототип» мастера → `AttachData` |
 | `mp-attach-reqs-ui` (sessionStorage) | фильтры и сортировка «Моих заявок» гражданина | `Мои заявки гражданина` |
-| `mp-attach-notifs` | `{ v, list:[{ id, num, status, at, read }] }` — уведомления гражданина об изменении статуса заявок (демо из заявок + новые при подаче и смене статуса) | `AttachData` ↔ `Уведомления гражданина`, `CitizenNav` (бейдж; событие `mp-attach-notif-change`) |
-| `mp-cit-notif-scn` (sessionStorage) | демо-состояние уведомлений гражданина: `ok` / `empty` / `down` | панель «Прототип» `Уведомления гражданина` → `AttachData.unread()` |
+| `mp-attach-notifs` | `{ v, list:[{ id, num, status, at, read }] }` — уведомления гражданина об изменении статуса заявок (демо из заявок + новые при подаче и смене статуса) | `AttachData` ↔ `Уведомления гражданина`, `CitizenBell` (колокольчик в шапке; событие `mp-attach-notif-change`) |
+| `mp-cit-notif-scn` (sessionStorage) | демо-состояние уведомлений гражданина: `ok` / `empty` / `down` | панель «Прототип» `Уведомления гражданина` → `AttachData.unread()`, `CitizenBell` |
+| `mp-cit-ses-scn` (sessionStorage) | демо-состояние журнала сессий гражданина: `ok` / `empty` / `down` | панель «Прототип» `Журнал сессий` |
 | `mp-family` | `[{ iin, at }]` — дети, добавленные в «Мою семью» (родные из ГБД ФЛ и подопечные из РБДС) | `FamilyData` (window.mpFamily) ↔ `Моя семья`, `ЭПЗ ребёнка` (событие `mp-family-change`) |
 | `mp-rbds-scn` (sessionStorage) | ответ РБДС в прототипе: `auto` / `down` / `fail` | `Моя семья` (панель «Прототип») → `FamilyData` |
 | `mp-diary` | `[{ id, d (glu / bp / chf), ts, v, c, src:'manual' }]` — записи, добавленные гражданином в «Дневник наблюдения» (демо-записи строятся от текущей даты и не хранятся) | `EpzDiary` |

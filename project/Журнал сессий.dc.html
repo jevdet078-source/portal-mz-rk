@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Личный кабинет гражданина → «Журнал сессий» (замечания аналитика 25.11, «Унификация дизайна ЛК гражданина и разделов ЭПЗ»,
+  п. 1: «Журнал сессий расположить в профиле»). Открывается из меню ФИО в шапке: «Перейти в профиль» → «Журнал сессий» → «Выйти»
+  (Header, PortalHeader). В меню кабинета (CitizenNav) пункта нет — ничего не выделено.
+
+  Каркас — как у подразделов ЭПЗ: шапка (значок, H1, бейдж количества) → плашка: фильтры «Период» и «Статус» →
+  таблица → «Показано 1–N из M» + пагинация. Деталей у записи нет — всё в строке, без «глаза».
+  Запись: вход (дата, время) · выход (время и как завершена) · способ входа · устройство и браузер · IP-адрес и город · статус.
+  Статусы: «Текущая» (зелёный), «Завершена» (серый), «Вход не выполнен» (красный, с причиной).
+
+  Панель «Прототип» — sessionStorage `mp-cit-ses-scn`: ok | empty | down.
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{
+    --primary:#4D42E9;--primary-dark:#362DA6;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;
+    --n0:#fff;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n700:#20232D;--n900:#0A0D14;
+    --green:#38C793;--green-l:#EFFAF6;--green-d:#176448;
+    --red:#DF1C41;--red-l:#FDEDF0;--red-d:#710E21;
+    --stroke:#E2E4E9;--bg:#F6F8FA;--sh-xs:0 1px 2px rgba(10,13,20,.03);--sh-md:0 8px 16px rgba(10,13,20,.06);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;color:var(--n900);background:var(--bg);-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;}
+  @keyframes mp-fade{from{opacity:0}to{opacity:1}}
+  @keyframes js-drop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes js-sh{0%{background-position:-480px 0}100%{background-position:480px 0}}
+
+  /* Раскладка кабинета гражданина — на всю ширину, поля 32 / 24 / 16 px */
+  .js-wrap{padding:28px 32px 80px;}
+  @media (max-width:1536px){ .js-wrap{padding:24px 24px 80px;} }
+  .js-crumbs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--n400);margin-bottom:24px;}
+  .js-crumbs a{color:var(--n400);text-decoration:none;border-radius:4px;transition:color .12s;}
+  .js-crumbs a:hover{color:var(--primary);}
+  .lk-grid{display:grid;grid-template-columns:clamp(272px,18vw,300px) minmax(0,1fr);gap:24px;align-items:start;}
+  @media (max-width:1536px){ .lk-grid{gap:20px;} }
+  .cn-host{position:sticky;top:90px;}
+  .js-main{min-width:0;display:flex;flex-direction:column;gap:12px;container:jsmain / inline-size;animation:mp-fade .2s ease;}
+
+  /* Шапка раздела — как у подразделов ЭПЗ */
+  .js-head{display:flex;align-items:center;gap:12px;margin-bottom:4px;}
+  .js-ico{width:40px;height:40px;border-radius:10px;background:var(--primary-lighter);color:var(--primary);display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:21px;}
+  .js-h1{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.02em;}
+  .js-cnt{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--primary-lighter);color:var(--primary);font-size:12.5px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;}
+
+  /* Плашка с таблицей: border, а не inset-тень */
+  .js-card{background:var(--n0);border:1px solid var(--stroke);border-radius:16px;box-shadow:var(--sh-xs);}
+  .js-tools{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--stroke);flex-wrap:wrap;}
+  .js-dd{position:relative;flex:0 0 auto;}
+  .js-dd-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n600);font-size:14px;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s;}
+  .js-dd-btn:hover{background:var(--n100);}
+  .js-dd-btn[aria-expanded="true"]{border-color:var(--primary);}
+  .js-dd-btn.on{border-color:var(--primary-light);background:var(--primary-lighter);color:var(--primary-darker);}
+  .js-dd-btn .k{color:var(--n400);}
+  .js-dd-btn.on .k{color:var(--primary);}
+  .js-chev{font-size:18px;color:var(--n400);transition:transform .15s;}
+  .js-dd-btn[aria-expanded="true"] .js-chev{transform:rotate(180deg);}
+  .js-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:100%;background:var(--n0);border:1px solid var(--stroke);border-radius:12px;box-shadow:var(--sh-md);padding:6px;animation:js-drop .14s ease;}
+  .js-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:7px 10px;border:none;border-radius:8px;background:none;color:var(--n700);font-size:14px;text-align:left;cursor:pointer;white-space:nowrap;}
+  .js-opt:hover{background:var(--n100);}
+  .js-opt[aria-checked="true"]{font-weight:600;color:var(--primary-darker);}
+  .js-opt i{margin-left:auto;font-size:18px;color:var(--primary);}
+  .js-reset{border:none;background:none;padding:6px 4px;border-radius:6px;color:var(--primary);font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;}
+  .js-reset:hover{color:var(--primary-dark);text-decoration:underline;text-underline-offset:3px;}
+
+  .js-tr{display:grid;grid-template-columns:minmax(132px,.85fr) minmax(150px,1fr) minmax(150px,1fr) minmax(170px,1.2fr) minmax(130px,.85fr) 172px;}
+  .js-thead{background:var(--n50);border-bottom:1px solid var(--stroke);}
+  .js-th{display:flex;align-items:center;min-height:40px;padding:10px;font-size:12.5px;line-height:16px;font-weight:500;color:var(--n500);min-width:0;}
+  .js-row{border-top:1px solid var(--stroke);transition:background .1s;}
+  .js-tbody .js-row:first-child{border-top:none;}
+  .js-row:hover{background:var(--n50);}
+  .js-row.cur{background:var(--green-l);}
+  .js-td{padding:12px 10px;font-size:13.5px;line-height:19px;color:var(--n600);min-width:0;display:flex;flex-direction:column;justify-content:center;}
+  .js-th:first-child,.js-td:first-child{padding-left:16px;}
+  .js-th:last-child,.js-td:last-child{padding-right:16px;}
+  .js-strong{font-weight:600;color:var(--n900);font-variant-numeric:tabular-nums;}
+  .js-num{font-variant-numeric:tabular-nums;}
+  .js-sub{font-size:12.5px;line-height:17px;color:var(--n500);margin-top:1px;}
+  .js-dev{display:flex;align-items:center;gap:8px;min-width:0;}
+  .js-dev i{font-size:18px;color:var(--n400);flex:0 0 auto;}
+  .js-pill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;height:24px;padding:0 9px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;white-space:nowrap;}
+  .js-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .js-pill.green{background:var(--green-l);color:var(--green-d);}
+  .js-row.cur .js-pill.green{background:var(--n0);}
+  .js-pill.gray{background:var(--n100);color:var(--n600);}
+  .js-pill.red{background:var(--red-l);color:var(--red-d);}
+  .js-lbl{display:none;}
+
+  .js-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--stroke);flex-wrap:wrap;}
+  .js-count{font-size:13px;line-height:18px;color:var(--n500);font-variant-numeric:tabular-nums;}
+  .js-count b{font-weight:600;color:var(--n900);}
+  .js-pages{display:flex;align-items:center;gap:4px;}
+  .js-pg{min-width:32px;height:32px;padding:0 6px;border:1px solid var(--stroke);border-radius:8px;background:var(--n0);color:var(--n600);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;cursor:pointer;transition:background .12s,border-color .12s;}
+  .js-pg:hover:not(:disabled){background:var(--n100);}
+  .js-pg[aria-current="page"]{border-color:var(--primary);color:var(--primary);background:var(--primary-lighter);font-weight:600;}
+  .js-pg:disabled{color:var(--n300);cursor:default;}
+  .js-pg i{font-size:18px;}
+
+  .js-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:44px 24px;}
+  .js-empty-ico{width:48px;height:48px;border-radius:12px;background:var(--n100);color:var(--n400);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px;}
+  .js-empty-t{font-size:15px;font-weight:600;line-height:20px;color:var(--n900);}
+  .js-empty-s{margin-top:4px;font-size:13.5px;line-height:20px;color:var(--n500);}
+  .js-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;margin-top:14px;padding:0 16px;border:1px solid var(--stroke);border-radius:10px;background:var(--n0);color:var(--n700);font-size:14px;font-weight:500;cursor:pointer;transition:background .12s;}
+  .js-btn:hover{background:var(--n100);}
+  .js-btn i{font-size:18px;color:var(--n500);}
+  .js-sk{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--n100) 0,var(--n200) 50%,var(--n100) 100%);background-size:960px 100%;animation:js-sh 1.2s linear infinite;}
+
+  /* Панель прототипа — как на соседних страницах кабинета */
+  .js-pp{position:fixed;left:20px;bottom:20px;z-index:50;width:220px;background:var(--n0);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 16px 32px -12px rgba(10,13,20,.12);overflow:hidden;}
+  .pp-head{width:100%;display:flex;align-items:center;gap:8px;padding:10px 12px;border:none;background:var(--n50);cursor:pointer;text-align:left;}
+  .pp-head:hover{background:var(--n100);}
+  .pp-cap{margin:10px 0 2px;font-size:11px;line-height:14px;font-weight:600;color:var(--n400);}
+  .pp-btn{width:100%;min-height:30px;padding:6px 10px;border-radius:8px;border:1px solid var(--stroke);background:var(--n0);font-size:12px;line-height:16px;font-weight:500;color:var(--n600);cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:background .15s,border-color .15s;}
+  .pp-btn:hover{background:var(--n50);border-color:var(--n300);}
+  .pp-btn[aria-checked="true"]{background:var(--primary-lighter);border-color:var(--primary-light);color:var(--primary-darker);}
+
+  :is(.js-dd-btn,.js-opt,.js-reset,.js-pg,.js-btn,.js-crumbs a,.pp-head,.pp-btn):focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+
+  /* Узкая колонка: шапка таблицы не нужна, запись — карточкой с подписями */
+  @container jsmain (max-width:900px){
+    .js-thead{display:none;}
+    .js-tr{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;padding:14px 16px;}
+    .js-td,.js-td:first-child,.js-td:last-child{padding:0;}
+    .js-lbl{display:block;font-size:12px;line-height:16px;color:var(--n400);margin-bottom:2px;}
+    .js-c-st{grid-column:2;grid-row:1;align-items:flex-end;}
+    .js-c-st .js-lbl{display:none;}
+  }
+  @media (max-width:1024px){
+    .js-wrap{padding:20px 24px 80px;}
+    .lk-grid{grid-template-columns:minmax(0,1fr);gap:20px;}
+    .cn-host{position:static;}
+  }
+  @media (max-width:640px){
+    .js-wrap{padding:16px 16px 80px;}
+    .js-crumbs{margin-bottom:16px;}
+    .js-h1{font-size:20px;line-height:26px;}
+    .js-pp{left:12px;bottom:12px;}
+  }
+  @media (prefers-reduced-motion:reduce){ .js-sk{animation:none;} }
+</style>
+</helmet>
+
+<div style="min-height:100vh;">
+  <div style="position:sticky;top:0;z-index:40;"><dc-import name="Header" variant="account" layout="wide" hint-size="100%,70px"></dc-import></div>
+
+  <div class="js-wrap">
+    <nav class="js-crumbs" aria-label="Навигационная цепочка">
+      <a href="Портал Минздрава - Главная.dc.html">Главная</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <a href="Личный кабинет.dc.html">Личный кабинет</a><i class="ri-arrow-right-s-line" aria-hidden="true"></i>
+      <span aria-current="page" style="color:var(--n700);font-weight:500;">Журнал сессий</span>
+    </nav>
+
+    <div class="lk-grid">
+      <aside class="cn-host">
+        <dc-import name="CitizenNav" active="sessions" hint-size="300px,600px"></dc-import>
+      </aside>
+
+      <main class="js-main">
+        <div class="js-head">
+          <span class="js-ico" aria-hidden="true"><i class="ri-history-line"></i></span>
+          <h1 class="js-h1">Журнал сессий</h1>
+          <sc-if value="{{ hasCnt }}" hint-placeholder-val="{{ true }}"><span class="js-cnt">{{ cnt }}</span></sc-if>
+        </div>
+
+        <section class="js-card" aria-label="Сессии входа в личный кабинет">
+          <sc-if value="{{ hasTools }}" hint-placeholder-val="{{ true }}">
+            <div class="js-tools">
+              <sc-for list="{{ dds }}" as="d" hint-placeholder-count="2">
+                <div class="js-dd">
+                  <button type="button" class="{{ d.cls }}" aria-haspopup="listbox" aria-expanded="{{ d.open }}" onClick="{{ d.onToggle }}"><span class="k">{{ d.k }}:</span>{{ d.v }}<i class="ri-arrow-down-s-line js-chev" aria-hidden="true"></i></button>
+                  <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+                    <div class="js-menu" role="listbox" aria-label="{{ d.k }}">
+                      <sc-for list="{{ d.opts }}" as="o" hint-placeholder-count="4">
+                        <button type="button" class="js-opt" role="option" aria-checked="{{ o.sel }}" onClick="{{ o.onClick }}">{{ o.label }}<sc-if value="{{ o.isSel }}" hint-placeholder-val="{{ false }}"><i class="ri-check-line" aria-hidden="true"></i></sc-if></button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ hasFilter }}" hint-placeholder-val="{{ false }}"><button type="button" class="js-reset" onClick="{{ reset }}">Сбросить</button></sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <div aria-busy="true" aria-label="Загрузка журнала сессий">
+              <sc-for list="{{ skRows }}" as="k" hint-placeholder-count="5">
+                <div class="js-tr js-row">
+                  <div class="js-td"><div class="js-sk" style="width:80%;"></div></div>
+                  <div class="js-td"><div class="js-sk" style="width:60%;"></div></div>
+                  <div class="js-td"><div class="js-sk" style="width:70%;"></div></div>
+                  <div class="js-td"><div class="js-sk" style="width:75%;"></div></div>
+                  <div class="js-td"><div class="js-sk" style="width:65%;"></div></div>
+                  <div class="js-td"><div class="js-sk" style="width:70%;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+            <div role="table" aria-label="Журнал сессий">
+              <div class="js-tr js-thead" role="row">
+                <div class="js-th" role="columnheader">Вход</div>
+                <div class="js-th" role="columnheader">Выход</div>
+                <div class="js-th" role="columnheader">Способ входа</div>
+                <div class="js-th" role="columnheader">Устройство</div>
+                <div class="js-th" role="columnheader">IP-адрес</div>
+                <div class="js-th" role="columnheader">Статус</div>
+              </div>
+              <div class="js-tbody">
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+                  <div class="{{ r.cls }}" role="row">
+                    <div class="js-td" role="cell"><span class="js-lbl">Вход</span><span class="js-strong">{{ r.inD }}</span><span class="js-sub js-num">{{ r.inT }}</span></div>
+                    <div class="js-td" role="cell"><span class="js-lbl">Выход</span><span class="js-num">{{ r.out }}</span><sc-if value="{{ r.hasOutS }}" hint-placeholder-val="{{ true }}"><span class="js-sub">{{ r.outS }}</span></sc-if></div>
+                    <div class="js-td" role="cell"><span class="js-lbl">Способ входа</span><span>{{ r.how }}</span></div>
+                    <div class="js-td" role="cell"><span class="js-lbl">Устройство</span><span class="js-dev"><i class="{{ r.devIcon }}" aria-hidden="true"></i><span style="min-width:0;"><span style="display:block;">{{ r.os }}</span><span class="js-sub" style="display:block;">{{ r.br }}</span></span></span></div>
+                    <div class="js-td" role="cell"><span class="js-lbl">IP-адрес</span><span class="js-num">{{ r.ip }}</span><span class="js-sub">{{ r.city }}</span></div>
+                    <div class="js-td js-c-st" role="cell"><span class="js-lbl">Статус</span><span class="{{ r.stCls }}">{{ r.st }}</span><sc-if value="{{ r.hasWhy }}" hint-placeholder-val="{{ false }}"><span class="js-sub">{{ r.why }}</span></sc-if></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div class="js-foot">
+              <span class="js-count">Показано <b>{{ shown }}</b> из <b>{{ total }}</b></span>
+              <div class="js-pages" role="navigation" aria-label="Страницы">
+                <button type="button" class="js-pg" disabled="{{ prevOff }}" onClick="{{ prev }}" aria-label="Предыдущая страница"><i class="ri-arrow-left-s-line"></i></button>
+                <sc-for list="{{ pages }}" as="g" hint-placeholder-count="2">
+                  <button type="button" class="js-pg" aria-current="{{ g.cur }}" onClick="{{ g.onClick }}" aria-label="{{ g.aria }}">{{ g.n }}</button>
+                </sc-for>
+                <button type="button" class="js-pg" disabled="{{ nextOff }}" onClick="{{ next }}" aria-label="Следующая страница"><i class="ri-arrow-right-s-line"></i></button>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div class="js-empty">
+              <span class="js-empty-ico" aria-hidden="true"><i class="{{ emptyIcon }}"></i></span>
+              <div class="js-empty-t">{{ emptyT }}</div>
+              <sc-if value="{{ hasEmptyS }}" hint-placeholder-val="{{ false }}"><div class="js-empty-s">{{ emptyS }}</div></sc-if>
+              <sc-if value="{{ canReset }}" hint-placeholder-val="{{ false }}"><button type="button" class="js-btn" onClick="{{ reset }}">Сбросить фильтры</button></sc-if>
+              <sc-if value="{{ canRetry }}" hint-placeholder-val="{{ false }}"><button type="button" class="js-btn" onClick="{{ retry }}"><i class="ri-refresh-line" aria-hidden="true"></i>Повторить</button></sc-if>
+            </div>
+          </sc-if>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Панель прототипа -->
+  <div class="js-pp" role="region" aria-label="Панель прототипа">
+    <button type="button" class="pp-head" onClick="{{ ppToggle }}" aria-expanded="{{ ppOpen }}">
+      <i class="ri-flask-line" style="font-size:16px;color:var(--n400);" aria-hidden="true"></i>
+      <span style="flex:1;font-size:11px;line-height:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--n500);">Прототип</span>
+      <i class="{{ ppChev }}" style="font-size:18px;color:var(--n400);" aria-hidden="true"></i>
+    </button>
+    <sc-if value="{{ ppOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:4px 12px 12px;border-top:1px solid var(--stroke);display:flex;flex-direction:column;gap:6px;">
+        <div class="pp-cap">Состояние</div>
+        <sc-for list="{{ ppScn }}" as="x" hint-placeholder-count="3">
+          <button type="button" class="pp-btn" role="radio" aria-checked="{{ x.on }}" onClick="{{ x.onClick }}"><i class="{{ x.icon }}" style="font-size:15px;" aria-hidden="true"></i>{{ x.label }}</button>
+        </sc-for>
+      </div>
+    </sc-if>
+  </div>
+
+  <dc-import name="Assistant" hint-size="1px,1px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900}}">
+const SCN = 'mp-cit-ses-scn';
+const PAGE = 10;
+const NOW = new Date(2026, 10, 25, 10, 42).getTime();   // демо: «сегодня» — 25.11.2026
+const DAY = 864e5;
+const at = (d, m, h, mi) => new Date(2026, m - 1, d, h, mi).getTime();
+
+// Способы входа — как на портале eGov: ЭЦП, QR-код в eGov Mobile, пароль с SMS-кодом
+const HOW = { eds:'ЭЦП', qr:'QR-код eGov Mobile', sms:'Пароль и SMS-код' };
+const DEV = {
+  win: ['Windows 11', 'Chrome 131', 'ri-computer-line'],
+  mac: ['macOS 15', 'Safari 18', 'ri-macbook-line'],
+  ios: ['iPhone, iOS 18', 'Safari', 'ri-smartphone-line'],
+  and: ['Android 15', 'Chrome 131', 'ri-smartphone-line'],
+};
+// status: cur — текущая, done — завершена, fail — вход не выполнен. end: logout | timeout
+const DATA = [
+  { in:at(25,11,10,31), how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'cur' },
+  { in:at(24,11,21,14), out:at(24,11,21,32), end:'logout', how:'qr', dev:'ios', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(24,11,8,47), out:at(24,11,9,35), end:'timeout', how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(22,11,19,7), out:at(22,11,19,40), end:'logout', how:'sms', dev:'and', ip:'178.89.12.240', city:'Алматы', status:'done' },
+  { in:at(22,11,19,5), how:'sms', dev:'and', ip:'178.89.12.240', city:'Алматы', status:'fail', why:'Неверный пароль' },
+  { in:at(19,11,12,20), out:at(19,11,12,58), end:'logout', how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(15,11,9,2), out:at(15,11,9,51), end:'timeout', how:'qr', dev:'mac', ip:'2.135.66.5', city:'Астана', status:'done' },
+  { in:at(11,11,18,44), out:at(11,11,19,3), end:'logout', how:'qr', dev:'ios', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(6,11,10,24), out:at(6,11,10,47), end:'logout', how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(6,11,10,21), how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'fail', why:'Неверный ПИН-код ЭЦП' },
+  { in:at(28,10,20,15), out:at(28,10,20,31), end:'logout', how:'qr', dev:'ios', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(14,10,15,58), out:at(14,10,16,9), end:'logout', how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(2,10,8,30), out:at(2,10,9,14), end:'timeout', how:'sms', dev:'and', ip:'37.150.4.91', city:'Астана', status:'done' },
+  { in:at(17,9,19,40), out:at(17,9,20,2), end:'logout', how:'qr', dev:'ios', ip:'95.56.214.17', city:'Астана', status:'done' },
+  { in:at(3,9,11,12), out:at(3,9,11,40), end:'logout', how:'eds', dev:'win', ip:'95.56.214.17', city:'Астана', status:'done' },
+];
+const ST = { cur:['Текущая', 'green'], done:['Завершена', 'gray'], fail:['Вход не выполнен', 'red'] };
+const PERIODS = [ ['30', 'За 30 дней'], ['90', 'За 3 месяца'], ['all', 'За всё время'] ];
+const STATUSES = [ ['', 'Все'], ['cur', 'Текущая'], ['done', 'Завершена'], ['fail', 'Вход не выполнен'] ];
+
+const pad = (n) => String(n).padStart(2, '0');
+const fD = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear(); };
+const fT = (ts) => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const plural = (n, f) => { const a = n % 100, b = n % 10; return n + ' ' + ((a > 10 && a < 20) ? f[2] : b === 1 ? f[0] : (b >= 2 && b <= 4) ? f[1] : f[2]); };
+const readScn = () => { try { return sessionStorage.getItem(SCN) || 'ok'; } catch(e){ return 'ok'; } };
+
+class Component extends DCLogic {
+  state = { scn: readScn(), loading: true, period: '30', status: '', dd: null, page: 1, ppOpen: false };
+  componentDidMount(){
+    this.load();
+    this._down = (e) => { if(this.state.dd && !(e.target.closest && e.target.closest('.js-dd'))) this.setState({ dd:null }); };
+    this._key = (e) => { if(e.key === 'Escape' && this.state.dd) this.setState({ dd:null }); };
+    document.addEventListener('mousedown', this._down);
+    document.addEventListener('keydown', this._key);
+  }
+  componentWillUnmount(){ clearTimeout(this._t); document.removeEventListener('mousedown', this._down); document.removeEventListener('keydown', this._key); }
+  // ответ сервиса — с короткой задержкой: до него скелет
+  load(){ clearTimeout(this._t); this.setState({ loading:true }); this._t = setTimeout(() => this.setState({ loading:false }), 450); }
+  setScn(v){ try { sessionStorage.setItem(SCN, v); } catch(e){} this.setState({ scn:v, page:1 }); this.load(); }
+
+  renderVals(){
+    const s = this.state;
+    const ok = s.scn === 'ok';
+    const src = ok ? DATA : [];
+    const days = s.period === 'all' ? Infinity : Number(s.period);
+    const list = src.filter(x => NOW - x.in <= days * DAY && (!s.status || x.status === s.status));
+    const pages = Math.max(1, Math.ceil(list.length / PAGE));
+    const page = Math.min(s.page, pages);
+    const slice = list.slice((page - 1) * PAGE, page * PAGE);
+    const hasFilter = s.period !== '30' || !!s.status;
+
+    const rows = slice.map(x => {
+      const d = DEV[x.dev], st = ST[x.status];
+      const cur = x.status === 'cur', fail = x.status === 'fail';
+      return {
+        cls: 'js-tr js-row' + (cur ? ' cur' : ''),
+        inD: fD(x.in), inT: fT(x.in),
+        out: cur ? 'Сессия активна' : fail ? '—' : (fD(x.out) === fD(x.in) ? fT(x.out) : fD(x.out) + ', ' + fT(x.out)),
+        hasOutS: !cur && !fail, outS: x.end === 'timeout' ? 'Истекло время бездействия' : 'Выход из кабинета',
+        how: HOW[x.how], os: d[0], br: d[1], devIcon: d[2], ip: x.ip, city: x.city,
+        st: st[0], stCls: 'js-pill ' + st[1], hasWhy: !!x.why, why: x.why || '',
+      };
+    });
+
+    const mk = (id, k, opts, val, set) => {
+      const cur = opts.find(o => o[0] === val) || opts[0];
+      const open = s.dd === id;
+      return { k, v: cur[1], open, cls: 'js-dd-btn' + (val !== opts[0][0] && id !== 'period' ? ' on' : (id === 'period' && val !== '30' ? ' on' : '')),
+        onToggle: () => this.setState({ dd: open ? null : id }),
+        opts: opts.map(([v, label]) => ({ label, sel: String(v === val), isSel: v === val, onClick: () => this.setState({ [set]: v, dd: null, page: 1 }) })) };
+    };
+
+    const loading = s.loading;
+    const empty = !loading && list.length === 0;
+    let emptyIcon = 'ri-history-line', emptyT = 'Сессий нет', emptyS = '';
+    if(s.scn === 'down'){ emptyIcon = 'ri-wifi-off-line'; emptyT = 'Не удалось загрузить журнал сессий'; emptyS = 'Сервис временно недоступен. Повторите попытку позже'; }
+    else if(ok && hasFilter){ emptyIcon = 'ri-search-line'; emptyT = 'Ничего не найдено'; emptyS = 'Измените период или статус'; }
+
+    return {
+      hasCnt: !loading && s.scn !== 'down', cnt: plural(src.length, ['запись', 'записи', 'записей']),
+      hasTools: s.scn !== 'down',
+      dds: [ mk('period', 'Период', PERIODS, s.period, 'period'), mk('status', 'Статус', STATUSES, s.status, 'status') ],
+      hasFilter, reset: () => this.setState({ period:'30', status:'', dd:null, page:1 }),
+      loading, skRows: [1, 2, 3, 4, 5],
+      hasRows: !loading && list.length > 0, rows,
+      shown: list.length ? ((page - 1) * PAGE + 1) + '–' + ((page - 1) * PAGE + slice.length) : '0', total: String(list.length),
+      pages: Array.from({ length: pages }, (_, i) => ({ n: String(i + 1), cur: i + 1 === page ? 'page' : undefined, aria: 'Страница ' + (i + 1), onClick: () => this.setState({ page: i + 1 }) })),
+      prevOff: page <= 1, nextOff: page >= pages,
+      prev: () => this.setState({ page: Math.max(1, page - 1) }), next: () => this.setState({ page: Math.min(pages, page + 1) }),
+      isEmpty: empty, emptyIcon, emptyT, emptyS, hasEmptyS: !!emptyS,
+      canReset: empty && ok && hasFilter, canRetry: empty && s.scn === 'down', retry: () => this.load(),
+      ppOpen: s.ppOpen, ppChev: s.ppOpen ? 'ri-arrow-down-s-line' : 'ri-arrow-up-s-line', ppToggle: () => this.setState({ ppOpen: !s.ppOpen }),
+      ppScn: [ ['ok', 'Данные', 'ri-list-check'], ['empty', 'Нет записей', 'ri-inbox-line'], ['down', 'Сервис недоступен', 'ri-wifi-off-line'] ]
+        .map(([id, label, icon]) => ({ label, icon, on: s.scn === id ? 'true' : 'false', onClick: () => this.setScn(id) })),
+    };
+  }
+}
+</script>
+</body>
+</html>

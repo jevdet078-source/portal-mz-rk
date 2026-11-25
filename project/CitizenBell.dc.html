@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<!--
+  Колокольчик уведомлений гражданина в шапке (замечания аналитика 25.11, п. 1 «Главная страница ЛК»:
+  «Уведомления расположить в верхнем правом углу в виде колокольчика с раскрывающимся меню всех уведомлений»).
+  Подключается в шапки, когда вошёл гражданин: Header (кабинет и публичные страницы) и PortalHeader (варианты главной):
+    <dc-import name="CitizenBell" hint-size="40px,40px"></dc-import>
+    <dc-import name="CitizenBell" btn="ph-ibtn" hint-size="40px,40px"></dc-import>   — кнопка в стиле шапки главной
+
+  Кнопка: значок + число непрочитанных. Выпадающий список: «Уведомления», «N новых», «Прочитать все», три последних
+  уведомления (значок статуса, услуга, «Статус изменён на «…»», № заявки и время; непрочитанное — точкой и полужирным),
+  внизу «Все уведомления» → страница «Уведомления гражданина» (вкладки, поиск, статусы — без изменений).
+  Клик по уведомлению отмечает его прочитанным и открывает карточку заявки. Esc и клик мимо закрывают.
+
+  Данные — AttachData (window.mpAttach): localStorage `mp-attach-notifs`, событие `mp-attach-notif-change`;
+  состояния «Нет уведомлений» / «Сервис недоступен» — из панели «Прототип» страницы уведомлений (sessionStorage `mp-cit-notif-scn`).
+-->
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet">
+<style>
+  :root{--primary:#4D42E9;--primary-darker:#312D86;--primary-light:#C6D0FF;--primary-lighter:#EEF2FF;--n50:#FBFCFD;--n100:#F6F8FA;--n200:#E2E4E9;--n300:#CDD0D5;--n400:#868C98;--n500:#525866;--n600:#31353F;--n900:#0A0D14;--stroke:#E2E4E9;
+    --green-l:#EFFAF6;--green-d:#176448;--red-l:#FDEDF0;--red-d:#710E21;--orange-l:#FEF3EB;--orange-d:#6E330C;}
+  @keyframes cb-drop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .cb{position:relative;font-family:'Inter',sans-serif;}
+  .cb-btn{position:relative;width:40px;height:40px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n500);font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s,color .15s;}
+  .cb-btn:hover{background:var(--n100);border-color:var(--n300);}
+  .cb-btn[aria-expanded="true"]{border-color:var(--primary);background:var(--primary-lighter);color:var(--primary);}
+  .cb-btn i{font-size:20px;}
+  .cb-trg{position:relative;}
+  .cb-trg i{font-size:20px !important;}
+  .cb-n{position:absolute;top:-7px;right:-7px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--primary);color:#fff;font-size:10px;line-height:16px;font-weight:600;text-align:center;border:2px solid #fff;box-sizing:content-box;pointer-events:none;}
+  .cb-btn:focus-visible,.cb-trg:focus-visible,.cb-all:focus-visible,.cb-read:focus-visible,.cb-x:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--primary-light);}
+  .cb-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:85;width:384px;background:#fff;border:1px solid var(--stroke);border-radius:16px;box-shadow:0 16px 32px -12px rgba(10,13,20,.18);overflow:hidden;animation:cb-drop .15s ease;color:var(--n900);text-align:left;}
+  .cb-hd{display:flex;align-items:center;gap:8px;padding:12px 8px 12px 16px;border-bottom:1px solid var(--stroke);}
+  .cb-t{font-size:16px;line-height:24px;font-weight:600;letter-spacing:-.011em;}
+  .cb-new{height:22px;padding:0 8px;border-radius:999px;background:var(--primary-lighter);color:var(--primary-darker);font-size:12px;line-height:22px;font-weight:600;white-space:nowrap;}
+  .cb-read{margin-left:auto;height:32px;padding:0 8px;border:none;border-radius:8px;background:none;color:var(--primary);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .12s;}
+  .cb-read:hover{background:var(--primary-lighter);}
+  .cb-x{width:32px;height:32px;border:none;border-radius:8px;background:none;color:var(--n400);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:background .12s,color .12s;}
+  .cb-x:hover{background:var(--n100);color:var(--n600);}
+  .cb-x i{font-size:20px;}
+  .cb-list{max-height:min(360px,calc(100vh - 220px));overflow-y:auto;}
+  .cb-it{position:relative;display:flex;gap:12px;padding:12px 32px 12px 16px;border-bottom:1px solid var(--n200);text-decoration:none;color:inherit;transition:background .12s;}
+  .cb-it:last-child{border-bottom:none;}
+  .cb-it:hover{background:var(--n50);}
+  .cb-it:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--primary-light);}
+  .cb-ico{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .cb-ico i{font-size:18px;}
+  .cb-ico.blue{background:var(--primary-lighter);color:var(--primary);}
+  .cb-ico.green{background:var(--green-l);color:var(--green-d);}
+  .cb-ico.red{background:var(--red-l);color:var(--red-d);}
+  .cb-ico.orange{background:var(--orange-l);color:var(--orange-d);}
+  .cb-body{min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .cb-svc{font-size:14px;line-height:20px;font-weight:500;color:var(--n900);}
+  .cb-it.un .cb-svc{font-weight:600;}
+  .cb-txt{font-size:13px;line-height:18px;color:var(--n600);}
+  .cb-meta{font-size:12px;line-height:16px;color:var(--n400);margin-top:2px;}
+  .cb-dot{position:absolute;top:18px;right:16px;width:8px;height:8px;border-radius:50%;background:var(--primary);}
+  .cb-empty{padding:28px 16px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font-size:14px;color:var(--n500);}
+  .cb-empty i{font-size:24px;color:var(--n400);}
+  .cb-ft{padding:12px 16px;border-top:1px solid var(--stroke);}
+  .cb-all{display:flex;align-items:center;justify-content:center;gap:6px;height:36px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:var(--n600);font-size:14px;font-weight:500;text-decoration:none;transition:background .12s,border-color .12s;}
+  .cb-all:hover{background:var(--n100);border-color:var(--n300);}
+  .cb-all i{font-size:18px;color:var(--n400);}
+  .cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+  @media (max-width:640px){ .cb-pop{position:fixed;left:16px;right:16px;top:81px;width:auto;} .cb-hd{gap:6px;padding-left:14px;} }
+  @media (max-width:420px){ .cb-new{display:none;} }
+</style>
+</helmet>
+<div class="cb" onKeyDown="{{ onKey }}">
+  <button type="button" class="{{ btnCls }}" ref="{{ btnRef }}" onClick="{{ toggle }}" aria-haspopup="dialog" aria-expanded="{{ open }}" aria-label="{{ aria }}" title="Уведомления">
+    <i class="ri-notification-3-line" aria-hidden="true"></i>
+    <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span class="cb-n" aria-hidden="true">{{ unreadTxt }}</span></sc-if>
+  </button>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ close }}" style="position:fixed;inset:0;z-index:84;"></div>
+    <div class="cb-pop" ref="{{ popRef }}" role="dialog" aria-label="Уведомления">
+      <div class="cb-hd">
+        <span class="cb-t">Уведомления</span>
+        <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span class="cb-new">{{ newTxt }}</span></sc-if>
+        <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><button type="button" class="cb-read" onClick="{{ readAll }}">Прочитать все</button></sc-if>
+        <sc-if value="{{ noUnread }}" hint-placeholder-val="{{ false }}"><span style="margin-left:auto;"></span></sc-if>
+        <button type="button" class="cb-x" onClick="{{ closeFocus }}" aria-label="Закрыть"><i class="ri-close-line" aria-hidden="true"></i></button>
+      </div>
+      <sc-if value="{{ hasItems }}" hint-placeholder-val="{{ true }}">
+        <div class="cb-list">
+          <sc-for list="{{ items }}" as="n" hint-placeholder-count="3">
+            <a class="{{ n.cls }}" href="{{ n.href }}" onClick="{{ n.onClick }}" aria-label="{{ n.aria }}">
+              <span class="{{ n.icoCls }}" aria-hidden="true"><i class="{{ n.icon }}"></i></span>
+              <span class="cb-body">
+                <span class="cb-svc">{{ n.svc }}</span>
+                <span class="cb-txt">{{ n.txt }}</span>
+                <span class="cb-meta">{{ n.meta }}</span>
+              </span>
+              <sc-if value="{{ n.un }}" hint-placeholder-val="{{ true }}"><span class="cb-dot" aria-hidden="true"></span></sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+        <div class="cb-empty"><i class="{{ emptyIcon }}" aria-hidden="true"></i>{{ emptyTxt }}</div>
+      </sc-if>
+      <div class="cb-ft">
+        <a class="cb-all" href="Уведомления гражданина.dc.html" onClick="{{ close }}">Все уведомления<i class="ri-arrow-right-s-line" aria-hidden="true"></i></a>
+      </div>
+    </div>
+  </sc-if>
+  <span class="cb-sr" aria-live="polite">{{ live }}</span>
+  <div style="display:none;"><dc-import name="AttachData" hint-size="0px,0px"></dc-import></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:440,&quot;height&quot;:520}}">
+const CARD = 'Заявка на прикрепление.dc.html';
+const SHOW = 3;   // в выпадающем списке — три последних, полный список на странице уведомлений
+const ST = {
+  IN_PROGRESS: ['В обработке', 'blue', 'ri-time-line'],
+  APPROVED: ['Прикрепление выполнено', 'green', 'ri-checkbox-circle-line'],
+  REJECTED: ['Отказано', 'red', 'ri-close-circle-line'],
+  ERROR: ['Техническая ошибка', 'orange', 'ri-error-warning-line'],
+};
+const pad = (n) => String(n).padStart(2, '0');
+const fmtDT = (ts) => { const d = new Date(ts); return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const plural = (n, f) => { const a = n % 100, b = n % 10; return (a > 10 && a < 20) ? f[2] : b === 1 ? f[0] : (b >= 2 && b <= 4) ? f[1] : f[2]; };
+const scn = () => { try { return sessionStorage.getItem('mp-cit-notif-scn') || 'ok'; } catch(e){ return 'ok'; } };
+
+class Component extends DCLogic {
+  btnRef = React.createRef();
+  popRef = React.createRef();
+  state = { open:false, list:[], scn:'ok', live:'' };
+  componentDidMount(){
+    this._load = () => { const A = window.mpAttach; this.setState({ list: A && A.notifs ? A.notifs() : [], scn: scn() }); };
+    this._load();
+    window.addEventListener('mp-attach-ready', this._load);
+    window.addEventListener('mp-attach-notif-change', this._load);
+    this._st = (e) => { if(!e.key || e.key === 'mp-attach-notifs') this._load(); };
+    window.addEventListener('storage', this._st);
+    setTimeout(this._load, 0);
+  }
+  componentWillUnmount(){
+    window.removeEventListener('mp-attach-ready', this._load);
+    window.removeEventListener('mp-attach-notif-change', this._load);
+    window.removeEventListener('storage', this._st);
+  }
+  close(focus){
+    this.setState({ open:false });
+    if(focus) setTimeout(() => { if(this.btnRef.current) this.btnRef.current.focus(); }, 0);
+  }
+  renderVals(){
+    const s = this.state, p = this.props || {};
+    const ok = s.scn === 'ok';
+    const list = ok ? s.list : [];
+    const unread = list.filter(x => !x.read).length;
+    const A = () => window.mpAttach;
+    const svc = (A() && A().SERVICE) || 'Прикрепление к поликлинике';
+    const items = list.slice(0, SHOW).map(x => {
+      const st = ST[x.status] || [x.status, 'blue', 'ri-notification-3-line'];
+      const txt = 'Статус изменён на «' + st[0] + '»';
+      return { un: !x.read, cls: 'cb-it' + (x.read ? '' : ' un'), icoCls: 'cb-ico ' + st[1], icon: st[2],
+        svc, txt, meta: 'Заявка №' + x.num + ' · ' + fmtDT(x.at),
+        href: CARD + '?n=' + encodeURIComponent(x.num),
+        aria: (x.read ? '' : 'Непрочитанное. ') + svc + '. ' + txt + '. Заявка №' + x.num + ', ' + fmtDT(x.at),
+        onClick: () => { const a = A(); if(a && a.ntRead) a.ntRead(x.id); } };
+    });
+    return {
+      btnRef: this.btnRef, popRef: this.popRef,
+      btnCls: p.btn ? p.btn + ' cb-trg' : 'cb-btn',
+      open: s.open,
+      toggle: (e) => {
+        const open = !s.open, kb = e && e.detail === 0;
+        if(open) this._load();
+        this.setState({ open }, () => {
+          if(open && kb) setTimeout(() => { const m = this.popRef.current, f = m && m.querySelector('.cb-it, .cb-all'); if(f) f.focus(); }, 0);
+        });
+      },
+      close: () => this.close(false),
+      closeFocus: () => this.close(true),
+      onKey: (e) => { if(s.open && e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); this.close(true); } },
+      hasUnread: unread > 0, noUnread: unread === 0,
+      unreadTxt: unread > 99 ? '99+' : String(unread),
+      newTxt: unread + ' ' + plural(unread, ['новое', 'новых', 'новых']),
+      aria: unread > 0 ? 'Уведомления, непрочитанных: ' + unread : 'Уведомления',
+      readAll: () => { const a = A(); if(a && a.ntReadAll){ a.ntReadAll(); this.setState({ live:'Все уведомления отмечены прочитанными' }); } },
+      items, hasItems: items.length > 0, isEmpty: items.length === 0,
+      emptyIcon: s.scn === 'down' ? 'ri-wifi-off-line' : 'ri-notification-off-line',
+      emptyTxt: s.scn === 'down' ? 'Не удалось загрузить уведомления' : 'Уведомлений нет',
+      live: s.live,
+    };
+  }
+}
+</script>
+</body>
+</html>

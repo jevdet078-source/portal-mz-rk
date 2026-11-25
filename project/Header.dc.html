@@ -260,11 +260,15 @@
         </a>
       </sc-if>
       <!--
-        Кабинет гражданина: ФИО справа вверху → меню «Перейти в профиль» / «Выйти».
+        Кабинет гражданина: ФИО справа вверху → меню «Перейти в профиль» / «Журнал сессий» / «Выйти» (журнал — замечания 25.11).
+        Слева от ФИО — колокольчик уведомлений гражданина (CitizenBell, замечания 25.11), на всех страницах, где вошёл гражданин.
         На публичных страницах (без variant="account") — то же меню вместо «Войти», если вошёл гражданин
         (localStorage mp-profile = citizen), плюс пункт «Личный кабинет»; «Выйти» там выходит без перехода.
         Фото — то же, что в меню кабинета (localStorage mp-avatar), без фото — инициалы.
       -->
+      <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
+        <dc-import name="CitizenBell" hint-size="40px,40px"></dc-import>
+      </sc-if>
       <sc-if value="{{ isCitizen }}" hint-placeholder-val="{{ false }}">
         <div style="position:relative;" onKeyDown="{{ meKey }}">
           <button type="button" class="hdr-me" ref="{{ meBtnRef }}" onClick="{{ toggleMe }}" aria-haspopup="menu" aria-expanded="{{ meOpen }}" aria-label="{{ meAria }}" title="{{ fio }}">
@@ -285,6 +289,7 @@
               <div style="padding:8px;border-top:1px solid var(--stroke);">
                 <sc-if value="{{ meCab }}" hint-placeholder-val="{{ false }}"><a href="Личный кабинет.dc.html" class="hdr-mi" role="menuitem"><i class="ri-dashboard-line"></i>Личный кабинет</a></sc-if>
                 <a href="Профиль гражданина.dc.html" class="hdr-mi" role="menuitem" aria-current="{{ meOnProfile }}" onClick="{{ goProfile }}"><i class="ri-user-line"></i>Перейти в профиль</a>
+                <a href="Журнал сессий.dc.html" class="hdr-mi" role="menuitem" aria-current="{{ meOnSessions }}"><i class="ri-history-line"></i>Журнал сессий</a>
               </div>
               <div style="padding:8px;border-top:1px solid var(--stroke);">
                 <a href="{{ homeHref }}" class="hdr-mi" role="menuitem" onClick="{{ meLogout }}"><i class="ri-logout-box-r-line"></i>Выйти</a>
@@ -479,7 +484,7 @@ class Component extends DCLogic {
 
     return {
       isAccount,
-      // колокольчик — только в оболочке «Единого окна» (layout="app"); у гражданина свой раздел уведомлений
+      // этот колокольчик — оболочка «Единого окна» (layout="app") и кабинет врача; у гражданина — свой (CitizenBell)
       showBell: isAccount && isApp,
       bellOpen: s.bellOpen,
       bellStyle:`position:relative;width:40px;height:40px;border:1px solid ${s.bellOpen ? '#4D42E9' : '#E2E4E9'};border-radius:10px;background:${s.bellOpen ? '#EEF2FF' : '#fff'};color:${s.bellOpen ? '#4D42E9' : '#525866'};font-family:inherit;display:flex;align-items:center;justify-content:center;cursor:pointer;`,
@@ -563,6 +568,7 @@ class Component extends DCLogic {
         }
         if(e.key === 'Tab') this.setState({ meOpen:false });
       },
+      meOnSessions: (() => { try { return /Журнал сессий\.dc\.html$/.test(decodeURIComponent(location.pathname)) ? 'page' : undefined; } catch(e){ return undefined; } })(),
       meOnProfile: (() => { try { return /Профиль гражданина\.dc\.html$/.test(decodeURIComponent(location.pathname)) ? 'page' : undefined; } catch(e){ return undefined; } })(),
       goProfile: (e) => {
         // уже в профиле — закрываем меню и поднимаемся к началу, без перезагрузки
